@@ -1,0 +1,136 @@
+import { useEffect, useState } from 'react';
+import { api, sessaoAtual } from '../../api';
+import { Botao, Campo, Cartao, inputCls, Mensagem, Titulo } from '../../components/ui';
+
+type Area = {
+  id_area_comum: number; nome: string; capacidade: number; ativo: boolean;
+  antecedencia_minima_dias: number; antecedencia_maxima_dias: number;
+  prazo_cancelamento_horas: number; limite_reservas_semana: number;
+};
+type Slot = { inicio: string; fim: string; status: 'LIVRE' | 'OCUPADO' | 'BLOQUEADO' };
+type Grade = { dia_semana: string; regras: any; slots: Slot[] };
+
+/**
+ * UC02 + UC03: escolher a area, consultar a grade de horarios e reservar.
+ * A tela identifica em nome de quem a reserva e feita (observacao da banca)
+ * e apenas EXIBE as regras; quem as valida de verdade sao os gatilhos do banco.
+ */
+export default function NovaReserva() {
+  const s = sessaoAtual()!;
+  const unidade = s.unidades[0];
+  const [areas, setAreas] = useState<Area[]>([]);
+  const [area, setArea] = useState<Area | null>(null);
+  const [data, setData] = useState('');
+  const [grade, setGrade] = useState<Grade | null>(null);
+  const [slot, setSlot] = useState<Slot | null>(null);
+  const [pessoas, setPessoas] = useState(1);
+  const [msg, setMsg] = useState<{ t: string; tipo: 'erro' | 'ok' }>({ t: '', tipo: 'ok' });
+
+  useEffect(() => { api.get<Area[]>('/areas').then(a => setAreas(a.filter(x => x.ativo))); }, []);
+
+  async function consultar(d: string) {
+    setData(d); setSlot(null); setGrade(null); setMsg({ t: '', tipo: 'ok' });
+    if (!area || !d) return;
+    try { setGrade(await api.get<Grade>(`/reservas/disponibilidade?area=${area.id_area_comum}&data=${d}`)); }
+    catch (e: any) { setMsg({ t: e.message, tipo: 'erro' }); }
+  }
+
+  async function confirmar() {
+    if (!area || !slot) return;
+    try {
+      await api.post('/reservas', {
+        id_area_comum: area.id_area_comum, data,
+        inicio: slot.inicio, fim: slot.fim, numero_pessoas: pessoas,
+      });
+      setMsg({ t: `Reserva confirmada: ${area.nome}, ${data}, ${slot.inicio}–${slot.fim}.`, tipo: 'ok' });
+      consultar(data); // atualiza a grade
+    } catch (e: any) {
+      setMsg({ t: e.message, tipo: 'erro' }); // mensagens RN01..RN07 chegam aqui
+    }
+  }
+
+  return (
+    <div>
+      <Titulo sub="Selecione uma área e escolha o horário desejado">Reserva de Áreas Comuns</Titulo>
+      <p className="mb-4 text-sm text-slate-600">
+        Reserva em nome de: <b>{s.pessoa.nome}</b>
+        {unidade && <> — Bloco {unidade.bloco}, Apto {unidade.numero_apartamento}</>} (Morador)
+      </p>
+
+      {!area && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {areas.map(a => (
+            <Cartao key={a.id_area_comum} className="cursor-pointer hover:border-navy"
+              >
+              <div onClick={() => setArea(a)}>
+                <h3 className="font-semibold text-navy">{a.nome}</h3>
+                <p className="mt-1 text-xs text-slate-500">Capacidade: {a.capacidade} pessoas</p>
+                <p className="text-xs text-slate-500">Antecedência: {a.antecedencia_minima_dias} a {a.antecedencia_maxima_dias} dias</p>
+              </div>
+            </Cartao>
+          ))}
+        </div>
+      )}
+
+      {area && (
+        <Cartao>
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-navy">{area.nome}</h3>
+              <p className="text-xs text-slate-500">Capacidade: {area.capacidade} pessoas</p>
+            </div>
+            <Botao variante="claro" onClick={() => { setArea(null); setGrade(null); setSlot(null); }}>Voltar</Botao>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-3">
+              <Campo rotulo="Selecione a data">
+                <input type="date" className={inputCls} value={data} onChange={e => consultar(e.target.value)} />
+              </Campo>
+              <Campo rotulo="Número de pessoas">
+                <input type="number" min={1} className={inputCls} value={pessoas}
+                  onChange={e => setPessoas(Number(e.target.value))} />
+              </Campo>
+              <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
+                <p className="mb-1 font-semibold text-navy">Regras de reserva</p>
+                <ul className="list-inside list-disc space-y-0.5">
+                  <li>Antecedência: {area.antecedencia_minima_dias} a {area.antecedencia_maxima_dias} dias</li>
+                  <li>Capacidade máxima: {area.capacidade} pessoas</li>
+                  <li>Cancelamento até {area.prazo_cancelamento_horas}h antes</li>
+                  <li>Máximo {area.limite_reservas_semana} reserva(s) por semana por unidade</li>
+                </ul>
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-2 text-sm text-slate-500">
+                {grade ? `Horários — ${data} (${grade.dia_semana})` : 'Escolha uma data para ver os horários'}
+              </p>
+              {grade && grade.slots.length === 0 &&
+                <p className="text-sm text-slate-500">A área não funciona neste dia.</p>}
+              <div className="grid max-h-72 grid-cols-2 gap-2 overflow-y-auto pr-1">
+                {grade?.slots.map(sl => {
+                  const sel = slot?.inicio === sl.inicio;
+                  const livre = sl.status === 'LIVRE';
+                  return (
+                    <button key={sl.inicio} disabled={!livre}
+                      onClick={() => setSlot(sl)}
+                      className={
+                        'rounded-lg border px-3 py-2 text-sm ' +
+                        (sel ? 'border-navy bg-navy text-white'
+                          : livre ? 'bg-white hover:border-navy'
+                          : 'cursor-not-allowed bg-slate-100 text-slate-400 line-through')}>
+                      {sl.inicio} – {sl.fim}{!livre && ` (${sl.status.toLowerCase()})`}
+                    </button>
+                  );
+                })}
+              </div>
+              <Botao className="mt-4 w-full" disabled={!slot} onClick={confirmar}>Confirmar Reserva</Botao>
+            </div>
+          </div>
+          <Mensagem texto={msg.t} tipo={msg.tipo} />
+        </Cartao>
+      )}
+    </div>
+  );
+}

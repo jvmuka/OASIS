@@ -1,0 +1,55 @@
+/**
+ * Cliente HTTP unico do frontend.
+ * - guarda o token da sessao no localStorage;
+ * - anexa Authorization: Bearer em toda chamada;
+ * - converte respostas de erro da API em Error com a mensagem legivel
+ *   (inclusive as mensagens RN01..RN14 vindas dos gatilhos do banco).
+ */
+const TOKEN_KEY = 'oasis_token';
+const SESSAO_KEY = 'oasis_sessao';
+
+export type Perfil = { id_perfil: number; tipo: 'MORADOR' | 'SINDICO' | 'PORTEIRO' };
+export type Sessao = {
+  pessoa: { id_pessoa: number; nome: string; email: string };
+  perfis: Perfil[];
+  unidades: { bloco: string; numero_apartamento: string }[];
+};
+
+export function salvarSessao(token: string, sessao: Sessao) {
+  localStorage.setItem(TOKEN_KEY, token);
+  localStorage.setItem(SESSAO_KEY, JSON.stringify(sessao));
+}
+export function sessaoAtual(): Sessao | null {
+  const s = localStorage.getItem(SESSAO_KEY);
+  return s ? JSON.parse(s) : null;
+}
+export function sair() {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(SESSAO_KEY);
+}
+
+async function req<T>(metodo: string, rota: string, corpo?: unknown): Promise<T> {
+  const r = await fetch('/api' + rota, {
+    method: metodo,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(localStorage.getItem(TOKEN_KEY)
+        ? { Authorization: 'Bearer ' + localStorage.getItem(TOKEN_KEY) }
+        : {}),
+    },
+    body: corpo ? JSON.stringify(corpo) : undefined,
+  });
+  const dados = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    const msg = Array.isArray(dados.message) ? dados.message.join('; ') : dados.message;
+    throw new Error(msg || `Erro ${r.status}`);
+  }
+  return dados as T;
+}
+
+export const api = {
+  get: <T>(rota: string) => req<T>('GET', rota),
+  post: <T>(rota: string, corpo?: unknown) => req<T>('POST', rota, corpo),
+  put: <T>(rota: string, corpo?: unknown) => req<T>('PUT', rota, corpo),
+  patch: <T>(rota: string, corpo?: unknown) => req<T>('PATCH', rota, corpo),
+};

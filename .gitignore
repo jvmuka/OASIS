@@ -1,0 +1,14 @@
+# dependencias
+node_modules/
+# builds
+dist/
+build/
+# variaveis de ambiente (nunca versionar credenciais)
+.env
+.env.local
+*.env
+!.env.exemplo
+# logs e temporarios
+*.log
+*.tsbuildinfo
+.DS_Store
