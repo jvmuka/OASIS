@@ -86,6 +86,7 @@ CREATE TABLE area_comum (
     exige_chave               BOOLEAN           NOT NULL DEFAULT FALSE,
     valor                     NUMERIC(10,2)     NOT NULL DEFAULT 0,
     ativo                     BOOLEAN           NOT NULL DEFAULT TRUE,
+    imagem_url                VARCHAR(500),
     observacoes               VARCHAR(255),
     CONSTRAINT ck_area_capacidade  CHECK (capacidade > 0),
     CONSTRAINT ck_area_slot        CHECK (duracao_slot_min BETWEEN 1 AND 1440),

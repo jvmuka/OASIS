@@ -308,10 +308,20 @@ CREATE INDEX idx_aviso_perfil_lido    ON aviso_perfil (id_perfil, lido);
 -- Carga inicial: estrutura do condominio
 -- ---------------------------------------------------------------------
 INSERT INTO bloco (nome, descricao) VALUES
-    ('A', 'Bloco A - frente'), ('B', 'Bloco B - fundos'), ('C', 'Bloco C - lateral');
+    ('A', 'Bloco A');
 
-INSERT INTO unidade (id_bloco, numero_apartamento, numero_vagas) VALUES
-    (1, '302', 2), (1, '201', 1), (2, '105', 1), (2, '203', 1), (3, '401', 2);
+DO $$
+DECLARE
+    f INT;
+    a INT;
+BEGIN
+    FOR f IN 5..23 LOOP
+        FOR a IN 1..4 LOOP
+            INSERT INTO unidade (id_bloco, numero_apartamento, numero_vagas)
+            VALUES (1, (f * 10) + a, 1);
+        END LOOP;
+    END LOOP;
+END $$;
 
 INSERT INTO vaga_garagem (id_unidade, identificacao, pavimento, tipo_vaga, coberta) VALUES
     (1, 'G-014', 'SUBSOLO_1', 'SIMPLES', TRUE),
@@ -349,9 +359,9 @@ INSERT INTO pessoa_unidade
     (id_pessoa, id_unidade, tipo_vinculo, reside, data_inicio_ocupacao) VALUES
     (1, 1, 'PROPRIETARIO', TRUE,  '2024-02-01'),
     (3, 1, 'DEPENDENTE',   TRUE,  '2025-08-01'),
-    (2, 3, 'INQUILINO',    TRUE,  '2024-05-10'),
+    (2, 2, 'INQUILINO',    TRUE,  '2024-05-10'),
     (4, 5, 'PROPRIETARIO', TRUE,  '2020-03-15'),
-    (6, 4, 'INQUILINO',    TRUE,  '2025-01-20');
+    (6, 3, 'INQUILINO',    TRUE,  '2025-01-20');
 
 -- ---------------------------------------------------------------------
 -- Carga inicial: areas comuns, horarios, utensilios e chaves

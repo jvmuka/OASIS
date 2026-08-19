@@ -1,14 +1,25 @@
 import { useEffect, useState } from 'react';
 import { api, sessaoAtual } from '../../api';
 import { Botao, Campo, Cartao, inputCls, Mensagem, Titulo } from '../../components/ui';
+import Calendario from '../../components/Calendario';
 
 type Area = {
   id_area_comum: number; nome: string; capacidade: number; ativo: boolean;
   antecedencia_minima_dias: number; antecedencia_maxima_dias: number;
   prazo_cancelamento_horas: number; limite_reservas_semana: number;
+  imagem_url?: string | null;
 };
 type Slot = { inicio: string; fim: string; status: 'LIVRE' | 'OCUPADO' | 'BLOQUEADO' };
 type Grade = { dia_semana: string; regras: any; slots: Slot[] };
+
+/** Imagens padrao por nome de area, usadas quando nao ha imagem cadastrada. */
+const iconesPadrao: Record<string, string> = {
+  'Academia': '🏋️',
+  'Piscina': '🏊',
+  'Salao de Festas': '🎉',
+  'Churrasqueira': '🔥',
+  'Elevador de Servico': '🛗',
+};
 
 /**
  * UC02 + UC03: escolher a area, consultar a grade de horarios e reservar.
@@ -49,6 +60,21 @@ export default function NovaReserva() {
     }
   }
 
+  /** Calcula a data minima e maxima permitida pela antecedencia da area. */
+  function limitesData() {
+    if (!area) return {};
+    const hoje = new Date();
+    const min = new Date(hoje);
+    min.setDate(min.getDate() + area.antecedencia_minima_dias);
+    const max = new Date(hoje);
+    max.setDate(max.getDate() + area.antecedencia_maxima_dias);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return {
+      minDate: `${min.getFullYear()}-${pad(min.getMonth() + 1)}-${pad(min.getDate())}`,
+      maxDate: `${max.getFullYear()}-${pad(max.getMonth() + 1)}-${pad(max.getDate())}`,
+    };
+  }
+
   return (
     <div>
       <Titulo sub="Selecione uma área e escolha o horário desejado">Reserva de Áreas Comuns</Titulo>
@@ -60,9 +86,23 @@ export default function NovaReserva() {
       {!area && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {areas.map(a => (
-            <Cartao key={a.id_area_comum} className="cursor-pointer hover:border-navy"
-              >
+            <Cartao key={a.id_area_comum} className="cursor-pointer overflow-hidden transition-shadow hover:border-navy hover:shadow-md">
               <div onClick={() => setArea(a)}>
+                {/* Imagem da area */}
+                {a.imagem_url ? (
+                  <div className="relative -mx-5 -mt-5 mb-4 h-40 overflow-hidden">
+                    <img
+                      src={a.imagem_url}
+                      alt={a.nome}
+                      className="h-full w-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+                  </div>
+                ) : (
+                  <div className="relative -mx-5 -mt-5 mb-4 flex h-40 items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200">
+                    <span className="text-5xl">{iconesPadrao[a.nome] || '🏢'}</span>
+                  </div>
+                )}
                 <h3 className="font-semibold text-navy">{a.nome}</h3>
                 <p className="mt-1 text-xs text-slate-500">Capacidade: {a.capacidade} pessoas</p>
                 <p className="text-xs text-slate-500">Antecedência: {a.antecedencia_minima_dias} a {a.antecedencia_maxima_dias} dias</p>
@@ -79,14 +119,20 @@ export default function NovaReserva() {
               <h3 className="text-lg font-semibold text-navy">{area.nome}</h3>
               <p className="text-xs text-slate-500">Capacidade: {area.capacidade} pessoas</p>
             </div>
-            <Botao variante="claro" onClick={() => { setArea(null); setGrade(null); setSlot(null); }}>Voltar</Botao>
+            <Botao variante="claro" onClick={() => { setArea(null); setGrade(null); setSlot(null); setData(''); }}>Voltar</Botao>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-3">
-              <Campo rotulo="Selecione a data">
-                <input type="date" className={inputCls} value={data} onChange={e => consultar(e.target.value)} />
-              </Campo>
+          <div className="grid gap-6 md:grid-cols-2">
+            <div className="space-y-4">
+              {/* Calendario mensal */}
+              <div>
+                <p className="mb-2 text-sm text-slate-500">Selecione a data</p>
+                <Calendario
+                  dataSelecionada={data}
+                  onChange={d => consultar(d)}
+                  {...limitesData()}
+                />
+              </div>
               <Campo rotulo="Número de pessoas">
                 <input type="number" min={1} className={inputCls} value={pessoas}
                   onChange={e => setPessoas(Number(e.target.value))} />

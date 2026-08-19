@@ -52,4 +52,26 @@ export const api = {
   post: <T>(rota: string, corpo?: unknown) => req<T>('POST', rota, corpo),
   put: <T>(rota: string, corpo?: unknown) => req<T>('PUT', rota, corpo),
   patch: <T>(rota: string, corpo?: unknown) => req<T>('PATCH', rota, corpo),
+  delete: <T>(rota: string) => req<T>('DELETE', rota),
+  /** Envia um arquivo via multipart/form-data. */
+  upload: async <T>(rota: string, campo: string, arquivo: File): Promise<T> => {
+    const form = new FormData();
+    form.append(campo, arquivo);
+    const r = await fetch('/api' + rota, {
+      method: 'POST',
+      headers: {
+        ...(localStorage.getItem(TOKEN_KEY)
+          ? { Authorization: 'Bearer ' + localStorage.getItem(TOKEN_KEY) }
+          : {}),
+      },
+      body: form,
+    });
+    const dados = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      const msg = Array.isArray(dados.message) ? dados.message.join('; ') : dados.message;
+      throw new Error(msg || `Erro ${r.status}`);
+    }
+    return dados as T;
+  },
 };
+

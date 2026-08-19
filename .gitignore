@@ -12,3 +12,5 @@ build/
 *.log
 *.tsbuildinfo
 .DS_Store
+# imagens enviadas (gerados em runtime)
+backend/uploads/

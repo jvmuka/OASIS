@@ -29,7 +29,7 @@ export class CadastrosController {
     return this.db.query(`
       SELECT u.id_unidade, b.nome AS bloco, u.numero_apartamento, u.numero_vagas
         FROM unidade u JOIN bloco b ON b.id_bloco = u.id_bloco
-       ORDER BY b.nome, u.numero_apartamento`);
+       ORDER BY b.nome, (CASE WHEN u.numero_apartamento ~ '^[0-9]+$' THEN u.numero_apartamento::INTEGER ELSE 999999 END), u.numero_apartamento`);
   }
 
   @Post('unidades') @Perfis('SINDICO')
