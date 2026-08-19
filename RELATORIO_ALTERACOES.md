@@ -1,0 +1,73 @@
+# Relatório de Alterações — Projeto OASIS
+
+### 1. Identificação
+- **Branch**: `corrections`
+- **Autor**: Jones (`23014326@ad.uepg.br`)
+- **Data e Horário**: 19/08/2026 - 17:03:26 (UTC-3)
+- **Hash do Commit**: `1db780ec510d5261633d5d2f308fc71a402dfec6`
+
+---
+
+### 2. Objetivo
+Implementar suporte a upload e exibição de imagens nas áreas comuns, calendário visual mensal de reservas, parametrização independente de regras de reserva por área pelo síndico, ajuste e ordenação numérica das unidades residenciais (5º ao 23º andar, 4 apartamentos por andar) e módulo de visualização, publicação e agendamento de avisos.
+
+---
+
+### 3. Resumo das Alterações
+- **Arquivos Criados**:
+  - `AGENTS.md`
+  - `frontend/src/components/Calendario.tsx`
+  - `RELATORIO_ALTERACOES.md`
+- **Arquivos Modificados**:
+  - `.gitignore`
+  - `backend/package.json` e `backend/package-lock.json`
+  - `backend/src/main.ts`
+  - `backend/src/areas/areas.module.ts`
+  - `backend/src/avisos/avisos.module.ts`
+  - `backend/src/cadastros/cadastros.module.ts`
+  - `banco/02_tabelas.sql`
+  - `banco/03_indices_e_carga.sql`
+  - `banco/oasis_banco_completo.sql`
+  - `frontend/src/api.ts`
+  - `frontend/src/pages/morador/NovaReserva.tsx`
+  - `frontend/src/pages/sindico/Areas.tsx`
+  - `frontend/src/pages/sindico/PublicarAviso.tsx`
+  - `frontend/vite.config.ts`
+- **Camadas Impactadas**: `banco`, `backend`, `frontend`.
+
+---
+
+### 4. Detalhamento Técnico
+
+#### Banco de Dados (`banco`)
+- **Tabela `area_comum`**: Adicionada a coluna `imagem_url VARCHAR(500)` para armazenamento do caminho relativo da imagem.
+- **Tabela `unidade` e Carga Inicial**: Ajustada a geração para 76 unidades fixas distribuídas do 5º ao 23º andar (4 apartamentos por andar: `51`..`54` até `231`..`234`), com saneamento de referências em `pessoa_unidade` e `vaga_garagem`.
+
+#### Backend (`backend` - NestJS)
+- **Serviço de Arquivos Estáticos (`src/main.ts`)**: Configuração do `useStaticAssets` para disponibilizar a pasta `uploads/` sob a rota `/uploads`.
+- **Módulo de Áreas (`src/areas/areas.module.ts`)**:
+  - `POST /api/areas/:id/imagem`: Endpoint multipart com `multer` para upload de imagens (JPEG, PNG, WebP, GIF até 5 MB).
+  - Atualização dos endpoints `POST /api/areas` e `PUT /api/areas/:id` com persistência de `imagem_url`.
+- **Módulo de Avisos (`src/avisos/avisos.module.ts`)**:
+  - `GET /api/avisos`: Listagem completa restrita ao `SINDICO`, com contagem de leituras e status (`PUBLICADO`, `AGENDADO`, `EXPIRADO`).
+  - `GET /api/avisos/meus`: Filtro com `data_hora_publicacao <= CURRENT_TIMESTAMP` para impedir visualização prematura de comunicados agendados no mural dos moradores.
+  - `POST /api/avisos`: Suporte ao agendamento de avisos (`data_hora_publicacao` e `data_hora_expiracao`).
+  - `DELETE /api/avisos/:id`: Exclusão de comunicados com exclusão em cascata em `aviso_perfil`.
+- **Módulo de Cadastros (`src/cadastros/cadastros.module.ts`)**:
+  - `GET /api/cadastros/unidades`: Ordenação convertendo `numero_apartamento` para inteiro, garantindo que `51` a `94` precedam `101` a `234`.
+
+#### Frontend (`frontend` - React / Vite)
+- **Cliente HTTP (`src/api.ts`)**: Adicionados métodos `api.delete()` e `api.upload()` (multipart/form-data).
+- **Componente de Calendário (`src/components/Calendario.tsx`)**: Calendário mensal visual em React puro com navegação entre meses, seleção de dia e bloqueio por limites de antecedência.
+- **Tela de Nova Reserva (`src/pages/morador/NovaReserva.tsx`)**: Exibição das imagens nos cards de área comum e integração com o componente de calendário mensal.
+- **Tela de Áreas do Síndico (`src/pages/sindico/Areas.tsx`)**: Upload de imagem na criação/edição, modal de edição independente das regras de reserva por área e remoção do fechamento acidental ao clicar fora do modal.
+- **Tela de Publicação de Avisos (`src/pages/sindico/PublicarAviso.tsx`)**: Painel com formulário para publicação imediata ou agendada, listagem dos comunicados com métricas de leitura e exclusão de avisos.
+- **Proxy Vite (`vite.config.ts`)**: Adicionado proxy de `/uploads` para `http://localhost:3000`.
+
+---
+
+### 5. Procedimento de Validação
+1. **Verificação de Áreas e Imagens**: Acessar como Síndico (`ana.souza@teste.com`), editar uma área comum, alterar parâmetros de regras e anexar imagem.
+2. **Verificação de Reserva**: Acessar como Morador (`carlos.silva@teste.com`), selecionar a área e utilizar o calendário mensal para consultar slots disponíveis e confirmar reserva.
+3. **Verificação de Unidades**: Acessar como Síndico na aba "Pessoas" e validar se o campo de seleção de Unidade exibe as opções em ordem numérica do 5º ao 23º andar (`A - 51` a `A - 234`).
+4. **Verificação de Avisos**: No perfil de Síndico, criar um aviso imediato e um agendado para o futuro. Validar que o agendado exibe a badge `AGENDADO` e não aparece no mural do morador até que a data/hora seja atingida.
