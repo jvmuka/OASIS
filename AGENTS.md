@@ -13,7 +13,9 @@
      - Componentes ou telas criadas/atualizadas.
      - Alterações no esquema de banco de dados ou regras de negócio (gatilhos/constraints).
   5. **Procedimento de Validação**: Passos executados ou recomendados para validar as alterações localmente.
-- **Apresentação**: O relatório deve ser exibido de forma clara no chat e/ou registrado no repositório conforme o fluxo de trabalho estabelecido.
+- **Apresentação e Armazenamento**:
+  - O relatório deve ser exibido no chat e persistido em arquivo na pasta `relatorios_commits/`.
+  - Padrão de nomenclatura: `relatorios_commits/commit_<hash>_<YYYY-MM-DD>.md` (ex.: `commit_1db780e_2026-08-19.md`).
 
 ## 2. Padrões de Desenvolvimento
 - Manter todas as comunicações, documentações e mensagens em português do Brasil.
