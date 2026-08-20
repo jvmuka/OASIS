@@ -1,0 +1,78 @@
+services:
+  # ----------------------------------------------------
+  # 1. Banco de Dados PostgreSQL 16
+  # ----------------------------------------------------
+  banco:
+    image: postgres:16-alpine
+    container_name: oasis-banco
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: oasis
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Oasis@2026
+    ports:
+      - "5433:5432"
+    volumes:
+      - oasis_pgdata:/var/lib/postgresql/data
+      - ./banco/oasis_banco_completo.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+    networks:
+      - oasis-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d oasis"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ----------------------------------------------------
+  # 2. Backend NestJS (API REST)
+  # ----------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: oasis-backend
+    restart: unless-stopped
+    depends_on:
+      banco:
+        condition: service_healthy
+    environment:
+      PORT: 3000
+      DATABASE_URL: postgres://postgres:Oasis%402026@banco:5432/oasis
+      JWT_SECRET: oasis-jwt-secret-producao-2026
+      DEV_SENHA: Teste@2026
+    ports:
+      - "3000:3000"
+    volumes:
+      - oasis_uploads:/app/uploads
+    networks:
+      - oasis-net
+
+  # ----------------------------------------------------
+  # 3. Frontend React / Vite (Nginx)
+  # ----------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: oasis-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "5173:80"
+    networks:
+      - oasis-net
+
+# ----------------------------------------------------
+# Volumes e Redes
+# ----------------------------------------------------
+volumes:
+  oasis_pgdata:
+    name: oasis_pgdata
+  oasis_uploads:
+    name: oasis_uploads
+
+networks:
+  oasis-net:
+    name: oasis-net
+    driver: bridge

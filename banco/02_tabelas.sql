@@ -80,6 +80,7 @@ CREATE TABLE area_comum (
     tipo_uso                  tipo_uso_enum     NOT NULL,
     duracao_slot_min          INTEGER           NOT NULL DEFAULT 60,
     antecedencia_minima_dias  INTEGER           NOT NULL DEFAULT 0,
+    antecedencia_minima_horas INTEGER           NOT NULL DEFAULT 0,
     antecedencia_maxima_dias  INTEGER           NOT NULL DEFAULT 30,
     prazo_cancelamento_horas  INTEGER           NOT NULL DEFAULT 24,
     limite_reservas_semana    INTEGER           NOT NULL DEFAULT 2,
