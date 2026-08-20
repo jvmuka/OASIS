@@ -481,7 +481,11 @@ BEGIN
         RAISE EXCEPTION 'RN05: horario fora da janela de funcionamento da area em %.', v_dia;
     END IF;
 
-    -- RN06: antecedencia minima e maxima
+    -- RN06: antecedencia minima e maxima e bloqueio de horario no passado
+    IF NEW.data_hora_inicio <= CURRENT_TIMESTAMP THEN
+        RAISE EXCEPTION 'RN06: nao e permitido realizar reserva para horario no passado.';
+    END IF;
+
     v_dias_antec := NEW.data_hora_inicio::date - CURRENT_DATE;
 
     IF v_dias_antec < v_area.antecedencia_minima_dias THEN

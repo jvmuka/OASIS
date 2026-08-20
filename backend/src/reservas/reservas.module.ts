@@ -44,6 +44,7 @@ export class ReservasController {
     // monta a grade de slots em memoria
     const slots: any[] = [];
     const passo = info.duracao_slot_min;
+    const agora = new Date();
     for (const j of janelas) {
       let [h, m] = String(j.hora_inicio).split(':').map(Number);
       const [hf, mf] = String(j.hora_fim).split(':').map(Number);
@@ -57,8 +58,9 @@ export class ReservasController {
           a < new Date(r.data_hora_fim) && b > new Date(r.data_hora_inicio));
         const bloqueado = bloqueios.some(r =>
           a < new Date(r.data_hora_fim) && b > new Date(r.data_hora_inicio));
+        const noPassado = a <= agora;
         slots.push({ inicio: hIni, fim: hFim,
-          status: bloqueado ? 'BLOQUEADO' : ocupado ? 'OCUPADO' : 'LIVRE' });
+          status: bloqueado ? 'BLOQUEADO' : ocupado ? 'OCUPADO' : noPassado ? 'PASSADO' : 'LIVRE' });
         ini = fimSlot;
       }
     }

@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Put, Body, Param, Module, UseGuards, ParseIntPipe, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
+import 'multer';
 import { extname } from 'path';
 import { DbService } from '../db/db.service';
 import { JwtAuthGuard, PerfilGuard, Perfis } from '../auth/guards';
@@ -91,7 +92,7 @@ export class AreasController {
   }))
   async uploadImagem(
     @Param('id', ParseIntPipe) id: number,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file: any,
   ) {
     if (!file) throw new BadRequestException('Nenhum arquivo enviado.');
     const url = `/uploads/${file.filename}`;
