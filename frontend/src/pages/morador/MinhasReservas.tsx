@@ -1,53 +1,223 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../../api';
-import { Botao, Cartao, Mensagem, Titulo } from '../../components/ui';
+import { Botao, Cartao, Mensagem, Titulo, Icone, Badge, EmptyState, Modal } from '../../components/ui';
 
 type Reserva = {
-  id_reserva: number; area: string; data_hora_inicio: string; data_hora_fim: string;
-  numero_pessoas: number; status: string; prazo_cancelamento_horas: number;
+  id_reserva: number;
+  area: string;
+  data_hora_inicio: string;
+  data_hora_fim: string;
+  numero_pessoas: number;
+  status: string;
+  prazo_cancelamento_horas: number;
 };
 
-/** UC04 - listar e cancelar as reservas do morador logado. */
+/** UC04 - Listar e cancelar as reservas do morador logado (UI/UX Pro Max) */
 export default function MinhasReservas() {
+  const nav = useNavigate();
   const [reservas, setReservas] = useState<Reserva[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  const [filtro, setFiltro] = useState<'TODAS' | 'ATIVAS' | 'HISTORICO'>('TODAS');
+  const [cancelando, setCancelando] = useState<Reserva | null>(null);
+  const [processando, setProcessando] = useState(false);
   const [msg, setMsg] = useState<{ t: string; tipo: 'erro' | 'ok' }>({ t: '', tipo: 'ok' });
 
-  const carregar = () => api.get<Reserva[]>('/reservas/minhas').then(setReservas);
-  useEffect(() => { carregar(); }, []);
+  const carregar = () => {
+    setCarregando(true);
+    api
+      .get<Reserva[]>('/reservas/minhas')
+      .then(setReservas)
+      .finally(() => setCarregando(false));
+  };
 
-  async function cancelar(id: number) {
-    if (!confirm('Confirma o cancelamento desta reserva?')) return;
+  useEffect(() => {
+    carregar();
+  }, []);
+
+  async function confirmarCancelamento() {
+    if (!cancelando) return;
+    setProcessando(true);
     try {
-      await api.patch(`/reservas/${id}/cancelar`, { motivo: 'Cancelada pelo morador' });
-      setMsg({ t: 'Reserva cancelada.', tipo: 'ok' }); carregar();
-    } catch (e: any) { setMsg({ t: e.message, tipo: 'erro' }); } // RN08 chega aqui
+      await api.patch(`/reservas/${cancelando.id_reserva}/cancelar`, {
+        motivo: 'Cancelada pelo morador',
+      });
+      setMsg({ t: `Reserva para "${cancelando.area}" cancelada com sucesso.`, tipo: 'ok' });
+      setCancelando(null);
+      carregar();
+    } catch (e: any) {
+      setMsg({ t: e.message, tipo: 'erro' });
+    } finally {
+      setProcessando(false);
+    }
   }
 
-  const f = (d: string) => new Date(d).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
-  const cor: any = { ATIVA: 'bg-emerald-50 text-emerald-700', CANCELADA: 'bg-red-50 text-red-600', CONCLUIDA: 'bg-slate-100 text-slate-500' };
+  const formatarDataHora = (d: string) =>
+    new Date(d).toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+  const reservasFiltradas = reservas.filter(r => {
+    if (filtro === 'ATIVAS') return r.status === 'ATIVA';
+    if (filtro === 'HISTORICO') return r.status !== 'ATIVA';
+    return true;
+  });
 
   return (
-    <div>
-      <Titulo sub="Acompanhe e cancele suas reservas">Minhas Reservas</Titulo>
+    <div className="space-y-6">
+      <Titulo
+        sub="Acompanhe o status dos seus agendamentos e gerencie cancelamentos."
+        icone={<Icone nome="clock" className="h-5 w-5" />}
+        acao={
+          <Botao
+            icone={<Icone nome="plus" className="h-4 w-4" />}
+            onClick={() => nav('/morador/reservar')}
+          >
+            Fazer Nova Reserva
+          </Botao>
+        }
+      >
+        Minhas Reservas
+      </Titulo>
+
+      {/* Filtros rápidos */}
+      <div className="flex gap-2">
+        {(['TODAS', 'ATIVAS', 'HISTORICO'] as const).map(f => (
+          <button
+            key={f}
+            type="button"
+            onClick={() => setFiltro(f)}
+            className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+              filtro === f
+                ? 'bg-navy text-white shadow-xs'
+                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            {f === 'TODAS' ? 'Todas' : f === 'ATIVAS' ? 'Ativas / Futuras' : 'Histórico'}
+          </button>
+        ))}
+      </div>
+
       <Cartao>
-        {reservas.length === 0 && <p className="text-sm text-slate-500">Você ainda não possui reservas.</p>}
-        <ul className="divide-y">
-          {reservas.map(r => (
-            <li key={r.id_reserva} className="flex items-center justify-between py-3">
-              <div>
-                <p className="font-semibold text-navy">{r.area}</p>
-                <p className="text-xs text-slate-500">{f(r.data_hora_inicio)} até {f(r.data_hora_fim)} — {r.numero_pessoas} pessoa(s)</p>
+        {carregando ? (
+          <div className="flex h-40 items-center justify-center text-xs text-slate-400">
+            <Icone nome="clock" className="mr-2 h-4 w-4 animate-spin text-navy" />
+            Carregando suas reservas...
+          </div>
+        ) : reservasFiltradas.length === 0 ? (
+          <EmptyState
+            icone="calendar"
+            titulo="Nenhuma reserva encontrada"
+            descricao={
+              filtro === 'ATIVAS'
+                ? 'Você não possui reservas futuras ativas no momento.'
+                : 'Você ainda não realizou agendamentos de áreas comuns.'
+            }
+            acao={
+              <Botao
+                tamanho="sm"
+                icone={<Icone nome="plus" className="h-3.5 w-3.5" />}
+                onClick={() => nav('/morador/reservar')}
+              >
+                Agendar Espaço
+              </Botao>
+            }
+          />
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {reservasFiltradas.map(r => (
+              <div
+                key={r.id_reserva}
+                className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between hover:bg-slate-50/50 rounded-xl px-2 transition-colors"
+              >
+                <div className="flex items-start gap-3.5">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-navy-50 text-navy font-bold">
+                    <Icone nome="calendar" className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 leading-tight">{r.area}</h3>
+                    <p className="mt-1 text-xs text-slate-500 font-medium">
+                      {formatarDataHora(r.data_hora_inicio)} até {formatarDataHora(r.data_hora_fim)}
+                    </p>
+                    <p className="text-[11px] text-slate-400">
+                      Capacidade reservada: {r.numero_pessoas} pessoa(s)
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 sm:self-center self-end">
+                  <Badge
+                    tipo={
+                      r.status === 'ATIVA'
+                        ? 'sucesso'
+                        : r.status === 'CANCELADA'
+                        ? 'perigo'
+                        : 'neutro'
+                    }
+                  >
+                    {r.status}
+                  </Badge>
+
+                  {r.status === 'ATIVA' && (
+                    <Botao
+                      variante="perigo"
+                      tamanho="sm"
+                      icone={<Icone nome="trash" className="h-3.5 w-3.5" />}
+                      onClick={() => setCancelando(r)}
+                    >
+                      Cancelar
+                    </Botao>
+                  )}
+                </div>
               </div>
-              <div className="flex items-center gap-3">
-                <span className={'rounded-full px-3 py-1 text-xs font-semibold ' + (cor[r.status] || '')}>{r.status}</span>
-                {r.status === 'ATIVA' &&
-                  <Botao variante="perigo" onClick={() => cancelar(r.id_reserva)}>Cancelar</Botao>}
-              </div>
-            </li>
-          ))}
-        </ul>
-        <Mensagem texto={msg.t} tipo={msg.tipo} />
+            ))}
+          </div>
+        )}
       </Cartao>
+
+      {/* Modal de Confirmação de Cancelamento */}
+      <Modal
+        aberto={!!cancelando}
+        fechar={() => setCancelando(null)}
+        titulo="Cancelar Reserva"
+      >
+        {cancelando && (
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600">
+              Tem certeza de que deseja cancelar a reserva do espaço <b>{cancelando.area}</b> agendada para{' '}
+              <b>{formatarDataHora(cancelando.data_hora_inicio)}</b>?
+            </p>
+
+            <div className="rounded-xl border border-amber-200/80 bg-amber-50/60 p-3 text-xs text-amber-900">
+              <p className="font-bold flex items-center gap-1.5">
+                <Icone nome="alert" className="h-3.5 w-3.5 text-amber-600" />
+                Aviso sobre Prazo de Cancelamento:
+              </p>
+              <p className="mt-0.5 text-amber-800">
+                Cancelamentos só são permitidos com pelo menos {cancelando.prazo_cancelamento_horas}h de antecedência.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Botao variante="claro" onClick={() => setCancelando(null)}>
+                Voltar
+              </Botao>
+              <Botao
+                variante="perigo"
+                onClick={confirmarCancelamento}
+                carregando={processando}
+              >
+                Confirmar Cancelamento
+              </Botao>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Mensagem texto={msg.t} tipo={msg.tipo} />
     </div>
   );
 }

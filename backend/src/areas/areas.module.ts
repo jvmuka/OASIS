@@ -36,22 +36,29 @@ export class AreasController {
 
   @Post() @Perfis('SINDICO')
   criar(@Body() a: any) {
+    const antMinHoras = a.antecedencia_minima_horas ?? (a.antecedencia_minima_dias !== undefined ? a.antecedencia_minima_dias * 24 : 0);
+    const antMinDias = Math.ceil(antMinHoras / 24);
     return this.db.query(`
       INSERT INTO area_comum
         (nome, descricao, capacidade, tipo_acesso, tipo_uso, duracao_slot_min,
          antecedencia_minima_dias, antecedencia_maxima_dias,
-         prazo_cancelamento_horas, limite_reservas_semana, exige_chave, valor, imagem_url)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+         prazo_cancelamento_horas, limite_reservas_semana, exige_chave, valor, imagem_url, antecedencia_minima_horas)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
       [a.nome, a.descricao || null, a.capacidade, a.tipo_acesso, a.tipo_uso,
-       a.duracao_slot_min ?? 60, a.antecedencia_minima_dias ?? 0,
+       a.duracao_slot_min ?? 60, antMinDias,
        a.antecedencia_maxima_dias ?? 30, a.prazo_cancelamento_horas ?? 24,
        a.limite_reservas_semana ?? 2, a.exige_chave ?? false, a.valor ?? 0,
-       a.imagem_url || null])
+       a.imagem_url || null, antMinHoras])
       .then(r => r[0]);
   }
 
   @Put(':id') @Perfis('SINDICO')
   editar(@Param('id', ParseIntPipe) id: number, @Body() a: any) {
+    const antMinHoras = a.antecedencia_minima_horas !== undefined
+      ? a.antecedencia_minima_horas
+      : (a.antecedencia_minima_dias !== undefined ? a.antecedencia_minima_dias * 24 : null);
+    const antMinDias = antMinHoras !== null ? Math.ceil(antMinHoras / 24) : null;
+
     return this.db.query(`
       UPDATE area_comum SET
         nome = COALESCE($2,nome), descricao = COALESCE($3,descricao),
@@ -62,12 +69,13 @@ export class AreasController {
         prazo_cancelamento_horas = COALESCE($8,prazo_cancelamento_horas),
         limite_reservas_semana = COALESCE($9,limite_reservas_semana),
         ativo = COALESCE($10,ativo),
-        imagem_url = COALESCE($11,imagem_url)
+        imagem_url = COALESCE($11,imagem_url),
+        antecedencia_minima_horas = COALESCE($12,antecedencia_minima_horas)
       WHERE id_area_comum = $1 RETURNING *`,
       [id, a.nome, a.descricao, a.capacidade, a.duracao_slot_min,
-       a.antecedencia_minima_dias, a.antecedencia_maxima_dias,
+       antMinDias, a.antecedencia_maxima_dias,
        a.prazo_cancelamento_horas, a.limite_reservas_semana, a.ativo,
-       a.imagem_url])
+       a.imagem_url, antMinHoras])
       .then(r => r[0]);
   }
 

@@ -81,12 +81,12 @@ BEGIN
         RAISE EXCEPTION 'RN06: nao e permitido realizar reserva para horario no passado.';
     END IF;
 
-    v_dias_antec := NEW.data_hora_inicio::date - CURRENT_DATE;
-
-    IF v_dias_antec < v_area.antecedencia_minima_dias THEN
-        RAISE EXCEPTION 'RN06: a reserva exige antecedencia minima de % dia(s).',
-                        v_area.antecedencia_minima_dias;
+    IF NEW.data_hora_inicio < (CURRENT_TIMESTAMP + (COALESCE(v_area.antecedencia_minima_horas, v_area.antecedencia_minima_dias * 24) || ' hours')::INTERVAL) THEN
+        RAISE EXCEPTION 'RN06: a reserva exige antecedencia minima de % hora(s).',
+                        COALESCE(v_area.antecedencia_minima_horas, v_area.antecedencia_minima_dias * 24);
     END IF;
+
+    v_dias_antec := NEW.data_hora_inicio::date - CURRENT_DATE;
 
     IF v_dias_antec > v_area.antecedencia_maxima_dias THEN
         RAISE EXCEPTION 'RN06: a reserva so pode ser feita com ate % dia(s) de antecedencia.',

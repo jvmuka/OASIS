@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
-import { Botao, Campo, Cartao, inputCls, Mensagem, Titulo } from '../../components/ui';
+import { Botao, Campo, Cartao, inputCls, Mensagem, Titulo, Icone, Badge, EmptyState, Modal } from '../../components/ui';
 
 type AvisoAdmin = {
   id_aviso: number;
@@ -16,9 +16,7 @@ type AvisoAdmin = {
   total_lidos: number;
 };
 
-/**
- * UC10 - Publicar, agendar e visualizar avisos do condomínio.
- */
+/** UC10 - Publicar, agendar e gerenciar avisos do condomínio (UI/UX Pro Max) */
 export default function PublicarAviso() {
   const [avisos, setAvisos] = useState<AvisoAdmin[]>([]);
   const [titulo, setTitulo] = useState('');
@@ -26,11 +24,14 @@ export default function PublicarAviso() {
   const [dataPublicacao, setDataPublicacao] = useState('');
   const [dataExpiracao, setDataExpiracao] = useState('');
   const [fixado, setFixado] = useState(false);
-  const [msg, setMsg] = useState<{ t: string; tipo: 'erro' | 'ok' }>({ t: '', tipo: 'ok' });
+  const [salvando, setSalvando] = useState(false);
+  const [excluindo, setExcluindo] = useState<AvisoAdmin | null>(null);
   const [expandido, setExpandido] = useState<number | null>(null);
+  const [msg, setMsg] = useState<{ t: string; tipo: 'erro' | 'ok' }>({ t: '', tipo: 'ok' });
 
   const carregar = () => {
-    api.get<AvisoAdmin[]>('/avisos')
+    api
+      .get<AvisoAdmin[]>('/avisos')
       .then(setAvisos)
       .catch((err: any) => setMsg({ t: err.message, tipo: 'erro' }));
   };
@@ -42,6 +43,7 @@ export default function PublicarAviso() {
   async function publicar(e: React.FormEvent) {
     e.preventDefault();
     setMsg({ t: '', tipo: 'ok' });
+    setSalvando(true);
     try {
       await api.post('/avisos', {
         titulo,
@@ -67,14 +69,17 @@ export default function PublicarAviso() {
       carregar();
     } catch (err: any) {
       setMsg({ t: err.message, tipo: 'erro' });
+    } finally {
+      setSalvando(false);
     }
   }
 
-  async function excluir(id: number, tituloAviso: string) {
-    if (!confirm(`Deseja realmente excluir o aviso "${tituloAviso}"?`)) return;
+  async function confirmarExclusao() {
+    if (!excluindo) return;
     try {
-      await api.delete(`/avisos/${id}`);
-      setMsg({ t: `Aviso "${tituloAviso}" excluído.`, tipo: 'ok' });
+      await api.delete(`/avisos/${excluindo.id_aviso}`);
+      setMsg({ t: `Aviso "${excluindo.titulo}" excluído.`, tipo: 'ok' });
+      setExcluindo(null);
       carregar();
     } catch (err: any) {
       setMsg({ t: err.message, tipo: 'erro' });
@@ -84,165 +89,233 @@ export default function PublicarAviso() {
   const isAgendamento = dataPublicacao && new Date(dataPublicacao) > new Date();
 
   return (
-    <div>
-      <Titulo sub="Crie comunicados imediatos, agende publicações e acompanhe os avisos distribuídos">
-        Gestão e Publicação de Avisos
+    <div className="space-y-6">
+      <Titulo
+        sub="Crie comunicados imediatos, agende publicações e acompanhe as taxas de leitura dos moradores."
+        icone={<Icone nome="megaphone" className="h-5 w-5" />}
+      >
+        Publicar & Gerenciar Avisos
       </Titulo>
 
-      <div className="grid gap-6 lg:grid-cols-5">
+      <div className="grid gap-6 lg:grid-cols-12">
         {/* Formulário de Criação / Agendamento */}
-        <Cartao className="lg:col-span-2">
-          <h3 className="mb-3 font-semibold text-navy">
-            {isAgendamento ? 'Agendar Comunicado' : 'Novo Comunicado'}
-          </h3>
-          <form onSubmit={publicar} className="space-y-3">
-            <Campo rotulo="Título do aviso">
-              <input
-                className={inputCls}
-                value={titulo}
-                onChange={e => setTitulo(e.target.value)}
-                required
-                maxLength={120}
-                placeholder="Ex.: Manutenção preventiva dos elevadores"
-              />
-            </Campo>
-
-            <Campo rotulo="Conteúdo">
-              <textarea
-                className={inputCls + ' min-h-28'}
-                value={conteudo}
-                onChange={e => setConteudo(e.target.value)}
-                required
-                maxLength={2000}
-                placeholder="Descreva o comunicado detalhadamente..."
-              />
-            </Campo>
-
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Campo rotulo="Data/Hora de publicação (opcional)">
-                <input
-                  type="datetime-local"
-                  className={inputCls}
-                  value={dataPublicacao}
-                  onChange={e => setDataPublicacao(e.target.value)}
-                />
-              </Campo>
-
-              <Campo rotulo="Data/Hora de expiração (opcional)">
-                <input
-                  type="datetime-local"
-                  className={inputCls}
-                  value={dataExpiracao}
-                  onChange={e => setDataExpiracao(e.target.value)}
-                />
-              </Campo>
+        <div className="lg:col-span-5">
+          <Cartao>
+            <div className="mb-4 border-b border-slate-100 pb-3">
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Icone nome="plus" className="h-4 w-4 text-navy" />
+                {isAgendamento ? 'Agendar Comunicado' : 'Novo Comunicado'}
+              </h3>
+              <p className="text-xs text-slate-500">
+                {isAgendamento
+                  ? 'O comunicado será publicado automaticamente na data escolhida.'
+                  : 'Preencha para distribuir imediatamente no mural de todos os moradores.'}
+              </p>
             </div>
-            <p className="text-[11px] text-slate-400">
-              * Deixe a data de publicação em branco para publicar imediatamente. Caso informe uma data futura, o aviso ficará agendado e só aparecerá para os moradores a partir do horário definido.
-            </p>
 
-            <label className="flex items-center gap-2 text-sm text-slate-600 pt-1">
-              <input
-                type="checkbox"
-                checked={fixado}
-                onChange={e => setFixado(e.target.checked)}
-                className="rounded text-navy focus:ring-navy"
-              />
-              Fixar no topo do mural dos moradores
-            </label>
+            <form onSubmit={publicar} className="space-y-4">
+              <Campo rotulo="Título do Comunicado" obrigatorio>
+                <input
+                  className={inputCls}
+                  value={titulo}
+                  onChange={e => setTitulo(e.target.value)}
+                  required
+                  maxLength={120}
+                  placeholder="Ex.: Manutenção preventiva dos elevadores"
+                />
+              </Campo>
 
-            <Botao className="w-full mt-2">
-              {isAgendamento ? 'Agendar Publicação' : 'Publicar Aviso Agora'}
-            </Botao>
-          </form>
-          <Mensagem texto={msg.t} tipo={msg.tipo} />
-        </Cartao>
+              <Campo rotulo="Conteúdo da Mensagem" obrigatorio>
+                <textarea
+                  className={inputCls + ' min-h-28 resize-y'}
+                  value={conteudo}
+                  onChange={e => setConteudo(e.target.value)}
+                  required
+                  maxLength={2000}
+                  placeholder="Descreva o comunicado detalhadamente..."
+                />
+              </Campo>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Campo rotulo="Publicar em (opcional)" ajuda="Em branco = Agora">
+                  <input
+                    type="datetime-local"
+                    className={inputCls}
+                    value={dataPublicacao}
+                    onChange={e => setDataPublicacao(e.target.value)}
+                  />
+                </Campo>
+
+                <Campo rotulo="Expirar em (opcional)">
+                  <input
+                    type="datetime-local"
+                    className={inputCls}
+                    value={dataExpiracao}
+                    onChange={e => setDataExpiracao(e.target.value)}
+                  />
+                </Campo>
+              </div>
+
+              <label className="flex items-center gap-2.5 rounded-xl border border-slate-200/80 bg-slate-50/60 p-3 text-xs font-semibold text-slate-700 cursor-pointer hover:bg-slate-50">
+                <input
+                  type="checkbox"
+                  checked={fixado}
+                  onChange={e => setFixado(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-navy focus:ring-navy cursor-pointer"
+                />
+                <span className="flex items-center gap-1.5">
+                  <Icone nome="pin" className="h-3.5 w-3.5 text-amber-600" />
+                  Fixar no topo do mural dos moradores
+                </span>
+              </label>
+
+              <Botao
+                className="w-full py-2.5"
+                carregando={salvando}
+                icone={<Icone nome="megaphone" className="h-4 w-4" />}
+              >
+                {isAgendamento ? 'Agendar Publicação' : 'Publicar Agora'}
+              </Botao>
+            </form>
+          </Cartao>
+        </div>
 
         {/* Listagem de Avisos Já Publicados e Agendados */}
-        <Cartao className="lg:col-span-3">
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="font-semibold text-navy">Avisos do Condomínio</h3>
-            <span className="text-xs text-slate-400">{avisos.length} comunicado(s)</span>
-          </div>
+        <div className="lg:col-span-7">
+          <Cartao>
+            <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Comunicados Distribuídos</h3>
+                <p className="text-xs text-slate-500">Histórico de avisos e agendamentos</p>
+              </div>
+              <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
+                {avisos.length} aviso(s)
+              </span>
+            </div>
 
-          {avisos.length === 0 && (
-            <p className="text-sm text-slate-500 py-6 text-center">Nenhum aviso cadastrado até o momento.</p>
-          )}
+            {avisos.length === 0 ? (
+              <EmptyState
+                icone="megaphone"
+                titulo="Nenhum comunicado cadastrado"
+                descricao="Utilize o formulário ao lado para emitir o primeiro aviso para o condomínio."
+              />
+            ) : (
+              <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
+                {avisos.map(a => {
+                  const eAberto = expandido === a.id_aviso;
+                  const dtPub = new Date(a.data_hora_publicacao);
+                  const percLidos = a.total_destinatarios > 0
+                    ? Math.round((a.total_lidos / a.total_destinatarios) * 100)
+                    : 0;
 
-          <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
-            {avisos.map(a => {
-              const eAberto = expandido === a.id_aviso;
-              const dtPub = new Date(a.data_hora_publicacao);
-              const dtExp = a.data_hora_expiracao ? new Date(a.data_hora_expiracao) : null;
+                  return (
+                    <div
+                      key={a.id_aviso}
+                      className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-soft transition-all hover:border-slate-300"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-1.5 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            {a.fixado && (
+                              <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                                <Icone nome="pin" className="h-3 w-3" />
+                                FIXADO
+                              </span>
+                            )}
+                            <Badge
+                              tipo={
+                                a.status === 'PUBLICADO'
+                                  ? 'sucesso'
+                                  : a.status === 'AGENDADO'
+                                  ? 'info'
+                                  : 'neutro'
+                              }
+                            >
+                              {a.status}
+                            </Badge>
+                            <h4 className="text-sm font-bold text-slate-900">{a.titulo}</h4>
+                          </div>
 
-              return (
-                <div
-                  key={a.id_aviso}
-                  className="rounded-lg border border-slate-200 bg-slate-50/50 p-4 transition-all hover:bg-slate-50"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        {a.fixado && (
-                          <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold text-amber-800">
-                            FIXADO
-                          </span>
-                        )}
-                        <span
-                          className={
-                            'rounded-full px-2 py-0.5 text-xs font-semibold ' +
-                            (a.status === 'PUBLICADO'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : a.status === 'AGENDADO'
-                                ? 'bg-blue-100 text-blue-800'
-                                : 'bg-slate-200 text-slate-700')
-                          }
-                        >
-                          {a.status}
-                        </span>
-                        <h4 className="font-semibold text-navy">{a.titulo}</h4>
+                          <p className="text-xs text-slate-500">
+                            {a.status === 'AGENDADO' ? 'Agendado para: ' : 'Publicado em: '}
+                            <b>{dtPub.toLocaleString('pt-BR')}</b> • Por <b>{a.autor}</b>
+                          </p>
+
+                          {/* Taxa de leitura */}
+                          <div className="mt-2 flex items-center gap-3">
+                            <div className="h-2 w-32 overflow-hidden rounded-full bg-slate-100">
+                              <div
+                                className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                                style={{ width: `${percLidos}%` }}
+                              />
+                            </div>
+                            <span className="text-[11px] text-slate-500 font-medium">
+                              <b>{a.total_lidos}</b> de <b>{a.total_destinatarios}</b> lidos ({percLidos}%)
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            onClick={() => setExpandido(eAberto ? null : a.id_aviso)}
+                            className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 transition-colors cursor-pointer"
+                            title={eAberto ? 'Recolher' : 'Ver conteúdo'}
+                          >
+                            <Icone
+                              nome="chevronDown"
+                              className={`h-4 w-4 transform transition-transform ${eAberto ? 'rotate-180' : ''}`}
+                            />
+                          </button>
+                          <button
+                            onClick={() => setExcluindo(a)}
+                            className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors cursor-pointer"
+                            title="Excluir aviso"
+                          >
+                            <Icone nome="trash" className="h-4 w-4" />
+                          </button>
+                        </div>
                       </div>
-                      <p className="text-xs text-slate-500">
-                        {a.status === 'AGENDADO' ? 'Agendado para: ' : 'Publicado em: '}
-                        <b>{dtPub.toLocaleString('pt-BR')}</b>
-                        {dtExp && <> · Expira em: <b>{dtExp.toLocaleString('pt-BR')}</b></>}
-                        {' · Por: '}{a.autor}
-                      </p>
-                    </div>
 
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setExpandido(eAberto ? null : a.id_aviso)}
-                        className="text-xs text-navy hover:underline font-medium"
-                      >
-                        {eAberto ? 'Recolher' : 'Ver detalhes'}
-                      </button>
-                      <button
-                        onClick={() => excluir(a.id_aviso, a.titulo)}
-                        className="text-xs text-red-600 hover:underline font-medium ml-1"
-                      >
-                        Excluir
-                      </button>
+                      {eAberto && (
+                        <div className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-700 space-y-2 animate-fade-in">
+                          <p className="whitespace-pre-line leading-relaxed text-slate-600 bg-slate-50/70 p-3 rounded-lg border border-slate-100">
+                            {a.conteudo}
+                          </p>
+                        </div>
+                      )}
                     </div>
-                  </div>
-
-                  {eAberto && (
-                    <div className="mt-3 border-t border-slate-200 pt-3 text-sm text-slate-700 space-y-2">
-                      <p className="whitespace-pre-line">{a.conteudo}</p>
-                      <div className="flex items-center justify-between rounded bg-white p-2 text-xs text-slate-500 border border-slate-100">
-                        <span>
-                          Leituras registradas: <b>{a.total_lidos}</b> de <b>{a.total_destinatarios}</b> destinatários
-                        </span>
-                        <span>Escopo: {a.escopo}</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </Cartao>
+                  );
+                })}
+              </div>
+            )}
+          </Cartao>
+        </div>
       </div>
+
+      {/* Modal de Exclusão */}
+      <Modal
+        aberto={!!excluindo}
+        fechar={() => setExcluindo(null)}
+        titulo="Excluir Comunicado"
+      >
+        {excluindo && (
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600">
+              Tem certeza de que deseja excluir o aviso <b>"{excluindo.titulo}"</b>?
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <Botao variante="claro" onClick={() => setExcluindo(null)}>
+                Cancelar
+              </Botao>
+              <Botao variante="perigo" onClick={confirmarExclusao}>
+                Excluir Comunicado
+              </Botao>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Mensagem texto={msg.t} tipo={msg.tipo} />
     </div>
   );
 }

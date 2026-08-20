@@ -1,63 +1,177 @@
+import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { sessaoAtual, sair } from '../api';
+import { Icone, Badge } from './ui';
 
 /**
  * Casca comum de todas as telas internas:
- * topo com identificacao do usuario + menu lateral montado pelo perfil.
- * (Corresponde as "dicas de navegacao" do prototipo: menu fixo, modulo
- *  ativo destacado e usuario/perfil sempre visiveis no canto superior.)
+ * Topo com identificação do usuário + menu lateral com ícones e suporte a mobile drawer.
  */
 export default function Layout() {
   const nav = useNavigate();
+  const [menuAberto, setMenuAberto] = useState(false);
   const s = sessaoAtual();
   if (!s) return null;
   const tipos = s.perfis.map(p => p.tipo);
 
-  const item = (to: string, rotulo: string) => (
-    <NavLink key={to} to={to}
+  // Iniciais do nome para avatar
+  const iniciais = s.pessoa.nome
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(n => n[0].toUpperCase())
+    .join('');
+
+  const item = (to: string, rotulo: string, icone: React.ComponentProps<typeof Icone>['nome']) => (
+    <NavLink
+      key={to}
+      to={to}
+      onClick={() => setMenuAberto(false)}
       className={({ isActive }) =>
-        'block rounded-lg px-4 py-2 text-sm ' +
-        (isActive ? 'bg-navy text-white font-semibold' : 'text-slate-600 hover:bg-slate-100')}>
-      {rotulo}
+        'group flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all duration-150 ' +
+        (isActive
+          ? 'bg-navy-50 text-navy font-semibold shadow-xs ring-1 ring-navy/10'
+          : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900')
+      }
+    >
+      {({ isActive }) => (
+        <>
+          <Icone
+            nome={icone}
+            className={`h-4 w-4 transition-colors ${
+              isActive ? 'text-navy' : 'text-slate-400 group-hover:text-slate-600'
+            }`}
+          />
+          <span className="truncate">{rotulo}</span>
+        </>
+      )}
     </NavLink>
   );
 
   return (
-    <div className="min-h-screen">
-      <header className="flex items-center justify-between border-b bg-white px-6 py-3">
-        <div className="flex items-center gap-2">
-          <span className="grid h-8 w-8 place-items-center rounded-lg bg-navy font-bold text-white">O</span>
-          <span className="text-lg font-bold text-navy">OASIS</span>
+    <div className="min-h-screen bg-slate-50 flex flex-col">
+      {/* Header Superior */}
+      <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-slate-200/80 bg-white/95 px-4 sm:px-6 backdrop-blur-xs">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setMenuAberto(!menuAberto)}
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 lg:hidden cursor-pointer"
+            aria-label="Abrir menu"
+          >
+            <Icone nome={menuAberto ? 'x' : 'filter'} className="h-5 w-5" />
+          </button>
+
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-navy to-navy-light text-white shadow-xs">
+              <Icone nome="building" className="h-5 w-5" />
+            </div>
+            <div>
+              <span className="text-base font-extrabold tracking-tight text-navy">OASIS</span>
+              <span className="ml-1.5 hidden rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500 sm:inline-block">
+                CONDOMÍNIO
+              </span>
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-4 text-sm text-slate-600">
-          <span>{s.pessoa.nome} — {tipos.join(' / ')}</span>
-          <button onClick={() => { sair(); nav('/login'); }}
-            className="rounded-lg border px-3 py-1 hover:bg-slate-50">Sair</button>
+
+        {/* Informações do Usuário & Logout */}
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-navy-100 text-xs font-bold text-navy ring-2 ring-white">
+              {iniciais}
+            </div>
+            <div className="hidden text-left md:block">
+              <p className="text-xs font-bold text-slate-800 leading-tight">{s.pessoa.nome}</p>
+              <p className="text-[11px] text-slate-500 leading-tight">
+                {tipos.join(' • ')}
+              </p>
+            </div>
+          </div>
+
+          <div className="h-5 w-px bg-slate-200" />
+
+          <button
+            onClick={() => {
+              sair();
+              nav('/login');
+            }}
+            title="Sair do sistema"
+            className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-red-600 transition-colors cursor-pointer"
+          >
+            <Icone nome="logout" className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Sair</span>
+          </button>
         </div>
       </header>
-      <div className="flex">
-        <aside className="min-h-[calc(100vh-57px)] w-56 space-y-1 border-r bg-white p-3">
-          {tipos.includes('MORADOR') && <>
-            <p className="px-2 pt-2 text-xs font-semibold uppercase text-slate-400">Morador</p>
-            {item('/morador/reservar', 'Nova reserva')}
-            {item('/morador/reservas', 'Minhas reservas')}
-          </>}
-          {tipos.includes('PORTEIRO') && <>
-            <p className="px-2 pt-2 text-xs font-semibold uppercase text-slate-400">Portaria</p>
-            {item('/portaria/encomendas', 'Encomendas')}
-            {item('/portaria/chaves', 'Chaves')}
-          </>}
-          {tipos.includes('SINDICO') && <>
-            <p className="px-2 pt-2 text-xs font-semibold uppercase text-slate-400">Administração</p>
-            {item('/sindico/painel', 'Painel')}
-            {item('/sindico/areas', 'Áreas comuns')}
-            {item('/sindico/pessoas', 'Pessoas')}
-            {item('/sindico/avisos', 'Publicar aviso')}
-          </>}
-          <p className="px-2 pt-2 text-xs font-semibold uppercase text-slate-400">Geral</p>
-          {item('/mural', 'Mural de avisos')}
+
+      {/* Conteúdo Principal com Sidebar */}
+      <div className="flex flex-1">
+        {/* Backdrop Mobile */}
+        {menuAberto && (
+          <div
+            className="fixed inset-0 z-30 bg-slate-900/40 backdrop-blur-xs lg:hidden"
+            onClick={() => setMenuAberto(false)}
+          />
+        )}
+
+        {/* Sidebar */}
+        <aside
+          className={`fixed inset-y-0 left-0 z-30 w-64 transform border-r border-slate-200/80 bg-white p-4 transition-transform duration-200 ease-in-out lg:static lg:translate-x-0 ${
+            menuAberto ? 'translate-x-0 top-16' : '-translate-x-full lg:translate-x-0'
+          }`}
+        >
+          <div className="space-y-4 overflow-y-auto max-h-[calc(100vh-80px)]">
+            {tipos.includes('MORADOR') && (
+              <div>
+                <p className="px-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  Morador
+                </p>
+                <div className="space-y-1">
+                  {item('/morador/reservar', 'Nova Reserva', 'calendar')}
+                  {item('/morador/reservas', 'Minhas Reservas', 'clock')}
+                </div>
+              </div>
+            )}
+
+            {tipos.includes('PORTEIRO') && (
+              <div>
+                <p className="px-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  Portaria
+                </p>
+                <div className="space-y-1">
+                  {item('/portaria/encomendas', 'Encomendas', 'package')}
+                  {item('/portaria/chaves', 'Controle de Chaves', 'key')}
+                </div>
+              </div>
+            )}
+
+            {tipos.includes('SINDICO') && (
+              <div>
+                <p className="px-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  Administração
+                </p>
+                <div className="space-y-1">
+                  {item('/sindico/painel', 'Painel Geral', 'home')}
+                  {item('/sindico/areas', 'Áreas Comuns', 'building')}
+                  {item('/sindico/pessoas', 'Pessoas & Unidades', 'users')}
+                  {item('/sindico/avisos', 'Publicar Avisos', 'megaphone')}
+                </div>
+              </div>
+            )}
+
+            <div>
+              <p className="px-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                Comunicação
+              </p>
+              <div className="space-y-1">
+                {item('/mural', 'Mural de Avisos', 'pin')}
+              </div>
+            </div>
+          </div>
         </aside>
-        <main className="flex-1 p-6">
+
+        {/* Área Central das Telas */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto animate-fade-in">
           <Outlet />
         </main>
       </div>

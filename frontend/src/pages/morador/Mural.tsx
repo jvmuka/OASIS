@@ -1,51 +1,187 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
-import { Cartao, Titulo } from '../../components/ui';
+import { Cartao, Titulo, Icone, Badge, EmptyState } from '../../components/ui';
 
 type Aviso = {
-  id_aviso_perfil: number; titulo: string; conteudo: string; autor: string;
-  fixado: boolean; lido: boolean; data_hora_publicacao: string; escopo: string;
+  id_aviso_perfil: number;
+  titulo: string;
+  conteudo: string;
+  autor: string;
+  fixado: boolean;
+  lido: boolean;
+  data_hora_publicacao: string;
+  escopo: string;
 };
 
-/** UC05 - mural: destaque para fixados/não lidos; abrir marca como lido (RN14). */
+/** UC05 - Mural de Avisos com comunicados da administração (UI/UX Pro Max) */
 export default function Mural() {
   const [avisos, setAvisos] = useState<Aviso[]>([]);
   const [aberto, setAberto] = useState<number | null>(null);
+  const [carregando, setCarregando] = useState(true);
+  const [filtro, setFiltro] = useState<'TODOS' | 'NAO_LIDOS' | 'FIXADOS'>('TODOS');
 
-  const carregar = () => api.get<Aviso[]>('/avisos/meus').then(setAvisos);
-  useEffect(() => { carregar(); }, []);
+  const carregar = () => {
+    setCarregando(true);
+    api
+      .get<Aviso[]>('/avisos/meus')
+      .then(setAvisos)
+      .finally(() => setCarregando(false));
+  };
+
+  useEffect(() => {
+    carregar();
+  }, []);
 
   async function abrir(a: Aviso) {
-    setAberto(aberto === a.id_aviso_perfil ? null : a.id_aviso_perfil);
-    if (!a.lido) { await api.patch(`/avisos/${a.id_aviso_perfil}/lido`); carregar(); }
+    const jaAberto = aberto === a.id_aviso_perfil;
+    setAberto(jaAberto ? null : a.id_aviso_perfil);
+    if (!a.lido) {
+      await api.patch(`/avisos/${a.id_aviso_perfil}/lido`);
+      // Atualiza localmente o status de lido
+      setAvisos(prev =>
+        prev.map(item =>
+          item.id_aviso_perfil === a.id_aviso_perfil ? { ...item, lido: true } : item
+        )
+      );
+    }
   }
 
+  const avisosFiltrados = avisos.filter(a => {
+    if (filtro === 'NAO_LIDOS') return !a.lido;
+    if (filtro === 'FIXADOS') return a.fixado;
+    return true;
+  });
+
   return (
-    <div>
-      <Titulo sub="Comunicados da administração e notificações do sistema">Mural de Avisos</Titulo>
-      <div className="space-y-3">
-        {avisos.length === 0 && <Cartao><p className="text-sm text-slate-500">Nenhum comunicado disponível.</p></Cartao>}
-        {avisos.map(a => (
-          <Cartao key={a.id_aviso_perfil} className="cursor-pointer">
-            <div onClick={() => abrir(a)}>
-              <div className="flex items-center justify-between">
-                <h3 className={'font-semibold ' + (a.lido ? 'text-slate-600' : 'text-navy')}>
-                  {a.fixado && '📌 '}{a.titulo}{!a.lido && <span className="ml-2 rounded-full bg-navy px-2 py-0.5 text-[10px] font-bold text-white">NOVO</span>}
-                </h3>
-                <span className="text-xs text-slate-400">
-                  {new Date(a.data_hora_publicacao).toLocaleDateString('pt-BR')}
-                </span>
-              </div>
-              {aberto === a.id_aviso_perfil && (
-                <div className="mt-2 border-t pt-2 text-sm text-slate-600">
-                  <p>{a.conteudo}</p>
-                  <p className="mt-2 text-xs text-slate-400">Publicado por {a.autor}</p>
-                </div>
-              )}
-            </div>
-          </Cartao>
+    <div className="space-y-6">
+      <Titulo
+        sub="Fique por dentro das novidades, comunicados e manutenções do condomínio."
+        icone={<Icone nome="megaphone" className="h-5 w-5" />}
+      >
+        Mural de Avisos
+      </Titulo>
+
+      {/* Filtros rápidos */}
+      <div className="flex gap-2">
+        {(['TODOS', 'NAO_LIDOS', 'FIXADOS'] as const).map(f => (
+          <button
+            key={f}
+            type="button"
+            onClick={() => setFiltro(f)}
+            className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+              filtro === f
+                ? 'bg-navy text-white shadow-xs'
+                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            {f === 'TODOS' ? 'Todos' : f === 'NAO_LIDOS' ? 'Não Lidos' : 'Fixados'}
+          </button>
         ))}
       </div>
+
+      {carregando ? (
+        <div className="flex h-40 items-center justify-center text-xs text-slate-400">
+          <Icone nome="clock" className="mr-2 h-4 w-4 animate-spin text-navy" />
+          Carregando comunicados...
+        </div>
+      ) : avisosFiltrados.length === 0 ? (
+        <Cartao>
+          <EmptyState
+            icone="megaphone"
+            titulo="Nenhum comunicado encontrado"
+            descricao={
+              filtro === 'NAO_LIDOS'
+                ? 'Você já leu todos os comunicados recentes.'
+                : 'Não há avisos cadastrados no mural no momento.'
+            }
+          />
+        </Cartao>
+      ) : (
+        <div className="space-y-3.5">
+          {avisosFiltrados.map(a => {
+            const eAberto = aberto === a.id_aviso_perfil;
+            return (
+              <Cartao
+                key={a.id_aviso_perfil}
+                className={`cursor-pointer transition-all duration-200 hover:shadow-card-hover ${
+                  a.fixado ? 'border-amber-200/90 bg-amber-50/20' : ''
+                } ${!a.lido ? 'ring-1 ring-navy/15' : ''}`}
+              >
+                <div onClick={() => abrir(a)}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-bold ${
+                          a.fixado
+                            ? 'bg-amber-100 text-amber-800'
+                            : !a.lido
+                            ? 'bg-navy-50 text-navy'
+                            : 'bg-slate-100 text-slate-500'
+                        }`}
+                      >
+                        <Icone nome={a.fixado ? 'pin' : 'megaphone'} className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {a.fixado && (
+                            <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                              <Icone nome="pin" className="h-3 w-3" />
+                              FIXADO
+                            </span>
+                          )}
+                          {!a.lido && (
+                            <span className="rounded-md bg-navy px-2 py-0.5 text-[10px] font-bold text-white tracking-wider animate-pulse">
+                              NOVO
+                            </span>
+                          )}
+                          <h3 className={`text-base font-bold leading-tight ${a.lido ? 'text-slate-700' : 'text-navy'}`}>
+                            {a.titulo}
+                          </h3>
+                        </div>
+                        <p className="mt-1 text-xs text-slate-400">
+                          Publicado por <b>{a.autor}</b> em{' '}
+                          {new Date(a.data_hora_publicacao).toLocaleDateString('pt-BR', {
+                            day: '2-digit',
+                            month: 'long',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 transition-colors"
+                      title={eAberto ? 'Recolher' : 'Expandir'}
+                    >
+                      <Icone
+                        nome="chevronDown"
+                        className={`h-4 w-4 transform transition-transform ${eAberto ? 'rotate-180' : ''}`}
+                      />
+                    </button>
+                  </div>
+
+                  {eAberto && (
+                    <div className="mt-4 border-t border-slate-100 pt-3 text-sm text-slate-700 space-y-3 animate-fade-in">
+                      <p className="whitespace-pre-line leading-relaxed text-slate-600">
+                        {a.conteudo}
+                      </p>
+                      <div className="flex items-center justify-between text-[11px] text-slate-400 border-t border-slate-100/60 pt-2">
+                        <span>Escopo: {a.escopo}</span>
+                        <span className="text-emerald-700 font-semibold flex items-center gap-1">
+                          <Icone nome="check" className="h-3 w-3" />
+                          Mensagem lida
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Cartao>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

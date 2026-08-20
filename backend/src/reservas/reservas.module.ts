@@ -54,13 +54,13 @@ export class ReservasController {
         const fimSlot = ini + passo;
         const hFim = `${String(Math.floor(fimSlot / 60)).padStart(2, '0')}:${String(fimSlot % 60).padStart(2, '0')}`;
         const a = new Date(`${data}T${hIni}:00`); const b = new Date(`${data}T${hFim}:00`);
+        const noPassado = a <= agora;
         const ocupado = reservas.some(r =>
           a < new Date(r.data_hora_fim) && b > new Date(r.data_hora_inicio));
         const bloqueado = bloqueios.some(r =>
           a < new Date(r.data_hora_fim) && b > new Date(r.data_hora_inicio));
-        const noPassado = a <= agora;
-        slots.push({ inicio: hIni, fim: hFim,
-          status: bloqueado ? 'BLOQUEADO' : ocupado ? 'OCUPADO' : noPassado ? 'PASSADO' : 'LIVRE' });
+        const status = noPassado ? 'PASSADO' : bloqueado ? 'BLOQUEADO' : ocupado ? 'OCUPADO' : 'LIVRE';
+        slots.push({ inicio: hIni, fim: hFim, status });
         ini = fimSlot;
       }
     }
