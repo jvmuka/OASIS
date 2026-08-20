@@ -35,32 +35,47 @@ export class AvisosController {
   /** Mural do usuário logado: apenas avisos cuja data de publicação já chegou e que não expiraram. */
   @Get('meus')
   meus(@Req() req: any) {
-    const idPerfil = perfilDoUsuario(req.user);
+    const idsPerfis: number[] = (req.user?.perfis || []).map((p: any) => p.id_perfil);
+    if (!idsPerfis.length) return [];
     return this.db.query(`
-      SELECT ap.id_aviso_perfil, a.id_aviso, a.titulo, a.conteudo, a.escopo,
-             a.fixado, a.data_hora_publicacao, ap.lido, ap.data_hora_leitura,
+      SELECT DISTINCT ON (a.id_aviso)
+             COALESCE(ap.id_aviso_perfil, 0) AS id_aviso_perfil,
+             a.id_aviso, a.titulo, a.conteudo, a.escopo,
+             a.fixado, a.data_hora_publicacao,
+             COALESCE(ap.lido, FALSE) AS lido,
+             ap.data_hora_leitura,
              p.nome AS autor
-        FROM aviso_perfil ap
-        JOIN aviso a ON a.id_aviso = ap.id_aviso
+        FROM aviso a
         JOIN perfil pf ON pf.id_perfil = a.id_perfil_autor
         JOIN pessoa p ON p.id_pessoa = pf.id_pessoa
-       WHERE ap.id_perfil = $1
+        LEFT JOIN aviso_perfil ap ON ap.id_aviso = a.id_aviso AND ap.id_perfil = ANY($1::int[])
+       WHERE (
+             a.escopo = 'MURAL'
+          OR ap.id_perfil = ANY($1::int[])
+          OR a.id_perfil_autor = ANY($1::int[])
+       )
          AND a.data_hora_publicacao <= CURRENT_TIMESTAMP
          AND (a.data_hora_expiracao IS NULL OR a.data_hora_expiracao > CURRENT_TIMESTAMP)
-       ORDER BY a.fixado DESC, a.data_hora_publicacao DESC`, [idPerfil]);
+       ORDER BY a.id_aviso, a.fixado DESC, a.data_hora_publicacao DESC`, [idsPerfis])
+      .then(rows => rows.sort((x, y) => {
+        if (x.fixado !== y.fixado) return x.fixado ? -1 : 1;
+        return new Date(y.data_hora_publicacao).getTime() - new Date(x.data_hora_publicacao).getTime();
+      }));
   }
 
   @Patch(':idAvisoPerfil/lido')
-  marcarLido(@Req() req: any, @Param('idAvisoPerfil', ParseIntPipe) id: number) {
-    const idPerfil = perfilDoUsuario(req.user);
-    return this.db.query(`
-      UPDATE aviso_perfil SET lido = TRUE
-       WHERE id_aviso_perfil = $1 AND id_perfil = $2
-       RETURNING id_aviso_perfil, lido, data_hora_leitura`, [id, idPerfil])
-      .then(r => {
-        if (!r.length) throw new BadRequestException('Aviso inexistente para este perfil.');
-        return r[0];
-      });
+  async marcarLido(@Req() req: any, @Param('idAvisoPerfil', ParseIntPipe) id: number) {
+    const idsPerfis: number[] = (req.user?.perfis || []).map((p: any) => p.id_perfil);
+    if (!idsPerfis.length) throw new BadRequestException('Perfil não encontrado.');
+
+    if (id > 0) {
+      const r = await this.db.query(`
+        UPDATE aviso_perfil SET lido = TRUE
+         WHERE id_aviso_perfil = $1 AND id_perfil = ANY($2::int[])
+         RETURNING id_aviso_perfil, lido, data_hora_leitura`, [id, idsPerfis]);
+      if (r.length) return r[0];
+    }
+    return { ok: true };
   }
 
   @Post() @Perfis('SINDICO')

@@ -1,215 +1,142 @@
 # OASIS — Sistema de Gestão de Reservas e Controle de Acesso
 
-Aplicação web do projeto OASIS (UEPG — Projeto de Software, 2026).
-**Incremento 1**: autenticação, reservas com todas as regras de negócio,
-encomendas, chaves, mural de avisos, cadastros e painel administrativo.
+Aplicação web do projeto OASIS (UEPG — Projeto de Software, 2026).  
+**Incremento 1**: Autenticação, reservas com todas as regras de negócio, encomendas, controle de chaves, mural de avisos com agendamento, cadastros de pessoas/áreas e painel administrativo com indicadores consolidados.
 
 ```
-oasis-app/
-├── banco/      scripts SQL do PostgreSQL (criação, carga inicial e gatilhos)
-├── backend/    API REST em NestJS + TypeScript (porta 3000)
-└── frontend/   interface web em React + Vite + Tailwind (porta 5173)
+oasis/
+├── banco/        scripts SQL do PostgreSQL (criação, carga inicial e gatilhos)
+├── backend/      API REST em NestJS + TypeScript (porta 3000)
+├── frontend/     interface web em React + Vite + Tailwind (porta 5173)
+├── Documentos/   documentações, referências, guia Docker e relatórios de commits
+└── docker-compose.yml  orquestração de contêineres Docker
 ```
 
 ---
 
-## 1. O que você precisa instalar (uma única vez)
+## Como Rodar o Projeto
 
-| Programa       | Versão  | Onde baixar                          |
-|----------------|---------|--------------------------------------|
-| Node.js        | 22 LTS  | https://nodejs.org                   |
-| PostgreSQL     | 16      | https://www.postgresql.org/download  |
-| Git (opcional) | —       | https://git-scm.com                  |
-
-Durante a instalação do PostgreSQL, **anote a senha do usuário `postgres`**
-— você vai precisar dela nos passos 2 e 3.
-
-Para conferir se está tudo instalado, abra o terminal (PowerShell no
-Windows) e rode:
-
-```
-node -v        (deve mostrar v22.x)
-psql --version (deve mostrar psql 16.x)
-```
-
-> Se o `psql` não for reconhecido no Windows, adicione
-> `C:\Program Files\PostgreSQL\16\bin` ao PATH do sistema, ou use o
-> "SQL Shell (psql)" que vem no menu Iniciar.
+Você pode executar o sistema de duas maneiras: **via Docker (Recomendado)** ou **manualmente no ambiente local**.
 
 ---
 
-## 2. Criar o banco de dados
+### Método 1: Execução com Docker (Recomendado)
 
-Os quatro scripts em `banco/` criam TUDO: o banco `oasis`, os 15 tipos
-enumerados, as 17 tabelas, os índices, a carga inicial de dados e os
-10 gatilhos que implementam as regras RN01 a RN14.
+Com o Docker, **não é necessário** instalar Node.js nem PostgreSQL na sua máquina. O Docker Compose baixa as imagens, compila o código e sobe os três serviços de forma isolada.
 
-Execute na ordem (o psql vai pedir a senha do postgres):
+#### 1. Pré-requisito:
+- Ter o **[Docker Desktop](https://www.docker.com/products/docker-desktop/)** instalado e em execução no computador.
 
-```
-psql -U postgres -f banco/01_banco_e_tipos.sql
-psql -U postgres -d oasis -f banco/02_tabelas.sql
-psql -U postgres -d oasis -f banco/03_indices_e_carga.sql
-psql -U postgres -d oasis -f banco/04_gatilhos.sql
-```
+#### 2. Subir os contêineres:
+Na raiz do projeto (`Oasis/`), abra o terminal e execute:
 
-**Atenção:** o script 01 começa com `DROP DATABASE IF EXISTS oasis` —
-ele apaga e recria o banco. É o comportamento desejado para recomeçar do
-zero, mas não rode em um banco com dados que você queira manter.
-
-> Se o script 01 reclamar do locale `pt_BR.UTF-8` (comum no Windows),
-> abra o arquivo e troque as duas linhas `LC_COLLATE` e `LC_CTYPE`
-> para `'Portuguese_Brazil.1252'` — ou simplesmente remova as duas
-> linhas e a linha `TEMPLATE = template0`.
-
-Para conferir que deu certo:
-
-```
-psql -U postgres -d oasis -c "SELECT COUNT(*) AS tabelas FROM information_schema.tables WHERE table_schema='public';"
+```bash
+docker compose up -d --build
 ```
 
-Deve responder `17`.
+#### 3. Acessar a aplicação:
+- **Frontend (Web)**: [http://localhost:5173](http://localhost:5173)
+- **Backend (API REST)**: [http://localhost:3000/api](http://localhost:3000/api)
+- **Banco de Dados (PostgreSQL)**: `localhost:5433` (Usuário: `postgres`, Senha: `Oasis@2026`, Base: `oasis`)
+
+#### Comandos Úteis do Docker:
+```bash
+# Ver logs em tempo real:
+docker compose logs -f
+
+# Ver status dos contêineres:
+docker compose ps
+
+# Parar os serviços (mantendo os dados salvos no volume):
+docker compose down
+
+# Parar e resetar o banco de dados para a carga inicial:
+docker compose down -v
+```
 
 ---
 
-## 3. Rodar o backend (API)
+### Método 2: Execução Manual (Desenvolvimento Nativo)
 
+Se preferir rodar os serviços diretamente no sistema operacional:
+
+#### 1. Pré-requisitos:
+- **Node.js**: Versão 20 LTS ou 22 LTS ([nodejs.org](https://nodejs.org))
+- **PostgreSQL**: Versão 16 ([postgresql.org](https://www.postgresql.org/download))
+
+#### 2. Inicializar o Banco de Dados:
+No terminal ou no *SQL Shell (psql)*, execute o script completo ou a sequência de scripts em `banco/`:
+
+```bash
+psql -U postgres -f banco/oasis_banco_completo.sql
 ```
+*(Ou execute `01_banco_e_tipos.sql`, `02_tabelas.sql`, `03_indices_e_carga.sql` e `04_gatilhos.sql` em ordem).*
+
+#### 3. Iniciar o Backend (API):
+```bash
 cd backend
-copy .env.exemplo .env        (Linux/Mac: cp .env.exemplo .env)
+npm install
+npm run start:dev
 ```
+A API iniciará em `http://localhost:3000/api`.
 
-Abra o arquivo `.env` que acabou de criar e ajuste a linha do banco com
-a SUA senha do postgres:
-
-```
-DATABASE_URL=postgres://postgres:SUA_SENHA@localhost:5432/oasis
-```
-
-Depois:
-
-```
-npm install        (só na primeira vez; demora 1-2 minutos)
-npm run start:dev  (sobe a API com recarga automática)
-```
-
-Quando aparecer `OASIS API rodando em http://localhost:3000/api`,
-o backend está no ar. **Deixe esse terminal aberto.**
-
-Teste rápido (em outro terminal):
-
-```
-curl -X POST http://localhost:3000/api/auth/login -H "Content-Type: application/json" -d "{\"email\":\"carlos.silva@teste.com\",\"senha\":\"Teste@2026\"}"
-```
-
-Deve devolver um JSON com `token`, os dados do Carlos e o perfil MORADOR.
-
----
-
-## 4. Rodar o frontend (interface web)
-
-Em **outro terminal** (deixe o do backend rodando):
-
-```
+#### 4. Iniciar o Frontend (Interface Web):
+Em outro terminal:
+```bash
 cd frontend
-npm install    (só na primeira vez)
+npm install
 npm run dev
 ```
-
-Abra o navegador em **http://localhost:5173** e faça login com qualquer
-usuário da carga inicial. A senha de todos, neste incremento, é a definida
-em `DEV_SENHA` no `.env` do backend:
-
-| Usuário          | E-mail                    | Senha       | Perfil            |
-|------------------|---------------------------|-------------|-------------------|
-| Carlos Silva     | carlos.silva@teste.com    | Teste@2026  | MORADOR (A-302)   |
-| João Oliveira    | joao.oliveira@teste.com   | Teste@2026  | MORADOR (A-302)   |
-| Maria Santos     | maria.santos@teste.com    | Teste@2026  | MORADOR (B-105)   |
-| Helena Braga     | helena.braga@teste.com    | Teste@2026  | MORADOR (B-203)   |
-| Ana Paula Souza  | ana.souza@teste.com       | Teste@2026  | SINDICO + MORADOR |
-| Roberto Lima     | roberto.lima@teste.com    | Teste@2026  | PORTEIRO          |
-
-Cada perfil enxerga um menu diferente:
-- **Morador**: Nova reserva, Minhas reservas, Mural.
-- **Porteiro**: Encomendas, Chaves, Mural.
-- **Síndico**: Painel, Áreas comuns, Pessoas, Publicar aviso, Mural.
+Acesse a interface no navegador em `http://localhost:5173`.
 
 ---
 
-## 5. Roteiro de demonstração sugerido (5 minutos)
+## Contas de Acesso para Demonstração
 
-1. Logue como **Carlos** → Nova reserva → Academia → escolha uma data de
-   amanhã em diante → reserve 09:00-10:00. Confirmação verde.
-2. Sem sair, tente reservar **hoje** → a mensagem vermelha **RN06**
-   (antecedência mínima) aparece — direto do gatilho do banco.
-3. Logue como **Maria** → tente reservar a Academia no MESMO horário do
-   Carlos → **RN01** recusa. Reserve 15:00-16:00 → aceita (duas reservas
-   no mesmo dia, faixas diferentes — o problema do BRCONDOS resolvido).
-4. Logue como **Roberto (porteiro)** → Encomendas → registre um pacote
-   para o Carlos → volte no login do Carlos → o aviso "Nova encomenda na
-   portaria" está no Mural com selo NOVO (RN11 + RN13/14).
-5. Ainda como Roberto → Alterar status da encomenda → tente confirmar
-   escolhendo "Terceiro" sem nome → **RN12** recusa. Preencha e confirme.
-6. Chaves → empreste a CH-SALAO-01 ao Carlos → tente emprestar de novo →
-   **RN09** recusa e mostra quem está com ela. Registre a devolução.
-7. Logue como **Ana (síndica)** → Painel mostra os números → Publicar
-   aviso → todos os usuários passam a ver no Mural.
+A tela de login conta com botões de **Acesso Rápido de 1 Clique** para os três perfis de demonstração:
 
-## 6. Como o sistema funciona por dentro
+| Perfil | E-mail | Senha Padrão | Vínculo / Unidade |
+| :--- | :--- | :--- | :--- |
+| **Morador (Carlos)** | `carlos.silva@teste.com` | `Teste@2026` | Bloco A - Apto 302 |
+| **Síndica (Ana Paula)** | `ana.souza@teste.com` | `Teste@2026` | Síndico + Morador (Bloco A - Apto 61) |
+| **Porteiro (Roberto)** | `roberto.lima@teste.com` | `Teste@2026` | Portaria Central |
 
-**Fluxo de uma requisição** (ex.: confirmar reserva):
+### Menus Disponíveis por Perfil:
+- **Morador**: Nova Reserva (com Calendário), Minhas Reservas, Mural de Avisos.
+- **Porteiro**: Gestão de Encomendas, Controle de Chaves, Mural de Avisos.
+- **Síndico**: Painel Geral de Indicadores, Áreas Comuns & Regras, Pessoas & Unidades, Publicar/Agendar Avisos, Mural de Avisos.
 
-```
-Navegador (React)  →  Vite proxy /api  →  NestJS :3000  →  PostgreSQL
-     ↑                                        |    INSERT INTO reserva
-     |                                        |    dispara gatilhos RN01..RN07
-     └── mensagem de sucesso ou o texto ──────┘    (aceita ou RAISE EXCEPTION)
-         exato da regra violada (RNxx)
-```
+---
 
-Pontos de arquitetura que valem entender (e citar na banca):
+## Roteiro de Demonstração Sugerido
 
-1. **Regras de negócio no banco.** Os gatilhos PL/pgSQL validam
-   sobreposição, bloqueios, capacidade, janela de funcionamento,
-   antecedência e limite semanal. A API não duplica essas regras:
-   ela captura a exceção e devolve a mensagem `RNxx: ...` como HTTP 400,
-   e o frontend só a exibe. Uma regra, um lugar, impossível burlar
-   por fora da aplicação.
+1. **Autenticação com Acesso Rápido**:
+   - Acesse `http://localhost:5173` e clique no botão **"Morador"** para preenchimento instantâneo.
+2. **Nova Reserva de Espaço Coletivo**:
+   - Vá em **"Nova Reserva"** → Selecione a **Academia** ou **Salão de Festas**.
+   - Navegue pelo calendário interativo e escolha uma data futura.
+   - Observe os slots: `LIVRE` (verde), `OCUPADO` (amarelo) e `INDISPONÍVEL` (vermelho para horários passados).
+   - Confirme a reserva e utilize o botão **"Voltar"** para alternar entre áreas.
+3. **Mural de Avisos & Notificações**:
+   - Veja comunicados fixados e comunicados não lidos com selo pulsante `NOVO`.
+   - Ao expandir um comunicado, o sistema registra automaticamente a leitura.
+4. **Portaria (Encomendas e Chaves)**:
+   - Logue como **Porteiro (Roberto)**.
+   - Registre a chegada de um pacote para o Carlos (gera aviso no mural dele).
+   - Dê baixa em encomendas e registre empréstimo/devolução de chaves no claviculário.
+5. **Administração & Regras (Síndico)**:
+   - Logue como **Síndica (Ana)**.
+   - Veja os KPIs e gráfico de barras no **Painel Geral**.
+   - Em **"Áreas Comuns"**, configure durações em horas/minutos (`h/min`), prazos de cancelamento e antecedência em dias/horas (`d/h`).
+   - Em **"Publicar Avisos"**, publique comunicados imediatos ou agende publicações para horários futuros.
 
-2. **Autenticação em dois estágios.** `POST /auth/login` valida as
-   credenciais (neste incremento: senha única de desenvolvimento
-   `DEV_SENHA`; no incremento 2: token do Firebase) e emite um **JWT
-   próprio** com os perfis vigentes. Toda rota seguinte exige esse JWT
-   (`JwtAuthGuard`) e as rotas restritas verificam o perfil
-   (`PerfilGuard` + decorator `@Perfis('SINDICO')`).
+---
 
-3. **Perfil = usuário do sistema.** Quem reserva, empresta, recebe e
-   publica é sempre um `id_perfil` — exatamente como ficou modelado no
-   documento. A Ana, por exemplo, tem dois perfis (SINDICO e MORADOR) e
-   o menu mostra os dois mundos.
+## Arquitetura e Regras de Negócio
 
-4. **A grade de horários é calculada, não armazenada.** O endpoint de
-   disponibilidade lê AREA_HORARIO do dia da semana, fatia em slots de
-   `duracao_slot_min` e cruza com reservas ativas e bloqueios. Mudou a
-   regra da área no CRUD do síndico, a grade muda na hora.
-
-## 7. Problemas comuns
-
-| Sintoma | Causa provável | Solução |
-|---|---|---|
-| `ECONNREFUSED ... 5432` ao subir a API | PostgreSQL parado ou porta errada | Inicie o serviço do PostgreSQL; confira a porta no `.env` |
-| `password authentication failed` | Senha errada no `.env` | Corrija `DATABASE_URL` |
-| Login devolve "E-mail ou senha inválidos" | Senha diferente de `DEV_SENHA` | Use exatamente `Teste@2026` (ou o valor do seu `.env`) |
-| Tela branca em localhost:5173 | Backend fora do ar | Suba o backend antes; veja o terminal dele |
-| Erro de locale no script 01 | Windows sem `pt_BR.UTF-8` | Ver observação no passo 2 |
-| Porta 3000 ou 5173 ocupada | Outro processo usando | Mude `PORT` no `.env` e o proxy em `vite.config.ts` |
-
-## 8. Próximos incrementos (roteiro do cronograma)
-
-- **Firebase real** (S25): trocar o modo `DEV_SENHA` pela validação do
-  idToken com `firebase-admin`; o resto da API não muda.
-- **Prisma** (S24): o schema já está desenhado no documento; basta
-  `prisma db pull` no banco pronto para gerar o client tipado.
-- **CRUD de horários/utensílios/chaves na interface** (S27),
-  **bloqueios pela interface** (S34), **FCM push** (S35),
-  **relatórios exportáveis** (S36) e **integração Intelbras** (S34).
+1. **Regras de Negócio no Banco de Dados (PL/pgSQL)**:
+   - As regras `RN01` a `RN14` (sobreposição de horários, bloqueios, capacidade máxima, janela de funcionamento, antecedência mínima/máxima e limite semanal) residem em gatilhos no PostgreSQL. A API captura as exceções e retorna mensagens legíveis para a interface.
+2. **Design System UI/UX Pro Max**:
+   - Tipografia moderna `Plus Jakarta Sans`, ícones vetoriais SVG (sem emojis na interface), layout responsivo para desktop, tablet e celular, feedback de carregamento e acessibilidade visual.
+3. **Persistência e Isolamento**:
+   - Dados do PostgreSQL e uploads de imagens são persistidos em volumes nomeados (`oasis_pgdata` e `oasis_uploads`).

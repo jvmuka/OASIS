@@ -44,7 +44,7 @@ export class ReservasController {
     // monta a grade de slots em memoria
     const slots: any[] = [];
     const passo = info.duracao_slot_min;
-    const agora = new Date();
+    const agora = new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
     for (const j of janelas) {
       let [h, m] = String(j.hora_inicio).split(':').map(Number);
       const [hf, mf] = String(j.hora_fim).split(':').map(Number);
@@ -53,12 +53,19 @@ export class ReservasController {
         const hIni = `${String(Math.floor(ini / 60)).padStart(2, '0')}:${String(ini % 60).padStart(2, '0')}`;
         const fimSlot = ini + passo;
         const hFim = `${String(Math.floor(fimSlot / 60)).padStart(2, '0')}:${String(fimSlot % 60).padStart(2, '0')}`;
-        const a = new Date(`${data}T${hIni}:00`); const b = new Date(`${data}T${hFim}:00`);
-        const noPassado = a <= agora;
-        const ocupado = reservas.some(r =>
-          a < new Date(r.data_hora_fim) && b > new Date(r.data_hora_inicio));
-        const bloqueado = bloqueios.some(r =>
-          a < new Date(r.data_hora_fim) && b > new Date(r.data_hora_inicio));
+        const slotIniStr = `${data}T${hIni}:00`;
+        const slotFimStr = `${data}T${hFim}:00`;
+        const noPassado = slotIniStr <= agora;
+        const ocupado = reservas.some(r => {
+          const rIni = new Date(r.data_hora_inicio).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
+          const rFim = new Date(r.data_hora_fim).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
+          return slotIniStr < rFim && slotFimStr > rIni;
+        });
+        const bloqueado = bloqueios.some(r => {
+          const bIni = new Date(r.data_hora_inicio).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
+          const bFim = new Date(r.data_hora_fim).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
+          return slotIniStr < bFim && slotFimStr > bIni;
+        });
         const status = noPassado ? 'PASSADO' : bloqueado ? 'BLOQUEADO' : ocupado ? 'OCUPADO' : 'LIVRE';
         slots.push({ inicio: hIni, fim: hFim, status });
         ini = fimSlot;

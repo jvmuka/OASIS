@@ -1,18 +1,7 @@
 -- =====================================================================
 -- OASIS - Sistema de gestao de reservas e controle de acesso
 -- Script de criacao do banco de dados - PostgreSQL 16
--- Parte 1 de 3: criacao do banco e dos tipos enumerados
 -- =====================================================================
-
-DROP DATABASE IF EXISTS oasis;
-
--- A codificacao e o locale sao herdados do cluster, o que torna o script
--- portavel entre Windows e Linux (os nomes de locale diferem entre eles).
-CREATE DATABASE oasis;
-
-COMMENT ON DATABASE oasis IS 'Base de dados do sistema OASIS - UEPG 2026';
-
-\c oasis
 
 -- ---------------------------------------------------------------------
 -- Tipos enumerados (dominios fechados)
@@ -689,8 +678,7 @@ BEGIN
         SELECT NEW.id_aviso, p.id_perfil
           FROM perfil p
          WHERE p.data_fim IS NULL
-           AND p.recebe_notificacao = TRUE
-           AND p.id_perfil <> NEW.id_perfil_autor;
+           AND p.recebe_notificacao = TRUE;
     END IF;
     RETURN NEW;
 END;
@@ -717,4 +705,13 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER tg_leitura_aviso
     BEFORE UPDATE ON aviso_perfil
     FOR EACH ROW EXECUTE FUNCTION fn_leitura_aviso();
+
+-- ---------------------------------------------------------------------
+-- Carga inicial de avisos no mural (com trigger ativo para distribuicao)
+-- ---------------------------------------------------------------------
+INSERT INTO aviso (id_perfil_autor, escopo, titulo, conteudo, fixado, data_hora_publicacao) VALUES
+    (4, 'MURAL', 'Boas-vindas ao Sistema OASIS', 'Seja bem-vindo ao OASIS, o sistema integrado de gestao de reservas, comunicados e portaria do nosso condominio. Em caso de duvidas, procure a administracao.', TRUE, CURRENT_TIMESTAMP - INTERVAL '2 days'),
+    (4, 'MURAL', 'Manutencao Preventiva dos Elevadores', 'Informamos que na proxima terca-feira, entre 09:00 e 12:00, os elevadores do Bloco A passarao por manutencao preventiva de rotina. Contamos com a compreensao de todos.', FALSE, CURRENT_TIMESTAMP - INTERVAL '1 day'),
+    (4, 'MURAL', 'Regras de Uso da Piscina e Academia', 'Lembramos a todos os moradores que a realizacao de reservas e obrigatoria para a Academia e que a Piscina opera conforme os horarios cadastrados no aplicativo.', FALSE, CURRENT_TIMESTAMP);
+
 

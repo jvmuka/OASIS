@@ -7,6 +7,7 @@ services:
     container_name: oasis-banco
     restart: unless-stopped
     environment:
+      TZ: America/Sao_Paulo
       POSTGRES_DB: oasis
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: Oasis@2026
@@ -36,6 +37,7 @@ services:
       banco:
         condition: service_healthy
     environment:
+      TZ: America/Sao_Paulo
       PORT: 3000
       DATABASE_URL: postgres://postgres:Oasis%402026@banco:5432/oasis
       JWT_SECRET: oasis-jwt-secret-producao-2026
