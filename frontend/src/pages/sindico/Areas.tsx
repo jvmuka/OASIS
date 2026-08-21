@@ -161,10 +161,10 @@ export default function Areas() {
         {/* Tabela de Áreas */}
         <div className="lg:col-span-8">
           <Cartao>
-            <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="mb-4 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <div>
-                <h3 className="text-base font-bold text-slate-900">Espaços Cadastrados</h3>
-                <p className="text-xs text-slate-500">Total de {areas.length} áreas no condomínio</p>
+                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Espaços Cadastrados</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Total de {areas.length} áreas no condomínio</p>
               </div>
             </div>
 
@@ -177,7 +177,7 @@ export default function Areas() {
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                   <thead>
-                    <tr className="border-b border-slate-200/80 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    <tr className="border-b border-slate-200/80 dark:border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                       <th className="py-3 px-3">Espaço</th>
                       <th className="py-3 px-2">Cap.</th>
                       <th className="py-3 px-2">Duração</th>
@@ -187,34 +187,34 @@ export default function Areas() {
                       <th className="py-3 px-3 text-right">Ações</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {areas.map(a => (
-                      <tr key={a.id_area_comum} className="hover:bg-slate-50/80 transition-colors">
+                      <tr key={a.id_area_comum} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors">
                         <td className="py-3 px-3">
                           <div className="flex items-center gap-3">
                             {a.imagem_url ? (
                               <img
                                 src={a.imagem_url}
                                 alt={a.nome}
-                                className="h-10 w-10 shrink-0 rounded-xl object-cover ring-1 ring-slate-200"
+                                className="h-10 w-10 shrink-0 rounded-xl object-cover ring-1 ring-slate-200 dark:ring-slate-700"
                               />
                             ) : (
-                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500">
                                 <Icone nome="image" className="h-5 w-5" />
                               </div>
                             )}
                             <div>
-                              <p className="font-bold text-slate-900 leading-tight">{a.nome}</p>
-                              <p className="text-[11px] text-slate-400">Máx. {a.limite_reservas_semana}x/sem</p>
+                              <p className="font-bold text-slate-900 dark:text-slate-100 leading-tight">{a.nome}</p>
+                              <p className="text-[11px] text-slate-400 dark:text-slate-500">Máx. {a.limite_reservas_semana}x/sem</p>
                             </div>
                           </div>
                         </td>
-                        <td className="py-3 px-2 text-xs font-semibold text-slate-700">{a.capacidade} pes.</td>
-                        <td className="py-3 px-2 text-xs text-slate-600">{formatarDuracao(a.duracao_slot_min)}</td>
-                        <td className="py-3 px-2 text-xs text-slate-600">
+                        <td className="py-3 px-2 text-xs font-semibold text-slate-700 dark:text-slate-300">{a.capacidade} pes.</td>
+                        <td className="py-3 px-2 text-xs text-slate-600 dark:text-slate-300">{formatarDuracao(a.duracao_slot_min)}</td>
+                        <td className="py-3 px-2 text-xs text-slate-600 dark:text-slate-300">
                           {formatarHoras(a.antecedencia_minima_horas ?? a.antecedencia_minima_dias * 24)}
                         </td>
-                        <td className="py-3 px-2 text-xs text-slate-600">{formatarHoras(a.prazo_cancelamento_horas)}</td>
+                        <td className="py-3 px-2 text-xs text-slate-600 dark:text-slate-300">{formatarHoras(a.prazo_cancelamento_horas)}</td>
                         <td className="py-3 px-2">
                           <Badge tipo={a.ativo ? 'sucesso' : 'perigo'}>
                             {a.ativo ? 'Ativa' : 'Inativa'}
@@ -224,7 +224,7 @@ export default function Areas() {
                           <div className="flex items-center justify-end gap-1.5">
                             <button
                               onClick={() => abrirEdicao(a)}
-                              className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-navy transition-colors cursor-pointer"
+                              className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-navy dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-sky-400 transition-colors cursor-pointer"
                               title="Editar regras e dados"
                             >
                               <Icone nome="edit" className="h-4 w-4" />
@@ -233,8 +233,8 @@ export default function Areas() {
                               onClick={() => alternarAtivo(a)}
                               className={`rounded-lg p-1.5 text-xs font-semibold transition-colors cursor-pointer ${
                                 a.ativo
-                                  ? 'text-slate-400 hover:bg-red-50 hover:text-red-600'
-                                  : 'text-emerald-600 hover:bg-emerald-50'
+                                  ? 'text-slate-400 hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-rose-950/40 dark:hover:text-rose-400'
+                                  : 'text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/40'
                               }`}
                               title={a.ativo ? 'Inativar área' : 'Reativar área'}
                             >
@@ -254,12 +254,12 @@ export default function Areas() {
         {/* Formulário de Cadastro de Nova Área */}
         <div className="lg:col-span-4">
           <Cartao>
-            <div className="mb-4 border-b border-slate-100 pb-3">
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <Icone nome="plus" className="h-4 w-4 text-navy" />
+            <div className="mb-4 border-b border-slate-100 dark:border-slate-800 pb-3">
+              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <Icone nome="plus" className="h-4 w-4 text-navy dark:text-sky-400" />
                 Cadastrar Novo Espaço
               </h3>
-              <p className="text-xs text-slate-500">Defina o nome e as regras de agendamento</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Defina o nome e as regras de agendamento</p>
             </div>
 
             <form onSubmit={criar} className="space-y-4">
@@ -299,7 +299,7 @@ export default function Areas() {
 
               {/* Duração da Reserva */}
               <label className="block text-sm">
-                <span className="mb-1.5 block text-xs font-semibold text-slate-700">
+                <span className="mb-1.5 block text-xs font-semibold text-slate-700 dark:text-slate-300">
                   Duração da Reserva <span className="text-red-500">*</span>
                 </span>
                 <div className="grid grid-cols-2 gap-2">
@@ -317,7 +317,7 @@ export default function Areas() {
                         setForm({ ...form, duracao_slot_min: Math.max(1, h * 60 + m) });
                       }}
                     />
-                    <span className="absolute right-2.5 top-2.5 text-xs text-slate-400 font-bold">h</span>
+                    <span className="absolute right-2.5 top-2.5 text-xs text-slate-400 dark:text-slate-500 font-bold">h</span>
                   </div>
                   <div className="relative">
                     <input
@@ -334,14 +334,14 @@ export default function Areas() {
                         setForm({ ...form, duracao_slot_min: Math.max(1, h * 60 + m) });
                       }}
                     />
-                    <span className="absolute right-2.5 top-2.5 text-xs text-slate-400 font-bold">min</span>
+                    <span className="absolute right-2.5 top-2.5 text-xs text-slate-400 dark:text-slate-500 font-bold">min</span>
                   </div>
                 </div>
               </label>
 
               {/* Antecedência Mínima */}
               <label className="block text-sm">
-                <span className="mb-1.5 block text-xs font-semibold text-slate-700">Antecedência Mínima</span>
+                <span className="mb-1.5 block text-xs font-semibold text-slate-700 dark:text-slate-300">Antecedência Mínima</span>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="relative">
                     <input
@@ -356,7 +356,7 @@ export default function Areas() {
                         setForm({ ...form, antecedencia_minima_horas: d * 24 + h });
                       }}
                     />
-                    <span className="absolute right-2.5 top-2.5 text-xs text-slate-400 font-bold">d</span>
+                    <span className="absolute right-2.5 top-2.5 text-xs text-slate-400 dark:text-slate-500 font-bold">d</span>
                   </div>
                   <div className="relative">
                     <input
@@ -372,14 +372,14 @@ export default function Areas() {
                         setForm({ ...form, antecedencia_minima_horas: d * 24 + h });
                       }}
                     />
-                    <span className="absolute right-2.5 top-2.5 text-xs text-slate-400 font-bold">h</span>
+                    <span className="absolute right-2.5 top-2.5 text-xs text-slate-400 dark:text-slate-500 font-bold">h</span>
                   </div>
                 </div>
               </label>
 
               {/* Prazo de Cancelamento */}
               <label className="block text-sm">
-                <span className="mb-1.5 block text-xs font-semibold text-slate-700">Prazo de Cancelamento</span>
+                <span className="mb-1.5 block text-xs font-semibold text-slate-700 dark:text-slate-300">Prazo de Cancelamento</span>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="relative">
                     <input
@@ -394,7 +394,7 @@ export default function Areas() {
                         setForm({ ...form, prazo_cancelamento_horas: d * 24 + h });
                       }}
                     />
-                    <span className="absolute right-2.5 top-2.5 text-xs text-slate-400 font-bold">d</span>
+                    <span className="absolute right-2.5 top-2.5 text-xs text-slate-400 dark:text-slate-500 font-bold">d</span>
                   </div>
                   <div className="relative">
                     <input
@@ -410,7 +410,7 @@ export default function Areas() {
                         setForm({ ...form, prazo_cancelamento_horas: d * 24 + h });
                       }}
                     />
-                    <span className="absolute right-2.5 top-2.5 text-xs text-slate-400 font-bold">h</span>
+                    <span className="absolute right-2.5 top-2.5 text-xs text-slate-400 dark:text-slate-500 font-bold">h</span>
                   </div>
                 </div>
               </label>
@@ -431,7 +431,7 @@ export default function Areas() {
                   type="file"
                   accept="image/jpeg,image/png,image/webp,image/gif"
                   ref={fileInputCriar}
-                  className="block w-full text-xs text-slate-500 file:mr-3 file:rounded-lg file:border-0 file:bg-navy-50 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-navy hover:file:bg-navy-100 transition-colors"
+                  className="block w-full text-xs text-slate-500 dark:text-slate-400 file:mr-3 file:rounded-lg file:border-0 file:bg-navy-50 dark:file:bg-slate-800 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-navy dark:file:text-sky-400 hover:file:bg-navy-100 dark:hover:file:bg-slate-700 transition-colors"
                 />
               </Campo>
 
@@ -486,7 +486,7 @@ export default function Areas() {
 
             {/* Duração da Reserva */}
             <label className="block text-sm">
-              <span className="mb-1.5 block text-xs font-semibold text-slate-700">Duração da Reserva</span>
+              <span className="mb-1.5 block text-xs font-semibold text-slate-700 dark:text-slate-300">Duração da Reserva</span>
               <div className="grid grid-cols-2 gap-2">
                 <div className="relative">
                   <input
@@ -502,7 +502,7 @@ export default function Areas() {
                       setEditando({ ...editando, duracao_slot_min: Math.max(1, h * 60 + m) });
                     }}
                   />
-                  <span className="absolute right-2.5 top-2.5 text-xs text-slate-400 font-bold">h</span>
+                  <span className="absolute right-2.5 top-2.5 text-xs text-slate-400 dark:text-slate-500 font-bold">h</span>
                 </div>
                 <div className="relative">
                   <input
@@ -519,14 +519,14 @@ export default function Areas() {
                       setEditando({ ...editando, duracao_slot_min: Math.max(1, h * 60 + m) });
                     }}
                   />
-                  <span className="absolute right-2.5 top-2.5 text-xs text-slate-400 font-bold">min</span>
+                  <span className="absolute right-2.5 top-2.5 text-xs text-slate-400 dark:text-slate-500 font-bold">min</span>
                 </div>
               </div>
             </label>
 
             {/* Antecedência Mínima */}
             <label className="block text-sm">
-              <span className="mb-1.5 block text-xs font-semibold text-slate-700">Antecedência Mínima</span>
+              <span className="mb-1.5 block text-xs font-semibold text-slate-700 dark:text-slate-300">Antecedência Mínima</span>
               <div className="grid grid-cols-2 gap-2">
                 <div className="relative">
                   <input
@@ -541,7 +541,7 @@ export default function Areas() {
                       setEditando({ ...editando, antecedencia_minima_horas: d * 24 + h });
                     }}
                   />
-                  <span className="absolute right-2.5 top-2.5 text-xs text-slate-400 font-bold">d</span>
+                  <span className="absolute right-2.5 top-2.5 text-xs text-slate-400 dark:text-slate-500 font-bold">d</span>
                 </div>
                 <div className="relative">
                   <input
@@ -557,14 +557,14 @@ export default function Areas() {
                       setEditando({ ...editando, antecedencia_minima_horas: d * 24 + h });
                     }}
                   />
-                  <span className="absolute right-2.5 top-2.5 text-xs text-slate-400 font-bold">h</span>
+                  <span className="absolute right-2.5 top-2.5 text-xs text-slate-400 dark:text-slate-500 font-bold">h</span>
                 </div>
               </div>
             </label>
 
             {/* Prazo de Cancelamento */}
             <label className="block text-sm">
-              <span className="mb-1.5 block text-xs font-semibold text-slate-700">Prazo de Cancelamento</span>
+              <span className="mb-1.5 block text-xs font-semibold text-slate-700 dark:text-slate-300">Prazo de Cancelamento</span>
               <div className="grid grid-cols-2 gap-2">
                 <div className="relative">
                   <input
@@ -579,7 +579,7 @@ export default function Areas() {
                       setEditando({ ...editando, prazo_cancelamento_horas: d * 24 + h });
                     }}
                   />
-                  <span className="absolute right-2.5 top-2.5 text-xs text-slate-400 font-bold">d</span>
+                  <span className="absolute right-2.5 top-2.5 text-xs text-slate-400 dark:text-slate-500 font-bold">d</span>
                 </div>
                 <div className="relative">
                   <input
@@ -595,7 +595,7 @@ export default function Areas() {
                       setEditando({ ...editando, prazo_cancelamento_horas: d * 24 + h });
                     }}
                   />
-                  <span className="absolute right-2.5 top-2.5 text-xs text-slate-400 font-bold">h</span>
+                  <span className="absolute right-2.5 top-2.5 text-xs text-slate-400 dark:text-slate-500 font-bold">h</span>
                 </div>
               </div>
             </label>
@@ -620,18 +620,18 @@ export default function Areas() {
                   const file = e.target.files?.[0];
                   if (file) setPreviewImagem(URL.createObjectURL(file));
                 }}
-                className="block w-full text-xs text-slate-500 file:mr-3 file:rounded-lg file:border-0 file:bg-navy-50 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-navy hover:file:bg-navy-100 transition-colors"
+                className="block w-full text-xs text-slate-500 dark:text-slate-400 file:mr-3 file:rounded-lg file:border-0 file:bg-navy-50 dark:file:bg-slate-800 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-navy dark:file:text-sky-400 hover:file:bg-navy-100 dark:hover:file:bg-slate-700 transition-colors"
               />
             </Campo>
 
             {previewImagem && (
-              <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 p-2.5">
+              <div className="flex items-center gap-3 rounded-xl border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5">
                 <img src={previewImagem} alt="Preview" className="h-16 w-24 rounded-lg object-cover" />
-                <span className="text-xs text-slate-500">Pré-visualização da imagem</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400">Pré-visualização da imagem</span>
               </div>
             )}
 
-            <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100">
+            <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
               <Botao variante="claro" onClick={() => setEditando(null)}>
                 Cancelar
               </Botao>

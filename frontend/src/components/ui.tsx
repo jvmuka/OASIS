@@ -32,12 +32,26 @@ export function Icone({
     | 'x'
     | 'image'
     | 'upload'
+    | 'sun'
+    | 'moon'
     | 'user'
     | 'sparkles'
     | 'box';
   className?: string;
 }) {
   switch (nome) {
+    case 'sun':
+      return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+        </svg>
+      );
+    case 'moon':
+      return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+        </svg>
+      );
     case 'home':
       return (
         <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -223,13 +237,13 @@ export function Titulo({
     <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-start gap-3">
         {icone && (
-          <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-navy-50 text-navy">
+          <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-navy-50 text-navy dark:bg-slate-800 dark:text-sky-400">
             {icone}
           </div>
         )}
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">{children}</h1>
-          {sub && <p className="mt-0.5 text-sm text-slate-500 font-normal">{sub}</p>}
+          <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-2xl">{children}</h1>
+          {sub && <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400 font-normal">{sub}</p>}
         </div>
       </div>
       {acao && <div className="flex shrink-0 items-center gap-2">{acao}</div>}
@@ -249,8 +263,10 @@ export function Cartao({
 }) {
   return (
     <div
-      className={`rounded-xl border bg-white p-5 transition-all duration-200 ${
-        destaque ? 'border-navy/20 shadow-card ring-1 ring-navy/5' : 'border-slate-200/80 shadow-soft hover:border-slate-300/80'
+      className={`rounded-xl border bg-white dark:bg-slate-900 dark:text-slate-200 p-5 transition-all duration-200 ${
+        destaque
+          ? 'border-navy/20 shadow-card ring-1 ring-navy/5 dark:border-sky-500/30 dark:ring-sky-500/10'
+          : 'border-slate-200/80 shadow-soft hover:border-slate-300/80 dark:border-slate-800 dark:hover:border-slate-700'
       } ${className}`}
     >
       {children}
@@ -286,17 +302,17 @@ export function Botao(
 
   const estilos = {
     primario:
-      'bg-navy text-white hover:bg-navy-light shadow-sm hover:shadow active:scale-[0.98] border border-transparent',
+      'bg-navy text-white hover:bg-navy-light shadow-sm hover:shadow active:scale-[0.98] border border-transparent dark:bg-sky-600 dark:hover:bg-sky-500',
     secundario:
-      'bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900 active:scale-[0.98] border border-slate-200/60',
+      'bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900 active:scale-[0.98] border border-slate-200/60 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:border-slate-700 dark:hover:text-white',
     claro:
-      'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-navy hover:border-slate-300 shadow-sm active:scale-[0.98]',
+      'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-navy hover:border-slate-300 shadow-sm active:scale-[0.98] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:hover:text-white dark:hover:border-slate-600',
     perigo:
-      'bg-red-600 text-white hover:bg-red-700 shadow-sm hover:shadow active:scale-[0.98] border border-transparent',
+      'bg-red-600 text-white hover:bg-red-700 shadow-sm hover:shadow active:scale-[0.98] border border-transparent dark:bg-rose-600 dark:hover:bg-rose-500',
     sucesso:
-      'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm hover:shadow active:scale-[0.98] border border-transparent',
+      'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm hover:shadow active:scale-[0.98] border border-transparent dark:bg-emerald-600 dark:hover:bg-emerald-500',
     fantasma:
-      'bg-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900 active:scale-[0.98] border border-transparent',
+      'bg-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900 active:scale-[0.98] border border-transparent dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white',
   }[variante];
 
   return (
@@ -334,11 +350,11 @@ export function Campo({
 }) {
   return (
     <label className={`block text-sm ${className}`}>
-      <span className="mb-1.5 flex items-center justify-between text-xs font-semibold text-slate-700">
+      <span className="mb-1.5 flex items-center justify-between text-xs font-semibold text-slate-700 dark:text-slate-300">
         <span>
-          {rotulo} {obrigatorio && <span className="text-red-500">*</span>}
+          {rotulo} {obrigatorio && <span className="text-red-500 dark:text-rose-400">*</span>}
         </span>
-        {ajuda && <span className="text-[11px] font-normal text-slate-400">{ajuda}</span>}
+        {ajuda && <span className="text-[11px] font-normal text-slate-400 dark:text-slate-500">{ajuda}</span>}
       </span>
       {children}
     </label>
@@ -347,7 +363,7 @@ export function Campo({
 
 /** Classe padrão moderna para inputs de formulário */
 export const inputCls =
-  'w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-800 placeholder-slate-400 transition-all duration-150 outline-none focus:border-navy focus:ring-2 focus:ring-navy/15 hover:border-slate-300 disabled:bg-slate-50 disabled:text-slate-400';
+  'w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-800 placeholder-slate-400 transition-all duration-150 outline-none focus:border-navy focus:ring-2 focus:ring-navy/15 hover:border-slate-300 disabled:bg-slate-50 disabled:text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500 dark:hover:border-slate-600 dark:focus:border-sky-500 dark:focus:ring-sky-500/20 dark:disabled:bg-slate-800/40 dark:disabled:text-slate-500';
 
 /** Badge / Pílula de status semântica com indicador colorido */
 export function Badge({
@@ -360,21 +376,21 @@ export function Badge({
   className?: string;
 }) {
   const estilos = {
-    sucesso: 'bg-emerald-50 text-emerald-700 border-emerald-200/80',
-    aviso: 'bg-amber-50 text-amber-800 border-amber-200/80',
-    perigo: 'bg-red-50 text-red-700 border-red-200/80',
-    info: 'bg-sky-50 text-sky-700 border-sky-200/80',
-    primario: 'bg-navy-50 text-navy border-navy-200/80',
-    neutro: 'bg-slate-100 text-slate-600 border-slate-200/80',
+    sucesso: 'bg-emerald-50 text-emerald-700 border-emerald-200/80 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800/60',
+    aviso: 'bg-amber-50 text-amber-800 border-amber-200/80 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800/60',
+    perigo: 'bg-red-50 text-red-700 border-red-200/80 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-800/60',
+    info: 'bg-sky-50 text-sky-700 border-sky-200/80 dark:bg-sky-950/50 dark:text-sky-300 dark:border-sky-800/60',
+    primario: 'bg-navy-50 text-navy border-navy-200/80 dark:bg-slate-800 dark:text-sky-300 dark:border-slate-700',
+    neutro: 'bg-slate-100 text-slate-600 border-slate-200/80 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
   }[tipo];
 
   const dot = {
     sucesso: 'bg-emerald-500',
     aviso: 'bg-amber-500',
-    perigo: 'bg-red-500',
+    perigo: 'bg-red-500 dark:bg-rose-500',
     info: 'bg-sky-500',
-    primario: 'bg-navy',
-    neutro: 'bg-slate-400',
+    primario: 'bg-navy dark:bg-sky-400',
+    neutro: 'bg-slate-400 dark:bg-slate-500',
   }[tipo];
 
   return (
@@ -400,12 +416,12 @@ export function EmptyState({
   acao?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-900/40 p-8 text-center">
+      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-400">
         <Icone nome={icone} className="h-6 w-6" />
       </div>
-      <h3 className="mt-3 text-sm font-semibold text-slate-800">{titulo}</h3>
-      {descricao && <p className="mt-1 max-w-sm text-xs text-slate-500">{descricao}</p>}
+      <h3 className="mt-3 text-sm font-semibold text-slate-800 dark:text-slate-200">{titulo}</h3>
+      {descricao && <p className="mt-1 max-w-sm text-xs text-slate-500 dark:text-slate-400">{descricao}</p>}
       {acao && <div className="mt-4">{acao}</div>}
     </div>
   );
@@ -444,18 +460,18 @@ export function Modal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity animate-fade-in" onClick={fechar} />
+      <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs transition-opacity animate-fade-in" onClick={fechar} />
 
       {/* Card */}
       <div
-        className={`relative z-10 w-full ${largura} max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-modal border border-slate-100 animate-scale-in`}
+        className={`relative z-10 w-full ${largura} max-h-[90vh] overflow-y-auto rounded-2xl bg-white dark:bg-slate-900 dark:text-slate-100 p-6 shadow-modal border border-slate-100 dark:border-slate-800 animate-scale-in`}
         onClick={e => e.stopPropagation()}
       >
-        <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3">
-          <h3 className="text-lg font-bold text-slate-900">{titulo}</h3>
+        <div className="mb-4 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+          <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{titulo}</h3>
           <button
             onClick={fechar}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors cursor-pointer"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
           >
             <Icone nome="x" className="h-4 w-4" />
           </button>
@@ -473,8 +489,8 @@ export function Mensagem({ texto, tipo }: { texto: string; tipo: 'erro' | 'ok' }
     <div
       className={`mt-4 flex items-center gap-2.5 rounded-xl border p-3.5 text-sm font-medium animate-fade-in ${
         tipo === 'erro'
-          ? 'border-red-200 bg-red-50/90 text-red-700'
-          : 'border-emerald-200 bg-emerald-50/90 text-emerald-800'
+          ? 'border-red-200 bg-red-50/90 text-red-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300'
+          : 'border-emerald-200 bg-emerald-50/90 text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300'
       }`}
     >
       <Icone nome={tipo === 'erro' ? 'alert' : 'check'} className="h-4 w-4 shrink-0" />

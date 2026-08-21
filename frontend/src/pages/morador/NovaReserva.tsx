@@ -108,8 +108,8 @@ export default function NovaReserva() {
         sub="Selecione um espaço coletivo, consulte o calendário e reserve seus horários."
         icone={<Icone nome="calendar" className="h-5 w-5" />}
         acao={
-          <div className="flex items-center gap-2 rounded-xl bg-slate-100/80 px-3.5 py-1.5 text-xs text-slate-600 font-medium">
-            <Icone nome="user" className="h-3.5 w-3.5 text-slate-400" />
+          <div className="flex items-center gap-2 rounded-xl bg-slate-100/80 dark:bg-slate-800 px-3.5 py-1.5 text-xs text-slate-600 dark:text-slate-300 font-medium">
+            <Icone nome="user" className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
             <span>
               <b>{s.pessoa.nome}</b>
               {unidade && ` • Bloco ${unidade.bloco}, Apto ${unidade.numero_apartamento}`}
@@ -124,7 +124,7 @@ export default function NovaReserva() {
       {!area && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               Escolha a Área Comum ({areas.length} disponíveis)
             </h2>
           </div>
@@ -133,11 +133,11 @@ export default function NovaReserva() {
             {areas.map(a => (
               <Cartao
                 key={a.id_area_comum}
-                className="group cursor-pointer overflow-hidden p-0 transition-all duration-200 hover:-translate-y-0.5 hover:border-navy/30 hover:shadow-card-hover"
+                className="group cursor-pointer overflow-hidden p-0 transition-all duration-200 hover:-translate-y-0.5 hover:border-navy/30 dark:hover:border-sky-500/40 hover:shadow-card-hover"
               >
                 <div onClick={() => { setArea(a); setPessoas(Math.min(pessoas, a.capacidade)); }}>
                   {/* Foto da Área */}
-                  <div className="relative h-44 w-full overflow-hidden bg-slate-100">
+                  <div className="relative h-44 w-full overflow-hidden bg-slate-100 dark:bg-slate-800">
                     {a.imagem_url ? (
                       <img
                         src={a.imagem_url}
@@ -145,7 +145,7 @@ export default function NovaReserva() {
                         className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                       />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 text-slate-400">
+                      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 text-slate-400">
                         <Icone nome="building" className="h-10 w-10" />
                       </div>
                     )}
@@ -159,14 +159,14 @@ export default function NovaReserva() {
 
                   {/* Informações da Área */}
                   <div className="p-4">
-                    <h3 className="text-base font-bold text-slate-900 group-hover:text-navy transition-colors">
+                    <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 group-hover:text-navy dark:group-hover:text-sky-400 transition-colors">
                       {a.nome}
                     </h3>
-                    <div className="mt-2.5 flex flex-wrap gap-1.5 text-[11px] text-slate-500">
-                      <span className="rounded-md bg-slate-100 px-2 py-0.5 font-medium">
+                    <div className="mt-2.5 flex flex-wrap gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                      <span className="rounded-md bg-slate-100 dark:bg-slate-800 dark:text-slate-300 px-2 py-0.5 font-medium">
                         Antecedência: {a.antecedencia_minima_dias} a {a.antecedencia_maxima_dias}d
                       </span>
-                      <span className="rounded-md bg-slate-100 px-2 py-0.5 font-medium">
+                      <span className="rounded-md bg-slate-100 dark:bg-slate-800 dark:text-slate-300 px-2 py-0.5 font-medium">
                         Máx. {a.limite_reservas_semana}x/sem
                       </span>
                     </div>
@@ -184,25 +184,25 @@ export default function NovaReserva() {
           <button
             type="button"
             onClick={voltar}
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-navy transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-navy dark:text-slate-400 dark:hover:text-sky-400 transition-colors cursor-pointer"
           >
             <Icone nome="chevronLeft" className="h-4 w-4" />
             Voltar para lista de áreas
           </button>
 
           <Cartao>
-            <div className="mb-5 flex items-center justify-between border-b border-slate-100 pb-4">
+            <div className="mb-5 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
               <div className="flex items-center gap-3">
                 {area.imagem_url && (
                   <img
                     src={area.imagem_url}
                     alt={area.nome}
-                    className="h-12 w-12 rounded-xl object-cover ring-1 ring-slate-200"
+                    className="h-12 w-12 rounded-xl object-cover ring-1 ring-slate-200 dark:ring-slate-700"
                   />
                 )}
                 <div>
-                  <h3 className="text-lg font-bold text-slate-900">{area.nome}</h3>
-                  <p className="text-xs text-slate-500">
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{area.nome}</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     Capacidade máxima: <b>{area.capacidade} pessoas</b> • Cancelamento até <b>{area.prazo_cancelamento_horas}h</b> antes
                   </p>
                 </div>
@@ -221,7 +221,7 @@ export default function NovaReserva() {
               {/* Coluna Esquerda: Calendário & Regras */}
               <div className="space-y-4 md:col-span-6">
                 <div>
-                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     1. Selecione a Data Desejada
                   </p>
                   <Calendario
@@ -242,9 +242,9 @@ export default function NovaReserva() {
                   />
                 </Campo>
 
-                <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-3.5 text-xs text-slate-600 space-y-1">
-                  <p className="font-bold text-navy">Regras deste Espaço:</p>
-                  <ul className="list-inside list-disc space-y-0.5 text-slate-500">
+                <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 dark:border-slate-800 dark:bg-slate-800/50 p-3.5 text-xs text-slate-600 dark:text-slate-300 space-y-1">
+                  <p className="font-bold text-navy dark:text-sky-400">Regras deste Espaço:</p>
+                  <ul className="list-inside list-disc space-y-0.5 text-slate-500 dark:text-slate-400">
                     <li>Antecedência: {area.antecedencia_minima_dias} a {area.antecedencia_maxima_dias} dias.</li>
                     <li>Cancelamento permitido até {area.prazo_cancelamento_horas} horas antes do início.</li>
                     <li>Limite de {area.limite_reservas_semana} reserva(s) semanais por unidade.</li>
@@ -253,9 +253,9 @@ export default function NovaReserva() {
               </div>
 
               {/* Coluna Direita: Grade de Horários */}
-              <div className="flex flex-col justify-between md:col-span-6 md:border-l md:border-slate-100 md:pl-6">
+              <div className="flex flex-col justify-between md:col-span-6 md:border-l md:border-slate-100 dark:md:border-slate-800 md:pl-6">
                 <div>
-                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     2. Escolha o Horário ({data ? `${data} - ${grade?.dia_semana || ''}` : 'Nenhuma data selecionada'})
                   </p>
 
@@ -269,7 +269,7 @@ export default function NovaReserva() {
 
                   {carregandoGrade && (
                     <div className="flex h-40 items-center justify-center text-xs text-slate-400">
-                      <Icone nome="clock" className="mr-2 h-4 w-4 animate-spin text-navy" />
+                      <Icone nome="clock" className="mr-2 h-4 w-4 animate-spin text-navy dark:text-sky-400" />
                       Consultando disponibilidade...
                     </div>
                   )}
@@ -305,12 +305,12 @@ export default function NovaReserva() {
                             className={
                               'flex items-center justify-between rounded-xl border p-2.5 text-xs font-semibold transition-all ' +
                               (sel
-                                ? 'border-navy bg-navy text-white shadow-sm ring-2 ring-navy/20 cursor-pointer'
+                                ? 'border-navy bg-navy text-white shadow-sm ring-2 ring-navy/20 dark:bg-sky-600 dark:border-sky-500 cursor-pointer'
                                 : livre
-                                ? 'border-slate-200 bg-white text-slate-700 hover:border-navy hover:bg-navy-50/40 cursor-pointer'
+                                ? 'border-slate-200 bg-white text-slate-700 hover:border-navy hover:bg-navy-50/40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:bg-slate-700 cursor-pointer'
                                 : ocupado
-                                ? 'cursor-not-allowed border-amber-200/90 bg-amber-50/80 text-amber-900'
-                                : 'cursor-not-allowed border-red-200/90 bg-red-50/80 text-red-900')
+                                ? 'cursor-not-allowed border-amber-200/90 bg-amber-50/80 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300'
+                                : 'cursor-not-allowed border-red-200/90 bg-red-50/80 text-red-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300')
                             }
                           >
                             <span>{sl.inicio} – {sl.fim}</span>
@@ -319,10 +319,10 @@ export default function NovaReserva() {
                                 sel
                                   ? 'bg-white/20 text-white'
                                   : livre
-                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/60'
                                   : ocupado
-                                  ? 'bg-amber-100 text-amber-800 border border-amber-300/70'
-                                  : 'bg-red-100 text-red-700 border border-red-200/80'
+                                  ? 'bg-amber-100 text-amber-800 border border-amber-300/70 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800/60'
+                                  : 'bg-red-100 text-red-700 border border-red-200/80 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800/60'
                               }`}
                             >
                               {rotuloStatus}
@@ -335,9 +335,9 @@ export default function NovaReserva() {
                 </div>
 
                 {/* Botão de Confirmação */}
-                <div className="mt-6 border-t border-slate-100 pt-4">
+                <div className="mt-6 border-t border-slate-100 dark:border-slate-800 pt-4">
                   {slot && (
-                    <div className="mb-3 rounded-xl bg-navy-50/70 p-3 text-xs text-navy font-medium">
+                    <div className="mb-3 rounded-xl bg-navy-50/70 dark:bg-sky-950/50 dark:text-sky-300 p-3 text-xs text-navy font-medium">
                       Resumo: <b>{area.nome}</b> em <b>{data}</b> das <b>{slot.inicio} às {slot.fim}</b> ({pessoas} pessoas).
                     </div>
                   )}

@@ -77,12 +77,12 @@ export default function Calendario({ dataSelecionada, onChange, minDate, maxDate
         className={
           'flex h-9 w-9 items-center justify-center rounded-xl text-xs font-semibold transition-all duration-150 cursor-pointer ' +
           (sel
-            ? 'bg-navy text-white shadow-sm ring-2 ring-navy/30'
+            ? 'bg-navy text-white shadow-sm ring-2 ring-navy/30 dark:bg-sky-600 dark:ring-sky-500/40'
             : eHoje
-            ? 'border-2 border-navy text-navy font-bold hover:bg-navy-50'
+            ? 'border-2 border-navy text-navy font-bold hover:bg-navy-50 dark:border-sky-400 dark:text-sky-400 dark:hover:bg-slate-800'
             : ativo
-            ? 'text-slate-700 hover:bg-slate-100 hover:text-navy active:scale-95'
-            : 'cursor-not-allowed text-slate-300')
+            ? 'text-slate-700 hover:bg-slate-100 hover:text-navy dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-sky-400 active:scale-95'
+            : 'cursor-not-allowed text-slate-300 dark:text-slate-700')
         }
       >
         {dia}
@@ -91,23 +91,23 @@ export default function Calendario({ dataSelecionada, onChange, minDate, maxDate
   }
 
   return (
-    <div className="w-full max-w-xs rounded-2xl border border-slate-200/80 bg-white p-3.5 shadow-soft">
+    <div className="w-full max-w-xs rounded-2xl border border-slate-200/80 bg-white dark:border-slate-800 dark:bg-slate-900 p-3.5 shadow-soft">
       {/* Cabeçalho de navegação */}
       <div className="mb-3 flex items-center justify-between">
         <button
           type="button"
           onClick={() => navegar(-1)}
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors cursor-pointer"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100 transition-colors cursor-pointer"
         >
           <Icone nome="chevronLeft" className="h-4 w-4" />
         </button>
-        <span className="text-xs font-bold uppercase tracking-wider text-slate-800">
+        <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-100">
           {MESES[mes]} {ano}
         </span>
         <button
           type="button"
           onClick={() => navegar(1)}
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors cursor-pointer"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100 transition-colors cursor-pointer"
         >
           <Icone nome="chevronRight" className="h-4 w-4" />
         </button>
@@ -116,7 +116,7 @@ export default function Calendario({ dataSelecionada, onChange, minDate, maxDate
       {/* Dias da semana */}
       <div className="mb-1 grid grid-cols-7 gap-1">
         {DIAS_SEMANA.map(d => (
-          <div key={d} className="flex h-7 items-center justify-center text-[10px] font-bold uppercase text-slate-400">
+          <div key={d} className="flex h-7 items-center justify-center text-[10px] font-bold uppercase text-slate-400 dark:text-slate-500">
             {d}
           </div>
         ))}

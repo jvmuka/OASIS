@@ -107,12 +107,12 @@ export default function Encomendas() {
         {/* Formulário de Registro */}
         <div className="lg:col-span-5">
           <Cartao>
-            <div className="mb-4 border-b border-slate-100 pb-3">
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <Icone nome="plus" className="h-4 w-4 text-navy" />
+            <div className="mb-4 border-b border-slate-100 dark:border-slate-800 pb-3">
+              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <Icone nome="plus" className="h-4 w-4 text-navy dark:text-sky-400" />
                 Registrar Chegada
               </h3>
-              <p className="text-xs text-slate-500">Notifica automaticamente o morador no mural</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Notifica automaticamente o morador no mural</p>
             </div>
 
             <form onSubmit={registrar} className="space-y-4">
@@ -155,12 +155,12 @@ export default function Encomendas() {
                       onClick={() => setTamanho(t.id)}
                       className={`rounded-xl border p-2 text-center transition-all cursor-pointer ${
                         tamanho === t.id
-                          ? 'border-navy bg-navy text-white shadow-xs'
-                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                          ? 'border-navy bg-navy text-white shadow-xs dark:bg-sky-600 dark:border-sky-500'
+                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700'
                       }`}
                     >
                       <p className="text-xs font-bold">{t.label}</p>
-                      <p className={`text-[10px] ${tamanho === t.id ? 'text-white/80' : 'text-slate-400'}`}>
+                      <p className={`text-[10px] ${tamanho === t.id ? 'text-white/80' : 'text-slate-400 dark:text-slate-400'}`}>
                         {t.desc}
                       </p>
                     </button>
@@ -182,10 +182,10 @@ export default function Encomendas() {
         {/* Listagem de Encomendas */}
         <div className="lg:col-span-7">
           <Cartao>
-            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-3">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <div>
-                <h3 className="text-base font-bold text-slate-900">Histórico & Pendências</h3>
-                <p className="text-xs text-slate-500">Controle de pacotes na portaria</p>
+                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Histórico & Pendências</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Controle de pacotes na portaria</p>
               </div>
 
               {/* Filtros */}
@@ -197,8 +197,8 @@ export default function Encomendas() {
                     onClick={() => setFiltro(f)}
                     className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition-all cursor-pointer ${
                       filtro === f
-                        ? 'bg-navy text-white'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        ? 'bg-navy text-white dark:bg-sky-600'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
                     }`}
                   >
                     {f === 'TODAS' ? 'Todas' : f === 'AGUARDANDO' ? 'Aguardando' : 'Entregues'}
@@ -218,23 +218,23 @@ export default function Encomendas() {
                 }
               />
             ) : (
-              <div className="divide-y divide-slate-100 max-h-[550px] overflow-y-auto pr-1">
+              <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-[550px] overflow-y-auto pr-1">
                 {encomendasFiltradas.map(e => (
                   <div
                     key={e.id_encomenda}
-                    className="flex flex-col gap-3 py-3.5 sm:flex-row sm:items-center sm:justify-between hover:bg-slate-50/60 rounded-xl px-2 transition-colors"
+                    className="flex flex-col gap-3 py-3.5 sm:flex-row sm:items-center sm:justify-between hover:bg-slate-50/60 dark:hover:bg-slate-800/60 rounded-xl px-2 transition-colors"
                   >
                     <div className="flex items-start gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">
                         <Icone nome="package" className="h-5 w-5" />
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-slate-900 leading-tight">{e.destinatario}</p>
-                        <p className="mt-0.5 text-xs text-slate-500 font-medium">
+                        <p className="text-sm font-bold text-slate-900 dark:text-slate-100 leading-tight">{e.destinatario}</p>
+                        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400 font-medium">
                           {e.bloco ? `Bloco ${e.bloco}, Apto ${e.numero_apartamento} • ` : ''}
                           {e.descricao || 'Sem descrição'} ({e.tamanho.toLowerCase()})
                         </p>
-                        <p className="text-[11px] text-slate-400">
+                        <p className="text-[11px] text-slate-400 dark:text-slate-500">
                           Recebida em:{' '}
                           {new Date(e.data_hora_recebimento).toLocaleString('pt-BR', {
                             day: '2-digit',
@@ -278,7 +278,7 @@ export default function Encomendas() {
       >
         {retirando && (
           <div className="space-y-4">
-            <div className="rounded-xl bg-slate-50 p-3 text-xs text-slate-600 space-y-1 border border-slate-100">
+            <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-3 text-xs text-slate-600 dark:text-slate-300 space-y-1 border border-slate-100 dark:border-slate-700">
               <p>Destinatário: <b>{retirando.destinatario}</b></p>
               <p>Unidade: <b>Bloco {retirando.bloco}, Apto {retirando.numero_apartamento}</b></p>
               <p>Descrição: <b>{retirando.descricao || 'Sem descrição'}</b></p>
@@ -308,7 +308,7 @@ export default function Encomendas() {
               </Campo>
             )}
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
               <Botao variante="claro" onClick={() => setRetirando(null)}>
                 Cancelar
               </Botao>

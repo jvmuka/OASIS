@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { sessaoAtual, sair } from '../api';
 import { Icone, Badge } from './ui';
+import BotaoModoEscuro from './BotaoModoEscuro';
 
 /**
  * Casca comum de todas as telas internas:
@@ -30,8 +31,8 @@ export default function Layout() {
       className={({ isActive }) =>
         'group flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all duration-150 ' +
         (isActive
-          ? 'bg-navy-50 text-navy font-semibold shadow-xs ring-1 ring-navy/10'
-          : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900')
+          ? 'bg-navy-50 text-navy font-semibold shadow-xs ring-1 ring-navy/10 dark:bg-slate-800 dark:text-sky-400 dark:ring-slate-700'
+          : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/60 dark:hover:text-slate-100')
       }
     >
       {({ isActive }) => (
@@ -39,7 +40,7 @@ export default function Layout() {
           <Icone
             nome={icone}
             className={`h-4 w-4 transition-colors ${
-              isActive ? 'text-navy' : 'text-slate-400 group-hover:text-slate-600'
+              isActive ? 'text-navy dark:text-sky-400' : 'text-slate-400 group-hover:text-slate-600 dark:text-slate-500 dark:group-hover:text-slate-300'
             }`}
           />
           <span className="truncate">{rotulo}</span>
@@ -49,46 +50,48 @@ export default function Layout() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col transition-colors duration-200">
       {/* Header Superior */}
-      <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-slate-200/80 bg-white/95 px-4 sm:px-6 backdrop-blur-xs">
+      <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-slate-200/80 bg-white/95 px-4 sm:px-6 backdrop-blur-xs dark:border-slate-800 dark:bg-slate-900/95">
         <div className="flex items-center gap-3">
           <button
             onClick={() => setMenuAberto(!menuAberto)}
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 lg:hidden cursor-pointer"
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 lg:hidden cursor-pointer"
             aria-label="Abrir menu"
           >
             <Icone nome={menuAberto ? 'x' : 'filter'} className="h-5 w-5" />
           </button>
 
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-navy to-navy-light text-white shadow-xs">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-navy to-navy-light text-white shadow-xs dark:from-sky-600 dark:to-navy">
               <Icone nome="building" className="h-5 w-5" />
             </div>
             <div>
-              <span className="text-base font-extrabold tracking-tight text-navy">OASIS</span>
-              <span className="ml-1.5 hidden rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500 sm:inline-block">
+              <span className="text-base font-extrabold tracking-tight text-navy dark:text-sky-400">OASIS</span>
+              <span className="ml-1.5 hidden rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-400 sm:inline-block">
                 CONDOMÍNIO
               </span>
             </div>
           </div>
         </div>
 
-        {/* Informações do Usuário & Logout */}
+        {/* Informações do Usuário & Alternador de Tema & Logout */}
         <div className="flex items-center gap-3 sm:gap-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-navy-100 text-xs font-bold text-navy ring-2 ring-white">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-navy-100 text-xs font-bold text-navy ring-2 ring-white dark:bg-slate-800 dark:text-sky-400 dark:ring-slate-700">
               {iniciais}
             </div>
             <div className="hidden text-left md:block">
-              <p className="text-xs font-bold text-slate-800 leading-tight">{s.pessoa.nome}</p>
-              <p className="text-[11px] text-slate-500 leading-tight">
+              <p className="text-xs font-bold text-slate-800 dark:text-slate-200 leading-tight">{s.pessoa.nome}</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
                 {tipos.join(' • ')}
               </p>
             </div>
           </div>
 
-          <div className="h-5 w-px bg-slate-200" />
+          <BotaoModoEscuro />
+
+          <div className="h-5 w-px bg-slate-200 dark:bg-slate-800" />
 
           <button
             onClick={() => {
@@ -96,7 +99,7 @@ export default function Layout() {
               nav('/login');
             }}
             title="Sair do sistema"
-            className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-red-600 transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-red-600 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-rose-400 transition-colors cursor-pointer"
           >
             <Icone nome="logout" className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Sair</span>
@@ -116,7 +119,7 @@ export default function Layout() {
 
         {/* Sidebar */}
         <aside
-          className={`fixed inset-y-0 left-0 z-30 w-64 transform border-r border-slate-200/80 bg-white p-4 transition-transform duration-200 ease-in-out lg:static lg:translate-x-0 ${
+          className={`fixed inset-y-0 left-0 z-30 w-64 transform border-r border-slate-200/80 bg-white p-4 transition-transform duration-200 ease-in-out dark:border-slate-800 dark:bg-slate-900 lg:static lg:translate-x-0 ${
             menuAberto ? 'translate-x-0 top-16' : '-translate-x-full lg:translate-x-0'
           }`}
         >

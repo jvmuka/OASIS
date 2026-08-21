@@ -70,8 +70,8 @@ export default function Mural() {
             onClick={() => setFiltro(f)}
             className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer ${
               filtro === f
-                ? 'bg-navy text-white shadow-xs'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
+                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800'
             }`}
           >
             {f === 'TODOS' ? 'Todos' : f === 'NAO_LIDOS' ? 'Não Lidos' : 'Fixados'}
@@ -81,7 +81,7 @@ export default function Mural() {
 
       {carregando ? (
         <div className="flex h-40 items-center justify-center text-xs text-slate-400">
-          <Icone nome="clock" className="mr-2 h-4 w-4 animate-spin text-navy" />
+          <Icone nome="clock" className="mr-2 h-4 w-4 animate-spin text-navy dark:text-sky-400" />
           Carregando comunicados...
         </div>
       ) : avisosFiltrados.length === 0 ? (
@@ -104,8 +104,8 @@ export default function Mural() {
               <Cartao
                 key={a.id_aviso_perfil}
                 className={`cursor-pointer transition-all duration-200 hover:shadow-card-hover ${
-                  a.fixado ? 'border-amber-200/90 bg-amber-50/20' : ''
-                } ${!a.lido ? 'ring-1 ring-navy/15' : ''}`}
+                  a.fixado ? 'border-amber-200/90 bg-amber-50/20 dark:border-amber-900/60 dark:bg-amber-950/20' : ''
+                } ${!a.lido ? 'ring-1 ring-navy/15 dark:ring-sky-500/30' : ''}`}
               >
                 <div onClick={() => abrir(a)}>
                   <div className="flex items-start justify-between gap-3">
@@ -113,10 +113,10 @@ export default function Mural() {
                       <div
                         className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-bold ${
                           a.fixado
-                            ? 'bg-amber-100 text-amber-800'
+                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
                             : !a.lido
-                            ? 'bg-navy-50 text-navy'
-                            : 'bg-slate-100 text-slate-500'
+                            ? 'bg-navy-50 text-navy dark:bg-slate-800 dark:text-sky-400'
+                            : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
                         }`}
                       >
                         <Icone nome={a.fixado ? 'pin' : 'megaphone'} className="h-5 w-5" />
@@ -124,21 +124,21 @@ export default function Mural() {
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
                           {a.fixado && (
-                            <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                            <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 dark:bg-amber-950/60 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:text-amber-300">
                               <Icone nome="pin" className="h-3 w-3" />
                               FIXADO
                             </span>
                           )}
                           {!a.lido && (
-                            <span className="rounded-md bg-navy px-2 py-0.5 text-[10px] font-bold text-white tracking-wider animate-pulse">
+                            <span className="rounded-md bg-navy dark:bg-sky-600 px-2 py-0.5 text-[10px] font-bold text-white tracking-wider animate-pulse">
                               NOVO
                             </span>
                           )}
-                          <h3 className={`text-base font-bold leading-tight ${a.lido ? 'text-slate-700' : 'text-navy'}`}>
+                          <h3 className={`text-base font-bold leading-tight ${a.lido ? 'text-slate-700 dark:text-slate-200' : 'text-navy dark:text-sky-400'}`}>
                             {a.titulo}
                           </h3>
                         </div>
-                        <p className="mt-1 text-xs text-slate-400">
+                        <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
                           Publicado por <b>{a.autor}</b> em{' '}
                           {new Date(a.data_hora_publicacao).toLocaleDateString('pt-BR', {
                             day: '2-digit',
@@ -152,7 +152,7 @@ export default function Mural() {
 
                     <button
                       type="button"
-                      className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 transition-colors"
+                      className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors"
                       title={eAberto ? 'Recolher' : 'Expandir'}
                     >
                       <Icone
@@ -163,13 +163,13 @@ export default function Mural() {
                   </div>
 
                   {eAberto && (
-                    <div className="mt-4 border-t border-slate-100 pt-3 text-sm text-slate-700 space-y-3 animate-fade-in">
-                      <p className="whitespace-pre-line leading-relaxed text-slate-600">
+                    <div className="mt-4 border-t border-slate-100 dark:border-slate-800 pt-3 text-sm text-slate-700 dark:text-slate-300 space-y-3 animate-fade-in">
+                      <p className="whitespace-pre-line leading-relaxed text-slate-600 dark:text-slate-300">
                         {a.conteudo}
                       </p>
-                      <div className="flex items-center justify-between text-[11px] text-slate-400 border-t border-slate-100/60 pt-2">
+                      <div className="flex items-center justify-between text-[11px] text-slate-400 dark:text-slate-500 border-t border-slate-100/60 dark:border-slate-800 pt-2">
                         <span>Escopo: {a.escopo}</span>
-                        <span className="text-emerald-700 font-semibold flex items-center gap-1">
+                        <span className="text-emerald-700 dark:text-emerald-400 font-semibold flex items-center gap-1">
                           <Icone nome="check" className="h-3 w-3" />
                           Mensagem lida
                         </span>

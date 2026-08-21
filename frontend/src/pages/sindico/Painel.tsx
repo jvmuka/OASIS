@@ -48,25 +48,25 @@ export default function PainelAdmin() {
       titulo: 'Reservas no Mês',
       valor: d.totais.reservas_mes,
       icone: 'calendar' as const,
-      cor: 'bg-blue-50 text-blue-600 border-blue-100',
+      cor: 'bg-blue-50 text-blue-600 border-blue-100 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900/60',
     },
     {
       titulo: 'Encomendas Pendentes',
       valor: d.totais.encomendas_pendentes,
       icone: 'package' as const,
-      cor: 'bg-amber-50 text-amber-600 border-amber-100',
+      cor: 'bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900/60',
     },
     {
       titulo: 'Moradores Ativos',
       valor: d.totais.moradores_ativos,
       icone: 'users' as const,
-      cor: 'bg-emerald-50 text-emerald-600 border-emerald-100',
+      cor: 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/60',
     },
     {
       titulo: 'Chaves em Uso',
       valor: d.totais.chaves_emprestadas,
       icone: 'key' as const,
-      cor: 'bg-indigo-50 text-indigo-600 border-indigo-100',
+      cor: 'bg-indigo-50 text-indigo-600 border-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-400 dark:border-indigo-900/60',
     },
   ];
 
@@ -84,10 +84,10 @@ export default function PainelAdmin() {
         {kpis.map(k => (
           <Cartao key={k.titulo} className="flex items-center justify-between p-5">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                 {k.titulo}
               </p>
-              <p className="mt-1.5 text-3xl font-extrabold tracking-tight text-navy">
+              <p className="mt-1.5 text-3xl font-extrabold tracking-tight text-navy dark:text-sky-400">
                 {k.valor}
               </p>
             </div>
@@ -102,12 +102,12 @@ export default function PainelAdmin() {
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Áreas mais utilizadas */}
         <Cartao>
-          <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3">
-            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <Icone nome="building" className="h-4 w-4 text-navy" />
+          <div className="mb-4 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <Icone nome="building" className="h-4 w-4 text-navy dark:text-sky-400" />
               Áreas Mais Utilizadas
             </h3>
-            <span className="text-xs text-slate-400">Neste mês</span>
+            <span className="text-xs text-slate-400 dark:text-slate-500">Neste mês</span>
           </div>
 
           {d.areas_mais_usadas.length === 0 ? (
@@ -119,12 +119,12 @@ export default function PainelAdmin() {
                 return (
                   <div key={a.nome} className="group">
                     <div className="mb-1 flex items-center justify-between text-xs">
-                      <span className="font-semibold text-slate-700">{a.nome}</span>
-                      <span className="font-bold text-navy">{a.reservas} reserva(s)</span>
+                      <span className="font-semibold text-slate-700 dark:text-slate-300">{a.nome}</span>
+                      <span className="font-bold text-navy dark:text-sky-400">{a.reservas} reserva(s)</span>
                     </div>
-                    <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
+                    <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
                       <div
-                        className="h-full rounded-full bg-gradient-to-r from-navy to-brand-blue transition-all duration-500 group-hover:opacity-90"
+                        className="h-full rounded-full bg-gradient-to-r from-navy to-brand-blue dark:from-sky-600 dark:to-cyan-400 transition-all duration-500 group-hover:opacity-90"
                         style={{ width: `${perc}%` }}
                       />
                     </div>
@@ -137,27 +137,27 @@ export default function PainelAdmin() {
 
         {/* Reservas Recentes */}
         <Cartao>
-          <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3">
-            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <Icone nome="calendar" className="h-4 w-4 text-navy" />
+          <div className="mb-4 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <Icone nome="calendar" className="h-4 w-4 text-navy dark:text-sky-400" />
               Reservas Recentes
             </h3>
-            <span className="text-xs text-slate-400">Últimos agendamentos</span>
+            <span className="text-xs text-slate-400 dark:text-slate-500">Últimos agendamentos</span>
           </div>
 
           {d.reservas_recentes.length === 0 ? (
             <EmptyState titulo="Nenhuma reserva recente" descricao="As novas reservas realizadas aparecerão aqui." />
           ) : (
-            <div className="divide-y divide-slate-100">
+            <div className="divide-y divide-slate-100 dark:divide-slate-800">
               {d.reservas_recentes.map((r, i) => (
                 <div key={i} className="flex items-center justify-between py-3">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-xs font-bold text-slate-700">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300">
                       {r.nome.charAt(0)}
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-slate-900">{r.nome}</p>
-                      <p className="text-xs text-slate-500">{r.area}</p>
+                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{r.nome}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{r.area}</p>
                     </div>
                   </div>
                   <div className="text-right">
@@ -172,7 +172,7 @@ export default function PainelAdmin() {
                     >
                       {r.status}
                     </Badge>
-                    <p className="mt-1 text-[11px] text-slate-400">
+                    <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
                       {new Date(r.data_hora_inicio).toLocaleDateString('pt-BR', {
                         day: '2-digit',
                         month: '2-digit',

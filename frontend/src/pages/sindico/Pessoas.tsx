@@ -100,10 +100,10 @@ export default function Pessoas() {
         {/* Tabela de Pessoas e Busca */}
         <div className="lg:col-span-7">
           <Cartao>
-            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-3">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <div>
-                <h3 className="text-base font-bold text-slate-900">Cadastros do Sistema</h3>
-                <p className="text-xs text-slate-500">{pessoas.length} pessoa(s) listada(s)</p>
+                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Cadastros do Sistema</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{pessoas.length} pessoa(s) listada(s)</p>
               </div>
 
               {/* Barra de Busca */}
@@ -116,7 +116,7 @@ export default function Pessoas() {
                     onChange={e => setBusca(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && carregar()}
                   />
-                  <span className="absolute left-2.5 top-2 text-slate-400">
+                  <span className="absolute left-2.5 top-2 text-slate-400 dark:text-slate-500">
                     <Icone nome="search" className="h-3.5 w-3.5" />
                   </span>
                 </div>
@@ -136,7 +136,7 @@ export default function Pessoas() {
               <div className="overflow-x-auto max-h-[550px] overflow-y-auto pr-1">
                 <table className="w-full text-left text-sm">
                   <thead>
-                    <tr className="border-b border-slate-200/80 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    <tr className="border-b border-slate-200/80 dark:border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                       <th className="py-2.5 px-3">Nome / E-mail</th>
                       <th className="py-2.5 px-2">Unidade</th>
                       <th className="py-2.5 px-2">Perfis</th>
@@ -144,27 +144,27 @@ export default function Pessoas() {
                       <th className="py-2.5 px-3 text-right">Ação</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {pessoas.map(p => (
-                      <tr key={p.id_pessoa} className="hover:bg-slate-50/80 transition-colors">
+                      <tr key={p.id_pessoa} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors">
                         <td className="py-3 px-3">
                           <div className="flex items-center gap-2.5">
-                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-700">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300">
                               {p.nome.charAt(0)}
                             </div>
                             <div>
-                              <p className="font-bold text-slate-900 leading-tight">{p.nome}</p>
-                              <p className="text-[11px] text-slate-400">{p.email}</p>
+                              <p className="font-bold text-slate-900 dark:text-slate-100 leading-tight">{p.nome}</p>
+                              <p className="text-[11px] text-slate-400 dark:text-slate-500">{p.email}</p>
                             </div>
                           </div>
                         </td>
-                        <td className="py-3 px-2 text-xs text-slate-600">
+                        <td className="py-3 px-2 text-xs text-slate-600 dark:text-slate-300">
                           {p.unidades[0] ? (
-                            <span className="rounded-md bg-slate-100 px-2 py-0.5 font-medium">
+                            <span className="rounded-md bg-slate-100 dark:bg-slate-800 dark:text-slate-300 px-2 py-0.5 font-medium">
                               Bloco {p.unidades[0].bloco} - Apto {p.unidades[0].apartamento}
                             </span>
                           ) : (
-                            <span className="text-slate-400">—</span>
+                            <span className="text-slate-400 dark:text-slate-600">—</span>
                           )}
                         </td>
                         <td className="py-3 px-2">
@@ -172,7 +172,7 @@ export default function Pessoas() {
                             {p.perfis.map(perf => (
                               <span
                                 key={perf.tipo}
-                                className="rounded-md bg-navy-50 px-1.5 py-0.5 text-[10px] font-bold text-navy"
+                                className="rounded-md bg-navy-50 dark:bg-slate-800 dark:text-sky-400 px-1.5 py-0.5 text-[10px] font-bold text-navy"
                               >
                                 {perf.tipo}
                               </span>
@@ -188,7 +188,7 @@ export default function Pessoas() {
                           {p.ativo && (
                             <button
                               onClick={() => setInativando(p)}
-                              className="text-xs font-semibold text-slate-400 hover:text-red-600 transition-colors cursor-pointer"
+                              className="text-xs font-semibold text-slate-400 hover:text-red-600 dark:text-slate-500 dark:hover:text-rose-400 transition-colors cursor-pointer"
                               title="Inativar usuário"
                             >
                               Inativar
@@ -207,12 +207,12 @@ export default function Pessoas() {
         {/* Formulário de Cadastro */}
         <div className="lg:col-span-5">
           <Cartao>
-            <div className="mb-4 border-b border-slate-100 pb-3">
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <Icone nome="plus" className="h-4 w-4 text-navy" />
+            <div className="mb-4 border-b border-slate-100 dark:border-slate-800 pb-3">
+              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <Icone nome="plus" className="h-4 w-4 text-navy dark:text-sky-400" />
                 Cadastrar Pessoa & Vínculo
               </h3>
-              <p className="text-xs text-slate-500">Criação de usuário, permissões e moradia</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Criação de usuário, permissões e moradia</p>
             </div>
 
             <form onSubmit={cadastrar} className="space-y-3.5">
@@ -320,13 +320,13 @@ export default function Pessoas() {
       >
         {inativando && (
           <div className="space-y-4">
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-slate-600 dark:text-slate-300">
               Deseja realmente inativar o cadastro de <b>{inativando.nome}</b>?
             </p>
-            <p className="text-xs text-amber-700 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
+            <p className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 p-2.5 rounded-lg border border-amber-200 dark:border-amber-900/60">
               Aviso: Todos os perfis vigentes e acessos desta pessoa serão encerrados no sistema.
             </p>
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
               <Botao variante="claro" onClick={() => setInativando(null)}>
                 Cancelar
               </Botao>

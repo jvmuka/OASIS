@@ -101,12 +101,12 @@ export default function PublicarAviso() {
         {/* Formulário de Criação / Agendamento */}
         <div className="lg:col-span-5">
           <Cartao>
-            <div className="mb-4 border-b border-slate-100 pb-3">
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <Icone nome="plus" className="h-4 w-4 text-navy" />
+            <div className="mb-4 border-b border-slate-100 dark:border-slate-800 pb-3">
+              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <Icone nome="plus" className="h-4 w-4 text-navy dark:text-sky-400" />
                 {isAgendamento ? 'Agendar Comunicado' : 'Novo Comunicado'}
               </h3>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 {isAgendamento
                   ? 'O comunicado será publicado automaticamente na data escolhida.'
                   : 'Preencha para distribuir imediatamente no mural de todos os moradores.'}
@@ -156,15 +156,15 @@ export default function PublicarAviso() {
                 </Campo>
               </div>
 
-              <label className="flex items-center gap-2.5 rounded-xl border border-slate-200/80 bg-slate-50/60 p-3 text-xs font-semibold text-slate-700 cursor-pointer hover:bg-slate-50">
+              <label className="flex items-center gap-2.5 rounded-xl border border-slate-200/80 bg-slate-50/60 dark:border-slate-700 dark:bg-slate-800/80 p-3 text-xs font-semibold text-slate-700 dark:text-slate-200 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800">
                 <input
                   type="checkbox"
                   checked={fixado}
                   onChange={e => setFixado(e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300 text-navy focus:ring-navy cursor-pointer"
+                  className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-navy dark:text-sky-500 focus:ring-navy dark:focus:ring-sky-500 cursor-pointer"
                 />
                 <span className="flex items-center gap-1.5">
-                  <Icone nome="pin" className="h-3.5 w-3.5 text-amber-600" />
+                  <Icone nome="pin" className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
                   Fixar no topo do mural dos moradores
                 </span>
               </label>
@@ -183,12 +183,12 @@ export default function PublicarAviso() {
         {/* Listagem de Avisos Já Publicados e Agendados */}
         <div className="lg:col-span-7">
           <Cartao>
-            <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="mb-4 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <div>
-                <h3 className="text-base font-bold text-slate-900">Comunicados Distribuídos</h3>
-                <p className="text-xs text-slate-500">Histórico de avisos e agendamentos</p>
+                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Comunicados Distribuídos</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Histórico de avisos e agendamentos</p>
               </div>
-              <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
+              <span className="rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 text-xs font-semibold text-slate-600 dark:text-slate-300">
                 {avisos.length} aviso(s)
               </span>
             </div>
@@ -211,13 +211,13 @@ export default function PublicarAviso() {
                   return (
                     <div
                       key={a.id_aviso}
-                      className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-soft transition-all hover:border-slate-300"
+                      className="rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-850/80 p-4 shadow-soft transition-all hover:border-slate-300 dark:hover:border-slate-700"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="space-y-1.5 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
                             {a.fixado && (
-                              <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                              <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 dark:bg-amber-950/60 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:text-amber-300">
                                 <Icone nome="pin" className="h-3 w-3" />
                                 FIXADO
                               </span>
@@ -233,23 +233,23 @@ export default function PublicarAviso() {
                             >
                               {a.status}
                             </Badge>
-                            <h4 className="text-sm font-bold text-slate-900">{a.titulo}</h4>
+                            <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">{a.titulo}</h4>
                           </div>
 
-                          <p className="text-xs text-slate-500">
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
                             {a.status === 'AGENDADO' ? 'Agendado para: ' : 'Publicado em: '}
                             <b>{dtPub.toLocaleString('pt-BR')}</b> • Por <b>{a.autor}</b>
                           </p>
 
                           {/* Taxa de leitura */}
                           <div className="mt-2 flex items-center gap-3">
-                            <div className="h-2 w-32 overflow-hidden rounded-full bg-slate-100">
+                            <div className="h-2 w-32 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
                               <div
                                 className="h-full rounded-full bg-emerald-500 transition-all duration-500"
                                 style={{ width: `${percLidos}%` }}
                               />
                             </div>
-                            <span className="text-[11px] text-slate-500 font-medium">
+                            <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
                               <b>{a.total_lidos}</b> de <b>{a.total_destinatarios}</b> lidos ({percLidos}%)
                             </span>
                           </div>
@@ -258,7 +258,7 @@ export default function PublicarAviso() {
                         <div className="flex items-center gap-1.5 shrink-0">
                           <button
                             onClick={() => setExpandido(eAberto ? null : a.id_aviso)}
-                            className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 transition-colors cursor-pointer"
+                            className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                             title={eAberto ? 'Recolher' : 'Ver conteúdo'}
                           >
                             <Icone
@@ -268,7 +268,7 @@ export default function PublicarAviso() {
                           </button>
                           <button
                             onClick={() => setExcluindo(a)}
-                            className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors cursor-pointer"
+                            className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-colors cursor-pointer"
                             title="Excluir aviso"
                           >
                             <Icone nome="trash" className="h-4 w-4" />
@@ -277,8 +277,8 @@ export default function PublicarAviso() {
                       </div>
 
                       {eAberto && (
-                        <div className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-700 space-y-2 animate-fade-in">
-                          <p className="whitespace-pre-line leading-relaxed text-slate-600 bg-slate-50/70 p-3 rounded-lg border border-slate-100">
+                        <div className="mt-3 border-t border-slate-100 dark:border-slate-800 pt-3 text-xs text-slate-700 dark:text-slate-300 space-y-2 animate-fade-in">
+                          <p className="whitespace-pre-line leading-relaxed text-slate-600 dark:text-slate-300 bg-slate-50/70 dark:bg-slate-800/80 p-3 rounded-lg border border-slate-100 dark:border-slate-700">
                             {a.conteudo}
                           </p>
                         </div>
@@ -300,10 +300,10 @@ export default function PublicarAviso() {
       >
         {excluindo && (
           <div className="space-y-4">
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-slate-600 dark:text-slate-300">
               Tem certeza de que deseja excluir o aviso <b>"{excluindo.titulo}"</b>?
             </p>
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
               <Botao variante="claro" onClick={() => setExcluindo(null)}>
                 Cancelar
               </Botao>

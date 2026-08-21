@@ -92,8 +92,8 @@ export default function MinhasReservas() {
             onClick={() => setFiltro(f)}
             className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer ${
               filtro === f
-                ? 'bg-navy text-white shadow-xs'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
+                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800'
             }`}
           >
             {f === 'TODAS' ? 'Todas' : f === 'ATIVAS' ? 'Ativas / Futuras' : 'Histórico'}
@@ -104,7 +104,7 @@ export default function MinhasReservas() {
       <Cartao>
         {carregando ? (
           <div className="flex h-40 items-center justify-center text-xs text-slate-400">
-            <Icone nome="clock" className="mr-2 h-4 w-4 animate-spin text-navy" />
+            <Icone nome="clock" className="mr-2 h-4 w-4 animate-spin text-navy dark:text-sky-400" />
             Carregando suas reservas...
           </div>
         ) : reservasFiltradas.length === 0 ? (
@@ -127,22 +127,22 @@ export default function MinhasReservas() {
             }
           />
         ) : (
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
             {reservasFiltradas.map(r => (
               <div
                 key={r.id_reserva}
-                className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between hover:bg-slate-50/50 rounded-xl px-2 transition-colors"
+                className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between hover:bg-slate-50/50 dark:hover:bg-slate-800/50 rounded-xl px-2 transition-colors"
               >
                 <div className="flex items-start gap-3.5">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-navy-50 text-navy font-bold">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-navy-50 text-navy dark:bg-slate-800 dark:text-sky-400 font-bold">
                     <Icone nome="calendar" className="h-5 w-5" />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-slate-900 leading-tight">{r.area}</h3>
-                    <p className="mt-1 text-xs text-slate-500 font-medium">
+                    <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 leading-tight">{r.area}</h3>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 font-medium">
                       {formatarDataHora(r.data_hora_inicio)} até {formatarDataHora(r.data_hora_fim)}
                     </p>
-                    <p className="text-[11px] text-slate-400">
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500">
                       Capacidade reservada: {r.numero_pessoas} pessoa(s)
                     </p>
                   </div>
@@ -186,17 +186,17 @@ export default function MinhasReservas() {
       >
         {cancelando && (
           <div className="space-y-4">
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-slate-600 dark:text-slate-300">
               Tem certeza de que deseja cancelar a reserva do espaço <b>{cancelando.area}</b> agendada para{' '}
               <b>{formatarDataHora(cancelando.data_hora_inicio)}</b>?
             </p>
 
-            <div className="rounded-xl border border-amber-200/80 bg-amber-50/60 p-3 text-xs text-amber-900">
+            <div className="rounded-xl border border-amber-200/80 bg-amber-50/60 dark:border-amber-900/60 dark:bg-amber-950/40 p-3 text-xs text-amber-900 dark:text-amber-300">
               <p className="font-bold flex items-center gap-1.5">
-                <Icone nome="alert" className="h-3.5 w-3.5 text-amber-600" />
+                <Icone nome="alert" className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
                 Aviso sobre Prazo de Cancelamento:
               </p>
-              <p className="mt-0.5 text-amber-800">
+              <p className="mt-0.5 text-amber-800 dark:text-amber-400">
                 Cancelamentos só são permitidos com pelo menos {cancelando.prazo_cancelamento_horas}h de antecedência.
               </p>
             </div>

@@ -80,10 +80,10 @@ export default function Chaves() {
       <div className="grid gap-6 lg:grid-cols-12">
         <div className="lg:col-span-12">
           <Cartao>
-            <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="mb-4 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <div>
-                <h3 className="text-base font-bold text-slate-900">Quadro de Chaves</h3>
-                <p className="text-xs text-slate-500">Total de {chaves.length} chave(s) cadastradas no claviculário</p>
+                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Quadro de Chaves</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Total de {chaves.length} chave(s) cadastradas no claviculário</p>
               </div>
             </div>
 
@@ -102,22 +102,22 @@ export default function Chaves() {
                       key={c.id_chave}
                       className={`rounded-2xl border p-4.5 transition-all shadow-soft ${
                         disponivel
-                          ? 'border-slate-200/80 bg-white hover:border-navy/30'
-                          : 'border-amber-200/80 bg-amber-50/30'
+                          ? 'border-slate-200/80 bg-white hover:border-navy/30 dark:border-slate-800 dark:bg-slate-800/80 dark:hover:border-sky-500/40'
+                          : 'border-amber-200/80 bg-amber-50/30 dark:border-amber-900/60 dark:bg-amber-950/20'
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-3">
                           <div
                             className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl font-bold ${
-                              disponivel ? 'bg-navy-50 text-navy' : 'bg-amber-100 text-amber-800'
+                              disponivel ? 'bg-navy-50 text-navy dark:bg-slate-700 dark:text-sky-400' : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
                             }`}
                           >
                             <Icone nome="key" className="h-5 w-5" />
                           </div>
                           <div>
-                            <h4 className="text-base font-bold text-slate-900 leading-tight">{c.codigo}</h4>
-                            <p className="text-xs text-slate-500 font-medium">{c.area}</p>
+                            <h4 className="text-base font-bold text-slate-900 dark:text-slate-100 leading-tight">{c.codigo}</h4>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{c.area}</p>
                           </div>
                         </div>
 
@@ -128,11 +128,11 @@ export default function Chaves() {
 
                       {/* Informações do Empréstimo */}
                       {c.responsavel && (
-                        <div className="mt-3 rounded-xl border border-amber-200/60 bg-white p-2.5 text-xs text-slate-600 space-y-0.5">
-                          <p className="text-[11px] text-slate-400">Responsável Atual:</p>
-                          <p className="font-bold text-slate-800">{c.responsavel}</p>
+                        <div className="mt-3 rounded-xl border border-amber-200/60 bg-white dark:border-amber-900/40 dark:bg-slate-800 p-2.5 text-xs text-slate-600 dark:text-slate-300 space-y-0.5">
+                          <p className="text-[11px] text-slate-400 dark:text-slate-500">Responsável Atual:</p>
+                          <p className="font-bold text-slate-800 dark:text-slate-200">{c.responsavel}</p>
                           {c.data_hora_retirada && (
-                            <p className="text-[10px] text-slate-400">
+                            <p className="text-[10px] text-slate-400 dark:text-slate-500">
                               Desde {new Date(c.data_hora_retirada).toLocaleString('pt-BR', {
                                 day: '2-digit',
                                 month: '2-digit',
@@ -145,7 +145,7 @@ export default function Chaves() {
                       )}
 
                       {/* Ações */}
-                      <div className="mt-4 pt-3 border-t border-slate-100 flex justify-end">
+                      <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end">
                         {disponivel ? (
                           <Botao
                             variante="claro"
@@ -190,7 +190,7 @@ export default function Chaves() {
       >
         {emprestando && (
           <div className="space-y-4">
-            <div className="rounded-xl bg-slate-50 p-3 text-xs text-slate-600 border border-slate-100 space-y-1">
+            <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-3 text-xs text-slate-600 dark:text-slate-300 border border-slate-100 dark:border-slate-700 space-y-1">
               <p>Código: <b>{emprestando.codigo}</b></p>
               <p>Área Comum: <b>{emprestando.area}</b></p>
             </div>
@@ -211,7 +211,7 @@ export default function Chaves() {
               </select>
             </Campo>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
               <Botao variante="claro" onClick={() => setEmprestando(null)}>
                 Cancelar
               </Botao>
