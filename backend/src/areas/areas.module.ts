@@ -1,10 +1,10 @@
-import { Controller, Get, Post, Put, Body, Param, Module, UseGuards, ParseIntPipe, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Req, Module, UseGuards, ParseIntPipe, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import 'multer';
 import { extname } from 'path';
 import { DbService } from '../db/db.service';
-import { JwtAuthGuard, PerfilGuard, Perfis } from '../auth/guards';
+import { JwtAuthGuard, PerfilGuard, Perfis, perfilDoUsuario } from '../auth/guards';
 
 /**
  * UC09 - Gerenciar Areas Comuns e Recursos.
@@ -26,6 +26,108 @@ export class AreasController {
         LEFT JOIN area_horario h ON h.id_area_comum = a.id_area_comum
        GROUP BY a.id_area_comum
        ORDER BY a.nome`);
+  }
+
+  /** Lista todos os bloqueios e manutencoes de areas comuns. */
+  @Get('bloqueios')
+  listarBloqueios() {
+    return this.db.query(`
+      SELECT b.id_bloqueio_area, b.id_area_comum, a.nome AS area_nome,
+             b.data_hora_inicio, b.data_hora_fim, b.motivo, b.descricao,
+             p.nome AS autor_nome
+        FROM bloqueio_area b
+        JOIN area_comum a ON a.id_area_comum = b.id_area_comum
+        JOIN perfil pf ON pf.id_perfil = b.id_perfil_registro
+        JOIN pessoa p ON p.id_pessoa = pf.id_pessoa
+       ORDER BY b.data_hora_inicio DESC`);
+  }
+
+  /** Registra uma nova manutencao ou interdicao de area comum (SINDICO). */
+  @Post('bloqueios') @Perfis('SINDICO')
+  async criarBloqueio(
+    @Req() req: any,
+    @Body() b: {
+      id_area_comum: number;
+      data_hora_inicio: string;
+      data_hora_fim: string;
+      motivo: string;
+      descricao?: string;
+    },
+  ) {
+    if (!b.id_area_comum || !b.data_hora_inicio || !b.data_hora_fim || !b.motivo) {
+      throw new BadRequestException('Preencha a area, motivo e o periodo de inicio e termino.');
+    }
+
+    const agora = new Date();
+    const dtIni = new Date(b.data_hora_inicio);
+    const dtFim = new Date(b.data_hora_fim);
+
+    if (dtFim <= dtIni) {
+      throw new BadRequestException('A data/hora de termino deve ser posterior a data/hora de inicio.');
+    }
+    if (dtFim <= agora) {
+      throw new BadRequestException('Nao e permitido agendar manutencao para datas e horarios no passado.');
+    }
+
+    const idPerfil = perfilDoUsuario(req.user, 'SINDICO');
+
+    // 1. Identifica reservas ativas conflitantes no periodo
+    const reservasConflitantes = await this.db.query(`
+      SELECT r.id_reserva, p.nome AS morador_nome,
+             CONCAT(b_bloco.nome, ' - Apto ', u.numero_apartamento) AS unidade,
+             r.data_hora_inicio, r.data_hora_fim
+        FROM reserva r
+        JOIN perfil pf ON pf.id_perfil = r.id_perfil
+        JOIN pessoa p ON p.id_pessoa = pf.id_pessoa
+        LEFT JOIN pessoa_unidade pu ON pu.id_pessoa = p.id_pessoa AND pu.data_fim_ocupacao IS NULL
+        LEFT JOIN unidade u ON u.id_unidade = pu.id_unidade
+        LEFT JOIN bloco b_bloco ON b_bloco.id_bloco = u.id_bloco
+       WHERE r.id_area_comum = $1
+         AND r.status = 'ATIVA'
+         AND (r.data_hora_inicio, r.data_hora_fim) OVERLAPS ($2::timestamp, $3::timestamp)`,
+      [b.id_area_comum, b.data_hora_inicio, b.data_hora_fim]);
+
+    // 2. Cancela automaticamente as reservas conflitantes
+    if (reservasConflitantes.length > 0) {
+      const ids = reservasConflitantes.map((r: any) => r.id_reserva);
+      await this.db.query(`
+        UPDATE reserva
+           SET status = 'CANCELADA',
+               data_hora_cancelamento = CURRENT_TIMESTAMP,
+               motivo_cancelamento = $1
+         WHERE id_reserva = ANY($2::int[])`,
+        [`MANUTENCAO: Interdicao da area para ${b.motivo}`, ids]);
+    }
+
+    // 3. Registra a manutencao na tabela de bloqueios
+    const novoBloqueio = await this.db.query(`
+      INSERT INTO bloqueio_area (id_area_comum, id_perfil_registro, data_hora_inicio, data_hora_fim, motivo, descricao)
+      VALUES ($1, $2, $3::timestamp, $4::timestamp, $5, $6)
+      RETURNING *`,
+      [b.id_area_comum, idPerfil, b.data_hora_inicio, b.data_hora_fim, b.motivo, b.descricao || null])
+      .then(r => r[0]);
+
+    return {
+      ...novoBloqueio,
+      reservas_canceladas: reservasConflitantes.length,
+      moradores_afetados: reservasConflitantes.map((r: any) => ({
+        id_reserva: r.id_reserva,
+        nome: r.morador_nome,
+        unidade: r.unidade,
+        inicio: r.data_hora_inicio,
+        fim: r.data_hora_fim,
+      })),
+    };
+  }
+
+  /** Cancela/remove uma manutencao ou bloqueio (SINDICO). */
+  @Delete('bloqueios/:id') @Perfis('SINDICO')
+  async removerBloqueio(@Param('id', ParseIntPipe) id: number) {
+    return this.db.query(`DELETE FROM bloqueio_area WHERE id_bloqueio_area = $1 RETURNING *`, [id])
+      .then(r => {
+        if (!r.length) throw new BadRequestException('Bloqueio inexistente.');
+        return { ok: true, id_bloqueio_area: id };
+      });
   }
 
   @Get(':id')

@@ -36,10 +36,17 @@ export function Icone({
     | 'moon'
     | 'user'
     | 'sparkles'
-    | 'box';
+    | 'box'
+    | 'wrench';
   className?: string;
 }) {
   switch (nome) {
+    case 'wrench':
+      return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+        </svg>
+      );
     case 'sun':
       return (
         <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -482,19 +489,157 @@ export function Modal({
   );
 }
 
-/** Mensagem de alerta / feedback */
-export function Mensagem({ texto, tipo }: { texto: string; tipo: 'erro' | 'ok' }) {
-  if (!texto) return null;
+/** Modal padronizado de Confirmação e Validação de Ações (UI/UX Pro Max) */
+export function ModalConfirmacao({
+  aberto,
+  fechar,
+  confirmar,
+  titulo,
+  mensagem,
+  textoBotaoConfirmar = 'Confirmar',
+  textoBotaoCancelar = 'Cancelar',
+  variante = 'perigo',
+  icone = 'alert',
+  carregando = false,
+}: {
+  aberto: boolean;
+  fechar: () => void;
+  confirmar: () => void;
+  titulo: string;
+  mensagem: React.ReactNode;
+  textoBotaoConfirmar?: string;
+  textoBotaoCancelar?: string;
+  variante?: 'perigo' | 'primario' | 'sucesso';
+  icone?: React.ComponentProps<typeof Icone>['nome'];
+  carregando?: boolean;
+}) {
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') fechar();
+    };
+    if (aberto) {
+      document.addEventListener('keydown', handleEsc);
+      document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      document.removeEventListener('keydown', handleEsc);
+      document.body.style.overflow = 'unset';
+    };
+  }, [aberto, fechar]);
+
+  if (!aberto) return null;
+
+  const coresIcone = {
+    perigo: 'bg-red-100 text-red-600 dark:bg-rose-950/60 dark:text-rose-400 ring-8 ring-red-50 dark:ring-rose-950/30',
+    primario: 'bg-navy-50 text-navy dark:bg-sky-950/60 dark:text-sky-400 ring-8 ring-navy-50/50 dark:ring-sky-950/30',
+    sucesso: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400 ring-8 ring-emerald-50 dark:ring-emerald-950/30',
+  }[variante];
+
   return (
-    <div
-      className={`mt-4 flex items-center gap-2.5 rounded-xl border p-3.5 text-sm font-medium animate-fade-in ${
-        tipo === 'erro'
-          ? 'border-red-200 bg-red-50/90 text-red-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300'
-          : 'border-emerald-200 bg-emerald-50/90 text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300'
-      }`}
-    >
-      <Icone nome={tipo === 'erro' ? 'alert' : 'check'} className="h-4 w-4 shrink-0" />
-      <span>{texto}</span>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs transition-opacity animate-fade-in" onClick={fechar} />
+
+      {/* Card Dialog */}
+      <div
+        className="relative z-10 w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 dark:text-slate-100 p-6 shadow-modal border border-slate-100 dark:border-slate-800 animate-scale-in"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex flex-col items-center text-center">
+          <div className={`mb-4 flex h-14 w-14 items-center justify-center rounded-2xl ${coresIcone}`}>
+            <Icone nome={icone} className="h-7 w-7" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{titulo}</h3>
+          <div className="mt-2 text-sm text-slate-500 dark:text-slate-400 leading-relaxed">{mensagem}</div>
+        </div>
+
+        <div className="mt-6 flex justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">
+          <Botao type="button" variante="claro" onClick={fechar} disabled={carregando}>
+            {textoBotaoCancelar}
+          </Botao>
+          <Botao
+            type="button"
+            variante={variante}
+            onClick={confirmar}
+            carregando={carregando}
+          >
+            {textoBotaoConfirmar}
+          </Botao>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Pop-up / Toast flutuante moderno de validação, notificação e feedback da ação */
+export function Mensagem({
+  texto,
+  tipo = 'ok',
+  aoFechar,
+}: {
+  texto: string;
+  tipo?: 'erro' | 'ok' | 'aviso' | 'info';
+  aoFechar?: () => void;
+}) {
+  const [visivel, setVisivel] = React.useState(Boolean(texto));
+
+  React.useEffect(() => {
+    if (texto) {
+      setVisivel(true);
+      const timer = setTimeout(() => {
+        setVisivel(false);
+        if (aoFechar) aoFechar();
+      }, 5000);
+      return () => clearTimeout(timer);
+    } else {
+      setVisivel(false);
+    }
+  }, [texto, aoFechar]);
+
+  if (!visivel || !texto) return null;
+
+  const estilos = {
+    erro: 'border-red-200/90 bg-white/95 text-red-950 dark:border-rose-800/80 dark:bg-slate-900/95 dark:text-rose-200 shadow-2xl ring-1 ring-red-500/10',
+    ok: 'border-emerald-200/90 bg-white/95 text-emerald-950 dark:border-emerald-800/80 dark:bg-slate-900/95 dark:text-emerald-200 shadow-2xl ring-1 ring-emerald-500/10',
+    aviso: 'border-amber-200/90 bg-white/95 text-amber-950 dark:border-amber-800/80 dark:bg-slate-900/95 dark:text-amber-200 shadow-2xl ring-1 ring-amber-500/10',
+    info: 'border-sky-200/90 bg-white/95 text-sky-950 dark:border-sky-800/80 dark:bg-slate-900/95 dark:text-sky-200 shadow-2xl ring-1 ring-sky-500/10',
+  }[tipo] || 'border-emerald-200/90 bg-white/95 text-emerald-950 dark:border-emerald-800/80 dark:bg-slate-900/95 dark:text-emerald-200';
+
+  const badgeIcone = {
+    erro: 'bg-red-500 text-white shadow-xs',
+    ok: 'bg-emerald-500 text-white shadow-xs',
+    aviso: 'bg-amber-500 text-white shadow-xs',
+    info: 'bg-sky-500 text-white shadow-xs',
+  }[tipo] || 'bg-emerald-500 text-white';
+
+  const tituloTipo = {
+    erro: 'Atenção / Erro',
+    ok: 'Sucesso',
+    aviso: 'Aviso',
+    info: 'Informação',
+  }[tipo] || 'Sucesso';
+
+  return (
+    <div className="fixed top-5 right-5 z-50 max-w-sm sm:max-w-md animate-slide-in-right">
+      <div className={`flex items-start gap-3 rounded-2xl border p-4 backdrop-blur-md transition-all ${estilos}`}>
+        <div className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl ${badgeIcone}`}>
+          <Icone nome={tipo === 'erro' ? 'alert' : tipo === 'aviso' ? 'wrench' : 'check'} className="h-4 w-4" />
+        </div>
+        <div className="flex-1 pr-2">
+          <h4 className="text-xs font-bold uppercase tracking-wider opacity-75">{tituloTipo}</h4>
+          <p className="mt-0.5 text-xs font-medium leading-relaxed">{texto}</p>
+        </div>
+        <button
+          onClick={() => {
+            setVisivel(false);
+            if (aoFechar) aoFechar();
+          }}
+          className="shrink-0 rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
+          title="Fechar notificação"
+        >
+          <Icone nome="x" className="h-3.5 w-3.5" />
+        </button>
+      </div>
     </div>
   );
 }

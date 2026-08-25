@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, sessaoAtual } from '../../api';
-import { Botao, Campo, Cartao, inputCls, Mensagem, Titulo, Icone, Badge, EmptyState } from '../../components/ui';
+import { Botao, Campo, Cartao, inputCls, Mensagem, Titulo, Icone, Badge, EmptyState, ModalConfirmacao } from '../../components/ui';
 import Calendario from '../../components/Calendario';
 
 type Area = {
@@ -32,17 +32,18 @@ export default function NovaReserva() {
   const [pessoas, setPessoas] = useState(1);
   const [carregandoGrade, setCarregandoGrade] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
+  const [modalConfirmar, setModalConfirmar] = useState(false);
   const [msg, setMsg] = useState<{ t: string; tipo: 'erro' | 'ok' }>({ t: '', tipo: 'ok' });
 
   useEffect(() => {
     api.get<Area[]>('/areas').then(a => setAreas(a.filter(x => x.ativo)));
   }, []);
 
-  async function consultar(d: string) {
+  async function consultar(d: string, limparMsg = false) {
     setData(d);
     setSlot(null);
     setGrade(null);
-    setMsg({ t: '', tipo: 'ok' });
+    if (limparMsg) setMsg({ t: '', tipo: 'ok' });
     if (!area || !d) return;
     setCarregandoGrade(true);
     try {
@@ -70,7 +71,7 @@ export default function NovaReserva() {
         t: `Reserva confirmada com sucesso para "${area.nome}" no dia ${data} das ${slot.inicio} às ${slot.fim}.`,
         tipo: 'ok',
       });
-      consultar(data);
+      await consultar(data, false);
     } catch (e: any) {
       setMsg({ t: e.message, tipo: 'erro' });
     } finally {
@@ -226,7 +227,7 @@ export default function NovaReserva() {
                   </p>
                   <Calendario
                     dataSelecionada={data}
-                    onChange={d => consultar(d)}
+                    onChange={d => consultar(d, true)}
                     {...limitesData()}
                   />
                 </div>
@@ -289,13 +290,16 @@ export default function NovaReserva() {
                         const dataHoraSlot = new Date(`${data}T${sl.inicio}:00`);
                         const agora = new Date();
                         const noPassado = dataHoraSlot <= agora || sl.status === 'PASSADO';
-                        const livre = !noPassado && sl.status === 'LIVRE';
+                        const bloqueado = !noPassado && sl.status === 'BLOQUEADO';
                         const ocupado = !noPassado && sl.status === 'OCUPADO';
+                        const livre = !noPassado && sl.status === 'LIVRE';
                         const rotuloStatus = livre
                           ? 'LIVRE'
-                          : ocupado
-                          ? 'OCUPADO'
-                          : 'INDISPONÍVEL';
+                          : bloqueado
+                            ? 'MANUTENÇÃO'
+                            : ocupado
+                              ? 'OCUPADO'
+                              : 'INDISPONÍVEL';
 
                         return (
                           <button
@@ -307,23 +311,26 @@ export default function NovaReserva() {
                               (sel
                                 ? 'border-navy bg-navy text-white shadow-sm ring-2 ring-navy/20 dark:bg-sky-600 dark:border-sky-500 cursor-pointer'
                                 : livre
-                                ? 'border-slate-200 bg-white text-slate-700 hover:border-navy hover:bg-navy-50/40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:bg-slate-700 cursor-pointer'
-                                : ocupado
-                                ? 'cursor-not-allowed border-amber-200/90 bg-amber-50/80 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300'
-                                : 'cursor-not-allowed border-red-200/90 bg-red-50/80 text-red-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300')
+                                  ? 'border-slate-200 bg-white text-slate-700 hover:border-navy hover:bg-navy-50/40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:bg-slate-700 cursor-pointer'
+                                  : bloqueado
+                                    ? 'cursor-not-allowed border-amber-300/90 bg-amber-50/80 text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-300'
+                                    : ocupado
+                                      ? 'cursor-not-allowed border-slate-200/90 bg-slate-100/80 text-slate-700 dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-400'
+                                      : 'cursor-not-allowed border-red-200/90 bg-red-50/80 text-red-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300')
                             }
                           >
                             <span>{sl.inicio} – {sl.fim}</span>
                             <span
-                              className={`text-[10px] font-bold rounded-md px-1.5 py-0.5 ${
-                                sel
+                              className={`text-[10px] font-bold rounded-md px-1.5 py-0.5 ${sel
                                   ? 'bg-white/20 text-white'
                                   : livre
-                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/60'
-                                  : ocupado
-                                  ? 'bg-amber-100 text-amber-800 border border-amber-300/70 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800/60'
-                                  : 'bg-red-100 text-red-700 border border-red-200/80 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800/60'
-                              }`}
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/60'
+                                    : bloqueado
+                                      ? 'bg-amber-100 text-amber-800 border border-amber-300/80 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-700/60'
+                                      : ocupado
+                                        ? 'bg-slate-200 text-slate-700 border border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+                                        : 'bg-red-100 text-red-700 border border-red-200/80 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800/60'
+                                }`}
                             >
                               {rotuloStatus}
                             </span>
@@ -354,7 +361,7 @@ export default function NovaReserva() {
                       className="w-2/3 py-2.5"
                       disabled={!slot}
                       carregando={confirmando}
-                      onClick={confirmar}
+                      onClick={() => setModalConfirmar(true)}
                       icone={<Icone nome="check" className="h-4 w-4" />}
                     >
                       Confirmar Reserva
@@ -364,7 +371,36 @@ export default function NovaReserva() {
               </div>
             </div>
 
-            <Mensagem texto={msg.t} tipo={msg.tipo} />
+            {/* Modal de Confirmação e Validação do Agendamento */}
+            <ModalConfirmacao
+              aberto={modalConfirmar}
+              fechar={() => setModalConfirmar(false)}
+              confirmar={async () => {
+                setModalConfirmar(false);
+                await confirmar();
+              }}
+              titulo="Confirmar Reserva de Espaço"
+              mensagem={
+                area && slot && (
+                  <div className="space-y-2 text-left bg-slate-50 dark:bg-slate-800/80 p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-700/60 text-xs text-slate-700 dark:text-slate-300">
+                    <p>Espaço Coletivo: <b className="text-slate-900 dark:text-slate-100">{area.nome}</b></p>
+                    <p>Data do Agendamento: <b className="text-slate-900 dark:text-slate-100">{data} ({grade?.dia_semana})</b></p>
+                    <p>Horário Selecionado: <b className="text-slate-900 dark:text-slate-100">{slot.inicio} às {slot.fim}</b></p>
+                    <p>Pessoas Presentes: <b className="text-slate-900 dark:text-slate-100">{pessoas} pessoa(s)</b></p>
+                    <p className="pt-1 text-[11px] text-slate-500 dark:text-slate-400 border-t border-slate-200/60 dark:border-slate-700">
+                      Cancelamento disponível até {area.prazo_cancelamento_horas}h antes do horário inicial.
+                    </p>
+                  </div>
+                )
+              }
+              textoBotaoConfirmar="Concluir Agendamento"
+              textoBotaoCancelar="Voltar e Ajustar"
+              variante="primario"
+              icone="calendar"
+              carregando={confirmando}
+            />
+
+            <Mensagem texto={msg.t} tipo={msg.tipo} aoFechar={() => setMsg({ t: '', tipo: 'ok' })} />
           </Cartao>
         </div>
       )}

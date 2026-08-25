@@ -6,6 +6,7 @@ services:
     image: postgres:16-alpine
     container_name: oasis-banco
     restart: unless-stopped
+    command: postgres -c timezone=America/Sao_Paulo
     environment:
       TZ: America/Sao_Paulo
       POSTGRES_DB: oasis

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
-import { Cartao, Titulo, Icone, Badge, EmptyState } from '../../components/ui';
+import { Cartao, Titulo, Icone, Badge, EmptyState, Botao } from '../../components/ui';
 
 type Painel = {
   totais: {
@@ -17,12 +17,20 @@ type Painel = {
 export default function PainelAdmin() {
   const [d, setD] = useState<Painel | null>(null);
   const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState<string | null>(null);
 
-  useEffect(() => {
+  const carregar = () => {
+    setCarregando(true);
+    setErro(null);
     api
       .get<Painel>('/relatorios/painel')
       .then(res => setD(res))
+      .catch(err => setErro(err.message || 'Erro ao consultar indicadores.'))
       .finally(() => setCarregando(false));
+  };
+
+  useEffect(() => {
+    carregar();
   }, []);
 
   if (carregando) {
@@ -39,7 +47,30 @@ export default function PainelAdmin() {
     );
   }
 
-  if (!d) return null;
+  if (erro || !d) {
+    return (
+      <div className="space-y-6">
+        <Titulo
+          sub="Acompanhe os principais indicadores de operação e uso dos espaços coletivos."
+          icone={<Icone nome="home" className="h-5 w-5" />}
+        >
+          Painel Administrativo
+        </Titulo>
+        <Cartao>
+          <EmptyState
+            icone="home"
+            titulo="Não foi possível carregar os indicadores"
+            descricao={erro || 'Houve uma falha ao obter os dados consolidados.'}
+            acao={
+              <Botao onClick={carregar} variante="primario" tamanho="sm">
+                Tentar Novamente
+              </Botao>
+            }
+          />
+        </Cartao>
+      </div>
+    );
+  }
 
   const max = Math.max(1, ...d.areas_mais_usadas.map(a => Number(a.reservas)));
 

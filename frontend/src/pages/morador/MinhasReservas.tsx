@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api';
-import { Botao, Cartao, Mensagem, Titulo, Icone, Badge, EmptyState, Modal } from '../../components/ui';
+import { Botao, Cartao, Mensagem, Titulo, Icone, Badge, EmptyState, Modal, ModalConfirmacao } from '../../components/ui';
 
 type Reserva = {
   id_reserva: number;
@@ -179,45 +179,38 @@ export default function MinhasReservas() {
       </Cartao>
 
       {/* Modal de Confirmação de Cancelamento */}
-      <Modal
+      <ModalConfirmacao
         aberto={!!cancelando}
         fechar={() => setCancelando(null)}
-        titulo="Cancelar Reserva"
-      >
-        {cancelando && (
-          <div className="space-y-4">
-            <p className="text-sm text-slate-600 dark:text-slate-300">
-              Tem certeza de que deseja cancelar a reserva do espaço <b>{cancelando.area}</b> agendada para{' '}
-              <b>{formatarDataHora(cancelando.data_hora_inicio)}</b>?
-            </p>
-
-            <div className="rounded-xl border border-amber-200/80 bg-amber-50/60 dark:border-amber-900/60 dark:bg-amber-950/40 p-3 text-xs text-amber-900 dark:text-amber-300">
-              <p className="font-bold flex items-center gap-1.5">
-                <Icone nome="alert" className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-                Aviso sobre Prazo de Cancelamento:
+        confirmar={confirmarCancelamento}
+        titulo="Confirmar Cancelamento de Reserva"
+        mensagem={
+          cancelando && (
+            <div className="space-y-3 text-left">
+              <p className="text-xs text-slate-600 dark:text-slate-300">
+                Tem certeza de que deseja cancelar sua reserva do espaço <b className="text-slate-900 dark:text-slate-100">{cancelando.area}</b> agendada para{' '}
+                <b>{formatarDataHora(cancelando.data_hora_inicio)}</b>?
               </p>
-              <p className="mt-0.5 text-amber-800 dark:text-amber-400">
-                Cancelamentos só são permitidos com pelo menos {cancelando.prazo_cancelamento_horas}h de antecedência.
-              </p>
+              <div className="rounded-xl border border-amber-200/80 bg-amber-50/60 dark:border-amber-900/60 dark:bg-amber-950/40 p-3 text-xs text-amber-900 dark:text-amber-300">
+                <p className="font-bold flex items-center gap-1.5">
+                  <Icone nome="alert" className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                  Regra de Cancelamento:
+                </p>
+                <p className="mt-0.5 text-amber-800 dark:text-amber-400 text-[11px]">
+                  Cancelamentos só são permitidos com pelo menos {cancelando.prazo_cancelamento_horas}h de antecedência.
+                </p>
+              </div>
             </div>
+          )
+        }
+        textoBotaoConfirmar="Sim, Cancelar Reserva"
+        textoBotaoCancelar="Voltar"
+        variante="perigo"
+        icone="trash"
+        carregando={processando}
+      />
 
-            <div className="flex justify-end gap-2 pt-2">
-              <Botao variante="claro" onClick={() => setCancelando(null)}>
-                Voltar
-              </Botao>
-              <Botao
-                variante="perigo"
-                onClick={confirmarCancelamento}
-                carregando={processando}
-              >
-                Confirmar Cancelamento
-              </Botao>
-            </div>
-          </div>
-        )}
-      </Modal>
-
-      <Mensagem texto={msg.t} tipo={msg.tipo} />
+      <Mensagem texto={msg.t} tipo={msg.tipo} aoFechar={() => setMsg({ t: '', tipo: 'ok' })} />
     </div>
   );
 }

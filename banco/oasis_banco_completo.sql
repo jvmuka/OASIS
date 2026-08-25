@@ -530,12 +530,15 @@ BEGIN
         SELECT prazo_cancelamento_horas INTO v_prazo
           FROM area_comum WHERE id_area_comum = NEW.id_area_comum;
 
-        IF CURRENT_TIMESTAMP > (OLD.data_hora_inicio - (v_prazo || ' hours')::INTERVAL) THEN
-            RAISE EXCEPTION 'RN08: cancelamento permitido somente ate % hora(s) antes do inicio.',
-                            v_prazo;
+        -- Cancelamento por manutencao/interdicao ou administrativo nao e barrado pelo prazo do morador
+        IF (NEW.motivo_cancelamento IS NULL OR (NEW.motivo_cancelamento NOT LIKE 'MANUTENCAO%' AND NEW.motivo_cancelamento NOT LIKE 'ADMINISTRATIVO%')) THEN
+            IF CURRENT_TIMESTAMP > (OLD.data_hora_inicio - (v_prazo || ' hours')::INTERVAL) THEN
+                RAISE EXCEPTION 'RN08: cancelamento permitido somente ate % hora(s) antes do inicio.',
+                                v_prazo;
+            END IF;
         END IF;
 
-        NEW.data_hora_cancelamento := CURRENT_TIMESTAMP;
+        NEW.data_hora_cancelamento := COALESCE(NEW.data_hora_cancelamento, CURRENT_TIMESTAMP);
     END IF;
     RETURN NEW;
 END;
