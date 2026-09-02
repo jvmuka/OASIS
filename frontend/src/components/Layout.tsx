@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { painelInicial, sessaoAtual, sair } from '../api';
+import { sessaoAtual, sair } from '../api';
 import { Icone, Badge } from './ui';
 import BotaoModoEscuro from './BotaoModoEscuro';
 
@@ -14,7 +14,7 @@ export default function Layout() {
   const s = sessaoAtual();
   if (!s) return null;
   const tipos = s.perfis.map(p => p.tipo);
-  const rotaInicial = painelInicial(tipos);
+  const rotaInicial = '/inicio';
 
   // Iniciais do nome para avatar
   const iniciais = s.pessoa.nome
