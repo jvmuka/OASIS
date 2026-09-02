@@ -61,6 +61,17 @@ export class PortariaController {
       });
   }
 
+  /** Encomendas do morador autenticado (ele nao pode ver a lista completa da portaria). */
+  @Get('minhas-encomendas') @Perfis('MORADOR')
+  minhasEncomendas(@Req() req: any) {
+    return this.db.query(`
+      SELECT id_encomenda, descricao, tamanho, status,
+             data_hora_recebimento, data_hora_retirada, retirado_por, nome_retirante
+        FROM encomenda
+       WHERE id_pessoa_destinatario = $1
+       ORDER BY data_hora_recebimento DESC`, [req.user.sub]);
+  }
+
   // ------------------------- chaves -------------------------
   @Get('chaves') @Perfis('PORTEIRO', 'SINDICO')
   chaves() {

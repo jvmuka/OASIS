@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { sessaoAtual } from './api';
 import Login from './pages/Login';
 import Layout from './components/Layout';
+import Inicio from './pages/Inicio';
 import NovaReserva from './pages/morador/NovaReserva';
 import MinhasReservas from './pages/morador/MinhasReservas';
 import Mural from './pages/morador/Mural';
@@ -12,14 +13,11 @@ import Areas from './pages/sindico/Areas';
 import Pessoas from './pages/sindico/Pessoas';
 import PublicarAviso from './pages/sindico/PublicarAviso';
 
-/** Redireciona para o painel inicial conforme o perfil do usuario logado. */
-function Inicio() {
+/** Redireciona para a tela de boas-vindas (ou login, se nao houver sessao). */
+function RedirecionaInicio() {
   const s = sessaoAtual();
   if (!s) return <Navigate to="/login" replace />;
-  const tipos = s.perfis.map(p => p.tipo);
-  if (tipos.includes('SINDICO')) return <Navigate to="/sindico/painel" replace />;
-  if (tipos.includes('PORTEIRO')) return <Navigate to="/portaria/encomendas" replace />;
-  return <Navigate to="/morador/reservar" replace />;
+  return <Navigate to="/inicio" replace />;
 }
 
 /** Bloqueia rotas para quem nao esta logado ou nao tem o perfil exigido. */
@@ -34,8 +32,9 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
-      <Route path="/" element={<Inicio />} />
+      <Route path="/" element={<RedirecionaInicio />} />
       <Route element={<Layout />}>
+        <Route path="/inicio" element={<Protegida><Inicio /></Protegida>} />
         {/* Morador */}
         <Route path="/morador/reservar" element={<Protegida perfil="MORADOR"><NovaReserva /></Protegida>} />
         <Route path="/morador/reservas" element={<Protegida perfil="MORADOR"><MinhasReservas /></Protegida>} />
