@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
-import { sessaoAtual } from './api';
+import { painelInicial, sessaoAtual } from './api';
 import Login from './pages/Login';
 import Layout from './components/Layout';
 import NovaReserva from './pages/morador/NovaReserva';
@@ -16,10 +16,7 @@ import PublicarAviso from './pages/sindico/PublicarAviso';
 function Inicio() {
   const s = sessaoAtual();
   if (!s) return <Navigate to="/login" replace />;
-  const tipos = s.perfis.map(p => p.tipo);
-  if (tipos.includes('SINDICO')) return <Navigate to="/sindico/painel" replace />;
-  if (tipos.includes('PORTEIRO')) return <Navigate to="/portaria/encomendas" replace />;
-  return <Navigate to="/morador/reservar" replace />;
+  return <Navigate to={painelInicial(s.perfis.map(p => p.tipo))} replace />;
 }
 
 /** Bloqueia rotas para quem nao esta logado ou nao tem o perfil exigido. */

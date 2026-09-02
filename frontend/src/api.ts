@@ -28,6 +28,13 @@ export function sair() {
   localStorage.removeItem(SESSAO_KEY);
 }
 
+/** Rota do painel inicial de cada perfil (SINDICO > PORTEIRO > MORADOR). */
+export function painelInicial(tipos: string[]): string {
+  if (tipos.includes('SINDICO')) return '/sindico/painel';
+  if (tipos.includes('PORTEIRO')) return '/portaria/encomendas';
+  return '/morador/reservar';
+}
+
 async function req<T>(metodo: string, rota: string, corpo?: unknown): Promise<T> {
   const r = await fetch('/api' + rota, {
     method: metodo,

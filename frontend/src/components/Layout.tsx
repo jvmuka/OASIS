@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { sessaoAtual, sair } from '../api';
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { painelInicial, sessaoAtual, sair } from '../api';
 import { Icone, Badge } from './ui';
 import BotaoModoEscuro from './BotaoModoEscuro';
 
@@ -14,6 +14,7 @@ export default function Layout() {
   const s = sessaoAtual();
   if (!s) return null;
   const tipos = s.perfis.map(p => p.tipo);
+  const rotaInicial = painelInicial(tipos);
 
   // Iniciais do nome para avatar
   const iniciais = s.pessoa.nome
@@ -62,7 +63,7 @@ export default function Layout() {
             <Icone nome={menuAberto ? 'x' : 'filter'} className="h-5 w-5" />
           </button>
 
-          <div className="flex items-center gap-2.5">
+          <Link to={rotaInicial} className="flex items-center gap-2.5" title="Ir para o painel inicial">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-navy to-navy-light text-white shadow-xs dark:from-sky-600 dark:to-navy">
               <Icone nome="building" className="h-5 w-5" />
             </div>
@@ -72,7 +73,7 @@ export default function Layout() {
                 CONDOMÍNIO
               </span>
             </div>
-          </div>
+          </Link>
         </div>
 
         {/* Informações do Usuário & Alternador de Tema & Logout */}
@@ -124,6 +125,10 @@ export default function Layout() {
           }`}
         >
           <div className="space-y-4 overflow-y-auto max-h-[calc(100vh-80px)]">
+            <div className="space-y-1">
+              {item(rotaInicial, 'Início', 'home')}
+            </div>
+
             {tipos.includes('MORADOR') && (
               <div>
                 <p className="px-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
