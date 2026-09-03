@@ -5,6 +5,7 @@ import 'multer';
 import { extname } from 'path';
 import { DbService } from '../db/db.service';
 import { JwtAuthGuard, PerfilGuard, Perfis, perfilDoUsuario } from '../auth/guards';
+import { IMAGEM_MAX_BYTES, IMAGEM_TIPOS_REGEX } from '../common/upload.constants';
 
 /**
  * UC09 - Gerenciar Areas Comuns e Recursos.
@@ -192,13 +193,13 @@ export class AreasController {
       },
     }),
     fileFilter: (_req, file, cb) => {
-      if (!file.mimetype.match(/^image\/(jpeg|png|webp|gif)$/)) {
+      if (!IMAGEM_TIPOS_REGEX.test(file.mimetype)) {
         cb(new BadRequestException('Formato de imagem invalido. Aceitos: JPEG, PNG, WebP, GIF.'), false);
         return;
       }
       cb(null, true);
     },
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+    limits: { fileSize: IMAGEM_MAX_BYTES },
   }))
   async uploadImagem(
     @Param('id', ParseIntPipe) id: number,
