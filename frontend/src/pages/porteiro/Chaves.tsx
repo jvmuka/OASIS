@@ -187,6 +187,23 @@ export default function Chaves() {
         aberto={!!emprestando}
         fechar={() => setEmprestando(null)}
         titulo={`Empréstimo da Chave ${emprestando?.codigo || ''}`}
+        rodape={
+          emprestando && (
+            <>
+              <Botao variante="claro" onClick={() => setEmprestando(null)}>
+                Cancelar
+              </Botao>
+              <Botao
+                disabled={!solicitante}
+                carregando={salvando}
+                onClick={confirmarEmprestimo}
+                icone={<Icone nome="check" className="h-4 w-4" />}
+              >
+                Confirmar Empréstimo
+              </Botao>
+            </>
+          )
+        }
       >
         {emprestando && (
           <div className="space-y-4">
@@ -210,20 +227,6 @@ export default function Chaves() {
                 ))}
               </select>
             </Campo>
-
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-              <Botao variante="claro" onClick={() => setEmprestando(null)}>
-                Cancelar
-              </Botao>
-              <Botao
-                disabled={!solicitante}
-                carregando={salvando}
-                onClick={confirmarEmprestimo}
-                icone={<Icone nome="check" className="h-4 w-4" />}
-              >
-                Confirmar Empréstimo
-              </Botao>
-            </div>
           </div>
         )}
       </Modal>

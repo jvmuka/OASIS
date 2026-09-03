@@ -1,4 +1,40 @@
 import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
+
+/**
+ * Trava o scroll do body e o fechamento por Escape enquanto o modal está aberto.
+ * Usa um contador de módulo para suportar modais empilhados: o scroll só é
+ * restaurado quando o último modal aberto fecha, e o valor original de
+ * `overflow` é preservado em vez de forçar 'unset'.
+ */
+let modaisAbertos = 0;
+let overflowOriginalBody: string | null = null;
+
+function useTravamentoModal(aberto: boolean, fechar: () => void) {
+  useEffect(() => {
+    if (!aberto) return;
+
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') fechar();
+    };
+    document.addEventListener('keydown', handleEsc);
+
+    if (modaisAbertos === 0) {
+      overflowOriginalBody = document.body.style.overflow;
+    }
+    modaisAbertos += 1;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.removeEventListener('keydown', handleEsc);
+      modaisAbertos -= 1;
+      if (modaisAbertos <= 0) {
+        modaisAbertos = 0;
+        document.body.style.overflow = overflowOriginalBody ?? '';
+      }
+    };
+  }, [aberto, fechar]);
+}
 
 /** Biblioteca de ícones SVG limpos do sistema OASIS (UI/UX Pro Max) */
 export function Icone({
@@ -441,40 +477,30 @@ export function Modal({
   titulo,
   children,
   largura = 'max-w-lg',
+  rodape,
 }: {
   aberto: boolean;
   fechar: () => void;
   titulo: string;
   children: React.ReactNode;
   largura?: string;
+  rodape?: React.ReactNode;
 }) {
-  useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') fechar();
-    };
-    if (aberto) {
-      document.addEventListener('keydown', handleEsc);
-      document.body.style.overflow = 'hidden';
-    }
-    return () => {
-      document.removeEventListener('keydown', handleEsc);
-      document.body.style.overflow = 'unset';
-    };
-  }, [aberto, fechar]);
+  useTravamentoModal(aberto, fechar);
 
   if (!aberto) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4">
       {/* Backdrop */}
       <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs transition-opacity animate-fade-in" onClick={fechar} />
 
       {/* Card */}
       <div
-        className={`relative z-10 w-full ${largura} max-h-[90vh] overflow-y-auto rounded-2xl bg-white dark:bg-slate-900 dark:text-slate-100 p-6 shadow-modal border border-slate-100 dark:border-slate-800 animate-scale-in`}
+        className={`relative z-10 flex w-full ${largura} modal-altura-max flex-col rounded-2xl bg-white dark:bg-slate-900 dark:text-slate-100 shadow-modal border border-slate-100 dark:border-slate-800 animate-scale-in`}
         onClick={e => e.stopPropagation()}
       >
-        <div className="mb-4 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-100 dark:border-slate-800 p-6 pb-3">
           <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{titulo}</h3>
           <button
             onClick={fechar}
@@ -483,9 +509,15 @@ export function Modal({
             <Icone nome="x" className="h-4 w-4" />
           </button>
         </div>
-        {children}
+        <div className="min-h-0 flex-1 overflow-y-auto p-6 pt-4">{children}</div>
+        {rodape && (
+          <div className="flex shrink-0 justify-end gap-2.5 border-t border-slate-100 dark:border-slate-800 p-6 pt-4">
+            {rodape}
+          </div>
+        )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -513,19 +545,7 @@ export function ModalConfirmacao({
   icone?: React.ComponentProps<typeof Icone>['nome'];
   carregando?: boolean;
 }) {
-  useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') fechar();
-    };
-    if (aberto) {
-      document.addEventListener('keydown', handleEsc);
-      document.body.style.overflow = 'hidden';
-    }
-    return () => {
-      document.removeEventListener('keydown', handleEsc);
-      document.body.style.overflow = 'unset';
-    };
-  }, [aberto, fechar]);
+  useTravamentoModal(aberto, fechar);
 
   if (!aberto) return null;
 
@@ -535,25 +555,27 @@ export function ModalConfirmacao({
     sucesso: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400 ring-8 ring-emerald-50 dark:ring-emerald-950/30',
   }[variante];
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4">
       {/* Backdrop */}
       <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs transition-opacity animate-fade-in" onClick={fechar} />
 
       {/* Card Dialog */}
       <div
-        className="relative z-10 w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 dark:text-slate-100 p-6 shadow-modal border border-slate-100 dark:border-slate-800 animate-scale-in"
+        className="relative z-10 flex w-full max-w-md modal-altura-max flex-col rounded-2xl bg-white dark:bg-slate-900 dark:text-slate-100 shadow-modal border border-slate-100 dark:border-slate-800 animate-scale-in"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex flex-col items-center text-center">
-          <div className={`mb-4 flex h-14 w-14 items-center justify-center rounded-2xl ${coresIcone}`}>
-            <Icone nome={icone} className="h-7 w-7" />
+        <div className="min-h-0 flex-1 overflow-y-auto p-6">
+          <div className="flex flex-col items-center text-center">
+            <div className={`mb-4 flex h-14 w-14 items-center justify-center rounded-2xl ${coresIcone}`}>
+              <Icone nome={icone} className="h-7 w-7" />
+            </div>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{titulo}</h3>
+            <div className="mt-2 text-sm text-slate-500 dark:text-slate-400 leading-relaxed">{mensagem}</div>
           </div>
-          <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{titulo}</h3>
-          <div className="mt-2 text-sm text-slate-500 dark:text-slate-400 leading-relaxed">{mensagem}</div>
         </div>
 
-        <div className="mt-6 flex justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">
+        <div className="flex shrink-0 justify-end gap-2.5 border-t border-slate-100 dark:border-slate-800 p-6 pt-4">
           <Botao type="button" variante="claro" onClick={fechar} disabled={carregando}>
             {textoBotaoCancelar}
           </Botao>
@@ -567,7 +589,8 @@ export function ModalConfirmacao({
           </Botao>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -619,7 +642,7 @@ export function Mensagem({
     info: 'Informação',
   }[tipo] || 'Sucesso';
 
-  return (
+  return createPortal(
     <div className="fixed top-5 right-5 z-50 max-w-sm sm:max-w-md animate-slide-in-right">
       <div className={`flex items-start gap-3 rounded-2xl border p-4 backdrop-blur-md transition-all ${estilos}`}>
         <div className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl ${badgeIcone}`}>
@@ -640,6 +663,7 @@ export function Mensagem({
           <Icone nome="x" className="h-3.5 w-3.5" />
         </button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

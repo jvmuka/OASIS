@@ -239,8 +239,24 @@ export default function PublicarAviso() {
         aberto={modalAberto}
         fechar={() => setModalAberto(false)}
         titulo={isAgendamento ? 'Agendar Publicação de Comunicado' : 'Publicar Novo Comunicado'}
+        rodape={
+          <>
+            <Botao type="button" variante="claro" onClick={() => setModalAberto(false)}>
+              Cancelar
+            </Botao>
+            <Botao
+              type="submit"
+              form="form-publicar-aviso"
+              variante="primario"
+              carregando={salvando}
+              icone={<Icone nome="megaphone" className="h-4 w-4" />}
+            >
+              {isAgendamento ? 'Agendar Publicação' : 'Publicar Agora'}
+            </Botao>
+          </>
+        }
       >
-        <form onSubmit={publicar} className="space-y-4">
+        <form id="form-publicar-aviso" onSubmit={publicar} className="space-y-4">
           <Campo rotulo="Título do Comunicado" obrigatorio>
             <input
               className={inputCls}
@@ -295,20 +311,6 @@ export default function PublicarAviso() {
               Fixar no topo do mural dos moradores
             </span>
           </label>
-
-          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-            <Botao type="button" variante="claro" onClick={() => setModalAberto(false)}>
-              Cancelar
-            </Botao>
-            <Botao
-              type="submit"
-              variante="primario"
-              carregando={salvando}
-              icone={<Icone nome="megaphone" className="h-4 w-4" />}
-            >
-              {isAgendamento ? 'Agendar Publicação' : 'Publicar Agora'}
-            </Botao>
-          </div>
         </form>
       </Modal>
 
