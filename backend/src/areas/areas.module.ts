@@ -1,11 +1,17 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, Req, Module, UseGuards, ParseIntPipe, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
+import { memoryStorage } from 'multer';
 import 'multer';
-import { extname } from 'path';
+import { promises as fs } from 'fs';
+import sharp from 'sharp';
 import { DbService } from '../db/db.service';
 import { JwtAuthGuard, PerfilGuard, Perfis, perfilDoUsuario } from '../auth/guards';
 import { IMAGEM_MAX_BYTES, IMAGEM_TIPOS_REGEX } from '../common/upload.constants';
+
+/** Largura maxima (px) das imagens de area comum apos redimensionamento. */
+const IMAGEM_LARGURA_MAX = 1200;
+/** Qualidade WebP aplicada na compressao das imagens enviadas. */
+const IMAGEM_QUALIDADE_WEBP = 80;
 
 /**
  * UC09 - Gerenciar Areas Comuns e Recursos.
@@ -182,16 +188,10 @@ export class AreasController {
       .then(r => r[0]);
   }
 
-  /** Upload de imagem para uma area comum. */
+  /** Upload de imagem para uma area comum. Redimensiona e comprime para WebP antes de gravar em disco. */
   @Post(':id/imagem') @Perfis('SINDICO')
   @UseInterceptors(FileInterceptor('imagem', {
-    storage: diskStorage({
-      destination: './uploads',
-      filename: (_req, file, cb) => {
-        const nome = `area-${Date.now()}${extname(file.originalname)}`;
-        cb(null, nome);
-      },
-    }),
+    storage: memoryStorage(),
     fileFilter: (_req, file, cb) => {
       if (!IMAGEM_TIPOS_REGEX.test(file.mimetype)) {
         cb(new BadRequestException('Formato de imagem invalido. Aceitos: JPEG, PNG, WebP, GIF.'), false);
@@ -206,7 +206,26 @@ export class AreasController {
     @UploadedFile() file: any,
   ) {
     if (!file) throw new BadRequestException('Nenhum arquivo enviado.');
-    const url = `/uploads/${file.filename}`;
+
+    let processada: Buffer;
+    try {
+      processada = await sharp(file.buffer)
+        .rotate()
+        .resize({ width: IMAGEM_LARGURA_MAX, withoutEnlargement: true })
+        .webp({ quality: IMAGEM_QUALIDADE_WEBP })
+        .toBuffer();
+    } catch {
+      throw new BadRequestException('Nao foi possivel processar a imagem enviada. Verifique se o arquivo nao esta corrompido.');
+    }
+
+    console.log(
+      `[areas] compressao de imagem: ${file.originalname} ${file.size} bytes -> ${processada.length} bytes`,
+    );
+
+    const nome = `area-${Date.now()}.webp`;
+    await fs.writeFile(`./uploads/${nome}`, processada);
+
+    const url = `/uploads/${nome}`;
     await this.db.query(
       `UPDATE area_comum SET imagem_url = $2 WHERE id_area_comum = $1`, [id, url]);
     return { imagem_url: url };
