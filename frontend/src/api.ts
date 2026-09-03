@@ -5,6 +5,8 @@
  * - converte respostas de erro da API em Error com a mensagem legivel
  *   (inclusive as mensagens RN01..RN14 vindas dos gatilhos do banco).
  */
+import { IMAGEM_MAX_MB } from './constants';
+
 const TOKEN_KEY = 'oasis_token';
 const SESSAO_KEY = 'oasis_sessao';
 
@@ -28,6 +30,32 @@ export function sair() {
   localStorage.removeItem(SESSAO_KEY);
 }
 
+/**
+ * Gera uma mensagem legivel quando a resposta de erro nao veio em JSON
+ * (ex.: paginas de erro em HTML devolvidas pelo nginx antes de chegar no backend,
+ * como o 413 do proxy quando o corpo excede client_max_body_size).
+ */
+function mensagemPorStatus(status: number, contexto: 'upload' | 'geral'): string {
+  if (status === 413) {
+    return contexto === 'upload'
+      ? `O arquivo enviado excede o tamanho maximo permitido (${IMAGEM_MAX_MB} MB).`
+      : 'O conteudo enviado excede o tamanho maximo permitido pelo servidor.';
+  }
+  if (status >= 500) return 'Erro no servidor. Tente novamente em instantes.';
+  return `Erro ${status}.`;
+}
+
+/** Interpreta o corpo da resposta como JSON; se falhar, cai numa mensagem por codigo HTTP. */
+async function parseResposta(r: Response, contexto: 'upload' | 'geral' = 'geral'): Promise<any> {
+  const texto = await r.text();
+  if (!texto) return {};
+  try {
+    return JSON.parse(texto);
+  } catch {
+    return { message: mensagemPorStatus(r.status, contexto) };
+  }
+}
+
 async function req<T>(metodo: string, rota: string, corpo?: unknown): Promise<T> {
   const r = await fetch('/api' + rota, {
     method: metodo,
@@ -39,7 +67,7 @@ async function req<T>(metodo: string, rota: string, corpo?: unknown): Promise<T>
     },
     body: corpo ? JSON.stringify(corpo) : undefined,
   });
-  const dados = await r.json().catch(() => ({}));
+  const dados = await parseResposta(r);
   if (!r.ok) {
     if (r.status === 401 && !rota.startsWith('/auth/login')) {
       sair();
@@ -72,7 +100,7 @@ export const api = {
       },
       body: form,
     });
-    const dados = await r.json().catch(() => ({}));
+    const dados = await parseResposta(r, 'upload');
     if (!r.ok) {
       const msg = Array.isArray(dados.message) ? dados.message.join('; ') : dados.message;
       throw new Error(msg || `Erro ${r.status}`);

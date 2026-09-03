@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../../api';
 import { Botao, Campo, Cartao, inputCls, Mensagem, Titulo, Icone, Badge, Modal, EmptyState, ModalConfirmacao } from '../../components/ui';
+import { IMAGEM_MAX_BYTES, IMAGEM_MAX_MB, IMAGEM_TIPOS_ACEITOS, IMAGEM_EXTENSOES_ACEITAS } from '../../constants';
 
 type Area = {
   id_area_comum: number;
@@ -64,6 +65,17 @@ function formatarHoras(horasTotal: number): string {
   if (d > 0 && h > 0) return `${d}d ${h}h`;
   if (d > 0) return `${d}d`;
   return `${h}h`;
+}
+
+/** Valida tamanho e formato da imagem antes do envio; retorna a mensagem de erro ou null se valida. */
+function validarImagem(file: File): string | null {
+  if (!IMAGEM_TIPOS_ACEITOS.includes(file.type)) {
+    return `Formato de imagem inválido. Aceitos: ${IMAGEM_EXTENSOES_ACEITAS}.`;
+  }
+  if (file.size > IMAGEM_MAX_BYTES) {
+    return `A imagem excede o tamanho máximo permitido (${IMAGEM_MAX_MB} MB).`;
+  }
+  return null;
 }
 
 /** Obtém a data no formato YYYY-MM-DD com fuso brasileiro */
@@ -1095,6 +1107,15 @@ export default function Areas() {
               type="file"
               accept="image/jpeg,image/png,image/webp,image/gif"
               ref={fileInputCriar}
+              onChange={e => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const erro = validarImagem(file);
+                if (erro) {
+                  setMsg({ t: erro, tipo: 'erro' });
+                  e.target.value = '';
+                }
+              }}
               className="block w-full text-xs text-slate-500 dark:text-slate-400 file:mr-3 file:rounded-lg file:border-0 file:bg-navy-50 dark:file:bg-slate-800 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-navy dark:file:text-sky-400 hover:file:bg-navy-100 dark:hover:file:bg-slate-700 transition-colors"
             />
           </Campo>
@@ -1285,7 +1306,14 @@ export default function Areas() {
                 ref={fileInputEditar}
                 onChange={e => {
                   const file = e.target.files?.[0];
-                  if (file) setPreviewImagem(URL.createObjectURL(file));
+                  if (!file) return;
+                  const erro = validarImagem(file);
+                  if (erro) {
+                    setMsg({ t: erro, tipo: 'erro' });
+                    e.target.value = '';
+                    return;
+                  }
+                  setPreviewImagem(URL.createObjectURL(file));
                 }}
                 className="block w-full text-xs text-slate-500 dark:text-slate-400 file:mr-3 file:rounded-lg file:border-0 file:bg-navy-50 dark:file:bg-slate-800 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-navy dark:file:text-sky-400 hover:file:bg-navy-100 dark:hover:file:bg-slate-700 transition-colors"
               />
