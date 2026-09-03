@@ -247,8 +247,24 @@ export default function Pessoas() {
         aberto={modalAberto}
         fechar={() => setModalAberto(false)}
         titulo="Cadastrar Nova Pessoa & Vínculo"
+        rodape={
+          <>
+            <Botao type="button" variante="claro" onClick={() => setModalAberto(false)}>
+              Cancelar
+            </Botao>
+            <Botao
+              type="submit"
+              form="form-cadastro-pessoa"
+              variante="primario"
+              carregando={salvando}
+              icone={<Icone nome="check" className="h-4 w-4" />}
+            >
+              Cadastrar Pessoa
+            </Botao>
+          </>
+        }
       >
-        <form onSubmit={cadastrar} className="space-y-4">
+        <form id="form-cadastro-pessoa" onSubmit={cadastrar} className="space-y-4">
           <Campo rotulo="Nome Completo" obrigatorio>
             <input
               className={inputCls}
@@ -343,20 +359,6 @@ export default function Pessoas() {
                 </select>
               </Campo>
             </div>
-          </div>
-
-          <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-            <Botao type="button" variante="claro" onClick={() => setModalAberto(false)}>
-              Cancelar
-            </Botao>
-            <Botao
-              type="submit"
-              variante="primario"
-              carregando={salvando}
-              icone={<Icone nome="check" className="h-4 w-4" />}
-            >
-              Cadastrar Pessoa
-            </Botao>
           </div>
         </form>
       </Modal>

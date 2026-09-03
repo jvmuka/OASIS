@@ -57,3 +57,14 @@
 .animate-scale-in {
   animation: scaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/*
+ * Altura máxima de modais com fallback real em CSS: navegadores sem suporte
+ * a `dvh` ignoram a segunda declaração e mantêm a primeira. Duas classes
+ * Tailwind (max-h-[90vh] max-h-[90dvh]) teriam ordem de geração imprevisível
+ * por serem duas regras concorrentes na mesma camada de utilitários.
+ */
+.modal-altura-max {
+  max-height: 90vh;
+  max-height: 90dvh;
+}

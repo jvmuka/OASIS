@@ -275,6 +275,22 @@ export default function Encomendas() {
         aberto={!!retirando}
         fechar={() => setRetirando(null)}
         titulo="Confirmar Retirada de Encomenda"
+        rodape={
+          retirando && (
+            <>
+              <Botao variante="claro" onClick={() => setRetirando(null)}>
+                Cancelar
+              </Botao>
+              <Botao
+                onClick={confirmarRetirada}
+                carregando={confirmandoRetirada}
+                icone={<Icone nome="check" className="h-4 w-4" />}
+              >
+                Confirmar Entrega
+              </Botao>
+            </>
+          )
+        }
       >
         {retirando && (
           <div className="space-y-4">
@@ -307,19 +323,6 @@ export default function Encomendas() {
                 />
               </Campo>
             )}
-
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-              <Botao variante="claro" onClick={() => setRetirando(null)}>
-                Cancelar
-              </Botao>
-              <Botao
-                onClick={confirmarRetirada}
-                carregando={confirmandoRetirada}
-                icone={<Icone nome="check" className="h-4 w-4" />}
-              >
-                Confirmar Entrega
-              </Botao>
-            </div>
           </div>
         )}
       </Modal>

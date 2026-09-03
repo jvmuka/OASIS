@@ -585,8 +585,24 @@ export default function Areas() {
         fechar={() => setModalBloqueioAberto(false)}
         titulo="Agendar Manutenção / Interdição de Área"
         largura="max-w-xl"
+        rodape={
+          <>
+            <Botao type="button" variante="claro" onClick={() => setModalBloqueioAberto(false)}>
+              Cancelar
+            </Botao>
+            <Botao
+              type="submit"
+              form="form-bloqueio-area"
+              variante="primario"
+              carregando={salvando}
+              icone={<Icone nome="check" className="h-4 w-4" />}
+            >
+              Confirmar Interdição
+            </Botao>
+          </>
+        }
       >
-        <form onSubmit={criarBloqueio} className="space-y-5">
+        <form id="form-bloqueio-area" onSubmit={criarBloqueio} className="space-y-5">
           {/* Seleção do Espaço */}
           <Campo rotulo="Espaço a ser Interditado" obrigatorio>
             <select
@@ -888,20 +904,6 @@ export default function Areas() {
               </p>
             </div>
           </div>
-
-          <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
-            <Botao type="button" variante="claro" onClick={() => setModalBloqueioAberto(false)}>
-              Cancelar
-            </Botao>
-            <Botao
-              type="submit"
-              variante="primario"
-              carregando={salvando}
-              icone={<Icone nome="check" className="h-4 w-4" />}
-            >
-              Confirmar Interdição
-            </Botao>
-          </div>
         </form>
       </Modal>
 
@@ -937,8 +939,18 @@ export default function Areas() {
         fechar={() => setModalCriarAberto(false)}
         titulo="Cadastrar Novo Espaço Coletivo"
         largura="max-w-xl"
+        rodape={
+          <>
+            <Botao type="button" variante="claro" onClick={() => setModalCriarAberto(false)}>
+              Cancelar
+            </Botao>
+            <Botao type="submit" form="form-criar-area" carregando={salvando}>
+              Cadastrar Espaço
+            </Botao>
+          </>
+        }
       >
-        <form onSubmit={criar} className="space-y-4">
+        <form id="form-criar-area" onSubmit={criar} className="space-y-4">
           <Campo rotulo="Nome do Espaço" obrigatorio>
             <input
               className={inputCls}
@@ -1119,15 +1131,6 @@ export default function Areas() {
               className="block w-full text-xs text-slate-500 dark:text-slate-400 file:mr-3 file:rounded-lg file:border-0 file:bg-navy-50 dark:file:bg-slate-800 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-navy dark:file:text-sky-400 hover:file:bg-navy-100 dark:hover:file:bg-slate-700 transition-colors"
             />
           </Campo>
-
-          <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
-            <Botao type="button" variante="claro" onClick={() => setModalCriarAberto(false)}>
-              Cancelar
-            </Botao>
-            <Botao type="submit" carregando={salvando}>
-              Cadastrar Espaço
-            </Botao>
-          </div>
         </form>
       </Modal>
 
@@ -1137,6 +1140,18 @@ export default function Areas() {
         fechar={() => setEditando(null)}
         titulo={`Editar — ${editando?.nome || ''}`}
         largura="max-w-xl"
+        rodape={
+          editando && (
+            <>
+              <Botao variante="claro" onClick={() => setEditando(null)}>
+                Cancelar
+              </Botao>
+              <Botao onClick={salvarEdicao} carregando={salvando}>
+                Salvar Alterações
+              </Botao>
+            </>
+          )
+        }
       >
         {editando && (
           <div className="space-y-4">
@@ -1325,15 +1340,6 @@ export default function Areas() {
                 <span className="text-xs text-slate-500 dark:text-slate-400">Pré-visualização da imagem</span>
               </div>
             )}
-
-            <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
-              <Botao variante="claro" onClick={() => setEditando(null)}>
-                Cancelar
-              </Botao>
-              <Botao onClick={salvarEdicao} carregando={salvando}>
-                Salvar Alterações
-              </Botao>
-            </div>
           </div>
         )}
       </Modal>
