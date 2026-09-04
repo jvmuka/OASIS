@@ -137,6 +137,7 @@ export default function Layout() {
                 <div className="space-y-1">
                   {item('/morador/reservar', 'Nova Reserva', 'calendar')}
                   {item('/morador/reservas', 'Minhas Reservas', 'clock')}
+                  {item('/morador/familia', 'Minha Família', 'users')}
                 </div>
               </div>
             )}

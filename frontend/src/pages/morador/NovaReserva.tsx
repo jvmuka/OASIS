@@ -7,6 +7,7 @@ type Area = {
   id_area_comum: number;
   nome: string;
   capacidade: number;
+  idade_minima?: number;
   ativo: boolean;
   duracao_slot_min: number;
   antecedencia_minima_dias: number;
@@ -155,6 +156,11 @@ export default function NovaReserva() {
                       <span className="text-xs font-semibold backdrop-blur-xs bg-black/30 rounded-md px-2 py-0.5">
                         Capacidade: {a.capacidade} pessoas
                       </span>
+                      {a.idade_minima !== undefined && a.idade_minima > 0 && (
+                        <span className="text-xs font-bold backdrop-blur-xs bg-amber-500/90 text-white rounded-md px-2 py-0.5 shadow-xs">
+                          {a.idade_minima}+ anos
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -204,7 +210,11 @@ export default function NovaReserva() {
                 <div>
                   <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{area.nome}</h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Capacidade máxima: <b>{area.capacidade} pessoas</b> • Cancelamento até <b>{area.prazo_cancelamento_horas}h</b> antes
+                    Capacidade máxima: <b>{area.capacidade} pessoas</b>
+                    {area.idade_minima !== undefined && area.idade_minima > 0 && (
+                      <> • Idade mínima: <b className="text-amber-600 dark:text-amber-400">{area.idade_minima} anos</b></>
+                    )}
+                    {' '}• Cancelamento até <b>{area.prazo_cancelamento_horas}h</b> antes
                   </p>
                 </div>
               </div>

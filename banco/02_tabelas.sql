@@ -36,27 +36,50 @@ CREATE TABLE pessoa (
     email            VARCHAR(150)  NOT NULL UNIQUE,
     cpf              CHAR(11)      NOT NULL UNIQUE,
     data_nascimento  DATE          NOT NULL,
-    celular          VARCHAR(15),
+    celular          VARCHAR(30),
+    senha_hash       VARCHAR(255),
+    status_conta     VARCHAR(30)   NOT NULL DEFAULT 'ATIVO',
     ativo            BOOLEAN       NOT NULL DEFAULT TRUE,
     CONSTRAINT ck_pessoa_cpf        CHECK (cpf ~ '^[0-9]{11}$'),
     CONSTRAINT ck_pessoa_email      CHECK (email LIKE '%_@_%._%'),
-    CONSTRAINT ck_pessoa_nascimento CHECK (data_nascimento < CURRENT_DATE)
+    CONSTRAINT ck_pessoa_nascimento CHECK (data_nascimento < CURRENT_DATE),
+    CONSTRAINT ck_pessoa_status     CHECK (status_conta IN ('AGUARDANDO_PRIMEIRO_ACESSO', 'ATIVO', 'BLOQUEADO'))
 );
 
 CREATE TABLE pessoa_unidade (
-    id_pessoa_unidade     SERIAL             PRIMARY KEY,
-    id_pessoa             INTEGER            NOT NULL,
-    id_unidade            INTEGER            NOT NULL,
-    tipo_vinculo          tipo_vinculo_enum  NOT NULL,
-    reside                BOOLEAN            NOT NULL DEFAULT TRUE,
-    data_inicio_ocupacao  DATE               NOT NULL DEFAULT CURRENT_DATE,
+    id_pessoa_unidade     SERIAL                 PRIMARY KEY,
+    id_pessoa             INTEGER                NOT NULL,
+    id_unidade            INTEGER                NOT NULL,
+    tipo_vinculo          tipo_vinculo_enum      NOT NULL,
+    id_responsavel        INTEGER,
+    grau_parentesco       grau_parentesco_enum,
+    status_aprovacao      status_aprovacao_enum  NOT NULL DEFAULT 'APROVADO',
+    motivo_rejeicao       VARCHAR(255),
+    reside                BOOLEAN                NOT NULL DEFAULT TRUE,
+    data_inicio_ocupacao  DATE                   NOT NULL DEFAULT CURRENT_DATE,
     data_fim_ocupacao     DATE,
-    CONSTRAINT fk_pu_pessoa   FOREIGN KEY (id_pessoa)  REFERENCES pessoa (id_pessoa),
-    CONSTRAINT fk_pu_unidade  FOREIGN KEY (id_unidade) REFERENCES unidade (id_unidade),
-    CONSTRAINT uk_pu_vinculo  UNIQUE (id_pessoa, id_unidade, data_inicio_ocupacao),
-    CONSTRAINT ck_pu_periodo  CHECK (data_fim_ocupacao IS NULL
-                                     OR data_fim_ocupacao >= data_inicio_ocupacao)
+    CONSTRAINT fk_pu_pessoa       FOREIGN KEY (id_pessoa)       REFERENCES pessoa (id_pessoa),
+    CONSTRAINT fk_pu_unidade      FOREIGN KEY (id_unidade)      REFERENCES unidade (id_unidade),
+    CONSTRAINT fk_pu_responsavel  FOREIGN KEY (id_responsavel)  REFERENCES pessoa (id_pessoa) ON DELETE RESTRICT,
+    CONSTRAINT uk_pu_vinculo      UNIQUE (id_pessoa, id_unidade, data_inicio_ocupacao),
+    CONSTRAINT ck_pu_periodo      CHECK (data_fim_ocupacao IS NULL
+                                         OR data_fim_ocupacao >= data_inicio_ocupacao),
+    CONSTRAINT ck_pu_dependente_regra CHECK (
+        (tipo_vinculo = 'DEPENDENTE' AND id_responsavel IS NOT NULL AND id_responsavel <> id_pessoa)
+        OR
+        (tipo_vinculo IN ('PROPRIETARIO', 'INQUILINO') AND id_responsavel IS NULL)
+    )
 );
+
+CREATE UNIQUE INDEX uk_unidade_proprietario_ativo
+    ON pessoa_unidade (id_unidade)
+    WHERE tipo_vinculo = 'PROPRIETARIO' AND data_fim_ocupacao IS NULL;
+
+CREATE UNIQUE INDEX uk_unidade_inquilino_ativo
+    ON pessoa_unidade (id_unidade)
+    WHERE tipo_vinculo = 'INQUILINO' AND data_fim_ocupacao IS NULL;
+
+CREATE INDEX idx_pu_responsavel ON pessoa_unidade (id_responsavel);
 
 CREATE TABLE perfil (
     id_perfil           SERIAL            PRIMARY KEY,
@@ -76,6 +99,7 @@ CREATE TABLE area_comum (
     nome                      VARCHAR(60)       NOT NULL UNIQUE,
     descricao                 VARCHAR(255),
     capacidade                INTEGER           NOT NULL,
+    idade_minima              INTEGER           NOT NULL DEFAULT 0,
     tipo_acesso               tipo_acesso_enum  NOT NULL,
     tipo_uso                  tipo_uso_enum     NOT NULL,
     duracao_slot_min          INTEGER           NOT NULL DEFAULT 60,
@@ -90,6 +114,7 @@ CREATE TABLE area_comum (
     imagem_url                VARCHAR(500),
     observacoes               VARCHAR(255),
     CONSTRAINT ck_area_capacidade  CHECK (capacidade > 0),
+    CONSTRAINT ck_area_idade       CHECK (idade_minima >= 0),
     CONSTRAINT ck_area_slot        CHECK (duracao_slot_min BETWEEN 1 AND 1440),
     CONSTRAINT ck_area_antec       CHECK (antecedencia_maxima_dias >= antecedencia_minima_dias
                                           AND antecedencia_minima_dias >= 0),
@@ -251,3 +276,19 @@ CREATE TABLE aviso_perfil (
     CONSTRAINT ck_ap_leitura CHECK ((lido = FALSE AND data_hora_leitura IS NULL)
                                  OR (lido = TRUE  AND data_hora_leitura IS NOT NULL))
 );
+
+CREATE TABLE codigo_primeiro_acesso (
+    id_codigo            SERIAL              PRIMARY KEY,
+    codigo               VARCHAR(20)         NOT NULL UNIQUE,
+    id_pessoa            INTEGER             NOT NULL,
+    id_perfil_gerador    INTEGER,
+    status               status_codigo_enum  NOT NULL DEFAULT 'DISPONIVEL',
+    data_criacao         TIMESTAMP           NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    data_expiracao       TIMESTAMP           NOT NULL DEFAULT (CURRENT_TIMESTAMP + INTERVAL '7 days'),
+    data_utilizacao      TIMESTAMP,
+    ip_origem            VARCHAR(45),
+    CONSTRAINT fk_cpa_pessoa  FOREIGN KEY (id_pessoa)         REFERENCES pessoa (id_pessoa) ON DELETE CASCADE,
+    CONSTRAINT fk_cpa_gerador FOREIGN KEY (id_perfil_gerador) REFERENCES perfil (id_perfil)
+);
+
+CREATE INDEX idx_cpa_codigo ON codigo_primeiro_acesso (codigo) WHERE status = 'DISPONIVEL';

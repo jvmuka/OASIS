@@ -37,11 +37,42 @@ export class DbService implements OnModuleDestroy {
   }
 
   private traduz(e: any) {
+    if (e instanceof BadRequestException || (e?.status && typeof e?.getStatus === 'function')) {
+      return e;
+    }
     const msg: string = e?.message || 'erro de banco de dados';
     if (/^RN\d{2}:/.test(msg)) return new BadRequestException(msg);          // regra de negocio
-    if (e?.code === '23505') return new BadRequestException('Registro duplicado: ' + (e.detail || msg));
-    if (e?.code === '23503') return new BadRequestException('Referencia inexistente: ' + (e.detail || msg));
-    if (e?.code === '23514') return new BadRequestException('Valor invalido: ' + (e.constraint || msg));
+    if (e?.code === '23505') {
+      if (e?.constraint === 'uk_unidade_proprietario_ativo' || msg.includes('uk_unidade_proprietario_ativo')) {
+        return new BadRequestException('Erro de cadastro: Este apartamento já possui um proprietário ativo cadastrado.');
+      }
+      if (e?.constraint === 'uk_unidade_inquilino_ativo' || msg.includes('uk_unidade_inquilino_ativo')) {
+        return new BadRequestException('Erro de cadastro: Este apartamento já possui um inquilino ativo cadastrado.');
+      }
+      if (e?.constraint?.includes('cpf') || msg.includes('cpf')) {
+        return new BadRequestException('Erro de cadastro: Este CPF já está cadastrado no sistema.');
+      }
+      if (e?.constraint?.includes('email') || msg.includes('email')) {
+        return new BadRequestException('Erro de cadastro: Este e-mail já está cadastrado no sistema.');
+      }
+      return new BadRequestException('Registro duplicado: ' + (e.detail || msg));
+    }
+    if (e?.code === '22001' || msg.includes('value too long')) {
+      return new BadRequestException('Erro de cadastro: O valor digitado para um dos campos (ex.: celular ou telefone) ultrapassa o limite permitido.');
+    }
+    if (e?.code === '23503') return new BadRequestException('Referência inexistente no sistema: ' + (e.detail || msg));
+    if (e?.code === '23514') {
+      if (e?.constraint === 'ck_pessoa_cpf' || msg.includes('ck_pessoa_cpf')) {
+        return new BadRequestException('Erro de cadastro: O CPF deve conter exatamente 11 dígitos numéricos.');
+      }
+      if (e?.constraint === 'ck_pessoa_email' || msg.includes('ck_pessoa_email')) {
+        return new BadRequestException('Erro de cadastro: Formato de e-mail inválido.');
+      }
+      if (e?.constraint === 'ck_pessoa_nascimento' || msg.includes('ck_pessoa_nascimento')) {
+        return new BadRequestException('Erro de cadastro: A data de nascimento deve ser anterior à data de hoje.');
+      }
+      return new BadRequestException('Valor inválido para as regras do sistema: ' + (e.constraint || msg));
+    }
     console.error('[DB]', msg);
     return new InternalServerErrorException('Erro interno de banco de dados.');
   }

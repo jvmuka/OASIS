@@ -22,6 +22,9 @@ CREATE TYPE tamanho_encomenda_enum      AS ENUM ('PEQUENO','MEDIO','GRANDE');
 CREATE TYPE status_encomenda_enum       AS ENUM ('AGUARDANDO_RETIRADA','RETIRADA','DEVOLVIDA');
 CREATE TYPE retirado_por_enum           AS ENUM ('PROPRIO','TERCEIRO','PORTEIRO');
 CREATE TYPE escopo_aviso_enum           AS ENUM ('MURAL','INDIVIDUAL');
+CREATE TYPE grau_parentesco_enum        AS ENUM ('CONJUGE','FILHO','PAI_MAE','OUTRO');
+CREATE TYPE status_aprovacao_enum       AS ENUM ('PENDENTE','APROVADO','REJEITADO');
+CREATE TYPE status_codigo_enum          AS ENUM ('DISPONIVEL','USADO','EXPIRADO','CANCELADO');
 
 -- =====================================================================
 -- Parte 2 de 3: criacao das tabelas
@@ -61,27 +64,50 @@ CREATE TABLE pessoa (
     email            VARCHAR(150)  NOT NULL UNIQUE,
     cpf              CHAR(11)      NOT NULL UNIQUE,
     data_nascimento  DATE          NOT NULL,
-    celular          VARCHAR(15),
+    celular          VARCHAR(30),
+    senha_hash       VARCHAR(255),
+    status_conta     VARCHAR(30)   NOT NULL DEFAULT 'ATIVO',
     ativo            BOOLEAN       NOT NULL DEFAULT TRUE,
     CONSTRAINT ck_pessoa_cpf        CHECK (cpf ~ '^[0-9]{11}$'),
     CONSTRAINT ck_pessoa_email      CHECK (email LIKE '%_@_%._%'),
-    CONSTRAINT ck_pessoa_nascimento CHECK (data_nascimento < CURRENT_DATE)
+    CONSTRAINT ck_pessoa_nascimento CHECK (data_nascimento < CURRENT_DATE),
+    CONSTRAINT ck_pessoa_status     CHECK (status_conta IN ('AGUARDANDO_PRIMEIRO_ACESSO', 'ATIVO', 'BLOQUEADO'))
 );
 
 CREATE TABLE pessoa_unidade (
-    id_pessoa_unidade     SERIAL             PRIMARY KEY,
-    id_pessoa             INTEGER            NOT NULL,
-    id_unidade            INTEGER            NOT NULL,
-    tipo_vinculo          tipo_vinculo_enum  NOT NULL,
-    reside                BOOLEAN            NOT NULL DEFAULT TRUE,
-    data_inicio_ocupacao  DATE               NOT NULL DEFAULT CURRENT_DATE,
+    id_pessoa_unidade     SERIAL                 PRIMARY KEY,
+    id_pessoa             INTEGER                NOT NULL,
+    id_unidade            INTEGER                NOT NULL,
+    tipo_vinculo          tipo_vinculo_enum      NOT NULL,
+    id_responsavel        INTEGER,
+    grau_parentesco       grau_parentesco_enum,
+    status_aprovacao      status_aprovacao_enum  NOT NULL DEFAULT 'APROVADO',
+    motivo_rejeicao       VARCHAR(255),
+    reside                BOOLEAN                NOT NULL DEFAULT TRUE,
+    data_inicio_ocupacao  DATE                   NOT NULL DEFAULT CURRENT_DATE,
     data_fim_ocupacao     DATE,
-    CONSTRAINT fk_pu_pessoa   FOREIGN KEY (id_pessoa)  REFERENCES pessoa (id_pessoa),
-    CONSTRAINT fk_pu_unidade  FOREIGN KEY (id_unidade) REFERENCES unidade (id_unidade),
-    CONSTRAINT uk_pu_vinculo  UNIQUE (id_pessoa, id_unidade, data_inicio_ocupacao),
-    CONSTRAINT ck_pu_periodo  CHECK (data_fim_ocupacao IS NULL
-                                     OR data_fim_ocupacao >= data_inicio_ocupacao)
+    CONSTRAINT fk_pu_pessoa       FOREIGN KEY (id_pessoa)       REFERENCES pessoa (id_pessoa),
+    CONSTRAINT fk_pu_unidade      FOREIGN KEY (id_unidade)      REFERENCES unidade (id_unidade),
+    CONSTRAINT fk_pu_responsavel  FOREIGN KEY (id_responsavel)  REFERENCES pessoa (id_pessoa) ON DELETE RESTRICT,
+    CONSTRAINT uk_pu_vinculo      UNIQUE (id_pessoa, id_unidade, data_inicio_ocupacao),
+    CONSTRAINT ck_pu_periodo      CHECK (data_fim_ocupacao IS NULL
+                                         OR data_fim_ocupacao >= data_inicio_ocupacao),
+    CONSTRAINT ck_pu_dependente_regra CHECK (
+        (tipo_vinculo = 'DEPENDENTE' AND id_responsavel IS NOT NULL AND id_responsavel <> id_pessoa)
+        OR
+        (tipo_vinculo IN ('PROPRIETARIO', 'INQUILINO') AND id_responsavel IS NULL)
+    )
 );
+
+CREATE UNIQUE INDEX uk_unidade_proprietario_ativo
+    ON pessoa_unidade (id_unidade)
+    WHERE tipo_vinculo = 'PROPRIETARIO' AND data_fim_ocupacao IS NULL;
+
+CREATE UNIQUE INDEX uk_unidade_inquilino_ativo
+    ON pessoa_unidade (id_unidade)
+    WHERE tipo_vinculo = 'INQUILINO' AND data_fim_ocupacao IS NULL;
+
+CREATE INDEX idx_pu_responsavel ON pessoa_unidade (id_responsavel);
 
 CREATE TABLE perfil (
     id_perfil           SERIAL            PRIMARY KEY,
@@ -101,6 +127,7 @@ CREATE TABLE area_comum (
     nome                      VARCHAR(60)       NOT NULL UNIQUE,
     descricao                 VARCHAR(255),
     capacidade                INTEGER           NOT NULL,
+    idade_minima              INTEGER           NOT NULL DEFAULT 0,
     tipo_acesso               tipo_acesso_enum  NOT NULL,
     tipo_uso                  tipo_uso_enum     NOT NULL,
     duracao_slot_min          INTEGER           NOT NULL DEFAULT 60,
@@ -115,6 +142,7 @@ CREATE TABLE area_comum (
     imagem_url                VARCHAR(500),
     observacoes               VARCHAR(255),
     CONSTRAINT ck_area_capacidade  CHECK (capacidade > 0),
+    CONSTRAINT ck_area_idade       CHECK (idade_minima >= 0),
     CONSTRAINT ck_area_slot        CHECK (duracao_slot_min BETWEEN 1 AND 1440),
     CONSTRAINT ck_area_antec       CHECK (antecedencia_maxima_dias >= antecedencia_minima_dias
                                           AND antecedencia_minima_dias >= 0),
@@ -277,6 +305,22 @@ CREATE TABLE aviso_perfil (
                                  OR (lido = TRUE  AND data_hora_leitura IS NOT NULL))
 );
 
+CREATE TABLE codigo_primeiro_acesso (
+    id_codigo            SERIAL              PRIMARY KEY,
+    codigo               VARCHAR(20)         NOT NULL UNIQUE,
+    id_pessoa            INTEGER             NOT NULL,
+    id_perfil_gerador    INTEGER,
+    status               status_codigo_enum  NOT NULL DEFAULT 'DISPONIVEL',
+    data_criacao         TIMESTAMP           NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    data_expiracao       TIMESTAMP           NOT NULL DEFAULT (CURRENT_TIMESTAMP + INTERVAL '7 days'),
+    data_utilizacao      TIMESTAMP,
+    ip_origem            VARCHAR(45),
+    CONSTRAINT fk_cpa_pessoa  FOREIGN KEY (id_pessoa)         REFERENCES pessoa (id_pessoa) ON DELETE CASCADE,
+    CONSTRAINT fk_cpa_gerador FOREIGN KEY (id_perfil_gerador) REFERENCES perfil (id_perfil)
+);
+
+CREATE INDEX idx_cpa_codigo ON codigo_primeiro_acesso (codigo) WHERE status = 'DISPONIVEL';
+
 -- =====================================================================
 -- Parte 3 de 3: indices de apoio e carga inicial de dados
 -- =====================================================================
@@ -347,31 +391,39 @@ INSERT INTO perfil (id_pessoa, tipo_perfil, data_inicio) VALUES
     (6, 'MORADOR',  '2025-01-20');
 
 INSERT INTO pessoa_unidade
-    (id_pessoa, id_unidade, tipo_vinculo, reside, data_inicio_ocupacao) VALUES
-    (1, 1, 'PROPRIETARIO', TRUE,  '2024-02-01'),
-    (3, 1, 'DEPENDENTE',   TRUE,  '2025-08-01'),
-    (2, 2, 'INQUILINO',    TRUE,  '2024-05-10'),
-    (4, 5, 'PROPRIETARIO', TRUE,  '2020-03-15'),
-    (6, 3, 'INQUILINO',    TRUE,  '2025-01-20');
+    (id_pessoa, id_unidade, tipo_vinculo, id_responsavel, grau_parentesco, status_aprovacao, reside, data_inicio_ocupacao) VALUES
+    (1, 1, 'PROPRIETARIO', NULL, NULL,     'APROVADO', TRUE, '2024-02-01'),
+    (3, 1, 'DEPENDENTE',   1,    'FILHO',    'APROVADO', TRUE, '2025-08-01'),
+    (2, 2, 'INQUILINO',    NULL, NULL,     'APROVADO', TRUE, '2024-05-10'),
+    (4, 5, 'PROPRIETARIO', NULL, NULL,     'APROVADO', TRUE, '2020-03-15'),
+    (6, 3, 'INQUILINO',    NULL, NULL,     'APROVADO', TRUE, '2025-01-20');
+
+-- ---------------------------------------------------------------------
+-- Carga inicial: codigos de primeiro acesso para testes
+-- ---------------------------------------------------------------------
+INSERT INTO codigo_primeiro_acesso (codigo, id_pessoa, id_perfil_gerador, status) VALUES
+    ('OASIS-7489', 1, 4, 'DISPONIVEL'),
+    ('OASIS-1234', 2, 4, 'DISPONIVEL'),
+    ('OASIS-5678', 3, 4, 'DISPONIVEL');
 
 -- ---------------------------------------------------------------------
 -- Carga inicial: areas comuns, horarios, utensilios e chaves
 -- ---------------------------------------------------------------------
--- colunas: nome, descricao, capacidade, tipo_acesso, tipo_uso, duracao_slot_min,
+-- colunas: nome, descricao, capacidade, idade_minima, tipo_acesso, tipo_uso, duracao_slot_min,
 --           antecedencia_minima_dias, antecedencia_maxima_dias,
 --           prazo_cancelamento_horas, limite_reservas_semana, exige_chave, valor
-INSERT INTO area_comum (nome, descricao, capacidade, tipo_acesso, tipo_uso, duracao_slot_min,
+INSERT INTO area_comum (nome, descricao, capacidade, idade_minima, tipo_acesso, tipo_uso, duracao_slot_min,
                         antecedencia_minima_dias, antecedencia_maxima_dias,
                         prazo_cancelamento_horas, limite_reservas_semana, exige_chave, valor) VALUES
-    ('Academia',            'Sala de musculacao e esteiras', 10, 'BIOMETRIA', 'RESERVAVEL',
+    ('Academia',            'Sala de musculacao e esteiras', 10, 16, 'BIOMETRIA', 'RESERVAVEL',
       60, 1, 15, 24, 2, FALSE,   0.00),
-    ('Piscina',             'Piscina adulto e infantil',     30, 'BIOMETRIA', 'RESERVAVEL',
+    ('Piscina',             'Piscina adulto e infantil',     30,  0, 'BIOMETRIA', 'RESERVAVEL',
      120, 2, 30, 24, 2, FALSE,   0.00),
-    ('Salao de Festas',     'Salao com cozinha de apoio',    50, 'CHAVE',     'RESERVAVEL',
+    ('Salao de Festas',     'Salao com cozinha de apoio',    50, 18, 'CHAVE',     'RESERVAVEL',
      360, 7, 90, 72, 1, TRUE,  150.00),
-    ('Churrasqueira',       'Area gourmet coberta',          15, 'CHAVE',     'RESERVAVEL',
+    ('Churrasqueira',       'Area gourmet coberta',          15, 18, 'CHAVE',     'RESERVAVEL',
      240, 3, 60, 48, 1, TRUE,   60.00),
-    ('Elevador de Servico', 'Uso para mudancas',              4, 'LIVRE',     'RESERVAVEL',
+    ('Elevador de Servico', 'Uso para mudancas',              4, 18, 'LIVRE',     'RESERVAVEL',
      120, 0, 30,  6, 1, FALSE,   0.00);
 
 INSERT INTO area_horario (id_area_comum, dia_semana, hora_inicio, hora_fim) VALUES
@@ -407,6 +459,7 @@ DECLARE
     v_dia           dia_semana_enum;
     v_dias_antec    INTEGER;
     v_qtd_semana    INTEGER;
+    v_nasc          DATE;
 BEGIN
     -- na alteracao de status (cancelamento) as validacoes nao se aplicam
     IF TG_OP = 'UPDATE' AND NEW.status <> 'ATIVA' THEN
@@ -456,6 +509,19 @@ BEGIN
     IF NEW.numero_pessoas > v_area.capacidade THEN
         RAISE EXCEPTION 'RN04: numero de pessoas (%) excede a capacidade da area (%).',
                         NEW.numero_pessoas, v_area.capacidade;
+    END IF;
+
+    -- RN17: restricao de idade minima da area comum
+    IF COALESCE(v_area.idade_minima, 0) > 0 THEN
+        SELECT p.data_nascimento INTO v_nasc
+          FROM perfil pf
+          JOIN pessoa p ON p.id_pessoa = pf.id_pessoa
+         WHERE pf.id_perfil = NEW.id_perfil;
+
+        IF v_nasc IS NOT NULL AND EXTRACT(YEAR FROM age(NEW.data_hora_inicio::date, v_nasc)) < v_area.idade_minima THEN
+            RAISE EXCEPTION 'RN17: a area exige idade minima de % anos para realizacao de reservas.',
+                            v_area.idade_minima;
+        END IF;
     END IF;
 
     -- RN05: janela de funcionamento do dia da semana
@@ -708,6 +774,35 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER tg_leitura_aviso
     BEFORE UPDATE ON aviso_perfil
     FOR EACH ROW EXECUTE FUNCTION fn_leitura_aviso();
+
+-- ---------------------------------------------------------------------
+-- RN15: validacao de dependente (responsavel deve ser titular ativo da mesma unidade)
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION fn_valida_dependente() RETURNS TRIGGER AS $$
+BEGIN
+    -- Se o vinculo esta sendo encerrado ou ja esta inativo, nao exige titular ativo
+    IF NEW.data_fim_ocupacao IS NOT NULL THEN
+        RETURN NEW;
+    END IF;
+
+    IF NEW.tipo_vinculo = 'DEPENDENTE' THEN
+        IF NOT EXISTS (
+            SELECT 1 FROM pessoa_unidade pu
+             WHERE pu.id_pessoa = NEW.id_responsavel
+               AND pu.id_unidade = NEW.id_unidade
+               AND pu.data_fim_ocupacao IS NULL
+               AND pu.tipo_vinculo IN ('PROPRIETARIO', 'INQUILINO')
+        ) THEN
+            RAISE EXCEPTION 'RN15: o responsavel informado deve ser o titular ativo (proprietario ou inquilino) da mesma unidade.';
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER tg_valida_dependente
+    BEFORE INSERT OR UPDATE ON pessoa_unidade
+    FOR EACH ROW EXECUTE FUNCTION fn_valida_dependente();
 
 -- ---------------------------------------------------------------------
 -- Carga inicial de avisos no mural (com trigger ativo para distribuicao)

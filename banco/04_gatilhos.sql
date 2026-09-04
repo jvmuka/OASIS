@@ -11,6 +11,7 @@ DECLARE
     v_dia           dia_semana_enum;
     v_dias_antec    INTEGER;
     v_qtd_semana    INTEGER;
+    v_nasc          DATE;
 BEGIN
     -- na alteracao de status (cancelamento) as validacoes nao se aplicam
     IF TG_OP = 'UPDATE' AND NEW.status <> 'ATIVA' THEN
@@ -60,6 +61,19 @@ BEGIN
     IF NEW.numero_pessoas > v_area.capacidade THEN
         RAISE EXCEPTION 'RN04: numero de pessoas (%) excede a capacidade da area (%).',
                         NEW.numero_pessoas, v_area.capacidade;
+    END IF;
+
+    -- RN17: restricao de idade minima da area comum
+    IF COALESCE(v_area.idade_minima, 0) > 0 THEN
+        SELECT p.data_nascimento INTO v_nasc
+          FROM perfil pf
+          JOIN pessoa p ON p.id_pessoa = pf.id_pessoa
+         WHERE pf.id_perfil = NEW.id_perfil;
+
+        IF v_nasc IS NOT NULL AND EXTRACT(YEAR FROM age(NEW.data_hora_inicio::date, v_nasc)) < v_area.idade_minima THEN
+            RAISE EXCEPTION 'RN17: a area exige idade minima de % anos para realizacao de reservas.',
+                            v_area.idade_minima;
+        END IF;
     END IF;
 
     -- RN05: janela de funcionamento do dia da semana
@@ -313,3 +327,32 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER tg_leitura_aviso
     BEFORE UPDATE ON aviso_perfil
     FOR EACH ROW EXECUTE FUNCTION fn_leitura_aviso();
+
+-- ---------------------------------------------------------------------
+-- RN15: validacao de dependente (responsavel deve ser titular ativo da mesma unidade)
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION fn_valida_dependente() RETURNS TRIGGER AS $$
+BEGIN
+    -- Se o vinculo esta sendo encerrado ou ja esta inativo, nao exige titular ativo
+    IF NEW.data_fim_ocupacao IS NOT NULL THEN
+        RETURN NEW;
+    END IF;
+
+    IF NEW.tipo_vinculo = 'DEPENDENTE' THEN
+        IF NOT EXISTS (
+            SELECT 1 FROM pessoa_unidade pu
+             WHERE pu.id_pessoa = NEW.id_responsavel
+               AND pu.id_unidade = NEW.id_unidade
+               AND pu.data_fim_ocupacao IS NULL
+               AND pu.tipo_vinculo IN ('PROPRIETARIO', 'INQUILINO')
+        ) THEN
+            RAISE EXCEPTION 'RN15: o responsavel informado deve ser o titular ativo (proprietario ou inquilino) da mesma unidade.';
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER tg_valida_dependente
+    BEFORE INSERT OR UPDATE ON pessoa_unidade
+    FOR EACH ROW EXECUTE FUNCTION fn_valida_dependente();

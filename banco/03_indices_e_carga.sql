@@ -68,31 +68,39 @@ INSERT INTO perfil (id_pessoa, tipo_perfil, data_inicio) VALUES
     (6, 'MORADOR',  '2025-01-20');
 
 INSERT INTO pessoa_unidade
-    (id_pessoa, id_unidade, tipo_vinculo, reside, data_inicio_ocupacao) VALUES
-    (1, 1, 'PROPRIETARIO', TRUE,  '2024-02-01'),
-    (3, 1, 'DEPENDENTE',   TRUE,  '2025-08-01'),
-    (2, 2, 'INQUILINO',    TRUE,  '2024-05-10'),
-    (4, 5, 'PROPRIETARIO', TRUE,  '2020-03-15'),
-    (6, 3, 'INQUILINO',    TRUE,  '2025-01-20');
+    (id_pessoa, id_unidade, tipo_vinculo, id_responsavel, grau_parentesco, status_aprovacao, reside, data_inicio_ocupacao) VALUES
+    (1, 1, 'PROPRIETARIO', NULL, NULL,     'APROVADO', TRUE, '2024-02-01'),
+    (3, 1, 'DEPENDENTE',   1,    'FILHO',    'APROVADO', TRUE, '2025-08-01'),
+    (2, 2, 'INQUILINO',    NULL, NULL,     'APROVADO', TRUE, '2024-05-10'),
+    (4, 5, 'PROPRIETARIO', NULL, NULL,     'APROVADO', TRUE, '2020-03-15'),
+    (6, 3, 'INQUILINO',    NULL, NULL,     'APROVADO', TRUE, '2025-01-20');
+
+-- ---------------------------------------------------------------------
+-- Carga inicial: codigos de primeiro acesso para testes
+-- ---------------------------------------------------------------------
+INSERT INTO codigo_primeiro_acesso (codigo, id_pessoa, id_perfil_gerador, status) VALUES
+    ('OASIS-7489', 1, 4, 'DISPONIVEL'),
+    ('OASIS-1234', 2, 4, 'DISPONIVEL'),
+    ('OASIS-5678', 3, 4, 'DISPONIVEL');
 
 -- ---------------------------------------------------------------------
 -- Carga inicial: areas comuns, horarios, utensilios e chaves
 -- ---------------------------------------------------------------------
--- colunas: nome, descricao, capacidade, tipo_acesso, tipo_uso, duracao_slot_min,
+-- colunas: nome, descricao, capacidade, idade_minima, tipo_acesso, tipo_uso, duracao_slot_min,
 --           antecedencia_minima_dias, antecedencia_maxima_dias,
 --           prazo_cancelamento_horas, limite_reservas_semana, exige_chave, valor
-INSERT INTO area_comum (nome, descricao, capacidade, tipo_acesso, tipo_uso, duracao_slot_min,
+INSERT INTO area_comum (nome, descricao, capacidade, idade_minima, tipo_acesso, tipo_uso, duracao_slot_min,
                         antecedencia_minima_dias, antecedencia_maxima_dias,
                         prazo_cancelamento_horas, limite_reservas_semana, exige_chave, valor) VALUES
-    ('Academia',            'Sala de musculacao e esteiras', 10, 'BIOMETRIA', 'RESERVAVEL',
+    ('Academia',            'Sala de musculacao e esteiras', 10, 16, 'BIOMETRIA', 'RESERVAVEL',
       60, 1, 15, 24, 2, FALSE,   0.00),
-    ('Piscina',             'Piscina adulto e infantil',     30, 'BIOMETRIA', 'RESERVAVEL',
+    ('Piscina',             'Piscina adulto e infantil',     30,  0, 'BIOMETRIA', 'RESERVAVEL',
      120, 2, 30, 24, 2, FALSE,   0.00),
-    ('Salao de Festas',     'Salao com cozinha de apoio',    50, 'CHAVE',     'RESERVAVEL',
+    ('Salao de Festas',     'Salao com cozinha de apoio',    50, 18, 'CHAVE',     'RESERVAVEL',
      360, 7, 90, 72, 1, TRUE,  150.00),
-    ('Churrasqueira',       'Area gourmet coberta',          15, 'CHAVE',     'RESERVAVEL',
+    ('Churrasqueira',       'Area gourmet coberta',          15, 18, 'CHAVE',     'RESERVAVEL',
      240, 3, 60, 48, 1, TRUE,   60.00),
-    ('Elevador de Servico', 'Uso para mudancas',              4, 'LIVRE',     'RESERVAVEL',
+    ('Elevador de Servico', 'Uso para mudancas',              4, 18, 'LIVRE',     'RESERVAVEL',
      120, 0, 30,  6, 1, FALSE,   0.00);
 
 INSERT INTO area_horario (id_area_comum, dia_semana, hora_inicio, hora_fim) VALUES
