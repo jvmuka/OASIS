@@ -41,7 +41,7 @@ async function req<T>(metodo: string, rota: string, corpo?: unknown): Promise<T>
   });
   const dados = await r.json().catch(() => ({}));
   if (!r.ok) {
-    if (r.status === 401 && !rota.startsWith('/auth/login')) {
+    if (r.status === 401 && !rota.startsWith('/auth')) {
       sair();
       if (window.location.pathname !== '/login') {
         window.location.href = '/login';

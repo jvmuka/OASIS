@@ -33,3 +33,6 @@ CREATE TYPE tamanho_encomenda_enum      AS ENUM ('PEQUENO','MEDIO','GRANDE');
 CREATE TYPE status_encomenda_enum       AS ENUM ('AGUARDANDO_RETIRADA','RETIRADA','DEVOLVIDA');
 CREATE TYPE retirado_por_enum           AS ENUM ('PROPRIO','TERCEIRO','PORTEIRO');
 CREATE TYPE escopo_aviso_enum           AS ENUM ('MURAL','INDIVIDUAL');
+CREATE TYPE grau_parentesco_enum        AS ENUM ('CONJUGE','FILHO','PAI_MAE','OUTRO');
+CREATE TYPE status_aprovacao_enum       AS ENUM ('PENDENTE','APROVADO','REJEITADO');
+CREATE TYPE status_codigo_enum          AS ENUM ('DISPONIVEL','USADO','EXPIRADO','CANCELADO');

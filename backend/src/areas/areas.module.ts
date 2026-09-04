@@ -144,13 +144,13 @@ export class AreasController {
       INSERT INTO area_comum
         (nome, descricao, capacidade, tipo_acesso, tipo_uso, duracao_slot_min,
          antecedencia_minima_dias, antecedencia_maxima_dias,
-         prazo_cancelamento_horas, limite_reservas_semana, exige_chave, valor, imagem_url, antecedencia_minima_horas)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
+         prazo_cancelamento_horas, limite_reservas_semana, exige_chave, valor, imagem_url, antecedencia_minima_horas, idade_minima)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
       [a.nome, a.descricao || null, a.capacidade, a.tipo_acesso, a.tipo_uso,
        a.duracao_slot_min ?? 60, antMinDias,
        a.antecedencia_maxima_dias ?? 30, a.prazo_cancelamento_horas ?? 24,
        a.limite_reservas_semana ?? 2, a.exige_chave ?? false, a.valor ?? 0,
-       a.imagem_url || null, antMinHoras])
+       a.imagem_url || null, antMinHoras, a.idade_minima ?? 0])
       .then(r => r[0]);
   }
 
@@ -172,12 +172,13 @@ export class AreasController {
         limite_reservas_semana = COALESCE($9,limite_reservas_semana),
         ativo = COALESCE($10,ativo),
         imagem_url = COALESCE($11,imagem_url),
-        antecedencia_minima_horas = COALESCE($12,antecedencia_minima_horas)
+        antecedencia_minima_horas = COALESCE($12,antecedencia_minima_horas),
+        idade_minima = COALESCE($13,idade_minima)
       WHERE id_area_comum = $1 RETURNING *`,
       [id, a.nome, a.descricao, a.capacidade, a.duracao_slot_min,
        antMinDias, a.antecedencia_maxima_dias,
        a.prazo_cancelamento_horas, a.limite_reservas_semana, a.ativo,
-       a.imagem_url, antMinHoras])
+       a.imagem_url, antMinHoras, a.idade_minima])
       .then(r => r[0]);
   }
 
