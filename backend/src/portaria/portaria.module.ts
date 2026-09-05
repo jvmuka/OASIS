@@ -61,15 +61,39 @@ export class PortariaController {
       });
   }
 
-  /** Encomendas do morador autenticado (ele nao pode ver a lista completa da portaria). */
+  /** Encomendas do morador autenticado e de sua unidade (ele nao pode ver a lista completa da portaria). */
   @Get('minhas-encomendas') @Perfis('MORADOR')
   minhasEncomendas(@Req() req: any) {
     return this.db.query(`
-      SELECT id_encomenda, descricao, tamanho, status,
-             data_hora_recebimento, data_hora_retirada, retirado_por, nome_retirante
-        FROM encomenda
-       WHERE id_pessoa_destinatario = $1
-       ORDER BY data_hora_recebimento DESC`, [req.user.sub]);
+      SELECT e.id_encomenda, e.descricao, e.tamanho, e.status,
+             e.data_hora_recebimento, e.data_hora_retirada, e.retirado_por, e.nome_retirante,
+             p_dest.nome AS destinatario,
+             p_rec.nome AS recebido_por,
+             p_ent.nome AS entregue_por,
+             b.nome AS bloco, u.numero_apartamento AS apartamento,
+             pu.tipo_vinculo, pu.grau_parentesco,
+             CASE WHEN e.id_pessoa_destinatario = $1 THEN true ELSE false END AS para_mim
+        FROM encomenda e
+        JOIN pessoa p_dest ON p_dest.id_pessoa = e.id_pessoa_destinatario
+        JOIN perfil pf_rec ON pf_rec.id_perfil = e.id_perfil_recebimento
+        JOIN pessoa p_rec ON p_rec.id_pessoa = pf_rec.id_pessoa
+        LEFT JOIN perfil pf_ent ON pf_ent.id_perfil = e.id_perfil_entrega
+        LEFT JOIN pessoa p_ent ON p_ent.id_pessoa = pf_ent.id_pessoa
+        LEFT JOIN pessoa_unidade pu ON pu.id_pessoa = e.id_pessoa_destinatario AND pu.data_fim_ocupacao IS NULL
+        LEFT JOIN unidade u ON u.id_unidade = pu.id_unidade
+        LEFT JOIN bloco b ON b.id_bloco = u.id_bloco
+       WHERE e.id_pessoa_destinatario = $1
+          OR e.id_pessoa_destinatario IN (
+             SELECT pu2.id_pessoa
+               FROM pessoa_unidade pu1
+               JOIN pessoa_unidade pu2 ON pu2.id_unidade = pu1.id_unidade
+              WHERE pu1.id_pessoa = $1 
+                AND pu1.data_fim_ocupacao IS NULL 
+                AND pu2.data_fim_ocupacao IS NULL
+          )
+       ORDER BY 
+         CASE WHEN e.status = 'AGUARDANDO_RETIRADA' THEN 0 ELSE 1 END,
+         e.data_hora_recebimento DESC`, [req.user.sub]);
   }
 
   // ------------------------- chaves -------------------------

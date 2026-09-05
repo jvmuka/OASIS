@@ -219,12 +219,18 @@ export default function Inicio() {
         legenda={aguardando ? 'Aguardando retirada' : 'Nenhuma pendência'}
         icone="package"
         cor="bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/60"
+        acao={
+          <Link to="/morador/encomendas" className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-navy hover:underline dark:text-sky-400">
+            Ver encomendas <Icone nome="chevronRight" className="h-3 w-3" />
+          </Link>
+        }
       />,
     ];
 
     atalhos = [
       { to: '/morador/reservar', rotulo: 'Nova Reserva', descricao: 'Reserve as áreas comuns do condomínio', icone: 'calendar' },
       { to: '/morador/reservas', rotulo: 'Minhas Reservas', descricao: 'Veja, acompanhe e cancele suas reservas', icone: 'clock' },
+      { to: '/morador/encomendas', rotulo: 'Minhas Encomendas', descricao: 'Acompanhe pacotes na portaria e retiradas', icone: 'package' },
       { to: '/mural', rotulo: 'Mural de Avisos', descricao: 'Comunicados do condomínio', icone: 'pin' },
     ];
   } else if (perfilPrincipal === 'PORTEIRO') {

@@ -85,9 +85,23 @@ export default function Login() {
     }
   }
 
-  function preencherRapido(emailTeste: string) {
+  async function preencherRapido(emailTeste: string) {
     setEmail(emailTeste);
     setSenha('Teste@2026');
+    setErro('');
+    setCarregando(true);
+    try {
+      const r = await api.post<{ token: string } & Sessao>('/auth/login', {
+        email: emailTeste,
+        senha: 'Teste@2026',
+      });
+      salvarSessao(r.token, { pessoa: r.pessoa, perfis: r.perfis, unidades: r.unidades });
+      nav('/');
+    } catch (err: any) {
+      setErro(err.message || 'Erro ao realizar login.');
+    } finally {
+      setCarregando(false);
+    }
   }
 
   function preencherCodigoTeste() {
@@ -175,7 +189,7 @@ export default function Login() {
                 </div>
               </Campo>
 
-              <Botao className="mt-6 w-full py-2.5 text-sm dark:bg-sky-600 dark:hover:bg-sky-500" carregando={carregando}>
+              <Botao id="btn-login-submit" className="mt-6 w-full py-2.5 text-sm dark:bg-sky-600 dark:hover:bg-sky-500" carregando={carregando}>
                 Entrar no Sistema
               </Botao>
 
@@ -188,6 +202,7 @@ export default function Login() {
                 </p>
                 <div className="grid grid-cols-3 gap-1.5 text-xs">
                   <button
+                    id="btn-login-morador"
                     type="button"
                     onClick={() => preencherRapido('carlos.silva@teste.com')}
                     className="rounded-lg border border-slate-200 bg-slate-50/70 p-2 text-center font-medium text-slate-700 hover:bg-slate-100 hover:text-navy dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-sky-400 transition-colors cursor-pointer"
@@ -196,6 +211,7 @@ export default function Login() {
                     <span className="text-[10px] text-slate-400 dark:text-slate-500">Carlos</span>
                   </button>
                   <button
+                    id="btn-login-sindico"
                     type="button"
                     onClick={() => preencherRapido('ana.souza@teste.com')}
                     className="rounded-lg border border-slate-200 bg-slate-50/70 p-2 text-center font-medium text-slate-700 hover:bg-slate-100 hover:text-navy dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-sky-400 transition-colors cursor-pointer"
@@ -204,6 +220,7 @@ export default function Login() {
                     <span className="text-[10px] text-slate-400 dark:text-slate-500">Ana</span>
                   </button>
                   <button
+                    id="btn-login-porteiro"
                     type="button"
                     onClick={() => preencherRapido('roberto.lima@teste.com')}
                     className="rounded-lg border border-slate-200 bg-slate-50/70 p-2 text-center font-medium text-slate-700 hover:bg-slate-100 hover:text-navy dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-sky-400 transition-colors cursor-pointer"

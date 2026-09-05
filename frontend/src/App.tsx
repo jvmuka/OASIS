@@ -6,6 +6,7 @@ import Inicio from './pages/Inicio';
 import NovaReserva from './pages/morador/NovaReserva';
 import MinhasReservas from './pages/morador/MinhasReservas';
 import Dependentes from './pages/morador/Dependentes';
+import MinhasEncomendas from './pages/morador/Encomendas';
 import Mural from './pages/morador/Mural';
 import Encomendas from './pages/porteiro/Encomendas';
 import Chaves from './pages/porteiro/Chaves';
@@ -39,6 +40,7 @@ export default function App() {
         {/* Morador */}
         <Route path="/morador/reservar" element={<Protegida perfil="MORADOR"><NovaReserva /></Protegida>} />
         <Route path="/morador/reservas" element={<Protegida perfil="MORADOR"><MinhasReservas /></Protegida>} />
+        <Route path="/morador/encomendas" element={<Protegida perfil="MORADOR"><MinhasEncomendas /></Protegida>} />
         <Route path="/morador/familia" element={<Protegida perfil="MORADOR"><Dependentes /></Protegida>} />
         <Route path="/mural" element={<Protegida><Mural /></Protegida>} />
         {/* Porteiro */}
