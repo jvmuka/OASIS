@@ -137,6 +137,156 @@ export class PortariaController {
         return r[0];
       });
   }
+
+  // ------------------------- painel da portaria (visao de reservas) -------------------------
+  /**
+   * Areas ocupadas agora (reserva ATIVA em andamento) e reservas encerradas ha
+   * pouco (ate 3h) cujo horario de fim ja passou e que seguem sem cancelamento,
+   * marcadas como "em atraso" para o porteiro cobrar a liberacao/devolucao.
+   */
+  @Get('ocupacao-agora') @Perfis('PORTEIRO', 'SINDICO')
+  ocupacaoAgora() {
+    return this.db.query(`
+      SELECT r.id_reserva, a.nome AS area, p.nome AS morador, b.nome AS bloco,
+             u.numero_apartamento AS apartamento, r.data_hora_inicio, r.data_hora_fim,
+             r.numero_pessoas, FALSE AS em_atraso,
+             CEIL(EXTRACT(EPOCH FROM (r.data_hora_fim - CURRENT_TIMESTAMP)) / 60)::int AS minutos_restantes,
+             NULL::int AS minutos_atraso
+        FROM reserva r
+        JOIN area_comum a ON a.id_area_comum = r.id_area_comum
+        JOIN perfil pf ON pf.id_perfil = r.id_perfil
+        JOIN pessoa p ON p.id_pessoa = pf.id_pessoa
+        LEFT JOIN pessoa_unidade pu ON pu.id_pessoa = p.id_pessoa AND pu.data_fim_ocupacao IS NULL
+        LEFT JOIN unidade u ON u.id_unidade = pu.id_unidade
+        LEFT JOIN bloco b ON b.id_bloco = u.id_bloco
+       WHERE r.status = 'ATIVA'
+         AND CURRENT_TIMESTAMP BETWEEN r.data_hora_inicio AND r.data_hora_fim
+
+       UNION ALL
+
+      SELECT r.id_reserva, a.nome, p.nome, b.nome,
+             u.numero_apartamento, r.data_hora_inicio, r.data_hora_fim,
+             r.numero_pessoas, TRUE,
+             NULL,
+             CEIL(EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - r.data_hora_fim)) / 60)::int
+        FROM reserva r
+        JOIN area_comum a ON a.id_area_comum = r.id_area_comum
+        JOIN perfil pf ON pf.id_perfil = r.id_perfil
+        JOIN pessoa p ON p.id_pessoa = pf.id_pessoa
+        LEFT JOIN pessoa_unidade pu ON pu.id_pessoa = p.id_pessoa AND pu.data_fim_ocupacao IS NULL
+        LEFT JOIN unidade u ON u.id_unidade = pu.id_unidade
+        LEFT JOIN bloco b ON b.id_bloco = u.id_bloco
+       WHERE r.status = 'ATIVA'
+         AND r.data_hora_fim < CURRENT_TIMESTAMP
+         AND r.data_hora_fim >= CURRENT_TIMESTAMP - INTERVAL '3 hours'
+
+       ORDER BY em_atraso ASC, data_hora_fim ASC`);
+  }
+
+  /** Agenda do dia (padrao hoje) com a situacao calculada de cada reserva ativa. */
+  @Get('agenda') @Perfis('PORTEIRO', 'SINDICO')
+  agenda(@Query('data') data?: string) {
+    const dia = data && /^\d{4}-\d{2}-\d{2}$/.test(data)
+      ? data
+      : new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).slice(0, 10);
+
+    return this.db.query(`
+      SELECT r.id_reserva, a.nome AS area, p.nome AS morador, b.nome AS bloco,
+             u.numero_apartamento AS apartamento, r.data_hora_inicio, r.data_hora_fim,
+             r.numero_pessoas,
+             CASE WHEN r.data_hora_inicio > CURRENT_TIMESTAMP THEN 'AGENDADA'
+                  WHEN r.data_hora_fim < CURRENT_TIMESTAMP THEN 'ENCERRADA'
+                  ELSE 'EM_ANDAMENTO' END AS situacao
+        FROM reserva r
+        JOIN area_comum a ON a.id_area_comum = r.id_area_comum
+        JOIN perfil pf ON pf.id_perfil = r.id_perfil
+        JOIN pessoa p ON p.id_pessoa = pf.id_pessoa
+        LEFT JOIN pessoa_unidade pu ON pu.id_pessoa = p.id_pessoa AND pu.data_fim_ocupacao IS NULL
+        LEFT JOIN unidade u ON u.id_unidade = pu.id_unidade
+        LEFT JOIN bloco b ON b.id_bloco = u.id_bloco
+       WHERE r.status = 'ATIVA' AND r.data_hora_inicio::date = $1::date
+       ORDER BY r.data_hora_inicio`, [dia]).then(reservas => ({ data: dia, reservas }));
+  }
+
+  /** Busca moradores por nome, CPF, bloco ou apartamento, indicando quem esta em atividade agora. */
+  @Get('pessoas/busca') @Perfis('PORTEIRO', 'SINDICO')
+  buscarPessoas(@Query('q') q?: string) {
+    const termo = (q || '').trim();
+    if (!termo) return [];
+    const filtro = `%${termo.toLowerCase()}%`;
+
+    return this.db.query(`
+      SELECT p.id_pessoa, p.nome, p.cpf, p.celular,
+             b.nome AS bloco, u.numero_apartamento AS apartamento, pu.tipo_vinculo,
+             (ativa.id_reserva IS NOT NULL) AS em_atividade,
+             ativa.area AS atividade_area,
+             ativa.data_hora_inicio AS atividade_inicio,
+             ativa.data_hora_fim AS atividade_fim
+        FROM pessoa p
+        LEFT JOIN pessoa_unidade pu ON pu.id_pessoa = p.id_pessoa AND pu.data_fim_ocupacao IS NULL
+        LEFT JOIN unidade u ON u.id_unidade = pu.id_unidade
+        LEFT JOIN bloco b ON b.id_bloco = u.id_bloco
+        LEFT JOIN LATERAL (
+          SELECT r.id_reserva, r.data_hora_inicio, r.data_hora_fim, a.nome AS area
+            FROM reserva r
+            JOIN perfil pf ON pf.id_perfil = r.id_perfil
+            JOIN area_comum a ON a.id_area_comum = r.id_area_comum
+           WHERE pf.id_pessoa = p.id_pessoa AND r.status = 'ATIVA'
+             AND CURRENT_TIMESTAMP BETWEEN r.data_hora_inicio AND r.data_hora_fim
+           LIMIT 1
+        ) ativa ON TRUE
+       WHERE p.ativo = TRUE
+         AND (LOWER(p.nome) LIKE $1 OR p.cpf LIKE $1 OR LOWER(b.nome) LIKE $1 OR u.numero_apartamento LIKE $1)
+       ORDER BY p.nome
+       LIMIT 30`, [filtro]);
+  }
+
+  /** Detalhe de atividade de uma pessoa: agora, proximas reservas e historico de 90 dias. */
+  @Get('pessoas/:idPessoa/atividade') @Perfis('PORTEIRO', 'SINDICO')
+  async atividadePessoa(@Param('idPessoa', ParseIntPipe) idPessoa: number) {
+    const pessoa = await this.db.query(`
+      SELECT p.id_pessoa, p.nome, p.cpf, p.celular, b.nome AS bloco, u.numero_apartamento AS apartamento
+        FROM pessoa p
+        LEFT JOIN pessoa_unidade pu ON pu.id_pessoa = p.id_pessoa AND pu.data_fim_ocupacao IS NULL
+        LEFT JOIN unidade u ON u.id_unidade = pu.id_unidade
+        LEFT JOIN bloco b ON b.id_bloco = u.id_bloco
+       WHERE p.id_pessoa = $1`, [idPessoa]);
+    if (!pessoa.length) throw new BadRequestException('Pessoa nao encontrada.');
+
+    const agora = await this.db.query(`
+      SELECT r.id_reserva, a.nome AS area, r.data_hora_inicio, r.data_hora_fim, r.numero_pessoas
+        FROM reserva r
+        JOIN perfil pf ON pf.id_perfil = r.id_perfil
+        JOIN area_comum a ON a.id_area_comum = r.id_area_comum
+       WHERE pf.id_pessoa = $1 AND r.status = 'ATIVA'
+         AND CURRENT_TIMESTAMP BETWEEN r.data_hora_inicio AND r.data_hora_fim
+       LIMIT 1`, [idPessoa]);
+
+    const proximas = await this.db.query(`
+      SELECT r.id_reserva, a.nome AS area, r.data_hora_inicio, r.data_hora_fim, r.numero_pessoas
+        FROM reserva r
+        JOIN perfil pf ON pf.id_perfil = r.id_perfil
+        JOIN area_comum a ON a.id_area_comum = r.id_area_comum
+       WHERE pf.id_pessoa = $1 AND r.status = 'ATIVA' AND r.data_hora_inicio > CURRENT_TIMESTAMP
+       ORDER BY r.data_hora_inicio`, [idPessoa]);
+
+    const historico = await this.db.query(`
+      SELECT r.id_reserva, a.nome AS area, r.data_hora_inicio, r.data_hora_fim, r.numero_pessoas, r.status
+        FROM reserva r
+        JOIN perfil pf ON pf.id_perfil = r.id_perfil
+        JOIN area_comum a ON a.id_area_comum = r.id_area_comum
+       WHERE pf.id_pessoa = $1
+         AND r.data_hora_fim < CURRENT_TIMESTAMP
+         AND r.data_hora_fim >= CURRENT_TIMESTAMP - INTERVAL '90 days'
+       ORDER BY r.data_hora_fim DESC`, [idPessoa]);
+
+    return {
+      pessoa: pessoa[0],
+      atividade_agora: agora[0] || null,
+      proximas_reservas: proximas,
+      historico_90_dias: historico,
+    };
+  }
 }
 
 @Module({ controllers: [PortariaController] })

@@ -30,6 +30,14 @@ export function sair() {
   localStorage.removeItem(SESSAO_KEY);
 }
 
+/** Rota de pouso apos o login (e do "Inicio"/logo do cabecalho): cada perfil tem seu painel. */
+export function painelInicial(sessao: Sessao): string {
+  const tipos = sessao.perfis.map(p => p.tipo);
+  if (tipos.includes('SINDICO')) return '/inicio';
+  if (tipos.includes('PORTEIRO')) return '/portaria/painel';
+  return '/inicio';
+}
+
 /**
  * Gera uma mensagem legivel quando a resposta de erro nao veio em JSON
  * (ex.: paginas de erro em HTML devolvidas pelo nginx antes de chegar no backend,
