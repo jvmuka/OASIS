@@ -144,49 +144,150 @@ export class AreasController {
   }
 
   @Post() @Perfis('SINDICO')
-  criar(@Body() a: any) {
+  async criar(@Body() a: any) {
+    if (!a.nome || !a.capacidade) {
+      throw new BadRequestException('Informe o nome e a capacidade do espaço comum.');
+    }
     const antMinHoras = a.antecedencia_minima_horas ?? (a.antecedencia_minima_dias !== undefined ? a.antecedencia_minima_dias * 24 : 0);
     const antMinDias = Math.ceil(antMinHoras / 24);
-    return this.db.query(`
-      INSERT INTO area_comum
-        (nome, descricao, capacidade, tipo_acesso, tipo_uso, duracao_slot_min,
-         antecedencia_minima_dias, antecedencia_maxima_dias,
-         prazo_cancelamento_horas, limite_reservas_semana, exige_chave, valor, imagem_url, antecedencia_minima_horas, idade_minima)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
-      [a.nome, a.descricao || null, a.capacidade, a.tipo_acesso, a.tipo_uso,
-       a.duracao_slot_min ?? 60, antMinDias,
-       a.antecedencia_maxima_dias ?? 30, a.prazo_cancelamento_horas ?? 24,
-       a.limite_reservas_semana ?? 2, a.exige_chave ?? false, a.valor ?? 0,
-       a.imagem_url || null, antMinHoras, a.idade_minima ?? 0])
-      .then(r => r[0]);
+
+    return this.db.transacao(async client => {
+      const res = await client.query(`
+        INSERT INTO area_comum
+          (nome, descricao, capacidade, tipo_acesso, tipo_uso, duracao_slot_min,
+           antecedencia_minima_dias, antecedencia_maxima_dias,
+           prazo_cancelamento_horas, limite_reservas_semana, exige_chave, valor, imagem_url, antecedencia_minima_horas, idade_minima)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
+        [a.nome, a.descricao || null, a.capacidade, a.tipo_acesso || 'LIVRE', a.tipo_uso || 'RESERVAVEL',
+         a.duracao_slot_min ?? 60, antMinDias,
+         a.antecedencia_maxima_dias ?? 30, a.prazo_cancelamento_horas ?? 24,
+         a.limite_reservas_semana ?? 2, a.exige_chave ?? false, a.valor ?? 0,
+         a.imagem_url || null, antMinHoras, a.idade_minima ?? 0]);
+      const novaArea = res.rows[0];
+
+      if (Array.isArray(a.horarios) && a.horarios.length > 0) {
+        for (const h of a.horarios) {
+          if (h.dia_semana && h.hora_inicio && h.hora_fim) {
+            await client.query(`
+              INSERT INTO area_horario (id_area_comum, dia_semana, hora_inicio, hora_fim)
+              VALUES ($1, $2, $3, $4)`,
+              [novaArea.id_area_comum, h.dia_semana, h.hora_inicio, h.hora_fim]);
+          }
+        }
+      }
+
+      return novaArea;
+    });
   }
 
   @Put(':id') @Perfis('SINDICO')
-  editar(@Param('id', ParseIntPipe) id: number, @Body() a: any) {
+  async editar(@Param('id', ParseIntPipe) id: number, @Body() a: any) {
     const antMinHoras = a.antecedencia_minima_horas !== undefined
       ? a.antecedencia_minima_horas
       : (a.antecedencia_minima_dias !== undefined ? a.antecedencia_minima_dias * 24 : null);
     const antMinDias = antMinHoras !== null ? Math.ceil(antMinHoras / 24) : null;
 
-    return this.db.query(`
-      UPDATE area_comum SET
-        nome = COALESCE($2,nome), descricao = COALESCE($3,descricao),
-        capacidade = COALESCE($4,capacidade),
-        duracao_slot_min = COALESCE($5,duracao_slot_min),
-        antecedencia_minima_dias = COALESCE($6,antecedencia_minima_dias),
-        antecedencia_maxima_dias = COALESCE($7,antecedencia_maxima_dias),
-        prazo_cancelamento_horas = COALESCE($8,prazo_cancelamento_horas),
-        limite_reservas_semana = COALESCE($9,limite_reservas_semana),
-        ativo = COALESCE($10,ativo),
-        imagem_url = COALESCE($11,imagem_url),
-        antecedencia_minima_horas = COALESCE($12,antecedencia_minima_horas),
-        idade_minima = COALESCE($13,idade_minima)
-      WHERE id_area_comum = $1 RETURNING *`,
-      [id, a.nome, a.descricao, a.capacidade, a.duracao_slot_min,
-       antMinDias, a.antecedencia_maxima_dias,
-       a.prazo_cancelamento_horas, a.limite_reservas_semana, a.ativo,
-       a.imagem_url, antMinHoras, a.idade_minima])
-      .then(r => r[0]);
+    return this.db.transacao(async client => {
+      const res = await client.query(`
+        UPDATE area_comum SET
+          nome = COALESCE($2,nome), descricao = COALESCE($3,descricao),
+          capacidade = COALESCE($4,capacidade),
+          duracao_slot_min = COALESCE($5,duracao_slot_min),
+          antecedencia_minima_dias = COALESCE($6,antecedencia_minima_dias),
+          antecedencia_maxima_dias = COALESCE($7,antecedencia_maxima_dias),
+          prazo_cancelamento_horas = COALESCE($8,prazo_cancelamento_horas),
+          limite_reservas_semana = COALESCE($9,limite_reservas_semana),
+          ativo = COALESCE($10,ativo),
+          imagem_url = COALESCE($11,imagem_url),
+          antecedencia_minima_horas = COALESCE($12,antecedencia_minima_horas),
+          idade_minima = COALESCE($13,idade_minima)
+        WHERE id_area_comum = $1 RETURNING *`,
+        [id, a.nome, a.descricao, a.capacidade, a.duracao_slot_min,
+         antMinDias, a.antecedencia_maxima_dias,
+         a.prazo_cancelamento_horas, a.limite_reservas_semana, a.ativo,
+         a.imagem_url, antMinHoras, a.idade_minima]);
+      const areaAtualizada = res.rows[0];
+      if (!areaAtualizada) throw new BadRequestException('Área comum inexistente.');
+
+      if (Array.isArray(a.horarios)) {
+        await client.query(`DELETE FROM area_horario WHERE id_area_comum = $1`, [id]);
+        for (const h of a.horarios) {
+          if (h.dia_semana && h.hora_inicio && h.hora_fim) {
+            await client.query(`
+              INSERT INTO area_horario (id_area_comum, dia_semana, hora_inicio, hora_fim)
+              VALUES ($1, $2, $3, $4)`,
+              [id, h.dia_semana, h.hora_inicio, h.hora_fim]);
+          }
+        }
+      }
+
+      return areaAtualizada;
+    });
+  }
+
+  @Delete(':id') @Perfis('SINDICO')
+  async excluir(@Param('id', ParseIntPipe) id: number) {
+    const [area] = await this.db.query(`SELECT * FROM area_comum WHERE id_area_comum = $1`, [id]);
+    if (!area) throw new BadRequestException('Área comum inexistente.');
+
+    // 1. Verifica se existem reservas ativas futuras
+    const reservasAtivas = await this.db.query(
+      `SELECT r.id_reserva, r.data_hora_inicio, p.nome AS morador_nome
+         FROM reserva r
+         JOIN perfil pf ON pf.id_perfil = r.id_perfil
+         JOIN pessoa p ON p.id_pessoa = pf.id_pessoa
+        WHERE r.id_area_comum = $1
+          AND r.status = 'ATIVA'
+          AND r.data_hora_fim >= CURRENT_TIMESTAMP`,
+      [id],
+    );
+    if (reservasAtivas.length > 0) {
+      throw new BadRequestException(
+        `Não é possível excluir esta área pois existem ${reservasAtivas.length} reserva(s) ativa(s) agendada(s). Cancele as reservas antes de prosseguir com a exclusão.`,
+      );
+    }
+
+    // 2. Verifica se há chaves emprestadas
+    const chavesEmprestadas = await this.db.query(
+      `SELECT codigo FROM chave WHERE id_area_comum = $1 AND status = 'EMPRESTADA'`,
+      [id],
+    );
+    if (chavesEmprestadas.length > 0) {
+      throw new BadRequestException(
+        `Não é possível excluir esta área pois a chave (${chavesEmprestadas.map((c: any) => c.codigo).join(', ')}) está emprestada no momento. Registre a devolução antes de excluir.`,
+      );
+    }
+
+    // 3. Exclusão em cascata controlada dentro de transação
+    await this.db.transacao(async client => {
+      // Registros de entrega de chave de chaves desta área ou reservas desta área
+      await client.query(`
+        DELETE FROM entrega_chave
+         WHERE id_chave IN (SELECT id_chave FROM chave WHERE id_area_comum = $1)
+            OR id_reserva IN (SELECT id_reserva FROM reserva WHERE id_area_comum = $1)
+      `, [id]);
+
+      // Desassocia de bloqueios de perfil
+      await client.query(`UPDATE bloqueio_perfil SET id_area_comum = NULL WHERE id_area_comum = $1`, [id]);
+
+      // Remove bloqueios da área
+      await client.query(`DELETE FROM bloqueio_area WHERE id_area_comum = $1`, [id]);
+
+      // Remove reservas passadas ou canceladas
+      await client.query(`DELETE FROM reserva WHERE id_area_comum = $1`, [id]);
+
+      // Remove chaves cadastradas
+      await client.query(`DELETE FROM chave WHERE id_area_comum = $1`, [id]);
+
+      // Remove horários e utensílios
+      await client.query(`DELETE FROM area_horario WHERE id_area_comum = $1`, [id]);
+      await client.query(`DELETE FROM area_utensilio WHERE id_area_comum = $1`, [id]);
+
+      // Deleta a área comum
+      await client.query(`DELETE FROM area_comum WHERE id_area_comum = $1`, [id]);
+    });
+
+    return { ok: true, mensagem: `Área "${area.nome}" excluída com sucesso.` };
   }
 
   /** Upload de imagem para uma area comum. Redimensiona e comprime para WebP antes de gravar em disco. */

@@ -38,6 +38,225 @@ const HORARIOS_DIA = [
   '22:00', '22:30', '23:00'
 ];
 
+type DiaSemana = 'DOMINGO' | 'SEGUNDA' | 'TERCA' | 'QUARTA' | 'QUINTA' | 'SEXTA' | 'SABADO';
+
+type HorarioForm = {
+  dia_semana: DiaSemana;
+  ativo: boolean;
+  hora_inicio: string;
+  hora_fim: string;
+};
+
+const DIAS_SEMANA_CONFIG: { dia: DiaSemana; label: string; sigla: string }[] = [
+  { dia: 'DOMINGO', label: 'Domingo', sigla: 'Dom' },
+  { dia: 'SEGUNDA', label: 'Segunda-feira', sigla: 'Seg' },
+  { dia: 'TERCA', label: 'Terça-feira', sigla: 'Ter' },
+  { dia: 'QUARTA', label: 'Quarta-feira', sigla: 'Qua' },
+  { dia: 'QUINTA', label: 'Quinta-feira', sigla: 'Qui' },
+  { dia: 'SEXTA', label: 'Sexta-feira', sigla: 'Sex' },
+  { dia: 'SABADO', label: 'Sábado', sigla: 'Sáb' },
+];
+
+function criarHorariosPadrao(): HorarioForm[] {
+  return DIAS_SEMANA_CONFIG.map(d => ({
+    dia_semana: d.dia,
+    ativo: true,
+    hora_inicio: '08:00',
+    hora_fim: '22:00',
+  }));
+}
+
+function formatarDiasResumo(horarios?: { dia_semana: string }[]): string {
+  if (!horarios || horarios.length === 0) return 'Sem horários definidos';
+  const diasAtivos = new Set(horarios.map(h => h.dia_semana));
+  if (diasAtivos.size === 7) return 'Todos os dias';
+  const semana = ['SEGUNDA', 'TERCA', 'QUARTA', 'QUINTA', 'SEXTA'];
+  const fimDeSemana = ['SABADO', 'DOMINGO'];
+  const sexADom = ['SEXTA', 'SABADO', 'DOMINGO'];
+
+  if (semana.every(d => diasAtivos.has(d)) && diasAtivos.size === 5) return 'Seg a Sex';
+  if (fimDeSemana.every(d => diasAtivos.has(d)) && diasAtivos.size === 2) return 'Fim de Semana (Sáb e Dom)';
+  if (sexADom.every(d => diasAtivos.has(d)) && diasAtivos.size === 3) return 'Sex a Dom';
+
+  const NOMES_CURTOS: Record<string, string> = {
+    DOMINGO: 'Dom',
+    SEGUNDA: 'Seg',
+    TERCA: 'Ter',
+    QUARTA: 'Qua',
+    QUINTA: 'Qui',
+    SEXTA: 'Sex',
+    SABADO: 'Sáb',
+  };
+  const ordem: DiaSemana[] = ['DOMINGO', 'SEGUNDA', 'TERCA', 'QUARTA', 'QUINTA', 'SEXTA', 'SABADO'];
+  return ordem
+    .filter(d => diasAtivos.has(d))
+    .map(d => NOMES_CURTOS[d])
+    .join(', ');
+}
+
+/** Componente interativo para configuração de dias e horários de funcionamento de áreas comuns */
+function SeletorHorariosSemana({
+  horarios,
+  onChange,
+  onPreset,
+}: {
+  horarios: HorarioForm[];
+  onChange: (novos: HorarioForm[]) => void;
+  onPreset: (tipo: 'TODOS' | 'SEG_SEX' | 'FIM_DE_SEMANA' | 'SEX_DOM') => void;
+}) {
+  function alternarDia(dia: DiaSemana) {
+    onChange(
+      horarios.map(h => (h.dia_semana === dia ? { ...h, ativo: !h.ativo } : h))
+    );
+  }
+
+  function mudarHora(dia: DiaSemana, campo: 'hora_inicio' | 'hora_fim', val: string) {
+    onChange(
+      horarios.map(h => (h.dia_semana === dia ? { ...h, [campo]: val } : h))
+    );
+  }
+
+  function copiarHorarioParaAtivos(base: HorarioForm) {
+    onChange(
+      horarios.map(h =>
+        h.ativo ? { ...h, hora_inicio: base.hora_inicio, hora_fim: base.hora_fim } : h
+      )
+    );
+  }
+
+  return (
+    <div className="space-y-3 rounded-2xl border border-slate-200/80 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-900/50">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+        <div>
+          <span className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200">
+            Dias e Horários de Funcionamento <span className="text-red-500">*</span>
+          </span>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+            Defina em quais dias da semana este espaço pode receber reservas e suas janelas de funcionamento.
+          </p>
+        </div>
+      </div>
+
+      {/* Atalhos Rápidos de Seleção */}
+      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 text-xs">
+        <button
+          type="button"
+          onClick={() => onPreset('TODOS')}
+          className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-center font-medium text-slate-700 hover:border-navy hover:text-navy dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-sky-500 dark:hover:text-sky-400 transition-all cursor-pointer shadow-xs"
+        >
+          <span className="block font-bold text-[11px]">Todos os Dias</span>
+          <span className="text-[10px] text-slate-400">08h às 22h</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onPreset('SEG_SEX')}
+          className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-center font-medium text-slate-700 hover:border-navy hover:text-navy dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-sky-500 dark:hover:text-sky-400 transition-all cursor-pointer shadow-xs"
+        >
+          <span className="block font-bold text-[11px]">Seg a Sex</span>
+          <span className="text-[10px] text-slate-400">Dias úteis</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onPreset('FIM_DE_SEMANA')}
+          className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-center font-medium text-slate-700 hover:border-navy hover:text-navy dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-sky-500 dark:hover:text-sky-400 transition-all cursor-pointer shadow-xs"
+        >
+          <span className="block font-bold text-[11px]">Fim de Semana</span>
+          <span className="text-[10px] text-slate-400">Sáb e Dom</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onPreset('SEX_DOM')}
+          className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-center font-medium text-slate-700 hover:border-navy hover:text-navy dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-sky-500 dark:hover:text-sky-400 transition-all cursor-pointer shadow-xs"
+        >
+          <span className="block font-bold text-[11px]">Sex a Dom</span>
+          <span className="text-[10px] text-slate-400">Salão de Festas</span>
+        </button>
+      </div>
+
+      {/* Tabela / Lista dos 7 Dias da Semana */}
+      <div className="divide-y divide-slate-200/70 dark:divide-slate-800 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-850 overflow-hidden">
+        {DIAS_SEMANA_CONFIG.map(d => {
+          const item = horarios.find(h => h.dia_semana === d.dia) || {
+            dia_semana: d.dia,
+            ativo: false,
+            hora_inicio: '08:00',
+            hora_fim: '22:00',
+          };
+          return (
+            <div
+              key={d.dia}
+              className={`flex flex-col sm:flex-row sm:items-center justify-between p-2.5 transition-colors gap-2 ${
+                item.ativo
+                  ? 'bg-white dark:bg-slate-800/80'
+                  : 'bg-slate-50/70 text-slate-400 dark:bg-slate-900/40 dark:text-slate-500'
+              }`}
+            >
+              <label className="flex items-center gap-2.5 cursor-pointer select-none sm:w-44">
+                <input
+                  type="checkbox"
+                  checked={item.ativo}
+                  onChange={() => alternarDia(d.dia)}
+                  className="h-4 w-4 rounded-sm border-slate-300 text-navy focus:ring-navy dark:border-slate-600 dark:bg-slate-700 dark:focus:ring-sky-500 cursor-pointer"
+                />
+                <span className={`text-xs font-semibold ${item.ativo ? 'text-slate-800 dark:text-slate-100' : 'text-slate-400 dark:text-slate-500 line-through'}`}>
+                  {d.label}
+                </span>
+              </label>
+
+              {item.ativo ? (
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">De:</span>
+                    <select
+                      className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 focus:border-navy focus:ring-1 focus:ring-navy cursor-pointer"
+                      value={item.hora_inicio}
+                      onChange={e => mudarHora(d.dia, 'hora_inicio', e.target.value)}
+                    >
+                      {HORARIOS_DIA.map(h => (
+                        <option key={h} value={h}>
+                          {h}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Até:</span>
+                    <select
+                      className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 focus:border-navy focus:ring-1 focus:ring-navy cursor-pointer"
+                      value={item.hora_fim}
+                      onChange={e => mudarHora(d.dia, 'hora_fim', e.target.value)}
+                    >
+                      {HORARIOS_DIA.map(h => (
+                        <option key={h} value={h}>
+                          {h}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => copiarHorarioParaAtivos(item)}
+                    title="Copiar este horário de abertura e fechamento para todos os dias ativos"
+                    className="rounded-md border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 text-slate-500 hover:bg-slate-100 hover:text-navy dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-sky-400 transition-colors cursor-pointer text-[10px] font-semibold"
+                  >
+                    Replicar
+                  </button>
+                </div>
+              ) : (
+                <div className="text-xs text-slate-400 dark:text-slate-500 italic pr-2">
+                  Fechado neste dia
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /** Trata digitação de números inteiros eliminando o 0 à esquerda (ex.: '01' -> 1). */
 function parseNum(val: string, min = 0, max?: number): number {
   const limpo = val.replace(/^0+(?=\d)/, '');
@@ -107,6 +326,10 @@ export default function Areas() {
   const [excluindoBloqueio, setExcluindoBloqueio] = useState<BloqueioArea | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [previewImagem, setPreviewImagem] = useState<string | null>(null);
+  const [horariosCriar, setHorariosCriar] = useState<HorarioForm[]>(criarHorariosPadrao);
+  const [horariosEditar, setHorariosEditar] = useState<HorarioForm[]>(criarHorariosPadrao);
+  const [areaParaExcluir, setAreaParaExcluir] = useState<Area | null>(null);
+  const [excluindoArea, setExcluindoArea] = useState(false);
 
   const [form, setForm] = useState({
     nome: '',
@@ -166,6 +389,30 @@ export default function Areas() {
     }
   }
 
+  function aplicarPresetDias(tipo: 'TODOS' | 'SEG_SEX' | 'FIM_DE_SEMANA' | 'SEX_DOM', modo: 'CRIAR' | 'EDITAR') {
+    const fn = modo === 'CRIAR' ? setHorariosCriar : setHorariosEditar;
+    fn(prev =>
+      prev.map(h => {
+        if (tipo === 'TODOS') {
+          return { ...h, ativo: true, hora_inicio: '08:00', hora_fim: '22:00' };
+        }
+        if (tipo === 'SEG_SEX') {
+          const isSegSex = ['SEGUNDA', 'TERCA', 'QUARTA', 'QUINTA', 'SEXTA'].includes(h.dia_semana);
+          return { ...h, ativo: isSegSex, hora_inicio: '08:00', hora_fim: '22:00' };
+        }
+        if (tipo === 'FIM_DE_SEMANA') {
+          const isFim = ['SABADO', 'DOMINGO'].includes(h.dia_semana);
+          return { ...h, ativo: isFim, hora_inicio: '08:00', hora_fim: '23:00' };
+        }
+        if (tipo === 'SEX_DOM') {
+          const isSexDom = ['SEXTA', 'SABADO', 'DOMINGO'].includes(h.dia_semana);
+          return { ...h, ativo: isSexDom, hora_inicio: '08:00', hora_fim: '23:00' };
+        }
+        return h;
+      })
+    );
+  }
+
   function abrirModalBloqueio() {
     setAreaSelecionadaId(areas[0]?.id_area_comum ? String(areas[0].id_area_comum) : '');
     setMotivoSelecionado('MANUTENCAO');
@@ -184,9 +431,29 @@ export default function Areas() {
 
   async function criar(e: React.FormEvent) {
     e.preventDefault();
+    const diasAtivos = horariosCriar.filter(h => h.ativo);
+    if (diasAtivos.length === 0) {
+      setMsg({ t: 'Selecione ao menos um dia da semana de funcionamento para o espaço.', tipo: 'erro' });
+      return;
+    }
+    for (const h of diasAtivos) {
+      if (h.hora_fim <= h.hora_inicio) {
+        setMsg({ t: `O horário de término deve ser após o de início no dia ${h.dia_semana}.`, tipo: 'erro' });
+        return;
+      }
+    }
+
     setSalvando(true);
     try {
-      const area = await api.post<Area>('/areas', form);
+      const payload = {
+        ...form,
+        horarios: diasAtivos.map(h => ({
+          dia_semana: h.dia_semana,
+          hora_inicio: h.hora_inicio,
+          hora_fim: h.hora_fim,
+        })),
+      };
+      const area = await api.post<Area>('/areas', payload);
       const file = fileInputCriar.current?.files?.[0];
       if (file) {
         await api.upload(`/areas/${area.id_area_comum}/imagem`, 'imagem', file);
@@ -203,6 +470,7 @@ export default function Areas() {
         prazo_cancelamento_horas: 24,
         limite_reservas_semana: 2,
       });
+      setHorariosCriar(criarHorariosPadrao());
       if (fileInputCriar.current) fileInputCriar.current.value = '';
       setModalCriarAberto(false);
       carregarAreas();
@@ -301,10 +569,41 @@ export default function Areas() {
     const antMinHoras = a.antecedencia_minima_horas ?? (a.antecedencia_minima_dias * 24);
     setEditando({ ...a, antecedencia_minima_horas: antMinHoras });
     setPreviewImagem(a.imagem_url || null);
+
+    const horariosCarregados = DIAS_SEMANA_CONFIG.map(d => {
+      const encontrado = a.horarios?.find(h => h.dia_semana === d.dia);
+      if (encontrado) {
+        return {
+          dia_semana: d.dia,
+          ativo: true,
+          hora_inicio: encontrado.hora_inicio.slice(0, 5),
+          hora_fim: encontrado.hora_fim.slice(0, 5),
+        };
+      }
+      return {
+        dia_semana: d.dia,
+        ativo: false,
+        hora_inicio: '08:00',
+        hora_fim: '22:00',
+      };
+    });
+    setHorariosEditar(horariosCarregados);
   }
 
   async function salvarEdicao() {
     if (!editando) return;
+    const diasAtivos = horariosEditar.filter(h => h.ativo);
+    if (diasAtivos.length === 0) {
+      setMsg({ t: 'Selecione ao menos um dia da semana de funcionamento para o espaço.', tipo: 'erro' });
+      return;
+    }
+    for (const h of diasAtivos) {
+      if (h.hora_fim <= h.hora_inicio) {
+        setMsg({ t: `O horário de término deve ser após o de início no dia ${h.dia_semana}.`, tipo: 'erro' });
+        return;
+      }
+    }
+
     setSalvando(true);
     try {
       await api.put(`/areas/${editando.id_area_comum}`, {
@@ -315,6 +614,11 @@ export default function Areas() {
         antecedencia_maxima_dias: editando.antecedencia_maxima_dias,
         prazo_cancelamento_horas: editando.prazo_cancelamento_horas,
         limite_reservas_semana: editando.limite_reservas_semana,
+        horarios: diasAtivos.map(h => ({
+          dia_semana: h.dia_semana,
+          hora_inicio: h.hora_inicio,
+          hora_fim: h.hora_fim,
+        })),
       });
       const file = fileInputEditar.current?.files?.[0];
       if (file) {
@@ -328,6 +632,21 @@ export default function Areas() {
       setMsg({ t: err.message, tipo: 'erro' });
     } finally {
       setSalvando(false);
+    }
+  }
+
+  async function excluirAreaConfirmada() {
+    if (!areaParaExcluir) return;
+    setExcluindoArea(true);
+    try {
+      const res = await api.delete<any>(`/areas/${areaParaExcluir.id_area_comum}`);
+      setMsg({ t: res.mensagem || `Área "${areaParaExcluir.nome}" excluída com sucesso.`, tipo: 'ok' });
+      setAreaParaExcluir(null);
+      carregarAreas();
+    } catch (err: any) {
+      setMsg({ t: err.message, tipo: 'erro' });
+    } finally {
+      setExcluindoArea(false);
     }
   }
 
@@ -411,6 +730,7 @@ export default function Areas() {
                   <th className="py-3 px-2">Duração</th>
                   <th className="py-3 px-2">Antecedência Mínima</th>
                   <th className="py-3 px-2">Prazo Cancel.</th>
+                  <th className="py-3 px-2">Funcionamento</th>
                   <th className="py-3 px-2">Situação</th>
                   <th className="py-3 px-3 text-right">Ações</th>
                 </tr>
@@ -444,6 +764,12 @@ export default function Areas() {
                     </td>
                     <td className="py-3 px-2 text-xs text-slate-600 dark:text-slate-300">{formatarHoras(a.prazo_cancelamento_horas)}</td>
                     <td className="py-3 px-2">
+                      <span className="inline-flex items-center gap-1 rounded-md bg-navy-50 text-navy dark:bg-sky-950/60 dark:text-sky-300 px-2 py-0.5 text-xs font-semibold">
+                        <Icone nome="calendar" className="h-3 w-3 text-slate-400 dark:text-slate-500" />
+                        {formatarDiasResumo(a.horarios)}
+                      </span>
+                    </td>
+                    <td className="py-3 px-2">
                       {(() => {
                         const agora = new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
                         const emManutencao = bloqueios.some(b => {
@@ -463,7 +789,7 @@ export default function Areas() {
                         <button
                           onClick={() => abrirEdicao(a)}
                           className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-navy dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-sky-400 transition-colors cursor-pointer"
-                          title="Editar regras e dados"
+                          title="Editar regras e horários"
                         >
                           <Icone nome="edit" className="h-4 w-4" />
                         </button>
@@ -471,12 +797,19 @@ export default function Areas() {
                           onClick={() => alternarAtivo(a)}
                           className={`rounded-lg p-1.5 text-xs font-semibold transition-colors cursor-pointer ${
                             a.ativo
-                              ? 'text-slate-400 hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-rose-950/40 dark:hover:text-rose-400'
+                              ? 'text-slate-400 hover:bg-amber-50 hover:text-amber-600 dark:text-slate-500 dark:hover:bg-amber-950/40 dark:hover:text-amber-400'
                               : 'text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/40'
                           }`}
                           title={a.ativo ? 'Inativar área' : 'Reativar área'}
                         >
                           {a.ativo ? 'Inativar' : 'Reativar'}
+                        </button>
+                        <button
+                          onClick={() => setAreaParaExcluir(a)}
+                          className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                          title="Excluir espaço comum"
+                        >
+                          <Icone nome="trash" className="h-4 w-4" />
                         </button>
                       </div>
                     </td>
@@ -933,12 +1266,38 @@ export default function Areas() {
         icone="check"
       />
 
+      {/* Modal de Confirmação de Exclusão de Área Comum */}
+      <ModalConfirmacao
+        aberto={!!areaParaExcluir}
+        fechar={() => setAreaParaExcluir(null)}
+        confirmar={excluirAreaConfirmada}
+        carregando={excluindoArea}
+        titulo="Excluir Espaço Comum"
+        mensagem={
+          areaParaExcluir && (
+            <div className="space-y-2 text-left">
+              <p className="text-xs text-slate-600 dark:text-slate-300">
+                Tem certeza que deseja excluir permanentemente o espaço{' '}
+                <b className="text-slate-900 dark:text-slate-100">{areaParaExcluir.nome}</b>?
+              </p>
+              <p className="text-[11px] text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-950/40 p-2.5 rounded-lg border border-red-200/60 dark:border-red-800/60">
+                <b>Atenção:</b> Esta ação excluirá permanentemente o espaço comum e suas configurações de horário. Caso existam reservas ativas futuras ou chaves emprestadas pendentes de devolução, a exclusão será impedida pelo sistema para garantir a segurança dos dados.
+              </p>
+            </div>
+          )
+        }
+        textoBotaoConfirmar="Sim, Excluir Área"
+        textoBotaoCancelar="Cancelar"
+        variante="perigo"
+        icone="trash"
+      />
+
       {/* Modal de Cadastro de Novo Espaço */}
       <Modal
         aberto={modalCriarAberto}
         fechar={() => setModalCriarAberto(false)}
         titulo="Cadastrar Novo Espaço Coletivo"
-        largura="max-w-xl"
+        largura="max-w-2xl"
         rodape={
           <>
             <Botao type="button" variante="claro" onClick={() => setModalCriarAberto(false)}>
@@ -1114,6 +1473,13 @@ export default function Areas() {
             />
           </Campo>
 
+          {/* Configuração de Dias e Horários de Funcionamento */}
+          <SeletorHorariosSemana
+            horarios={horariosCriar}
+            onChange={setHorariosCriar}
+            onPreset={t => aplicarPresetDias(t, 'CRIAR')}
+          />
+
           <Campo rotulo="Imagem / Foto da Área">
             <input
               type="file"
@@ -1139,7 +1505,7 @@ export default function Areas() {
         aberto={!!editando}
         fechar={() => setEditando(null)}
         titulo={`Editar — ${editando?.nome || ''}`}
-        largura="max-w-xl"
+        largura="max-w-2xl"
         rodape={
           editando && (
             <>
@@ -1313,6 +1679,13 @@ export default function Areas() {
                 onChange={e => setEditando({ ...editando, antecedencia_maxima_dias: parseNum(e.target.value, 0) })}
               />
             </Campo>
+
+            {/* Configuração de Dias e Horários de Funcionamento */}
+            <SeletorHorariosSemana
+              horarios={horariosEditar}
+              onChange={setHorariosEditar}
+              onPreset={t => aplicarPresetDias(t, 'EDITAR')}
+            />
 
             <Campo rotulo="Substituir Imagem">
               <input

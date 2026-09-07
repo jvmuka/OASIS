@@ -16,7 +16,46 @@ type Area = {
   prazo_cancelamento_horas: number;
   limite_reservas_semana: number;
   imagem_url?: string | null;
+  horarios?: { dia_semana: string; hora_inicio: string; hora_fim: string }[];
 };
+
+const DOW_MAP: Record<string, number> = {
+  DOMINGO: 0,
+  SEGUNDA: 1,
+  TERCA: 2,
+  QUARTA: 3,
+  QUINTA: 4,
+  SEXTA: 5,
+  SABADO: 6,
+};
+
+export function formatarDiasSemana(horarios?: { dia_semana: string }[]): string {
+  if (!horarios || horarios.length === 0) return 'Nenhum dia configurado';
+  const diasAtivos = new Set(horarios.map(h => h.dia_semana));
+  if (diasAtivos.size === 7) return 'Todos os dias';
+  const semana = ['SEGUNDA', 'TERCA', 'QUARTA', 'QUINTA', 'SEXTA'];
+  const fimDeSemana = ['SABADO', 'DOMINGO'];
+  const sexADom = ['SEXTA', 'SABADO', 'DOMINGO'];
+
+  if (semana.every(d => diasAtivos.has(d)) && diasAtivos.size === 5) return 'Segunda a Sexta';
+  if (fimDeSemana.every(d => diasAtivos.has(d)) && diasAtivos.size === 2) return 'Fins de Semana (Sáb e Dom)';
+  if (sexADom.every(d => diasAtivos.has(d)) && diasAtivos.size === 3) return 'Sexta a Domingo';
+
+  const NOMES_CURTOS: Record<string, string> = {
+    DOMINGO: 'Dom',
+    SEGUNDA: 'Seg',
+    TERCA: 'Ter',
+    QUARTA: 'Qua',
+    QUINTA: 'Qui',
+    SEXTA: 'Sex',
+    SABADO: 'Sáb',
+  };
+  const ordem = ['DOMINGO', 'SEGUNDA', 'TERCA', 'QUARTA', 'QUINTA', 'SEXTA', 'SABADO'];
+  return ordem
+    .filter(d => diasAtivos.has(d))
+    .map(d => NOMES_CURTOS[d])
+    .join(', ');
+}
 
 type Slot = { inicio: string; fim: string; status: 'LIVRE' | 'OCUPADO' | 'BLOQUEADO' | 'PASSADO' };
 type Grade = { dia_semana: string; regras: any; slots: Slot[] };
@@ -170,6 +209,9 @@ export default function NovaReserva() {
                       {a.nome}
                     </h3>
                     <div className="mt-2.5 flex flex-wrap gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                      <span className="rounded-md bg-navy-50 text-navy dark:bg-sky-950/60 dark:text-sky-300 px-2 py-0.5 font-bold">
+                        {formatarDiasSemana(a.horarios)}
+                      </span>
                       <span className="rounded-md bg-slate-100 dark:bg-slate-800 dark:text-slate-300 px-2 py-0.5 font-medium">
                         Antecedência: {a.antecedencia_minima_dias} a {a.antecedencia_maxima_dias}d
                       </span>
@@ -238,6 +280,11 @@ export default function NovaReserva() {
                   <Calendario
                     dataSelecionada={data}
                     onChange={d => consultar(d, true)}
+                    diasSemanaPermitidos={
+                      area.horarios && area.horarios.length > 0
+                        ? area.horarios.map(h => DOW_MAP[h.dia_semana]).filter(x => x !== undefined)
+                        : undefined
+                    }
                     {...limitesData()}
                   />
                 </div>
@@ -256,6 +303,9 @@ export default function NovaReserva() {
                 <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 dark:border-slate-800 dark:bg-slate-800/50 p-3.5 text-xs text-slate-600 dark:text-slate-300 space-y-1">
                   <p className="font-bold text-navy dark:text-sky-400">Regras deste Espaço:</p>
                   <ul className="list-inside list-disc space-y-0.5 text-slate-500 dark:text-slate-400">
+                    <li>
+                      Funcionamento: <b>{formatarDiasSemana(area.horarios)}</b>
+                    </li>
                     <li>Antecedência: {area.antecedencia_minima_dias} a {area.antecedencia_maxima_dias} dias.</li>
                     <li>Cancelamento permitido até {area.prazo_cancelamento_horas} horas antes do início.</li>
                     <li>Limite de {area.limite_reservas_semana} reserva(s) semanais por unidade.</li>
