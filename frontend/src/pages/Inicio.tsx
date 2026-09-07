@@ -256,6 +256,7 @@ export default function Inicio() {
     ];
 
     atalhos = [
+      { to: '/portaria/painel', rotulo: 'Painel da Portaria', descricao: 'Ocupação agora, agenda do dia e busca de moradores', icone: 'building' },
       { to: '/portaria/encomendas', rotulo: 'Encomendas', descricao: 'Registrar chegada e dar baixa', icone: 'package' },
       { to: '/portaria/chaves', rotulo: 'Controle de Chaves', descricao: 'Empréstimo e devolução do claviculário', icone: 'key' },
       { to: '/mural', rotulo: 'Mural de Avisos', descricao: 'Comunicados do condomínio', icone: 'pin' },
@@ -293,6 +294,7 @@ export default function Inicio() {
 
     atalhos = [
       { to: '/sindico/painel', rotulo: 'Painel Geral', descricao: 'Indicadores consolidados do condomínio', icone: 'home' },
+      { to: '/portaria/painel', rotulo: 'Painel da Portaria', descricao: 'Ocupação agora, agenda do dia e busca de moradores', icone: 'building' },
       { to: '/sindico/areas', rotulo: 'Áreas Comuns', descricao: 'Regras, horários e manutenções', icone: 'building' },
       { to: '/sindico/pessoas', rotulo: 'Pessoas & Unidades', descricao: 'Cadastro de moradores e blocos', icone: 'users' },
       { to: '/sindico/avisos', rotulo: 'Publicar Avisos', descricao: 'Comunicar o condomínio', icone: 'megaphone' },

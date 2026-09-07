@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
-import { sessaoAtual } from './api';
+import { painelInicial, sessaoAtual } from './api';
 import Login from './pages/Login';
 import Layout from './components/Layout';
 import Inicio from './pages/Inicio';
@@ -8,6 +8,7 @@ import MinhasReservas from './pages/morador/MinhasReservas';
 import Dependentes from './pages/morador/Dependentes';
 import MinhasEncomendas from './pages/morador/Encomendas';
 import Mural from './pages/morador/Mural';
+import Portaria from './pages/porteiro/Portaria';
 import Encomendas from './pages/porteiro/Encomendas';
 import Chaves from './pages/porteiro/Chaves';
 import Painel from './pages/sindico/Painel';
@@ -15,18 +16,19 @@ import Areas from './pages/sindico/Areas';
 import Pessoas from './pages/sindico/Pessoas';
 import PublicarAviso from './pages/sindico/PublicarAviso';
 
-/** Redireciona para a tela de boas-vindas (ou login, se nao houver sessao). */
+/** Redireciona para o painel inicial do perfil (ou login, se nao houver sessao). */
 function RedirecionaInicio() {
   const s = sessaoAtual();
   if (!s) return <Navigate to="/login" replace />;
-  return <Navigate to="/inicio" replace />;
+  return <Navigate to={painelInicial(s)} replace />;
 }
 
-/** Bloqueia rotas para quem nao esta logado ou nao tem o perfil exigido. */
-function Protegida({ perfil, children }: { perfil?: string; children: JSX.Element }) {
+/** Bloqueia rotas para quem nao esta logado ou nao tem nenhum dos perfis exigidos. */
+function Protegida({ perfil, children }: { perfil?: string | string[]; children: JSX.Element }) {
   const s = sessaoAtual();
   if (!s) return <Navigate to="/login" replace />;
-  if (perfil && !s.perfis.some(p => p.tipo === perfil)) return <Navigate to="/" replace />;
+  const exigidos = perfil ? (Array.isArray(perfil) ? perfil : [perfil]) : null;
+  if (exigidos && !s.perfis.some(p => exigidos.includes(p.tipo))) return <Navigate to="/" replace />;
   return children;
 }
 
@@ -44,6 +46,7 @@ export default function App() {
         <Route path="/morador/familia" element={<Protegida perfil="MORADOR"><Dependentes /></Protegida>} />
         <Route path="/mural" element={<Protegida><Mural /></Protegida>} />
         {/* Porteiro */}
+        <Route path="/portaria/painel" element={<Protegida perfil={['PORTEIRO', 'SINDICO']}><Portaria /></Protegida>} />
         <Route path="/portaria/encomendas" element={<Protegida perfil="PORTEIRO"><Encomendas /></Protegida>} />
         <Route path="/portaria/chaves" element={<Protegida perfil="PORTEIRO"><Chaves /></Protegida>} />
         {/* Sindico */}

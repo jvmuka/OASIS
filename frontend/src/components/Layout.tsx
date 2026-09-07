@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { sessaoAtual, sair } from '../api';
+import { painelInicial, sessaoAtual, sair } from '../api';
 import { Icone, Badge } from './ui';
 import BotaoModoEscuro from './BotaoModoEscuro';
 
@@ -14,7 +14,7 @@ export default function Layout() {
   const s = sessaoAtual();
   if (!s) return null;
   const tipos = s.perfis.map(p => p.tipo);
-  const rotaInicial = '/inicio';
+  const rotaInicial = painelInicial(s);
 
   // Iniciais do nome para avatar
   const iniciais = s.pessoa.nome
@@ -149,6 +149,7 @@ export default function Layout() {
                   Portaria
                 </p>
                 <div className="space-y-1">
+                  {item('/portaria/painel', 'Painel da Portaria', 'building')}
                   {item('/portaria/encomendas', 'Encomendas', 'package')}
                   {item('/portaria/chaves', 'Controle de Chaves', 'key')}
                 </div>
@@ -162,6 +163,7 @@ export default function Layout() {
                 </p>
                 <div className="space-y-1">
                   {item('/sindico/painel', 'Painel Geral', 'home')}
+                  {!tipos.includes('PORTEIRO') && item('/portaria/painel', 'Painel da Portaria', 'building')}
                   {item('/sindico/areas', 'Áreas Comuns', 'building')}
                   {item('/sindico/pessoas', 'Pessoas & Unidades', 'users')}
                   {item('/sindico/avisos', 'Publicar Avisos', 'megaphone')}
