@@ -143,6 +143,74 @@ export class AreasController {
       .then(r => r[0]);
   }
 
+  /**
+   * Conta registros associados a uma area (reserva, chave, bloqueio_area, bloqueio_perfil)
+   * para decidir se a exclusao fisica e possivel. area_horario e area_utensilio nao entram
+   * aqui pois tem ON DELETE CASCADE e saem junto sem impedir a exclusao.
+   */
+  @Get(':id/dependencias') @Perfis('SINDICO')
+  async dependencias(@Param('id', ParseIntPipe) id: number) {
+    const area = await this.db.query(`SELECT id_area_comum FROM area_comum WHERE id_area_comum = $1`, [id]);
+    if (!area.length) throw new BadRequestException('Área inexistente.');
+
+    const dep = await this.db.query(`
+      SELECT
+        (SELECT COUNT(*) FROM reserva WHERE id_area_comum = $1)::int AS reservas_total,
+        (SELECT COUNT(*) FROM reserva WHERE id_area_comum = $1 AND status = 'ATIVA'
+           AND data_hora_inicio > CURRENT_TIMESTAMP)::int AS reservas_ativas_futuras,
+        (SELECT COUNT(*) FROM chave WHERE id_area_comum = $1)::int AS chaves,
+        (SELECT COUNT(*) FROM bloqueio_area WHERE id_area_comum = $1)::int AS bloqueios_area,
+        (SELECT COUNT(*) FROM bloqueio_perfil WHERE id_area_comum = $1)::int AS bloqueios_perfil`,
+      [id]).then(r => r[0]);
+
+    const pode_excluir = dep.reservas_total === 0 && dep.chaves === 0
+      && dep.bloqueios_area === 0 && dep.bloqueios_perfil === 0;
+
+    return { ...dep, pode_excluir };
+  }
+
+  /**
+   * Exclui definitivamente uma area comum, apenas quando nao houver reserva, chave ou
+   * bloqueio (area/perfil) associados - essas tabelas nao tem ON DELETE CASCADE de proposito,
+   * para preservar historico. Quando ha qualquer dependencia, a exclusao e recusada e o
+   * sindico e orientado a usar a inativacao (RESTRICOES: nao altera regras do banco).
+   */
+  @Delete(':id') @Perfis('SINDICO')
+  async excluir(@Param('id', ParseIntPipe) id: number) {
+    const resultado = await this.db.transacao(async c => {
+      const area = await c.query(`SELECT imagem_url FROM area_comum WHERE id_area_comum = $1`, [id]);
+      if (!area.rows.length) throw new BadRequestException('Área inexistente.');
+
+      const dep = await c.query(`
+        SELECT
+          (SELECT COUNT(*) FROM reserva WHERE id_area_comum = $1)::int AS reservas_total,
+          (SELECT COUNT(*) FROM chave WHERE id_area_comum = $1)::int AS chaves,
+          (SELECT COUNT(*) FROM bloqueio_area WHERE id_area_comum = $1)::int AS bloqueios_area,
+          (SELECT COUNT(*) FROM bloqueio_perfil WHERE id_area_comum = $1)::int AS bloqueios_perfil`,
+        [id]).then(r => r.rows[0]);
+
+      const partes: string[] = [];
+      if (dep.reservas_total > 0) partes.push(`${dep.reservas_total} reserva(s)`);
+      if (dep.chaves > 0) partes.push(`${dep.chaves} chave(s)`);
+      if (dep.bloqueios_area > 0) partes.push(`${dep.bloqueios_area} bloqueio(s) de manutenção/interdição`);
+      if (dep.bloqueios_perfil > 0) partes.push(`${dep.bloqueios_perfil} bloqueio(s) de morador`);
+
+      if (partes.length > 0) {
+        throw new BadRequestException(
+          `Não é possível excluir esta área: existem ${partes.join(', ')} vinculado(s) a ela. ` +
+          `Utilize a opção de inativar para removê-la da listagem dos moradores sem perder o histórico.`);
+      }
+
+      await c.query(`DELETE FROM area_comum WHERE id_area_comum = $1`, [id]);
+      return { imagem_url: area.rows[0].imagem_url as string | null };
+    });
+
+    if (resultado.imagem_url) {
+      await fs.unlink(`.${resultado.imagem_url}`).catch(() => {});
+    }
+    return { ok: true, id_area_comum: id };
+  }
+
   @Post() @Perfis('SINDICO')
   criar(@Body() a: any) {
     const antMinHoras = a.antecedencia_minima_horas ?? (a.antecedencia_minima_dias !== undefined ? a.antecedencia_minima_dias * 24 : 0);

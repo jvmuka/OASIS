@@ -533,10 +533,11 @@ export function ModalConfirmacao({
   variante = 'perigo',
   icone = 'alert',
   carregando = false,
+  rodape,
 }: {
   aberto: boolean;
   fechar: () => void;
-  confirmar: () => void;
+  confirmar?: () => void;
   titulo: string;
   mensagem: React.ReactNode;
   textoBotaoConfirmar?: string;
@@ -544,6 +545,8 @@ export function ModalConfirmacao({
   variante?: 'perigo' | 'primario' | 'sucesso';
   icone?: React.ComponentProps<typeof Icone>['nome'];
   carregando?: boolean;
+  /** Substitui os botões padrão de Cancelar/Confirmar por um rodapé customizado (ex.: oferecer uma ação alternativa). */
+  rodape?: React.ReactNode;
 }) {
   useTravamentoModal(aberto, fechar);
 
@@ -576,17 +579,21 @@ export function ModalConfirmacao({
         </div>
 
         <div className="flex shrink-0 justify-end gap-2.5 border-t border-slate-100 dark:border-slate-800 p-6 pt-4">
-          <Botao type="button" variante="claro" onClick={fechar} disabled={carregando}>
-            {textoBotaoCancelar}
-          </Botao>
-          <Botao
-            type="button"
-            variante={variante}
-            onClick={confirmar}
-            carregando={carregando}
-          >
-            {textoBotaoConfirmar}
-          </Botao>
+          {rodape ?? (
+            <>
+              <Botao type="button" variante="claro" onClick={fechar} disabled={carregando}>
+                {textoBotaoCancelar}
+              </Botao>
+              <Botao
+                type="button"
+                variante={variante}
+                onClick={confirmar}
+                carregando={carregando}
+              >
+                {textoBotaoConfirmar}
+              </Botao>
+            </>
+          )}
         </div>
       </div>
     </div>,

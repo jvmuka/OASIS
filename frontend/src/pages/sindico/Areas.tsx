@@ -29,6 +29,15 @@ type BloqueioArea = {
   autor_nome: string;
 };
 
+type Dependencias = {
+  reservas_total: number;
+  reservas_ativas_futuras: number;
+  chaves: number;
+  bloqueios_area: number;
+  bloqueios_perfil: number;
+  pode_excluir: boolean;
+};
+
 /** Opções de horários de 30 em 30 min para seletores refinados */
 const HORARIOS_DIA = [
   '06:00', '06:30', '07:00', '07:30', '08:00', '08:30', '09:00', '09:30',
@@ -107,6 +116,14 @@ export default function Areas() {
   const [excluindoBloqueio, setExcluindoBloqueio] = useState<BloqueioArea | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [previewImagem, setPreviewImagem] = useState<string | null>(null);
+
+  // Ciclo de vida das áreas: inativação (reversível) x exclusão (permanente e condicional)
+  const [verificandoAreaId, setVerificandoAreaId] = useState<number | null>(null);
+  const [excluirPermitida, setExcluirPermitida] = useState<Area | null>(null);
+  const [excluirBloqueada, setExcluirBloqueada] = useState<{ area: Area; dep: Dependencias } | null>(null);
+  const [inativarConfirmar, setInativarConfirmar] = useState<{ area: Area; dep: Dependencias } | null>(null);
+  const [reativarConfirmar, setReativarConfirmar] = useState<Area | null>(null);
+  const [processandoCicloVida, setProcessandoCicloVida] = useState(false);
 
   const [form, setForm] = useState({
     nome: '',
@@ -287,14 +304,81 @@ export default function Areas() {
     }
   }
 
-  async function alternarAtivo(a: Area) {
+  async function executarAlternarAtivo(a: Area) {
+    setProcessandoCicloVida(true);
     try {
       await api.put(`/areas/${a.id_area_comum}`, { ativo: !a.ativo });
-      setMsg({ t: `Situação da área "${a.nome}" alterada.`, tipo: 'ok' });
+      setMsg({
+        t: a.ativo
+          ? `Área "${a.nome}" inativada. Ela deixou de aparecer para os moradores.`
+          : `Área "${a.nome}" reativada. Ela voltou a aparecer para os moradores.`,
+        tipo: 'ok',
+      });
       carregarAreas();
     } catch (err: any) {
       setMsg({ t: err.message, tipo: 'erro' });
+    } finally {
+      setProcessandoCicloVida(false);
     }
+  }
+
+  /** Ao clicar em Inativar, busca as dependências apenas para informar quantas reservas futuras existem. */
+  async function clicarInativar(a: Area) {
+    setVerificandoAreaId(a.id_area_comum);
+    try {
+      const dep = await api.get<Dependencias>(`/areas/${a.id_area_comum}/dependencias`);
+      setInativarConfirmar({ area: a, dep });
+    } catch (err: any) {
+      setMsg({ t: err.message, tipo: 'erro' });
+    } finally {
+      setVerificandoAreaId(null);
+    }
+  }
+
+  function clicarReativar(a: Area) {
+    setReativarConfirmar(a);
+  }
+
+  /** Ao clicar em Excluir, consulta as dependências ANTES de decidir qual modal abrir. */
+  async function clicarExcluir(a: Area) {
+    setVerificandoAreaId(a.id_area_comum);
+    try {
+      const dep = await api.get<Dependencias>(`/areas/${a.id_area_comum}/dependencias`);
+      if (dep.pode_excluir) {
+        setExcluirPermitida(a);
+      } else {
+        setExcluirBloqueada({ area: a, dep });
+      }
+    } catch (err: any) {
+      setMsg({ t: err.message, tipo: 'erro' });
+    } finally {
+      setVerificandoAreaId(null);
+    }
+  }
+
+  async function confirmarExclusao() {
+    if (!excluirPermitida) return;
+    setProcessandoCicloVida(true);
+    try {
+      await api.delete(`/areas/${excluirPermitida.id_area_comum}`);
+      setMsg({ t: `Área "${excluirPermitida.nome}" excluída permanentemente.`, tipo: 'ok' });
+      setExcluirPermitida(null);
+      carregarAreas();
+    } catch (err: any) {
+      setMsg({ t: err.message, tipo: 'erro' });
+    } finally {
+      setProcessandoCicloVida(false);
+    }
+  }
+
+  /** Descreve, em linguagem simples, quais registros impedem a exclusão física. */
+  function descreverImpedimentos(dep: Dependencias): string[] {
+    const itens: string[] = [];
+    if (dep.reservas_total > 0) itens.push(`${dep.reservas_total} reserva(s) registrada(s) (ativas, concluídas ou canceladas)`);
+    if (dep.chaves > 0) itens.push(`${dep.chaves} chave(s) cadastrada(s) para o espaço`);
+    if (dep.bloqueios_area > 0) itens.push(`${dep.bloqueios_area} interdição(ões)/manutenção(ões) registrada(s)`);
+    if (dep.bloqueios_perfil > 0) itens.push(`${dep.bloqueios_perfil} bloqueio(s) de morador vinculado(s) à área`);
+    return itens;
   }
 
   function abrirEdicao(a: Area) {
@@ -332,6 +416,92 @@ export default function Areas() {
   }
 
   const areaSelecionadaObj = areas.find(a => String(a.id_area_comum) === areaSelecionadaId);
+  const areasAtivas = areas.filter(a => a.ativo);
+  const areasInativas = areas.filter(a => !a.ativo);
+
+  /** Renderiza uma linha da tabela de áreas, compartilhada entre o bloco de ativas e o de inativas. */
+  function linhaArea(a: Area) {
+    const agora = new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
+    const emManutencao = bloqueios.some(b => {
+      const bIni = new Date(b.data_hora_inicio).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
+      const bFim = new Date(b.data_hora_fim).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
+      return b.id_area_comum === a.id_area_comum && bIni <= agora && bFim >= agora;
+    });
+    const verificando = verificandoAreaId === a.id_area_comum;
+
+    return (
+      <tr key={a.id_area_comum} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors">
+        <td className="py-3 px-3">
+          <div className="flex items-center gap-3">
+            {a.imagem_url ? (
+              <img
+                src={a.imagem_url}
+                alt={a.nome}
+                className="h-10 w-10 shrink-0 rounded-xl object-cover ring-1 ring-slate-200 dark:ring-slate-700"
+              />
+            ) : (
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500">
+                <Icone nome="image" className="h-5 w-5" />
+              </div>
+            )}
+            <div>
+              <p className="font-bold text-slate-900 dark:text-slate-100 leading-tight">{a.nome}</p>
+              <p className="text-[11px] text-slate-400 dark:text-slate-500">Máx. {a.limite_reservas_semana}x/semana por unidade</p>
+            </div>
+          </div>
+        </td>
+        <td className="py-3 px-2 text-xs font-semibold text-slate-700 dark:text-slate-300">{a.capacidade} pessoas</td>
+        <td className="py-3 px-2 text-xs text-slate-600 dark:text-slate-300">{formatarDuracao(a.duracao_slot_min)}</td>
+        <td className="py-3 px-2 text-xs text-slate-600 dark:text-slate-300">
+          {formatarHoras(a.antecedencia_minima_horas ?? a.antecedencia_minima_dias * 24)}
+        </td>
+        <td className="py-3 px-2 text-xs text-slate-600 dark:text-slate-300">{formatarHoras(a.prazo_cancelamento_horas)}</td>
+        <td className="py-3 px-2">
+          <Badge tipo={!a.ativo ? 'perigo' : emManutencao ? 'aviso' : 'sucesso'}>
+            {!a.ativo ? 'Inativa' : emManutencao ? 'Em Manutenção' : 'Ativa'}
+          </Badge>
+        </td>
+        <td className="py-3 px-3 text-right">
+          <div className="flex items-center justify-end gap-1.5">
+            <button
+              onClick={() => abrirEdicao(a)}
+              className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-navy dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-sky-400 transition-colors cursor-pointer"
+              title="Editar regras e dados"
+            >
+              <Icone nome="edit" className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => (a.ativo ? clicarInativar(a) : clicarReativar(a))}
+              disabled={verificando}
+              className={`rounded-lg p-1.5 text-xs font-semibold transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${
+                a.ativo
+                  ? 'text-slate-400 hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-rose-950/40 dark:hover:text-rose-400'
+                  : 'text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/40'
+              }`}
+              title={a.ativo ? 'Inativar área' : 'Reativar área'}
+            >
+              {a.ativo ? 'Inativar' : 'Reativar'}
+            </button>
+            <button
+              onClick={() => clicarExcluir(a)}
+              disabled={verificando}
+              className="rounded-lg p-1.5 text-red-500 hover:bg-red-50 hover:text-red-700 dark:text-rose-400 dark:hover:bg-rose-950/40 dark:hover:text-rose-300 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+              title="Excluir área permanentemente"
+            >
+              {verificando ? (
+                <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+              ) : (
+                <Icone nome="trash" className="h-4 w-4" />
+              )}
+            </button>
+          </div>
+        </td>
+      </tr>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -374,15 +544,24 @@ export default function Areas() {
         Áreas Comuns & Manutenção
       </Titulo>
 
-      {/* Tabela de Áreas em Largura Total */}
+      {/* Explicação da diferença entre inativar e excluir */}
+      <div className="flex items-start gap-2.5 rounded-xl border border-sky-200/70 bg-sky-50/70 dark:border-sky-900/60 dark:bg-sky-950/30 p-3.5 text-xs text-sky-900 dark:text-sky-200">
+        <Icone nome="info" className="h-4 w-4 shrink-0 mt-0.5 text-sky-500 dark:text-sky-400" />
+        <p>
+          <b>Inativar</b> oculta a área dos moradores e bloqueia novas reservas, mas preserva o histórico — pode ser revertido a qualquer momento.{' '}
+          <b>Excluir</b> remove a área permanentemente e só é permitido quando não há reserva, chave ou bloqueio associado a ela.
+        </p>
+      </div>
+
+      {/* Tabela de Áreas Ativas em Largura Total */}
       <Cartao>
         <div className="mb-4 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
           <div>
             <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Espaços Cadastrados</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Total de {areas.length} áreas no condomínio</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Total de {areasAtivas.length} área(s) ativa(s) no condomínio</p>
           </div>
           <span className="rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 text-xs font-semibold text-slate-600 dark:text-slate-300">
-            {areas.length} área(s)
+            {areasAtivas.length} área(s)
           </span>
         </div>
 
@@ -401,6 +580,12 @@ export default function Areas() {
               </Botao>
             }
           />
+        ) : areasAtivas.length === 0 ? (
+          <EmptyState
+            icone="alert"
+            titulo="Nenhuma área ativa"
+            descricao="Todas as áreas cadastradas estão inativas no momento. Veja o bloco abaixo."
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
@@ -416,77 +601,48 @@ export default function Areas() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {areas.map(a => (
-                  <tr key={a.id_area_comum} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors">
-                    <td className="py-3 px-3">
-                      <div className="flex items-center gap-3">
-                        {a.imagem_url ? (
-                          <img
-                            src={a.imagem_url}
-                            alt={a.nome}
-                            className="h-10 w-10 shrink-0 rounded-xl object-cover ring-1 ring-slate-200 dark:ring-slate-700"
-                          />
-                        ) : (
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500">
-                            <Icone nome="image" className="h-5 w-5" />
-                          </div>
-                        )}
-                        <div>
-                          <p className="font-bold text-slate-900 dark:text-slate-100 leading-tight">{a.nome}</p>
-                          <p className="text-[11px] text-slate-400 dark:text-slate-500">Máx. {a.limite_reservas_semana}x/semana por unidade</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-3 px-2 text-xs font-semibold text-slate-700 dark:text-slate-300">{a.capacidade} pessoas</td>
-                    <td className="py-3 px-2 text-xs text-slate-600 dark:text-slate-300">{formatarDuracao(a.duracao_slot_min)}</td>
-                    <td className="py-3 px-2 text-xs text-slate-600 dark:text-slate-300">
-                      {formatarHoras(a.antecedencia_minima_horas ?? a.antecedencia_minima_dias * 24)}
-                    </td>
-                    <td className="py-3 px-2 text-xs text-slate-600 dark:text-slate-300">{formatarHoras(a.prazo_cancelamento_horas)}</td>
-                    <td className="py-3 px-2">
-                      {(() => {
-                        const agora = new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
-                        const emManutencao = bloqueios.some(b => {
-                          const bIni = new Date(b.data_hora_inicio).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
-                          const bFim = new Date(b.data_hora_fim).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
-                          return b.id_area_comum === a.id_area_comum && bIni <= agora && bFim >= agora;
-                        });
-                        return (
-                          <Badge tipo={!a.ativo ? 'perigo' : emManutencao ? 'aviso' : 'sucesso'}>
-                            {!a.ativo ? 'Inativa' : emManutencao ? 'Em Manutenção' : 'Ativa'}
-                          </Badge>
-                        );
-                      })()}
-                    </td>
-                    <td className="py-3 px-3 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          onClick={() => abrirEdicao(a)}
-                          className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-navy dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-sky-400 transition-colors cursor-pointer"
-                          title="Editar regras e dados"
-                        >
-                          <Icone nome="edit" className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => alternarAtivo(a)}
-                          className={`rounded-lg p-1.5 text-xs font-semibold transition-colors cursor-pointer ${
-                            a.ativo
-                              ? 'text-slate-400 hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-rose-950/40 dark:hover:text-rose-400'
-                              : 'text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/40'
-                          }`}
-                          title={a.ativo ? 'Inativar área' : 'Reativar área'}
-                        >
-                          {a.ativo ? 'Inativar' : 'Reativar'}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {areasAtivas.map(a => linhaArea(a))}
               </tbody>
             </table>
           </div>
         )}
       </Cartao>
+
+      {/* Bloco de Áreas Inativas: esmaecido, deixando claro que os dados foram preservados */}
+      {areasInativas.length > 0 && (
+        <Cartao className="opacity-70 hover:opacity-100 transition-opacity">
+          <div className="mb-4 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+            <div>
+              <h3 className="text-base font-bold text-slate-500 dark:text-slate-400">Áreas Inativas</h3>
+              <p className="text-xs text-slate-400 dark:text-slate-500">
+                Ocultas para os moradores e sem novas reservas, mas com o histórico preservado.
+              </p>
+            </div>
+            <span className="rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
+              {areasInativas.length} área(s)
+            </span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-slate-200/80 dark:border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                  <th className="py-3 px-3">Espaço</th>
+                  <th className="py-3 px-2">Capacidade</th>
+                  <th className="py-3 px-2">Duração</th>
+                  <th className="py-3 px-2">Antecedência Mínima</th>
+                  <th className="py-3 px-2">Prazo Cancel.</th>
+                  <th className="py-3 px-2">Situação</th>
+                  <th className="py-3 px-3 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {areasInativas.map(a => linhaArea(a))}
+              </tbody>
+            </table>
+          </div>
+        </Cartao>
+      )}
 
       {/* Tabela de Manutenções e Bloqueios Agendados */}
       <Cartao>
@@ -931,6 +1087,141 @@ export default function Areas() {
         textoBotaoCancelar="Cancelar"
         variante="sucesso"
         icone="check"
+      />
+
+      {/* Modal de Confirmação de Exclusão Permanente (quando não há dependências) */}
+      <ModalConfirmacao
+        aberto={!!excluirPermitida}
+        fechar={() => setExcluirPermitida(null)}
+        confirmar={confirmarExclusao}
+        titulo="Excluir Área Permanentemente"
+        mensagem={
+          excluirPermitida && (
+            <div className="space-y-2 text-left">
+              <p className="text-xs text-slate-600 dark:text-slate-300">
+                Deseja excluir definitivamente a área <b className="text-slate-900 dark:text-slate-100">{excluirPermitida.nome}</b>?
+              </p>
+              <p className="text-[11px] text-red-700 dark:text-rose-300 bg-red-50 dark:bg-rose-950/40 p-2.5 rounded-lg border border-red-200/60 dark:border-rose-800/60">
+                Esta ação é permanente e não pode ser desfeita. Os horários e utensílios cadastrados para este espaço também serão removidos.
+              </p>
+            </div>
+          )
+        }
+        textoBotaoConfirmar="Sim, Excluir Definitivamente"
+        textoBotaoCancelar="Cancelar"
+        variante="perigo"
+        icone="trash"
+        carregando={processandoCicloVida}
+      />
+
+      {/* Modal de Exclusão Recusada (há dependências): explica o motivo e oferece a inativação */}
+      <ModalConfirmacao
+        aberto={!!excluirBloqueada}
+        fechar={() => setExcluirBloqueada(null)}
+        titulo="Não é Possível Excluir esta Área"
+        mensagem={
+          excluirBloqueada && (
+            <div className="space-y-2 text-left">
+              <p className="text-xs text-slate-600 dark:text-slate-300">
+                A área <b className="text-slate-900 dark:text-slate-100">{excluirBloqueada.area.nome}</b> já possui histórico no sistema e não pode ser excluída:
+              </p>
+              <ul className="list-inside list-disc space-y-0.5 text-xs text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-lg border border-slate-200/60 dark:border-slate-700/60">
+                {descreverImpedimentos(excluirBloqueada.dep).map((item, i) => (
+                  <li key={i}>{item}</li>
+                ))}
+              </ul>
+              <p className="text-[11px] text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/40 p-2.5 rounded-lg border border-sky-200/60 dark:border-sky-800/60">
+                Use a inativação para remover o espaço da listagem dos moradores sem perder esses registros.
+              </p>
+            </div>
+          )
+        }
+        variante="perigo"
+        icone="alert"
+        rodape={
+          <>
+            <Botao type="button" variante="claro" onClick={() => setExcluirBloqueada(null)}>
+              Fechar
+            </Botao>
+            {excluirBloqueada?.area.ativo && (
+              <Botao
+                type="button"
+                variante="secundario"
+                icone={<Icone nome="alert" className="h-4 w-4" />}
+                onClick={() => {
+                  const { area, dep } = excluirBloqueada;
+                  setExcluirBloqueada(null);
+                  setInativarConfirmar({ area, dep });
+                }}
+              >
+                Inativar em vez disso
+              </Botao>
+            )}
+          </>
+        }
+      />
+
+      {/* Modal de Confirmação de Inativação */}
+      <ModalConfirmacao
+        aberto={!!inativarConfirmar}
+        fechar={() => setInativarConfirmar(null)}
+        confirmar={() => {
+          if (!inativarConfirmar) return;
+          const { area } = inativarConfirmar;
+          setInativarConfirmar(null);
+          executarAlternarAtivo(area);
+        }}
+        titulo="Inativar Área"
+        mensagem={
+          inativarConfirmar && (
+            <div className="space-y-2 text-left">
+              <p className="text-xs text-slate-600 dark:text-slate-300">
+                Ao inativar <b className="text-slate-900 dark:text-slate-100">{inativarConfirmar.area.nome}</b>:
+              </p>
+              <ul className="list-inside list-disc space-y-0.5 text-xs text-slate-600 dark:text-slate-300">
+                <li>Ela deixa de aparecer para os moradores na tela de novas reservas.</li>
+                <li>Novas reservas para este espaço ficam bloqueadas.</li>
+                <li>As reservas existentes e todo o histórico são preservados.</li>
+                <li>Ela pode ser reativada a qualquer momento.</li>
+              </ul>
+              {inativarConfirmar.dep.reservas_ativas_futuras > 0 && (
+                <p className="text-[11px] text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 p-2.5 rounded-lg border border-amber-200/60 dark:border-amber-800/60">
+                  Atenção: existem {inativarConfirmar.dep.reservas_ativas_futuras} reserva(s) ativa(s) e futura(s) para este espaço. Elas continuarão valendo normalmente.
+                </p>
+              )}
+            </div>
+          )
+        }
+        textoBotaoConfirmar="Sim, Inativar"
+        textoBotaoCancelar="Cancelar"
+        variante="perigo"
+        icone="alert"
+        carregando={processandoCicloVida}
+      />
+
+      {/* Modal de Confirmação de Reativação */}
+      <ModalConfirmacao
+        aberto={!!reativarConfirmar}
+        fechar={() => setReativarConfirmar(null)}
+        confirmar={() => {
+          if (!reativarConfirmar) return;
+          const area = reativarConfirmar;
+          setReativarConfirmar(null);
+          executarAlternarAtivo(area);
+        }}
+        titulo="Reativar Área"
+        mensagem={
+          reativarConfirmar && (
+            <p className="text-xs text-slate-600 dark:text-slate-300">
+              A área <b className="text-slate-900 dark:text-slate-100">{reativarConfirmar.nome}</b> voltará a aparecer para os moradores e poderá receber novas reservas normalmente.
+            </p>
+          )
+        }
+        textoBotaoConfirmar="Sim, Reativar"
+        textoBotaoCancelar="Cancelar"
+        variante="sucesso"
+        icone="check"
+        carregando={processandoCicloVida}
       />
 
       {/* Modal de Cadastro de Novo Espaço */}
