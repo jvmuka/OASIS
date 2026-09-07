@@ -12,6 +12,7 @@ type Props = {
   onChange: (data: string) => void;
   minDate?: string;
   maxDate?: string;
+  diasSemanaPermitidos?: number[]; // 0=Dom, 1=Seg, ..., 6=Sáb
 };
 
 function pad(n: number) {
@@ -25,7 +26,7 @@ function fmt(ano: number, mes: number, dia: number) {
  * Calendário mensal visual do OASIS (UI/UX Pro Max).
  * Grade de 7 colunas, navegação fluida, bloqueio de dias fora da janela e destaque de hoje/selecionado.
  */
-export default function Calendario({ dataSelecionada, onChange, minDate, maxDate }: Props) {
+export default function Calendario({ dataSelecionada, onChange, minDate, maxDate, diasSemanaPermitidos }: Props) {
   const hoje = new Date();
   const [ano, setAno] = useState(dataSelecionada ? Number(dataSelecionada.slice(0, 4)) : hoje.getFullYear());
   const [mes, setMes] = useState(dataSelecionada ? Number(dataSelecionada.slice(5, 7)) - 1 : hoje.getMonth());
@@ -52,6 +53,10 @@ export default function Calendario({ dataSelecionada, onChange, minDate, maxDate
     const d = fmt(ano, mes, dia);
     if (minDate && d < minDate) return false;
     if (maxDate && d > maxDate) return false;
+    if (diasSemanaPermitidos && diasSemanaPermitidos.length > 0) {
+      const dow = new Date(ano, mes, dia).getDay();
+      if (!diasSemanaPermitidos.includes(dow)) return false;
+    }
     return true;
   }
 
