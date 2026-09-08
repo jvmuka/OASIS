@@ -3,17 +3,61 @@ import { JwtService } from '@nestjs/jwt';
 import { DbService } from '../db/db.service';
 import * as crypto from 'crypto';
 
+/** Numero de iteracoes atual do PBKDF2 (OWASP recomenda >= 600k para SHA-512; 100k e um balanco pratico). */
+const PBKDF2_ITERACOES = 100_000;
+/** Numero de iteracoes legado usado anteriormente (apenas para migracao gradual). */
+const PBKDF2_ITERACOES_LEGADO = 1000;
+
 export function hashSenha(senha: string): string {
   const salt = crypto.randomBytes(16).toString('hex');
-  const hash = crypto.pbkdf2Sync(senha, salt, 1000, 64, 'sha512').toString('hex');
+  const hash = crypto.pbkdf2Sync(senha, salt, PBKDF2_ITERACOES, 64, 'sha512').toString('hex');
   return `${salt}:${hash}`;
 }
 
-export function verificarSenha(senha: string, senhaSalva: string): boolean {
+/**
+ * Compara dois hashes de forma segura contra timing attacks.
+ * Garante que ambos os buffers tenham o mesmo tamanho antes de comparar.
+ */
+function comparacaoSegura(hashA: string, hashB: string): boolean {
+  const bufA = Buffer.from(hashA, 'hex');
+  const bufB = Buffer.from(hashB, 'hex');
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
+/**
+ * Verifica a senha contra o hash salvo, tentando primeiro com as iteracoes atuais
+ * e depois com as legado (migracao gradual). Retorna 'atual' | 'legado' | false.
+ */
+export function verificarSenha(senha: string, senhaSalva: string): 'atual' | 'legado' | false {
   if (!senhaSalva || !senhaSalva.includes(':')) return false;
   const [salt, originalHash] = senhaSalva.split(':');
-  const hash = crypto.pbkdf2Sync(senha, salt, 1000, 64, 'sha512').toString('hex');
-  return hash === originalHash;
+
+  // Tenta com iteracoes atuais
+  const hashAtual = crypto.pbkdf2Sync(senha, salt, PBKDF2_ITERACOES, 64, 'sha512').toString('hex');
+  if (comparacaoSegura(hashAtual, originalHash)) return 'atual';
+
+  // Tenta com iteracoes legadas (migracao gradual)
+  const hashLegado = crypto.pbkdf2Sync(senha, salt, PBKDF2_ITERACOES_LEGADO, 64, 'sha512').toString('hex');
+  if (comparacaoSegura(hashLegado, originalHash)) return 'legado';
+
+  return false;
+}
+
+/**
+ * Valida a senha: bloqueia se for menor que 8 caracteres;
+ * retorna avisos (nao bloqueantes) se faltar complexidade.
+ */
+export function validarForcaSenha(senha: string): { erro: string | null; avisos: string[] } {
+  if (senha.length < 8) {
+    return { erro: 'A senha deve conter no minimo 8 caracteres.', avisos: [] };
+  }
+  const avisos: string[] = [];
+  if (!/[A-Z]/.test(senha)) avisos.push('Adicione ao menos uma letra maiuscula para maior seguranca.');
+  if (!/[a-z]/.test(senha)) avisos.push('Adicione ao menos uma letra minuscula para maior seguranca.');
+  if (!/\d/.test(senha))    avisos.push('Adicione ao menos um numero para maior seguranca.');
+  if (!/[^A-Za-z0-9]/.test(senha)) avisos.push('Adicione um caractere especial (ex: @, #, !) para maior seguranca.');
+  return { erro: null, avisos };
 }
 
 @Injectable()
@@ -34,8 +78,14 @@ export class AuthService {
 
     // Se possui senha personalizada salva, valida via hash; senao, permite senha DEV padrao
     if (pessoa.senha_hash) {
-      if (!verificarSenha(senha, pessoa.senha_hash)) {
+      const resultado = verificarSenha(senha, pessoa.senha_hash);
+      if (!resultado) {
         throw new UnauthorizedException('E-mail ou senha invalidos.');
+      }
+      // Migracao gradual: re-hash com iteracoes atuais se o hash era legado
+      if (resultado === 'legado') {
+        const novoHash = hashSenha(senha);
+        await this.db.query(`UPDATE pessoa SET senha_hash = $1 WHERE id_pessoa = $2`, [novoHash, pessoa.id_pessoa]);
       }
     } else {
       if (senha !== (process.env.DEV_SENHA || 'Teste@2026')) {
@@ -81,9 +131,10 @@ export class AuthService {
 
   async primeiroAcesso(codigo: string, email: string, novaSenha: string) {
     if (!codigo || !email || !novaSenha) throw new BadRequestException('Todos os campos sao obrigatorios.');
-    if (novaSenha.length < 6) throw new BadRequestException('A senha deve conter no minimo 6 caracteres.');
+    const { erro, avisos } = validarForcaSenha(novaSenha);
+    if (erro) throw new BadRequestException(erro);
 
-    return this.db.transacao(async client => {
+    const resultado = await this.db.transacao(async client => {
       const res = await client.query(`
         SELECT c.id_codigo, c.id_pessoa, c.status, c.data_expiracao, p.email
           FROM codigo_primeiro_acesso c
@@ -109,6 +160,12 @@ export class AuthService {
 
       return this.gerarSessaoParaPessoa(c.id_pessoa);
     });
+
+    // Retorna avisos de senha fraca (nao bloqueantes) junto com a sessao
+    if (avisos.length > 0) {
+      return { ...resultado, aviso_senha: 'Sua senha e considerada fraca. ' + avisos.join(' ') };
+    }
+    return resultado;
   }
 
   async gerarSessaoParaPessoa(idPessoa: number) {

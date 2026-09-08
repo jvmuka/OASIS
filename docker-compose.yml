@@ -10,8 +10,8 @@ services:
     environment:
       TZ: America/Sao_Paulo
       POSTGRES_DB: oasis
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: Oasis@2026
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no arquivo .env}
     ports:
       - "5433:5432"
     volumes:
@@ -40,9 +40,10 @@ services:
     environment:
       TZ: America/Sao_Paulo
       PORT: 3000
-      DATABASE_URL: postgres://postgres:Oasis%402026@banco:5432/oasis
-      JWT_SECRET: oasis-jwt-secret-producao-2026
-      DEV_SENHA: Teste@2026
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD_ENCODED:?Defina POSTGRES_PASSWORD_ENCODED no .env}@banco:5432/oasis
+      JWT_SECRET: ${JWT_SECRET:?Defina JWT_SECRET no arquivo .env (minimo 32 caracteres)}
+      DEV_SENHA: ${DEV_SENHA:-Teste@2026}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
     ports:
       - "3000:3000"
     volumes:

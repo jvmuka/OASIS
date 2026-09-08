@@ -9,7 +9,12 @@ import { Pool, PoolClient } from 'pg';
  */
 @Injectable()
 export class DbService implements OnModuleDestroy {
-  private pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  private pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    max: 20,                    // maximo de conexoes simultanias no pool
+    connectionTimeoutMillis: 5_000,   // timeout para obter conexao do pool
+    idleTimeoutMillis: 30_000,        // tempo maximo de ociosidade antes de fechar
+  });
 
   async query<T = any>(sql: string, params: any[] = []): Promise<T[]> {
     try {
@@ -73,7 +78,8 @@ export class DbService implements OnModuleDestroy {
       }
       return new BadRequestException('Valor inválido para as regras do sistema: ' + (e.constraint || msg));
     }
-    console.error('[DB]', msg);
+    // Loga apenas o codigo e a constraint sem dados sensiveis da query
+    console.error('[DB] erro inesperado:', e?.code || 'desconhecido', e?.constraint || '');
     return new InternalServerErrorException('Erro interno de banco de dados.');
   }
 

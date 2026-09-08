@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { DbModule } from './db/db.module';
 import { AuthModule } from './auth/auth.module';
 import { CadastrosModule } from './cadastros/cadastros.module';
@@ -12,6 +13,10 @@ import { RelatoriosModule } from './relatorios/relatorios.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),   // carrega o .env
+    ThrottlerModule.forRoot([{
+      ttl: 60_000,  // janela de 1 minuto (em milissegundos)
+      limit: 60,    // maximo 60 requisicoes por minuto por IP
+    }]),
     DbModule,
     AuthModule,
     CadastrosModule,

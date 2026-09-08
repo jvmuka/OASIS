@@ -23,7 +23,15 @@ export function salvarSessao(token: string, sessao: Sessao) {
 }
 export function sessaoAtual(): Sessao | null {
   const s = localStorage.getItem(SESSAO_KEY);
-  return s ? JSON.parse(s) : null;
+  if (!s) return null;
+  try {
+    return JSON.parse(s);
+  } catch {
+    // localStorage corrompido: limpa e retorna null para forcar re-login
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(SESSAO_KEY);
+    return null;
+  }
 }
 export function sair() {
   localStorage.removeItem(TOKEN_KEY);
