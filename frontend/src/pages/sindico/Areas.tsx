@@ -14,6 +14,7 @@ type Area = {
   antecedencia_maxima_dias: number;
   prazo_cancelamento_horas: number;
   limite_reservas_semana: number;
+  reserva_por_dia?: boolean;
   imagem_url?: string | null;
   horarios: { dia_semana: string; hora_inicio: string; hora_fim: string }[];
 };
@@ -38,13 +39,15 @@ type Dependencias = {
   pode_excluir: boolean;
 };
 
-/** Opções de horários de 30 em 30 min para seletores refinados */
+/** Opções de horários de 30 em 30 min cobrindo as 24 horas do dia (meia-noite a meia-noite) */
 const HORARIOS_DIA = [
-  '06:00', '06:30', '07:00', '07:30', '08:00', '08:30', '09:00', '09:30',
-  '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '13:00', '13:30',
-  '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30',
-  '18:00', '18:30', '19:00', '19:30', '20:00', '20:30', '21:00', '21:30',
-  '22:00', '22:30', '23:00'
+  '00:00', '00:30', '01:00', '01:30', '02:00', '02:30', '03:00', '03:30',
+  '04:00', '04:30', '05:00', '05:30', '06:00', '06:30', '07:00', '07:30',
+  '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
+  '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30',
+  '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30',
+  '20:00', '20:30', '21:00', '21:30', '22:00', '22:30', '23:00', '23:30',
+  '23:59', '24:00'
 ];
 
 type DiaSemana = 'DOMINGO' | 'SEGUNDA' | 'TERCA' | 'QUARTA' | 'QUINTA' | 'SEXTA' | 'SABADO';
@@ -111,7 +114,7 @@ function SeletorHorariosSemana({
 }: {
   horarios: HorarioForm[];
   onChange: (novos: HorarioForm[]) => void;
-  onPreset: (tipo: 'TODOS' | 'SEG_SEX' | 'FIM_DE_SEMANA' | 'SEX_DOM') => void;
+  onPreset: (tipo: 'TODOS' | 'SEG_SEX' | 'FIM_DE_SEMANA' | 'SEX_DOM' | 'VINTE_QUATRO_HORAS') => void;
 }) {
   function alternarDia(dia: DiaSemana) {
     onChange(
@@ -147,7 +150,15 @@ function SeletorHorariosSemana({
       </div>
 
       {/* Atalhos Rápidos de Seleção */}
-      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 text-xs">
+      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-5 text-xs">
+        <button
+          type="button"
+          onClick={() => onPreset('VINTE_QUATRO_HORAS')}
+          className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-center font-medium text-slate-700 hover:border-navy hover:text-navy dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-sky-500 dark:hover:text-sky-400 transition-all cursor-pointer shadow-xs"
+        >
+          <span className="block font-bold text-[11px]">24 Horas</span>
+          <span className="text-[10px] text-slate-400">00h às 24h</span>
+        </button>
         <button
           type="button"
           onClick={() => onPreset('TODOS')}
@@ -356,6 +367,7 @@ export default function Areas() {
     antecedencia_maxima_dias: 30,
     prazo_cancelamento_horas: 24,
     limite_reservas_semana: 2,
+    reserva_por_dia: false,
   });
 
   // Estado avançado para agendamento de manutenção (UI/UX Pro Max)
@@ -404,10 +416,13 @@ export default function Areas() {
     }
   }
 
-  function aplicarPresetDias(tipo: 'TODOS' | 'SEG_SEX' | 'FIM_DE_SEMANA' | 'SEX_DOM', modo: 'CRIAR' | 'EDITAR') {
+  function aplicarPresetDias(tipo: 'TODOS' | 'SEG_SEX' | 'FIM_DE_SEMANA' | 'SEX_DOM' | 'VINTE_QUATRO_HORAS', modo: 'CRIAR' | 'EDITAR') {
     const fn = modo === 'CRIAR' ? setHorariosCriar : setHorariosEditar;
     fn(prev =>
       prev.map(h => {
+        if (tipo === 'VINTE_QUATRO_HORAS') {
+          return { ...h, ativo: true, hora_inicio: '00:00', hora_fim: '24:00' };
+        }
         if (tipo === 'TODOS') {
           return { ...h, ativo: true, hora_inicio: '08:00', hora_fim: '22:00' };
         }
@@ -484,6 +499,7 @@ export default function Areas() {
         antecedencia_maxima_dias: 30,
         prazo_cancelamento_horas: 24,
         limite_reservas_semana: 2,
+        reserva_por_dia: false,
       });
       setHorariosCriar(criarHorariosPadrao());
       if (fileInputCriar.current) fileInputCriar.current.value = '';
@@ -649,7 +665,11 @@ export default function Areas() {
 
   function abrirEdicao(a: Area) {
     const antMinHoras = a.antecedencia_minima_horas ?? (a.antecedencia_minima_dias * 24);
-    setEditando({ ...a, antecedencia_minima_horas: antMinHoras });
+    setEditando({
+      ...a,
+      antecedencia_minima_horas: antMinHoras,
+      reserva_por_dia: Boolean(a.reserva_por_dia),
+    });
     setPreviewImagem(a.imagem_url || null);
 
     const horariosCarregados = DIAS_SEMANA_CONFIG.map(d => {
@@ -696,6 +716,7 @@ export default function Areas() {
         antecedencia_maxima_dias: editando.antecedencia_maxima_dias,
         prazo_cancelamento_horas: editando.prazo_cancelamento_horas,
         limite_reservas_semana: editando.limite_reservas_semana,
+        reserva_por_dia: Boolean(editando.reserva_por_dia),
         horarios: diasAtivos.map(h => ({
           dia_semana: h.dia_semana,
           hora_inicio: h.hora_inicio,
@@ -753,7 +774,15 @@ export default function Areas() {
           </div>
         </td>
         <td className="py-3 px-2 text-xs font-semibold text-slate-700 dark:text-slate-300">{a.capacidade} pessoas</td>
-        <td className="py-3 px-2 text-xs text-slate-600 dark:text-slate-300">{formatarDuracao(a.duracao_slot_min)}</td>
+        <td className="py-3 px-2 text-xs text-slate-600 dark:text-slate-300">
+          {a.reserva_por_dia ? (
+            <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 px-2 py-0.5 text-xs font-semibold">
+              Dia Inteiro
+            </span>
+          ) : (
+            formatarDuracao(a.duracao_slot_min)
+          )}
+        </td>
         <td className="py-3 px-2 text-xs text-slate-600 dark:text-slate-300">
           {formatarHoras(a.antecedencia_minima_horas ?? a.antecedencia_minima_dias * 24)}
         </td>
@@ -839,6 +868,7 @@ export default function Areas() {
                   antecedencia_maxima_dias: 30,
                   prazo_cancelamento_horas: 24,
                   limite_reservas_semana: 2,
+                  reserva_por_dia: false,
                 });
                 if (fileInputCriar.current) fileInputCriar.current.value = '';
                 setModalCriarAberto(true);
@@ -941,6 +971,7 @@ export default function Areas() {
                   <th className="py-3 px-2">Duração</th>
                   <th className="py-3 px-2">Antecedência Mínima</th>
                   <th className="py-3 px-2">Prazo Cancel.</th>
+                  <th className="py-3 px-2">Funcionamento</th>
                   <th className="py-3 px-2">Situação</th>
                   <th className="py-3 px-3 text-right">Ações</th>
                 </tr>
@@ -1585,47 +1616,112 @@ export default function Areas() {
             </Campo>
           </div>
 
-          {/* Duração da Reserva */}
-          <label className="block text-sm">
-            <span className="mb-1.5 block text-xs font-semibold text-slate-700 dark:text-slate-300">
-              Duração da Reserva <span className="text-red-500">*</span>
+          {/* Modalidade de Reserva */}
+          <div className="space-y-1.5">
+            <span className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+              Modalidade de Reserva <span className="text-red-500">*</span>
             </span>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="relative">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, reserva_por_dia: false })}
+                className={`flex items-start gap-2.5 rounded-xl border p-3 text-left transition-all cursor-pointer ${
+                  !form.reserva_por_dia
+                    ? 'border-navy bg-navy/5 ring-1 ring-navy dark:border-sky-500 dark:bg-sky-950/30 dark:ring-sky-500'
+                    : 'border-slate-200 bg-white hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-slate-600'
+                }`}
+              >
                 <input
-                  type="number"
-                  min={0}
-                  max={24}
-                  className={inputCls + ' pr-7'}
-                  placeholder="0"
-                  value={Math.floor(form.duracao_slot_min / 60) === 0 ? '' : Math.floor(form.duracao_slot_min / 60)}
-                  onChange={e => {
-                    const h = parseNum(e.target.value, 0, 24);
-                    const m = form.duracao_slot_min % 60;
-                    setForm({ ...form, duracao_slot_min: Math.max(1, h * 60 + m) });
-                  }}
+                  type="radio"
+                  name="modalidade_criar"
+                  checked={!form.reserva_por_dia}
+                  onChange={() => setForm({ ...form, reserva_por_dia: false })}
+                  className="mt-0.5 h-4 w-4 text-navy focus:ring-navy dark:text-sky-500 cursor-pointer"
                 />
-                <span className="absolute right-2.5 top-2.5 text-xs text-slate-400 dark:text-slate-500 font-bold">h</span>
-              </div>
-              <div className="relative">
+                <div>
+                  <p className="text-xs font-bold text-slate-900 dark:text-slate-100">Por Horários / Faixas</p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    O morador reserva frações de tempo (ex.: 1h, 2h, 4h).
+                  </p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, reserva_por_dia: true })}
+                className={`flex items-start gap-2.5 rounded-xl border p-3 text-left transition-all cursor-pointer ${
+                  form.reserva_por_dia
+                    ? 'border-amber-500 bg-amber-500/10 ring-1 ring-amber-500 dark:border-amber-400 dark:bg-amber-950/30 dark:ring-amber-400'
+                    : 'border-slate-200 bg-white hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-slate-600'
+                }`}
+              >
                 <input
-                  type="number"
-                  min={0}
-                  max={59}
-                  step={5}
-                  className={inputCls + ' pr-9'}
-                  placeholder="0"
-                  value={(form.duracao_slot_min % 60) === 0 ? '' : (form.duracao_slot_min % 60)}
-                  onChange={e => {
-                    const h = Math.floor(form.duracao_slot_min / 60);
-                    const m = parseNum(e.target.value, 0, 59);
-                    setForm({ ...form, duracao_slot_min: Math.max(1, h * 60 + m) });
-                  }}
+                  type="radio"
+                  name="modalidade_criar"
+                  checked={form.reserva_por_dia}
+                  onChange={() => setForm({ ...form, reserva_por_dia: true })}
+                  className="mt-0.5 h-4 w-4 text-amber-600 focus:ring-amber-500 dark:text-amber-400 cursor-pointer"
                 />
-                <span className="absolute right-2.5 top-2.5 text-xs text-slate-400 dark:text-slate-500 font-bold">min</span>
-              </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-900 dark:text-slate-100">Por Dia Inteiro</p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Reserva a diária completa conforme o horário de funcionamento do dia.
+                  </p>
+                </div>
+              </button>
             </div>
-          </label>
+          </div>
+
+          {/* Duração da Reserva (apenas quando modalidade por horários) */}
+          {!form.reserva_por_dia ? (
+            <label className="block text-sm">
+              <span className="mb-1.5 block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                Duração da Reserva <span className="text-red-500">*</span>
+              </span>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={0}
+                    max={24}
+                    className={inputCls + ' pr-7'}
+                    placeholder="0"
+                    value={Math.floor(form.duracao_slot_min / 60) === 0 ? '' : Math.floor(form.duracao_slot_min / 60)}
+                    onChange={e => {
+                      const h = parseNum(e.target.value, 0, 24);
+                      const m = form.duracao_slot_min % 60;
+                      setForm({ ...form, duracao_slot_min: Math.max(1, h * 60 + m) });
+                    }}
+                  />
+                  <span className="absolute right-2.5 top-2.5 text-xs text-slate-400 dark:text-slate-500 font-bold">h</span>
+                </div>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={0}
+                    max={59}
+                    step={5}
+                    className={inputCls + ' pr-9'}
+                    placeholder="0"
+                    value={(form.duracao_slot_min % 60) === 0 ? '' : (form.duracao_slot_min % 60)}
+                    onChange={e => {
+                      const h = Math.floor(form.duracao_slot_min / 60);
+                      const m = parseNum(e.target.value, 0, 59);
+                      setForm({ ...form, duracao_slot_min: Math.max(1, h * 60 + m) });
+                    }}
+                  />
+                  <span className="absolute right-2.5 top-2.5 text-xs text-slate-400 dark:text-slate-500 font-bold">min</span>
+                </div>
+              </div>
+            </label>
+          ) : (
+            <div className="rounded-xl border border-amber-200/80 bg-amber-50/70 dark:border-amber-900/60 dark:bg-amber-950/30 p-3 text-xs text-amber-900 dark:text-amber-200">
+              <p className="font-semibold">Reserva por Diária Ativada</p>
+              <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80 mt-0.5">
+                A reserva cobrirá o dia todo automaticamente, iniciando e finalizando exatamente nos horários definidos em "Dias e Horários de Funcionamento" abaixo.
+              </p>
+            </div>
+          )}
 
           {/* Antecedência Mínima */}
           <label className="block text-sm">
@@ -1792,47 +1888,112 @@ export default function Areas() {
               </Campo>
             </div>
 
-            {/* Duração da Reserva */}
-            <label className="block text-sm">
-              <span className="mb-1.5 block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                Duração da Reserva <span className="text-red-500">*</span>
+            {/* Modalidade de Reserva */}
+            <div className="space-y-1.5">
+              <span className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                Modalidade de Reserva <span className="text-red-500">*</span>
               </span>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="relative">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditando({ ...editando, reserva_por_dia: false })}
+                  className={`flex items-start gap-2.5 rounded-xl border p-3 text-left transition-all cursor-pointer ${
+                    !editando.reserva_por_dia
+                      ? 'border-navy bg-navy/5 ring-1 ring-navy dark:border-sky-500 dark:bg-sky-950/30 dark:ring-sky-500'
+                      : 'border-slate-200 bg-white hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-slate-600'
+                  }`}
+                >
                   <input
-                    type="number"
-                    min={0}
-                    max={24}
-                    className={inputCls + ' pr-7'}
-                    placeholder="0"
-                    value={Math.floor(editando.duracao_slot_min / 60) === 0 ? '' : Math.floor(editando.duracao_slot_min / 60)}
-                    onChange={e => {
-                      const h = parseNum(e.target.value, 0, 24);
-                      const m = editando.duracao_slot_min % 60;
-                      setEditando({ ...editando, duracao_slot_min: Math.max(1, h * 60 + m) });
-                    }}
+                    type="radio"
+                    name="modalidade_editar"
+                    checked={!editando.reserva_por_dia}
+                    onChange={() => setEditando({ ...editando, reserva_por_dia: false })}
+                    className="mt-0.5 h-4 w-4 text-navy focus:ring-navy dark:text-sky-500 cursor-pointer"
                   />
-                  <span className="absolute right-2.5 top-2.5 text-xs text-slate-400 dark:text-slate-500 font-bold">h</span>
-                </div>
-                <div className="relative">
+                  <div>
+                    <p className="text-xs font-bold text-slate-900 dark:text-slate-100">Por Horários / Faixas</p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      O morador reserva frações de tempo (ex.: 1h, 2h, 4h).
+                    </p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setEditando({ ...editando, reserva_por_dia: true })}
+                  className={`flex items-start gap-2.5 rounded-xl border p-3 text-left transition-all cursor-pointer ${
+                    editando.reserva_por_dia
+                      ? 'border-amber-500 bg-amber-500/10 ring-1 ring-amber-500 dark:border-amber-400 dark:bg-amber-950/30 dark:ring-amber-400'
+                      : 'border-slate-200 bg-white hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-slate-600'
+                  }`}
+                >
                   <input
-                    type="number"
-                    min={0}
-                    max={59}
-                    step={5}
-                    className={inputCls + ' pr-9'}
-                    placeholder="0"
-                    value={(editando.duracao_slot_min % 60) === 0 ? '' : (editando.duracao_slot_min % 60)}
-                    onChange={e => {
-                      const h = Math.floor(editando.duracao_slot_min / 60);
-                      const m = parseNum(e.target.value, 0, 59);
-                      setEditando({ ...editando, duracao_slot_min: Math.max(1, h * 60 + m) });
-                    }}
+                    type="radio"
+                    name="modalidade_editar"
+                    checked={Boolean(editando.reserva_por_dia)}
+                    onChange={() => setEditando({ ...editando, reserva_por_dia: true })}
+                    className="mt-0.5 h-4 w-4 text-amber-600 focus:ring-amber-500 dark:text-amber-400 cursor-pointer"
                   />
-                  <span className="absolute right-2.5 top-2.5 text-xs text-slate-400 dark:text-slate-500 font-bold">min</span>
-                </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-900 dark:text-slate-100">Por Dia Inteiro</p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Reserva a diária completa conforme o horário de funcionamento do dia.
+                    </p>
+                  </div>
+                </button>
               </div>
-            </label>
+            </div>
+
+            {/* Duração da Reserva (apenas quando modalidade por horários) */}
+            {!editando.reserva_por_dia ? (
+              <label className="block text-sm">
+                <span className="mb-1.5 block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Duração da Reserva <span className="text-red-500">*</span>
+                </span>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min={0}
+                      max={24}
+                      className={inputCls + ' pr-7'}
+                      placeholder="0"
+                      value={Math.floor(editando.duracao_slot_min / 60) === 0 ? '' : Math.floor(editando.duracao_slot_min / 60)}
+                      onChange={e => {
+                        const h = parseNum(e.target.value, 0, 24);
+                        const m = editando.duracao_slot_min % 60;
+                        setEditando({ ...editando, duracao_slot_min: Math.max(1, h * 60 + m) });
+                      }}
+                    />
+                    <span className="absolute right-2.5 top-2.5 text-xs text-slate-400 dark:text-slate-500 font-bold">h</span>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min={0}
+                      max={59}
+                      step={5}
+                      className={inputCls + ' pr-9'}
+                      placeholder="0"
+                      value={(editando.duracao_slot_min % 60) === 0 ? '' : (editando.duracao_slot_min % 60)}
+                      onChange={e => {
+                        const h = Math.floor(editando.duracao_slot_min / 60);
+                        const m = parseNum(e.target.value, 0, 59);
+                        setEditando({ ...editando, duracao_slot_min: Math.max(1, h * 60 + m) });
+                      }}
+                    />
+                    <span className="absolute right-2.5 top-2.5 text-xs text-slate-400 dark:text-slate-500 font-bold">min</span>
+                  </div>
+                </div>
+              </label>
+            ) : (
+              <div className="rounded-xl border border-amber-200/80 bg-amber-50/70 dark:border-amber-900/60 dark:bg-amber-950/30 p-3 text-xs text-amber-900 dark:text-amber-200">
+                <p className="font-semibold">Reserva por Diária Ativada</p>
+                <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80 mt-0.5">
+                  A reserva cobrirá o dia todo automaticamente, iniciando e finalizando exatamente nos horários definidos em "Dias e Horários de Funcionamento" abaixo.
+                </p>
+              </div>
+            )}
 
             {/* Antecedência Mínima */}
             <label className="block text-sm">

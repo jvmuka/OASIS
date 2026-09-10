@@ -141,6 +141,7 @@ CREATE TABLE area_comum (
     ativo                     BOOLEAN           NOT NULL DEFAULT TRUE,
     imagem_url                VARCHAR(500),
     observacoes               VARCHAR(255),
+    reserva_por_dia           BOOLEAN           NOT NULL DEFAULT FALSE,
     CONSTRAINT ck_area_capacidade  CHECK (capacidade > 0),
     CONSTRAINT ck_area_idade       CHECK (idade_minima >= 0),
     CONSTRAINT ck_area_slot        CHECK (duracao_slot_min BETWEEN 1 AND 1440),

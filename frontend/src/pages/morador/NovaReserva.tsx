@@ -15,6 +15,7 @@ type Area = {
   antecedencia_maxima_dias: number;
   prazo_cancelamento_horas: number;
   limite_reservas_semana: number;
+  reserva_por_dia?: boolean;
   imagem_url?: string | null;
   horarios?: { dia_semana: string; hora_inicio: string; hora_fim: string }[];
 };
@@ -89,6 +90,9 @@ export default function NovaReserva() {
     try {
       const res = await api.get<Grade>(`/reservas/disponibilidade?area=${area.id_area_comum}&data=${d}`);
       setGrade(res);
+      if ((area.reserva_por_dia || res.regras?.reserva_por_dia) && res.slots.length === 1 && res.slots[0].status === 'LIVRE') {
+        setSlot(res.slots[0]);
+      }
     } catch (e: any) {
       setMsg({ t: e.message, tipo: 'erro' });
     } finally {
@@ -195,11 +199,6 @@ export default function NovaReserva() {
                       <span className="text-xs font-semibold backdrop-blur-xs bg-black/30 rounded-md px-2 py-0.5">
                         Capacidade: {a.capacidade} pessoas
                       </span>
-                      {a.idade_minima !== undefined && a.idade_minima > 0 && (
-                        <span className="text-xs font-bold backdrop-blur-xs bg-amber-500/90 text-white rounded-md px-2 py-0.5 shadow-xs">
-                          {a.idade_minima}+ anos
-                        </span>
-                      )}
                     </div>
                   </div>
 
@@ -212,6 +211,11 @@ export default function NovaReserva() {
                       <span className="rounded-md bg-navy-50 text-navy dark:bg-sky-950/60 dark:text-sky-300 px-2 py-0.5 font-bold">
                         {formatarDiasSemana(a.horarios)}
                       </span>
+                      {a.reserva_por_dia && (
+                        <span className="rounded-md bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 px-2 py-0.5 font-bold">
+                          Reserva por Diária
+                        </span>
+                      )}
                       <span className="rounded-md bg-slate-100 dark:bg-slate-800 dark:text-slate-300 px-2 py-0.5 font-medium">
                         Antecedência: {a.antecedencia_minima_dias} a {a.antecedencia_maxima_dias}d
                       </span>
@@ -306,6 +310,11 @@ export default function NovaReserva() {
                     <li>
                       Funcionamento: <b>{formatarDiasSemana(area.horarios)}</b>
                     </li>
+                    {area.reserva_por_dia && (
+                      <li>
+                        Modalidade: <b className="text-amber-700 dark:text-amber-400">Reserva por diária completa</b> (ocupa todo o horário de funcionamento do dia).
+                      </li>
+                    )}
                     <li>Antecedência: {area.antecedencia_minima_dias} a {area.antecedencia_maxima_dias} dias.</li>
                     <li>Cancelamento permitido até {area.prazo_cancelamento_horas} horas antes do início.</li>
                     <li>Limite de {area.limite_reservas_semana} reserva(s) semanais por unidade.</li>
@@ -317,7 +326,7 @@ export default function NovaReserva() {
               <div className="flex flex-col justify-between md:col-span-6 md:border-l md:border-slate-100 dark:md:border-slate-800 md:pl-6">
                 <div>
                   <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    2. Escolha o Horário ({data ? `${data} - ${grade?.dia_semana || ''}` : 'Nenhuma data selecionada'})
+                    2. {area.reserva_por_dia ? 'Disponibilidade da Diária' : 'Escolha o Horário'} ({data ? `${data} - ${grade?.dia_semana || ''}` : 'Nenhuma data selecionada'})
                   </p>
 
                   {!data && (
@@ -344,7 +353,7 @@ export default function NovaReserva() {
                   )}
 
                   {data && !carregandoGrade && grade && grade.slots.length > 0 && (
-                    <div className="grid max-h-72 grid-cols-1 sm:grid-cols-2 gap-2 overflow-y-auto pr-1">
+                    <div className={(area.reserva_por_dia || grade.regras?.reserva_por_dia) ? 'space-y-2' : 'grid max-h-72 grid-cols-1 sm:grid-cols-2 gap-2 overflow-y-auto pr-1'}>
                       {grade.slots.map(sl => {
                         const sel = slot?.inicio === sl.inicio;
                         const dataHoraSlot = new Date(`${data}T${sl.inicio}:00`);
@@ -361,13 +370,15 @@ export default function NovaReserva() {
                               ? 'OCUPADO'
                               : 'INDISPONÍVEL';
 
+                        const isDiaria = area.reserva_por_dia || grade.regras?.reserva_por_dia;
+
                         return (
                           <button
                             key={sl.inicio}
                             disabled={!livre}
                             onClick={() => setSlot(sl)}
                             className={
-                              'flex items-center justify-between rounded-xl border p-2.5 text-xs font-semibold transition-all ' +
+                              `flex items-center justify-between rounded-xl border ${isDiaria ? 'p-3.5 w-full' : 'p-2.5'} text-xs font-semibold transition-all ` +
                               (sel
                                 ? 'border-navy bg-navy text-white shadow-sm ring-2 ring-navy/20 dark:bg-sky-600 dark:border-sky-500 cursor-pointer'
                                 : livre
@@ -379,9 +390,18 @@ export default function NovaReserva() {
                                       : 'cursor-not-allowed border-red-200/90 bg-red-50/80 text-red-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300')
                             }
                           >
-                            <span>{sl.inicio} – {sl.fim}</span>
+                            <div className="text-left">
+                              {isDiaria && (
+                                <span className={`block text-[10px] font-bold uppercase tracking-wider ${sel ? 'text-white/80' : 'text-slate-400 dark:text-slate-400'}`}>
+                                  Diária Completa
+                                </span>
+                              )}
+                              <span className={isDiaria ? 'text-sm font-bold' : ''}>
+                                {sl.inicio} – {sl.fim}
+                              </span>
+                            </div>
                             <span
-                              className={`text-[10px] font-bold rounded-md px-1.5 py-0.5 ${sel
+                              className={`text-[10px] font-bold rounded-md px-2 py-1 ${sel
                                   ? 'bg-white/20 text-white'
                                   : livre
                                     ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/60'

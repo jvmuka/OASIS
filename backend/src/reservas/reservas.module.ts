@@ -43,18 +43,14 @@ export class ReservasController {
 
     // monta a grade de slots em memoria
     const slots: any[] = [];
-    const passo = info.duracao_slot_min;
     const agora = new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
-    for (const j of janelas) {
-      let [h, m] = String(j.hora_inicio).split(':').map(Number);
-      const [hf, mf] = String(j.hora_fim).split(':').map(Number);
-      let ini = h * 60 + m; const fim = hf * 60 + mf;
-      while (ini + passo <= fim) {
-        const hIni = `${String(Math.floor(ini / 60)).padStart(2, '0')}:${String(ini % 60).padStart(2, '0')}`;
-        const fimSlot = ini + passo;
-        const hFim = `${String(Math.floor(fimSlot / 60)).padStart(2, '0')}:${String(fimSlot % 60).padStart(2, '0')}`;
+
+    if (info.reserva_por_dia) {
+      for (const j of janelas) {
+        const hIni = String(j.hora_inicio).slice(0, 5);
+        const hFim = String(j.hora_fim).slice(0, 5);
         const slotIniStr = `${data}T${hIni}:00`;
-        const slotFimStr = `${data}T${hFim}:00`;
+        const slotFimStr = `${data}T${hFim === '24:00' ? '23:59:59' : hFim + ':00'}`;
         const noPassado = slotIniStr <= agora;
         const ocupado = reservas.some(r => {
           const rIni = new Date(r.data_hora_inicio).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
@@ -68,11 +64,39 @@ export class ReservasController {
         });
         const status = noPassado ? 'PASSADO' : bloqueado ? 'BLOQUEADO' : ocupado ? 'OCUPADO' : 'LIVRE';
         slots.push({ inicio: hIni, fim: hFim, status });
-        ini = fimSlot;
+      }
+    } else {
+      const passo = info.duracao_slot_min;
+      for (const j of janelas) {
+        let [h, m] = String(j.hora_inicio).split(':').map(Number);
+        const [hf, mf] = String(j.hora_fim).split(':').map(Number);
+        let ini = h * 60 + m;
+        const fim = (hf === 23 && mf === 59) ? 1440 : (hf * 60 + mf);
+        while (ini + passo <= fim) {
+          const hIni = `${String(Math.floor(ini / 60)).padStart(2, '0')}:${String(ini % 60).padStart(2, '0')}`;
+          const fimSlot = ini + passo;
+          const hFim = `${String(Math.floor(fimSlot / 60)).padStart(2, '0')}:${String(fimSlot % 60).padStart(2, '0')}`;
+          const slotIniStr = `${data}T${hIni}:00`;
+          const slotFimStr = `${data}T${hFim}:00`;
+          const noPassado = slotIniStr <= agora;
+          const ocupado = reservas.some(r => {
+            const rIni = new Date(r.data_hora_inicio).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
+            const rFim = new Date(r.data_hora_fim).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
+            return slotIniStr < rFim && slotFimStr > rIni;
+          });
+          const bloqueado = bloqueios.some(r => {
+            const bIni = new Date(r.data_hora_inicio).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
+            const bFim = new Date(r.data_hora_fim).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
+            return slotIniStr < bFim && slotFimStr > bIni;
+          });
+          const status = noPassado ? 'PASSADO' : bloqueado ? 'BLOQUEADO' : ocupado ? 'OCUPADO' : 'LIVRE';
+          slots.push({ inicio: hIni, fim: hFim, status });
+          ini = fimSlot;
+        }
       }
     }
     return {
-      area: { id_area_comum: info.id_area_comum, nome: info.nome, capacidade: info.capacidade },
+      area: { id_area_comum: info.id_area_comum, nome: info.nome, capacidade: info.capacidade, reserva_por_dia: Boolean(info.reserva_por_dia) },
       data, dia_semana: diaSemana,
       regras: {
         antecedencia_minima_dias: info.antecedencia_minima_dias,
@@ -80,6 +104,7 @@ export class ReservasController {
         prazo_cancelamento_horas: info.prazo_cancelamento_horas,
         limite_reservas_semana: info.limite_reservas_semana,
         duracao_slot_min: info.duracao_slot_min,
+        reserva_por_dia: Boolean(info.reserva_por_dia),
       },
       slots,
     };
@@ -91,11 +116,12 @@ export class ReservasController {
     id_area_comum: number; data: string; inicio: string; fim: string; numero_pessoas: number;
   }) {
     const idPerfil = perfilDoUsuario(req.user, 'MORADOR');
+    const fimAjustado = (b.fim === '24:00') ? '23:59:59' : b.fim;
     return this.db.query(`
       INSERT INTO reserva (id_area_comum, id_perfil, data_hora_inicio, data_hora_fim, numero_pessoas)
       VALUES ($1,$2,($3 || ' ' || $4)::timestamp,($3 || ' ' || $5)::timestamp,$6)
       RETURNING id_reserva, status, data_hora_inicio, data_hora_fim`,
-      [b.id_area_comum, idPerfil, b.data, b.inicio, b.fim, b.numero_pessoas])
+      [b.id_area_comum, idPerfil, b.data, b.inicio, fimAjustado, b.numero_pessoas])
       .then(r => r[0]);
   }
 
