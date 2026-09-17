@@ -476,7 +476,7 @@ BEGIN
     IF EXISTS (
         SELECT 1 FROM reserva r
          WHERE r.id_area_comum = NEW.id_area_comum
-           AND r.status        = 'ATIVA'
+           AND r.status        IN ('ATIVA', 'CONCLUIDA')
            AND r.id_reserva   <> COALESCE(NEW.id_reserva, -1)
            AND (NEW.data_hora_inicio, NEW.data_hora_fim)
                OVERLAPS (r.data_hora_inicio, r.data_hora_fim)
@@ -562,7 +562,7 @@ BEGIN
       JOIN pessoa_unidade  pu ON pu.id_pessoa = pf.id_pessoa
                              AND pu.data_fim_ocupacao IS NULL
      WHERE r.id_area_comum = NEW.id_area_comum
-       AND r.status        = 'ATIVA'
+       AND r.status        IN ('ATIVA', 'CONCLUIDA')
        AND r.id_reserva   <> COALESCE(NEW.id_reserva, -1)
        AND date_trunc('week', r.data_hora_inicio) = date_trunc('week', NEW.data_hora_inicio)
        AND pu.id_unidade IN (
@@ -593,6 +593,10 @@ DECLARE
     v_prazo INTEGER;
 BEGIN
     IF NEW.status = 'CANCELADA' AND OLD.status <> 'CANCELADA' THEN
+        IF OLD.status = 'CONCLUIDA' THEN
+            RAISE EXCEPTION 'RN08: nao e permitido cancelar uma reserva ja concluida.';
+        END IF;
+
         SELECT prazo_cancelamento_horas INTO v_prazo
           FROM area_comum WHERE id_area_comum = NEW.id_area_comum;
 

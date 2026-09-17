@@ -176,7 +176,7 @@ export class PortariaController {
         LEFT JOIN pessoa_unidade pu ON pu.id_pessoa = p.id_pessoa AND pu.data_fim_ocupacao IS NULL
         LEFT JOIN unidade u ON u.id_unidade = pu.id_unidade
         LEFT JOIN bloco b ON b.id_bloco = u.id_bloco
-       WHERE r.status = 'ATIVA'
+       WHERE r.status <> 'CANCELADA'
          AND r.data_hora_fim < CURRENT_TIMESTAMP
          AND r.data_hora_fim >= CURRENT_TIMESTAMP - INTERVAL '3 hours'
 
@@ -204,7 +204,7 @@ export class PortariaController {
         LEFT JOIN pessoa_unidade pu ON pu.id_pessoa = p.id_pessoa AND pu.data_fim_ocupacao IS NULL
         LEFT JOIN unidade u ON u.id_unidade = pu.id_unidade
         LEFT JOIN bloco b ON b.id_bloco = u.id_bloco
-       WHERE r.status = 'ATIVA' AND r.data_hora_inicio::date = $1::date
+       WHERE r.status <> 'CANCELADA' AND r.data_hora_inicio::date = $1::date
        ORDER BY r.data_hora_inicio`, [dia]).then(reservas => ({ data: dia, reservas }));
   }
 
@@ -271,7 +271,9 @@ export class PortariaController {
        ORDER BY r.data_hora_inicio`, [idPessoa]);
 
     const historico = await this.db.query(`
-      SELECT r.id_reserva, a.nome AS area, r.data_hora_inicio, r.data_hora_fim, r.numero_pessoas, r.status
+      SELECT r.id_reserva, a.nome AS area, r.data_hora_inicio, r.data_hora_fim, r.numero_pessoas,
+             CASE WHEN r.status = 'ATIVA' AND r.data_hora_fim < CURRENT_TIMESTAMP THEN 'CONCLUIDA'
+                  ELSE r.status END AS status
         FROM reserva r
         JOIN perfil pf ON pf.id_perfil = r.id_perfil
         JOIN area_comum a ON a.id_area_comum = r.id_area_comum

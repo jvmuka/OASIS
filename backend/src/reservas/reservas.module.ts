@@ -32,7 +32,7 @@ export class ReservasController {
 
     const reservas = await this.db.query(
       `SELECT data_hora_inicio, data_hora_fim FROM reserva
-        WHERE id_area_comum = $1 AND status = 'ATIVA'
+        WHERE id_area_comum = $1 AND status <> 'CANCELADA'
           AND data_hora_inicio::date = $2::date`, [area, data]);
 
     const bloqueios = await this.db.query(
@@ -101,11 +101,19 @@ export class ReservasController {
 
   /** Minhas reservas (morador autenticado). */
   @Get('minhas') @Perfis('MORADOR')
-  minhas(@Req() req: any) {
+  async minhas(@Req() req: any) {
     const idPerfil = perfilDoUsuario(req.user, 'MORADOR');
+    await this.db.query(`
+      UPDATE reserva
+         SET status = 'CONCLUIDA'
+       WHERE status = 'ATIVA'
+         AND data_hora_fim < CURRENT_TIMESTAMP`);
     return this.db.query(`
       SELECT r.id_reserva, a.nome AS area, r.data_hora_inicio, r.data_hora_fim,
-             r.numero_pessoas, r.status, a.prazo_cancelamento_horas
+             r.numero_pessoas,
+             CASE WHEN r.status = 'ATIVA' AND r.data_hora_fim < CURRENT_TIMESTAMP THEN 'CONCLUIDA'
+                  ELSE r.status END AS status,
+             a.prazo_cancelamento_horas
         FROM reserva r JOIN area_comum a ON a.id_area_comum = r.id_area_comum
        WHERE r.id_perfil = $1
        ORDER BY r.data_hora_inicio DESC`, [idPerfil]);
