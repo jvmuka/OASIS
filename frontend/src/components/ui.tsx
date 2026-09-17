@@ -42,38 +42,38 @@ export function Icone({
   className = 'w-4 h-4',
 }: {
   nome:
-    | 'home'
-    | 'calendar'
-    | 'clock'
-    | 'key'
-    | 'package'
-    | 'users'
-    | 'megaphone'
-    | 'check'
-    | 'alert'
-    | 'info'
-    | 'trash'
-    | 'edit'
-    | 'eye'
-    | 'filter'
-    | 'search'
-    | 'chevronDown'
-    | 'chevronLeft'
-    | 'chevronRight'
-    | 'plus'
-    | 'logout'
-    | 'building'
-    | 'pin'
-    | 'shield'
-    | 'x'
-    | 'image'
-    | 'upload'
-    | 'sun'
-    | 'moon'
-    | 'user'
-    | 'sparkles'
-    | 'box'
-    | 'wrench';
+  | 'home'
+  | 'calendar'
+  | 'clock'
+  | 'key'
+  | 'package'
+  | 'users'
+  | 'megaphone'
+  | 'check'
+  | 'alert'
+  | 'info'
+  | 'trash'
+  | 'edit'
+  | 'eye'
+  | 'filter'
+  | 'search'
+  | 'chevronDown'
+  | 'chevronLeft'
+  | 'chevronRight'
+  | 'plus'
+  | 'logout'
+  | 'building'
+  | 'pin'
+  | 'shield'
+  | 'x'
+  | 'image'
+  | 'upload'
+  | 'sun'
+  | 'moon'
+  | 'user'
+  | 'sparkles'
+  | 'box'
+  | 'wrench';
   className?: string;
 }) {
   switch (nome) {
@@ -306,11 +306,10 @@ export function Cartao({
 }) {
   return (
     <div
-      className={`rounded-xl border bg-white dark:bg-slate-900 dark:text-slate-200 p-5 transition-all duration-200 ${
-        destaque
+      className={`rounded-xl border bg-white dark:bg-slate-900 dark:text-slate-200 p-5 transition-all duration-200 ${destaque
           ? 'border-navy/20 shadow-card ring-1 ring-navy/5 dark:border-sky-500/30 dark:ring-sky-500/10'
           : 'border-slate-200/80 shadow-soft hover:border-slate-300/80 dark:border-slate-800 dark:hover:border-slate-700'
-      } ${className}`}
+        } ${className}`}
     >
       {children}
     </div>

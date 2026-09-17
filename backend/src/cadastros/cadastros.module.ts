@@ -1,6 +1,14 @@
 import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, Module, UseGuards, ParseIntPipe, BadRequestException, Req } from '@nestjs/common';
+import * as crypto from 'crypto';
 import { DbService } from '../db/db.service';
 import { JwtAuthGuard, PerfilGuard, Perfis, perfilDoUsuario } from '../auth/guards';
+
+/** Gera um codigo de ativacao criptograficamente seguro (8 caracteres alfanumericos maiusculos). */
+function gerarCodigoAtivacao(): string {
+  const CHARSET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sem I, O, 0, 1 para evitar ambiguidade
+  const bytes = crypto.randomBytes(8);
+  return 'OASIS-' + Array.from(bytes).map(b => CHARSET[b % CHARSET.length]).join('');
+}
 
 /**
  * UC11 - Cadastrar / Editar Pessoa e Unidade, Gestão de Dependentes e Primeiro Acesso.
@@ -86,7 +94,7 @@ export class CadastrosController {
              (SELECT c.codigo FROM codigo_primeiro_acesso c
                WHERE c.id_pessoa = p.id_pessoa AND c.status = 'DISPONIVEL'
                  AND c.data_expiracao > CURRENT_TIMESTAMP
-               ORDER BY c.criado_em DESC LIMIT 1) AS codigo_ativacao,
+               ORDER BY c.data_criacao DESC, c.id_codigo DESC LIMIT 1) AS codigo_ativacao,
              -- Informações do responsável direto (caso este usuário seja dependente)
              (SELECT jsonb_build_object('id_pessoa', resp.id_pessoa, 'nome', resp.nome, 'email', resp.email)
                 FROM pessoa_unidade pu_dep
@@ -148,7 +156,7 @@ export class CadastrosController {
              pu.grau_parentesco, pu.status_aprovacao, p.ativo,
              (SELECT c.codigo FROM codigo_primeiro_acesso c
                WHERE c.id_pessoa = p.id_pessoa AND c.status = 'DISPONIVEL'
-               ORDER BY c.criado_em DESC LIMIT 1) AS codigo_ativacao
+               ORDER BY c.data_criacao DESC, c.id_codigo DESC LIMIT 1) AS codigo_ativacao
         FROM pessoa_unidade pu
         JOIN pessoa p ON p.id_pessoa = pu.id_pessoa
        WHERE pu.id_responsavel = $1 AND pu.data_fim_ocupacao IS NULL
@@ -233,7 +241,7 @@ export class CadastrosController {
       }
 
       // 5. Geração do código legível de ativação / primeiro acesso
-      const codigoGerado = 'OASIS-' + Math.floor(1000 + Math.random() * 9000);
+      const codigoGerado = gerarCodigoAtivacao();
       await c.query(
         `INSERT INTO codigo_primeiro_acesso (codigo, id_pessoa, id_perfil_gerador, status)
          VALUES ($1,$2,$3,'DISPONIVEL')`,
@@ -293,7 +301,7 @@ export class CadastrosController {
 
         let codigo = codigoExistente.rows[0]?.codigo;
         if (!codigo) {
-          codigo = 'OASIS-' + Math.floor(1000 + Math.random() * 9000);
+          codigo = gerarCodigoAtivacao();
           await c.query(
             `INSERT INTO codigo_primeiro_acesso (codigo, id_pessoa, id_perfil_gerador, status)
              VALUES ($1,$2,$3,'DISPONIVEL')`, [codigo, v.id_pessoa, idPerfilSindico]);
@@ -339,7 +347,7 @@ export class CadastrosController {
          LEFT JOIN LATERAL (
            SELECT codigo FROM codigo_primeiro_acesso
             WHERE id_pessoa = p.id_pessoa AND status = 'DISPONIVEL'
-            ORDER BY criado_em DESC LIMIT 1
+            ORDER BY data_criacao DESC, id_codigo DESC LIMIT 1
          ) cpa ON TRUE
         WHERE pu.id_responsavel = $1 AND pu.data_fim_ocupacao IS NULL
         ORDER BY pu.data_inicio_ocupacao DESC`, [idPessoa]);

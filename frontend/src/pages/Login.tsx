@@ -133,22 +133,20 @@ export default function Login() {
             <button
               type="button"
               onClick={() => { setAba('login'); setErro(''); }}
-              className={`flex-1 rounded-lg py-2 text-xs font-bold transition-all cursor-pointer ${
-                aba === 'login'
+              className={`flex-1 rounded-lg py-2 text-xs font-bold transition-all cursor-pointer ${aba === 'login'
                   ? 'bg-white dark:bg-slate-900 text-navy dark:text-sky-400 shadow-sm'
                   : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
-              }`}
+                }`}
             >
               Entrar com Senha
             </button>
             <button
               type="button"
               onClick={() => { setAba('primeiro_acesso'); setErro(''); }}
-              className={`flex-1 rounded-lg py-2 text-xs font-bold transition-all cursor-pointer ${
-                aba === 'primeiro_acesso'
+              className={`flex-1 rounded-lg py-2 text-xs font-bold transition-all cursor-pointer ${aba === 'primeiro_acesso'
                   ? 'bg-white dark:bg-slate-900 text-navy dark:text-sky-400 shadow-sm'
                   : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
-              }`}
+                }`}
             >
               Primeiro Acesso (Código)
             </button>

@@ -101,8 +101,8 @@ export default function Inicio() {
   const perfilPrincipal: PerfilPrincipal = tipos.includes('SINDICO')
     ? 'SINDICO'
     : tipos.includes('PORTEIRO')
-    ? 'PORTEIRO'
-    : 'MORADOR';
+      ? 'PORTEIRO'
+      : 'MORADOR';
 
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);

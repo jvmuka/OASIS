@@ -324,11 +324,21 @@ export class AreasController {
     }
 
     console.log(
-      `[areas] compressao de imagem: ${file.originalname} ${file.size} bytes -> ${processada.length} bytes`,
+      `[areas] compressao de imagem: ${(file.originalname || '').replace(/[^\w.-]/g, '_')} ${file.size} bytes -> ${processada.length} bytes`,
     );
+
+    // Garante que o diretorio de uploads existe
+    await fs.mkdir('./uploads', { recursive: true }).catch(() => {});
 
     const nome = `area-${Date.now()}.webp`;
     await fs.writeFile(`./uploads/${nome}`, processada);
+
+    // Remove imagem anterior para evitar acumulo de arquivos orfaos
+    const areaAnterior = await this.db.query(
+      `SELECT imagem_url FROM area_comum WHERE id_area_comum = $1`, [id]);
+    if (areaAnterior.length && areaAnterior[0].imagem_url) {
+      await fs.unlink(`.${areaAnterior[0].imagem_url}`).catch(() => {});
+    }
 
     const url = `/uploads/${nome}`;
     await this.db.query(

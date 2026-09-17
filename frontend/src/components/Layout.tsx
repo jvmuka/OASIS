@@ -40,9 +40,8 @@ export default function Layout() {
         <>
           <Icone
             nome={icone}
-            className={`h-4 w-4 transition-colors ${
-              isActive ? 'text-navy dark:text-sky-400' : 'text-slate-400 group-hover:text-slate-600 dark:text-slate-500 dark:group-hover:text-slate-300'
-            }`}
+            className={`h-4 w-4 transition-colors ${isActive ? 'text-navy dark:text-sky-400' : 'text-slate-400 group-hover:text-slate-600 dark:text-slate-500 dark:group-hover:text-slate-300'
+              }`}
           />
           <span className="truncate">{rotulo}</span>
         </>
@@ -120,9 +119,8 @@ export default function Layout() {
 
         {/* Sidebar */}
         <aside
-          className={`fixed inset-y-0 left-0 z-30 w-64 transform border-r border-slate-200/80 bg-white p-4 transition-transform duration-200 ease-in-out dark:border-slate-800 dark:bg-slate-900 lg:static lg:translate-x-0 ${
-            menuAberto ? 'translate-x-0 top-16' : '-translate-x-full lg:translate-x-0'
-          }`}
+          className={`fixed inset-y-0 left-0 z-30 w-64 transform border-r border-slate-200/80 bg-white p-4 transition-transform duration-200 ease-in-out dark:border-slate-800 dark:bg-slate-900 lg:static lg:translate-x-0 ${menuAberto ? 'translate-x-0 top-16' : '-translate-x-full lg:translate-x-0'
+            }`}
         >
           <div className="space-y-4 overflow-y-auto max-h-[calc(100vh-80px)]">
             <div className="space-y-1">
