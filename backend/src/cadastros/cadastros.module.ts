@@ -94,7 +94,7 @@ export class CadastrosController {
              (SELECT c.codigo FROM codigo_primeiro_acesso c
                WHERE c.id_pessoa = p.id_pessoa AND c.status = 'DISPONIVEL'
                  AND c.data_expiracao > CURRENT_TIMESTAMP
-               ORDER BY c.data_criacao DESC, c.id_codigo DESC LIMIT 1) AS codigo_ativacao,
+               ORDER BY c.id_codigo DESC LIMIT 1) AS codigo_ativacao,
              -- Informações do responsável direto (caso este usuário seja dependente)
              (SELECT jsonb_build_object('id_pessoa', resp.id_pessoa, 'nome', resp.nome, 'email', resp.email)
                 FROM pessoa_unidade pu_dep
@@ -156,7 +156,7 @@ export class CadastrosController {
              pu.grau_parentesco, pu.status_aprovacao, p.ativo,
              (SELECT c.codigo FROM codigo_primeiro_acesso c
                WHERE c.id_pessoa = p.id_pessoa AND c.status = 'DISPONIVEL'
-               ORDER BY c.data_criacao DESC, c.id_codigo DESC LIMIT 1) AS codigo_ativacao
+               ORDER BY c.id_codigo DESC LIMIT 1) AS codigo_ativacao
         FROM pessoa_unidade pu
         JOIN pessoa p ON p.id_pessoa = pu.id_pessoa
        WHERE pu.id_responsavel = $1 AND pu.data_fim_ocupacao IS NULL
@@ -347,7 +347,7 @@ export class CadastrosController {
          LEFT JOIN LATERAL (
            SELECT codigo FROM codigo_primeiro_acesso
             WHERE id_pessoa = p.id_pessoa AND status = 'DISPONIVEL'
-            ORDER BY data_criacao DESC, id_codigo DESC LIMIT 1
+            ORDER BY id_codigo DESC LIMIT 1
          ) cpa ON TRUE
         WHERE pu.id_responsavel = $1 AND pu.data_fim_ocupacao IS NULL
         ORDER BY pu.data_inicio_ocupacao DESC`, [idPessoa]);

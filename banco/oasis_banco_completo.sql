@@ -307,12 +307,14 @@ CREATE TABLE aviso_perfil (
 
 CREATE TABLE codigo_primeiro_acesso (
     id_codigo            SERIAL              PRIMARY KEY,
-    codigo               VARCHAR(20)         NOT NULL UNIQUE,
+    codigo               VARCHAR(30)         NOT NULL UNIQUE,
     id_pessoa            INTEGER             NOT NULL,
     id_perfil_gerador    INTEGER,
     status               status_codigo_enum  NOT NULL DEFAULT 'DISPONIVEL',
+    criado_em            TIMESTAMP           NOT NULL DEFAULT CURRENT_TIMESTAMP,
     data_criacao         TIMESTAMP           NOT NULL DEFAULT CURRENT_TIMESTAMP,
     data_expiracao       TIMESTAMP           NOT NULL DEFAULT (CURRENT_TIMESTAMP + INTERVAL '7 days'),
+    usado_em             TIMESTAMP,
     data_utilizacao      TIMESTAMP,
     ip_origem            VARCHAR(45),
     CONSTRAINT fk_cpa_pessoa  FOREIGN KEY (id_pessoa)         REFERENCES pessoa (id_pessoa) ON DELETE CASCADE,
