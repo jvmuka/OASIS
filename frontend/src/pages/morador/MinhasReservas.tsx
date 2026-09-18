@@ -60,9 +60,57 @@ export default function MinhasReservas() {
       minute: '2-digit',
     });
 
+  const obterStatusReserva = (r: Reserva) => {
+    const agora = new Date();
+    const inicio = new Date(r.data_hora_inicio);
+    const fim = new Date(r.data_hora_fim);
+
+    if (r.status === 'CANCELADA') {
+      return {
+        label: 'CANCELADA',
+        tipo: 'perigo' as const,
+        isAtivaOuFutura: false,
+        podeCancelar: false,
+        prazoExpirado: false,
+      };
+    }
+
+    if (r.status === 'CONCLUIDA' || fim <= agora) {
+      return {
+        label: 'CONCLUÍDA',
+        tipo: 'neutro' as const,
+        isAtivaOuFutura: false,
+        podeCancelar: false,
+        prazoExpirado: false,
+      };
+    }
+
+    if (inicio <= agora && fim > agora) {
+      return {
+        label: 'EM ANDAMENTO',
+        tipo: 'aviso' as const,
+        isAtivaOuFutura: true,
+        podeCancelar: false,
+        prazoExpirado: false,
+      };
+    }
+
+    const limiteCancelamento = new Date(inicio.getTime() - (r.prazo_cancelamento_horas || 0) * 3600 * 1000);
+    const dentroDoPrazo = agora <= limiteCancelamento;
+
+    return {
+      label: 'ATIVA',
+      tipo: 'sucesso' as const,
+      isAtivaOuFutura: true,
+      podeCancelar: dentroDoPrazo,
+      prazoExpirado: !dentroDoPrazo,
+    };
+  };
+
   const reservasFiltradas = reservas.filter(r => {
-    if (filtro === 'ATIVAS') return r.status === 'ATIVA';
-    if (filtro === 'HISTORICO') return r.status !== 'ATIVA';
+    const st = obterStatusReserva(r);
+    if (filtro === 'ATIVAS') return st.isAtivaOuFutura;
+    if (filtro === 'HISTORICO') return !st.isAtivaOuFutura;
     return true;
   });
 
@@ -128,52 +176,53 @@ export default function MinhasReservas() {
           />
         ) : (
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
-            {reservasFiltradas.map(r => (
-              <div
-                key={r.id_reserva}
-                className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between hover:bg-slate-50/50 dark:hover:bg-slate-800/50 rounded-xl px-2 transition-colors"
-              >
-                <div className="flex items-start gap-3.5">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-navy-50 text-navy dark:bg-slate-800 dark:text-sky-400 font-bold">
-                    <Icone nome="calendar" className="h-5 w-5" />
+            {reservasFiltradas.map(r => {
+              const st = obterStatusReserva(r);
+              return (
+                <div
+                  key={r.id_reserva}
+                  className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between hover:bg-slate-50/50 dark:hover:bg-slate-800/50 rounded-xl px-2 transition-colors"
+                >
+                  <div className="flex items-start gap-3.5">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-navy-50 text-navy dark:bg-slate-800 dark:text-sky-400 font-bold">
+                      <Icone nome="calendar" className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 leading-tight">{r.area}</h3>
+                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 font-medium">
+                        {formatarDataHora(r.data_hora_inicio)} até {formatarDataHora(r.data_hora_fim)}
+                      </p>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                        Capacidade reservada: {r.numero_pessoas} pessoa(s)
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 leading-tight">{r.area}</h3>
-                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 font-medium">
-                      {formatarDataHora(r.data_hora_inicio)} até {formatarDataHora(r.data_hora_fim)}
-                    </p>
-                    <p className="text-[11px] text-slate-400 dark:text-slate-500">
-                      Capacidade reservada: {r.numero_pessoas} pessoa(s)
-                    </p>
+
+                  <div className="flex items-center gap-3 sm:self-center self-end">
+                    <Badge tipo={st.tipo}>
+                      {st.label}
+                    </Badge>
+
+                    {st.podeCancelar && (
+                      <Botao
+                        variante="perigo"
+                        tamanho="sm"
+                        icone={<Icone nome="trash" className="h-3.5 w-3.5" />}
+                        onClick={() => setCancelando(r)}
+                      >
+                        Cancelar
+                      </Botao>
+                    )}
+
+                    {st.prazoExpirado && (
+                      <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500 italic">
+                        Prazo de cancelamento expirado
+                      </span>
+                    )}
                   </div>
                 </div>
-
-                <div className="flex items-center gap-3 sm:self-center self-end">
-                  <Badge
-                    tipo={
-                      r.status === 'ATIVA'
-                        ? 'sucesso'
-                        : r.status === 'CANCELADA'
-                        ? 'perigo'
-                        : 'neutro'
-                    }
-                  >
-                    {r.status}
-                  </Badge>
-
-                  {r.status === 'ATIVA' && (
-                    <Botao
-                      variante="perigo"
-                      tamanho="sm"
-                      icone={<Icone nome="trash" className="h-3.5 w-3.5" />}
-                      onClick={() => setCancelando(r)}
-                    >
-                      Cancelar
-                    </Botao>
-                  )}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </Cartao>

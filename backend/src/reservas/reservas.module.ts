@@ -153,6 +153,7 @@ export class ReservasController {
     return this.db.query(`
       UPDATE reserva SET status = 'CANCELADA', motivo_cancelamento = $3
        WHERE id_reserva = $1 AND id_perfil = $2 AND status = 'ATIVA'
+         AND data_hora_inicio > CURRENT_TIMESTAMP
        RETURNING id_reserva, status, data_hora_cancelamento`,
       [id, idPerfil, b?.motivo || null])
       .then(r => {

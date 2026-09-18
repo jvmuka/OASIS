@@ -172,8 +172,10 @@ export default function Inicio() {
   let atalhos: { to: string; rotulo: string; descricao: string; icone: IconeNome }[] = [];
 
   if (perfilPrincipal === 'MORADOR') {
-    const ativas = reservas.filter(r => r.status === 'ATIVA');
     const agora = new Date();
+    const ativas = reservas.filter(
+      r => r.status === 'ATIVA' && new Date(r.data_hora_fim) > agora
+    );
     const proxima = ativas
       .filter(r => new Date(r.data_hora_inicio) > agora)
       .sort((a, b) => new Date(a.data_hora_inicio).getTime() - new Date(b.data_hora_inicio).getTime())[0];
