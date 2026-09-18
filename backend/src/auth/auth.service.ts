@@ -45,18 +45,18 @@ export function verificarSenha(senha: string, senhaSalva: string): 'atual' | 'le
 }
 
 /**
- * Valida a senha: bloqueia se for menor que 8 caracteres;
+ * Valida a senha: bloqueia se for menor que 6 caracteres;
  * retorna avisos (nao bloqueantes) se faltar complexidade.
  */
 export function validarForcaSenha(senha: string): { erro: string | null; avisos: string[] } {
-  if (senha.length < 8) {
-    return { erro: 'A senha deve conter no minimo 8 caracteres.', avisos: [] };
+  if (senha.length < 6) {
+    return { erro: 'A senha deve conter no mínimo 6 caracteres.', avisos: [] };
   }
   const avisos: string[] = [];
-  if (!/[A-Z]/.test(senha)) avisos.push('Adicione ao menos uma letra maiuscula para maior seguranca.');
-  if (!/[a-z]/.test(senha)) avisos.push('Adicione ao menos uma letra minuscula para maior seguranca.');
-  if (!/\d/.test(senha))    avisos.push('Adicione ao menos um numero para maior seguranca.');
-  if (!/[^A-Za-z0-9]/.test(senha)) avisos.push('Adicione um caractere especial (ex: @, #, !) para maior seguranca.');
+  if (!/[A-Z]/.test(senha)) avisos.push('Adicione ao menos uma letra maiúscula para maior segurança.');
+  if (!/[a-z]/.test(senha)) avisos.push('Adicione ao menos uma letra minúscula para maior segurança.');
+  if (!/\d/.test(senha))    avisos.push('Adicione ao menos um número para maior segurança.');
+  if (!/[^A-Za-z0-9]/.test(senha)) avisos.push('Adicione um caractere especial (ex: @, #, !) para maior segurança.');
   return { erro: null, avisos };
 }
 
@@ -154,9 +154,15 @@ export class AuthService {
         `UPDATE pessoa SET senha_hash = $1, status_conta = 'ATIVO' WHERE id_pessoa = $2`,
         [hash, c.id_pessoa]);
 
-      await client.query(
-        `UPDATE codigo_primeiro_acesso SET status = 'USADO', usado_em = CURRENT_TIMESTAMP WHERE id_codigo = $1`,
-        [c.id_codigo]);
+      try {
+        await client.query(
+          `UPDATE codigo_primeiro_acesso SET status = 'USADO', data_utilizacao = CURRENT_TIMESTAMP, usado_em = CURRENT_TIMESTAMP WHERE id_codigo = $1`,
+          [c.id_codigo]);
+      } catch {
+        await client.query(
+          `UPDATE codigo_primeiro_acesso SET status = 'USADO', data_utilizacao = CURRENT_TIMESTAMP WHERE id_codigo = $1`,
+          [c.id_codigo]);
+      }
 
       return this.gerarSessaoParaPessoa(c.id_pessoa);
     });

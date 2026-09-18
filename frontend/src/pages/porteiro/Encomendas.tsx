@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { Botao, Campo, Cartao, inputCls, Mensagem, Titulo, Icone, Badge, EmptyState, Modal } from '../../components/ui';
+import SeletorMorador from '../../components/SeletorMorador';
 
 type Pessoa = {
   id_pessoa: number;
@@ -117,20 +118,17 @@ export default function Encomendas() {
 
             <form onSubmit={registrar} className="space-y-4">
               <Campo rotulo="Morador Destinatário" obrigatorio>
-                <select
-                  className={inputCls}
-                  value={destinatario}
-                  required
-                  onChange={e => setDestinatario(e.target.value)}
-                >
-                  <option value="">Selecione o morador...</option>
-                  {pessoas.map(p => (
-                    <option key={p.id_pessoa} value={p.id_pessoa}>
-                      {p.nome}
-                      {p.unidades[0] ? ` — Bloco ${p.unidades[0].bloco}, Apto ${p.unidades[0].apartamento}` : ''}
-                    </option>
-                  ))}
-                </select>
+                <SeletorMorador
+                  moradores={pessoas.map(p => ({
+                    id: p.id_pessoa,
+                    nome: p.nome,
+                    unidades: p.unidades,
+                  }))}
+                  valor={destinatario}
+                  onChange={setDestinatario}
+                  placeholder="Pesquisar por nome ou número do apto..."
+                  obrigatorio
+                />
               </Campo>
 
               <Campo rotulo="Descrição do Pacote">

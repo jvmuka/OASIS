@@ -75,10 +75,26 @@ export default function NovaReserva() {
   const [confirmando, setConfirmando] = useState(false);
   const [modalConfirmar, setModalConfirmar] = useState(false);
   const [msg, setMsg] = useState<{ t: string; tipo: 'erro' | 'ok' }>({ t: '', tipo: 'ok' });
+  const [datasOcupadas, setDatasOcupadas] = useState<string[]>([]);
+  const [mesCalendario, setMesCalendario] = useState<{ ano: number; mes: number }>({
+    ano: new Date().getFullYear(),
+    mes: new Date().getMonth(),
+  });
 
   useEffect(() => {
     api.get<Area[]>('/areas').then(a => setAreas(a.filter(x => x.ativo)));
   }, []);
+
+  useEffect(() => {
+    if (!area || !area.reserva_por_dia) {
+      setDatasOcupadas([]);
+      return;
+    }
+    api
+      .get<string[]>(`/reservas/datas-ocupadas?area=${area.id_area_comum}&ano=${mesCalendario.ano}&mes=${mesCalendario.mes + 1}`)
+      .then(setDatasOcupadas)
+      .catch(() => setDatasOcupadas([]));
+  }, [area, mesCalendario]);
 
   async function consultar(d: string, limparMsg = false) {
     setData(d);
@@ -115,6 +131,12 @@ export default function NovaReserva() {
         t: `Reserva confirmada com sucesso para "${area.nome}" no dia ${data} das ${slot.inicio} às ${slot.fim}.`,
         tipo: 'ok',
       });
+      if (area.reserva_por_dia) {
+        api
+          .get<string[]>(`/reservas/datas-ocupadas?area=${area.id_area_comum}&ano=${mesCalendario.ano}&mes=${mesCalendario.mes + 1}`)
+          .then(setDatasOcupadas)
+          .catch(() => {});
+      }
       await consultar(data, false);
     } catch (e: any) {
       setMsg({ t: e.message, tipo: 'erro' });
@@ -144,6 +166,7 @@ export default function NovaReserva() {
     setGrade(null);
     setSlot(null);
     setData('');
+    setDatasOcupadas([]);
     setMsg({ t: '', tipo: 'ok' });
   }
 
@@ -284,6 +307,8 @@ export default function NovaReserva() {
                   <Calendario
                     dataSelecionada={data}
                     onChange={d => consultar(d, true)}
+                    datasComMarcacao={area.reserva_por_dia ? datasOcupadas : undefined}
+                    onMesAnoChange={(ano, mes) => setMesCalendario({ ano, mes })}
                     diasSemanaPermitidos={
                       area.horarios && area.horarios.length > 0
                         ? area.horarios.map(h => DOW_MAP[h.dia_semana]).filter(x => x !== undefined)

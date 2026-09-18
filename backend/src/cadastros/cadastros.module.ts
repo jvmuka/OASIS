@@ -338,9 +338,13 @@ export class CadastrosController {
 
     const v = vinculos[0];
 
+    // Se o morador logado for dependente, o titular responsável é v.id_responsavel; caso contrário, é o próprio morador
+    const idTitular = (v.tipo_vinculo === 'DEPENDENTE' && v.id_responsavel) ? v.id_responsavel : idPessoa;
+
     const dependentes = await this.db.query(
       `SELECT pu.id_pessoa_unidade, p.id_pessoa, p.nome, p.email, p.cpf, p.data_nascimento, p.celular,
-              pu.grau_parentesco, pu.status_aprovacao, pu.motivo_rejeicao,
+              pu.tipo_vinculo, pu.grau_parentesco, pu.status_aprovacao, pu.motivo_rejeicao,
+              pu.id_responsavel,
               cpa.codigo AS codigo_ativacao, p.status_conta
          FROM pessoa_unidade pu
          JOIN pessoa p ON p.id_pessoa = pu.id_pessoa
@@ -349,8 +353,16 @@ export class CadastrosController {
             WHERE id_pessoa = p.id_pessoa AND status = 'DISPONIVEL'
             ORDER BY id_codigo DESC LIMIT 1
          ) cpa ON TRUE
-        WHERE pu.id_responsavel = $1 AND pu.data_fim_ocupacao IS NULL
-        ORDER BY pu.data_inicio_ocupacao DESC`, [idPessoa]);
+        WHERE (
+          (pu.id_responsavel = $1)
+          OR (pu.id_pessoa = $1)
+        )
+        AND pu.id_unidade = $2
+        AND pu.data_fim_ocupacao IS NULL
+        ORDER BY 
+          (CASE WHEN pu.id_pessoa = $1 THEN 0 ELSE 1 END),
+          pu.data_inicio_ocupacao DESC,
+          p.nome ASC`, [idTitular, v.id_unidade]);
 
     return {
       vinculo: v,

@@ -213,8 +213,8 @@ export default function Portaria() {
       .finally(() => setCarregandoAtividade(false));
   }
 
-  const emUso = ocupacao.filter(o => !o.em_atraso);
-  const emAtraso = ocupacao.filter(o => o.em_atraso);
+  // Exibe apenas reservas atualmente em andamento (desaparece assim que o horário de término chega)
+  const ocupacaoAtiva = ocupacao.filter(o => !o.em_atraso && new Date(o.data_hora_fim) > new Date());
 
   return (
     <div className="space-y-6">
@@ -262,7 +262,7 @@ export default function Portaria() {
           <div className="flex h-32 items-center justify-center text-sm text-slate-500 dark:text-slate-400">
             Carregando ocupação atual...
           </div>
-        ) : ocupacao.length === 0 ? (
+        ) : ocupacaoAtiva.length === 0 ? (
           <EmptyState
             icone="building"
             titulo="Nenhuma área ocupada no momento"
@@ -270,7 +270,7 @@ export default function Portaria() {
           />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {[...emAtraso, ...emUso].map(item => (
+            {ocupacaoAtiva.map(item => (
               <CartaoOcupacao key={item.id_reserva} item={item} />
             ))}
           </div>

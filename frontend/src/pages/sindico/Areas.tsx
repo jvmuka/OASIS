@@ -339,6 +339,7 @@ function dataProximoSabadoBR(): string {
 export default function Areas() {
   const [areas, setAreas] = useState<Area[]>([]);
   const [bloqueios, setBloqueios] = useState<BloqueioArea[]>([]);
+  const [abaBloqueios, setAbaBloqueios] = useState<'futuros' | 'historico'>('futuros');
   const [msg, setMsg] = useState<{ t: string; tipo: 'erro' | 'ok' }>({ t: '', tipo: 'ok' });
   const [modalCriarAberto, setModalCriarAberto] = useState(false);
   const [modalBloqueioAberto, setModalBloqueioAberto] = useState(false);
@@ -576,9 +577,15 @@ export default function Areas() {
 
   async function confirmarRemocaoBloqueio() {
     if (!excluindoBloqueio) return;
+    const jaConcluido = new Date(excluindoBloqueio.data_hora_fim) < new Date();
     try {
       await api.delete(`/areas/bloqueios/${excluindoBloqueio.id_bloqueio_area}`);
-      setMsg({ t: 'Interdição removida com sucesso. O espaço foi liberado.', tipo: 'ok' });
+      setMsg({
+        t: jaConcluido
+          ? 'Registro de manutenção removido do histórico com sucesso.'
+          : 'Interdição removida com sucesso. O espaço foi liberado.',
+        tipo: 'ok',
+      });
       setExcluindoBloqueio(null);
       carregarBloqueios();
     } catch (err: any) {
@@ -741,6 +748,26 @@ export default function Areas() {
   const areaSelecionadaObj = areas.find(a => String(a.id_area_comum) === areaSelecionadaId);
   const areasAtivas = areas.filter(a => a.ativo);
   const areasInativas = areas.filter(a => !a.ativo);
+
+  const agoraISO = new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
+
+  // Manutenções futuras ou em andamento (término >= agora)
+  const bloqueiosFuturos = bloqueios
+    .filter(b => {
+      const bFim = new Date(b.data_hora_fim).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
+      return bFim >= agoraISO;
+    })
+    .sort((a, b) => new Date(a.data_hora_inicio).getTime() - new Date(b.data_hora_inicio).getTime());
+
+  // Histórico de manutenções já concluídas (término < agora)
+  const bloqueiosHistorico = bloqueios
+    .filter(b => {
+      const bFim = new Date(b.data_hora_fim).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
+      return bFim < agoraISO;
+    })
+    .sort((a, b) => new Date(b.data_hora_fim).getTime() - new Date(a.data_hora_fim).getTime());
+
+  const bloqueiosExibidos = abaBloqueios === 'futuros' ? bloqueiosFuturos : bloqueiosHistorico;
 
   /** Renderiza uma linha da tabela de áreas, compartilhada entre o bloco de ativas e o de inativas. */
   function linhaArea(a: Area) {
@@ -986,37 +1013,91 @@ export default function Areas() {
 
       {/* Tabela de Manutenções e Bloqueios Agendados */}
       <Cartao>
-        <div className="mb-4 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
           <div>
             <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
               <Icone nome="wrench" className="h-4 w-4 text-amber-500 dark:text-amber-400" />
               Interdições & Manutenções Agendadas
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Períodos em que o agendamento de moradores fica automaticamente bloqueado
+              {abaBloqueios === 'futuros'
+                ? 'Períodos em que o agendamento de moradores fica automaticamente bloqueado'
+                : 'Histórico de manutenções e interdições já concluídas no condomínio'}
             </p>
           </div>
-          <span className="rounded-full bg-amber-50 dark:bg-amber-950/60 px-2.5 py-0.5 text-xs font-semibold text-amber-800 dark:text-amber-300">
-            {bloqueios.length} agendamento(s)
-          </span>
+
+          <div className="flex items-center gap-2">
+            <div className="inline-flex rounded-xl bg-slate-100 dark:bg-slate-800/80 p-1 text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setAbaBloqueios('futuros')}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition-all cursor-pointer ${
+                  abaBloqueios === 'futuros'
+                    ? 'bg-white text-navy shadow-sm dark:bg-slate-700 dark:text-white font-bold'
+                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
+                }`}
+              >
+                <span>Futuras / Ativas</span>
+                <span
+                  className={`rounded-full px-1.5 py-0.2 text-[10px] ${
+                    abaBloqueios === 'futuros'
+                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300'
+                      : 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  {bloqueiosFuturos.length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setAbaBloqueios('historico')}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition-all cursor-pointer ${
+                  abaBloqueios === 'historico'
+                    ? 'bg-white text-navy shadow-sm dark:bg-slate-700 dark:text-white font-bold'
+                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
+                }`}
+              >
+                <Icone nome="clock" className="h-3 w-3" />
+                <span>Histórico</span>
+                <span
+                  className={`rounded-full px-1.5 py-0.2 text-[10px] ${
+                    abaBloqueios === 'historico'
+                      ? 'bg-slate-200 text-slate-800 dark:bg-slate-600 dark:text-slate-100'
+                      : 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  {bloqueiosHistorico.length}
+                </span>
+              </button>
+            </div>
+          </div>
         </div>
 
-        {bloqueios.length === 0 ? (
-          <EmptyState
-            icone="check"
-            titulo="Nenhum espaço em manutenção ou interditado"
-            descricao="Todas as áreas ativas estão liberadas para reserva conforme suas regras usuais."
-            acao={
-              <Botao
-                variante="secundario"
-                tamanho="sm"
-                icone={<Icone nome="wrench" className="h-3.5 w-3.5 text-amber-500" />}
-                onClick={abrirModalBloqueio}
-              >
-                Agendar Manutenção
-              </Botao>
-            }
-          />
+        {bloqueiosExibidos.length === 0 ? (
+          abaBloqueios === 'futuros' ? (
+            <EmptyState
+              icone="check"
+              titulo="Nenhum espaço em manutenção ou interditado"
+              descricao="Todas as áreas ativas estão liberadas para reserva conforme suas regras usuais."
+              acao={
+                <Botao
+                  variante="secundario"
+                  tamanho="sm"
+                  icone={<Icone nome="wrench" className="h-3.5 w-3.5 text-amber-500" />}
+                  onClick={abrirModalBloqueio}
+                >
+                  Agendar Manutenção
+                </Botao>
+              }
+            />
+          ) : (
+            <EmptyState
+              icone="clock"
+              titulo="Nenhum histórico de manutenção"
+              descricao="As manutenções e interdições finalizadas serão arquivadas aqui automaticamente para conferência."
+            />
+          )
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
@@ -1024,6 +1105,7 @@ export default function Areas() {
                 <tr className="border-b border-slate-200/80 dark:border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                   <th className="py-3 px-3">Espaço Interditado</th>
                   <th className="py-3 px-2">Motivo</th>
+                  <th className="py-3 px-2">Situação</th>
                   <th className="py-3 px-2">Período de Início</th>
                   <th className="py-3 px-2">Período de Término</th>
                   <th className="py-3 px-2">Descrição / Detalhes</th>
@@ -1031,44 +1113,79 @@ export default function Areas() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {bloqueios.map(b => (
-                  <tr key={b.id_bloqueio_area} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors">
-                    <td className="py-3 px-3 font-bold text-slate-900 dark:text-slate-100">
-                      {b.area_nome}
-                    </td>
-                    <td className="py-3 px-2">
-                      <Badge
-                        tipo={
-                          b.motivo === 'MANUTENCAO'
-                            ? 'aviso'
-                            : b.motivo === 'OBRA'
-                            ? 'perigo'
-                            : 'info'
-                        }
-                      >
-                        {b.motivo}
-                      </Badge>
-                    </td>
-                    <td className="py-3 px-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      {new Date(b.data_hora_inicio).toLocaleString('pt-BR')}
-                    </td>
-                    <td className="py-3 px-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      {new Date(b.data_hora_fim).toLocaleString('pt-BR')}
-                    </td>
-                    <td className="py-3 px-2 text-xs text-slate-600 dark:text-slate-400">
-                      {b.descricao || '—'}
-                    </td>
-                    <td className="py-3 px-3 text-right">
-                      <button
-                        onClick={() => setExcluindoBloqueio(b)}
-                        className="text-xs font-semibold text-slate-400 hover:text-red-600 dark:text-slate-500 dark:hover:text-rose-400 transition-colors cursor-pointer"
-                        title="Liberar espaço e remover interdição"
-                      >
-                        Liberar Área
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {bloqueiosExibidos.map(b => {
+                  const bIni = new Date(b.data_hora_inicio).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
+                  const bFim = new Date(b.data_hora_fim).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
+                  const jaConcluido = bFim < agoraISO;
+                  const emAndamento = bIni <= agoraISO && bFim >= agoraISO;
+
+                  return (
+                    <tr key={b.id_bloqueio_area} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors">
+                      <td className="py-3 px-3 font-bold text-slate-900 dark:text-slate-100">
+                        {b.area_nome}
+                      </td>
+                      <td className="py-3 px-2">
+                        <Badge
+                          tipo={
+                            b.motivo === 'MANUTENCAO'
+                              ? 'aviso'
+                              : b.motivo === 'OBRA'
+                              ? 'perigo'
+                              : 'info'
+                          }
+                        >
+                          {b.motivo}
+                        </Badge>
+                      </td>
+                      <td className="py-3 px-2">
+                        {jaConcluido ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 dark:bg-slate-850 px-2 py-0.5 text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                            <span className="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
+                            Concluída
+                          </span>
+                        ) : emAndamento ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:text-amber-300 animate-pulse">
+                            <span className="h-1.5 w-1.5 rounded-full bg-amber-500"></span>
+                            Em Andamento
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 dark:bg-sky-950/60 px-2 py-0.5 text-[11px] font-semibold text-sky-700 dark:text-sky-300">
+                            <span className="h-1.5 w-1.5 rounded-full bg-sky-500"></span>
+                            Agendada
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 px-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                        {new Date(b.data_hora_inicio).toLocaleString('pt-BR')}
+                      </td>
+                      <td className="py-3 px-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                        {new Date(b.data_hora_fim).toLocaleString('pt-BR')}
+                      </td>
+                      <td className="py-3 px-2 text-xs text-slate-600 dark:text-slate-400">
+                        {b.descricao || '—'}
+                      </td>
+                      <td className="py-3 px-3 text-right">
+                        {jaConcluido ? (
+                          <button
+                            onClick={() => setExcluindoBloqueio(b)}
+                            className="text-xs font-semibold text-slate-400 hover:text-red-600 dark:text-slate-500 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                            title="Remover registro do histórico de manutenções"
+                          >
+                            Excluir do Histórico
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => setExcluindoBloqueio(b)}
+                            className="text-xs font-semibold text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 transition-colors cursor-pointer"
+                            title="Liberar espaço e remover interdição"
+                          >
+                            Liberar Área
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -1403,30 +1520,68 @@ export default function Areas() {
         </form>
       </Modal>
 
-      {/* Modal de Confirmação de Liberação de Área */}
+      {/* Modal de Confirmação de Liberação de Área ou Exclusão do Histórico */}
       <ModalConfirmacao
         aberto={!!excluindoBloqueio}
         fechar={() => setExcluindoBloqueio(null)}
         confirmar={confirmarRemocaoBloqueio}
-        titulo="Liberar Espaço Coletivo"
+        titulo={
+          excluindoBloqueio &&
+          new Date(excluindoBloqueio.data_hora_fim).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') < agoraISO
+            ? 'Excluir Registro do Histórico'
+            : 'Liberar Espaço Coletivo'
+        }
         mensagem={
           excluindoBloqueio && (
             <div className="space-y-2 text-left">
               <p className="text-xs text-slate-600 dark:text-slate-300">
-                Deseja remover a interdição de <b className="text-slate-900 dark:text-slate-100">{excluindoBloqueio.area_nome}</b> agendada para{' '}
-                <b>{new Date(excluindoBloqueio.data_hora_inicio).toLocaleString('pt-BR')}</b> até{' '}
-                <b>{new Date(excluindoBloqueio.data_hora_fim).toLocaleString('pt-BR')}</b>?
+                {new Date(excluindoBloqueio.data_hora_fim).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') < agoraISO ? (
+                  <>
+                    Deseja remover do histórico o registro da manutenção de{' '}
+                    <b className="text-slate-900 dark:text-slate-100">{excluindoBloqueio.area_nome}</b> realizada de{' '}
+                    <b>{new Date(excluindoBloqueio.data_hora_inicio).toLocaleString('pt-BR')}</b> até{' '}
+                    <b>{new Date(excluindoBloqueio.data_hora_fim).toLocaleString('pt-BR')}</b>?
+                  </>
+                ) : (
+                  <>
+                    Deseja remover a interdição de{' '}
+                    <b className="text-slate-900 dark:text-slate-100">{excluindoBloqueio.area_nome}</b> agendada para{' '}
+                    <b>{new Date(excluindoBloqueio.data_hora_inicio).toLocaleString('pt-BR')}</b> até{' '}
+                    <b>{new Date(excluindoBloqueio.data_hora_fim).toLocaleString('pt-BR')}</b>?
+                  </>
+                )}
               </p>
-              <p className="text-[11px] text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 p-2.5 rounded-lg border border-emerald-200/60 dark:border-emerald-800/60">
-                O espaço voltará a ficar disponível para agendamento pelos moradores imediatamente.
-              </p>
+              {new Date(excluindoBloqueio.data_hora_fim).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') < agoraISO ? (
+                <p className="text-[11px] text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700">
+                  Esta ação apenas remove o registro histórico e não afeta as configurações da área.
+                </p>
+              ) : (
+                <p className="text-[11px] text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 p-2.5 rounded-lg border border-emerald-200/60 dark:border-emerald-800/60">
+                  O espaço voltará a ficar disponível para agendamento pelos moradores imediatamente.
+                </p>
+              )}
             </div>
           )
         }
-        textoBotaoConfirmar="Sim, Liberar Espaço"
+        textoBotaoConfirmar={
+          excluindoBloqueio &&
+          new Date(excluindoBloqueio.data_hora_fim).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') < agoraISO
+            ? 'Sim, Excluir do Histórico'
+            : 'Sim, Liberar Espaço'
+        }
         textoBotaoCancelar="Cancelar"
-        variante="sucesso"
-        icone="check"
+        variante={
+          excluindoBloqueio &&
+          new Date(excluindoBloqueio.data_hora_fim).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') < agoraISO
+            ? 'perigo'
+            : 'sucesso'
+        }
+        icone={
+          excluindoBloqueio &&
+          new Date(excluindoBloqueio.data_hora_fim).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T') < agoraISO
+            ? 'trash'
+            : 'check'
+        }
       />
 
       {/* Modal de Confirmação de Exclusão Permanente (quando não há dependências) */}

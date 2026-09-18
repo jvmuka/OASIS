@@ -26,6 +26,15 @@ export default function Login() {
   const [novaSenha, setNovaSenha] = useState('');
   const [confirmarSenha, setConfirmarSenha] = useState('');
 
+  // Visibilidade de senhas (persistente, acessível a qualquer momento)
+  const [mostrarSenhaLogin, setMostrarSenhaLogin] = useState(false);
+  const [mostrarNovaSenha, setMostrarNovaSenha] = useState(false);
+  const [mostrarConfirmarSenha, setMostrarConfirmarSenha] = useState(false);
+
+  // Erros inline específicos dos campos de senha
+  const [erroSenha, setErroSenha] = useState('');
+  const [erroConfirmacao, setErroConfirmacao] = useState('');
+
   async function entrar(e: React.FormEvent) {
     e.preventDefault();
     setErro('');
@@ -61,14 +70,20 @@ export default function Login() {
   async function concluirPrimeiroAcesso(e: React.FormEvent) {
     e.preventDefault();
     setErro('');
+    setErroSenha('');
+    setErroConfirmacao('');
+
+    let temErro = false;
+    if (!novaSenha || novaSenha.length < 6) {
+      setErroSenha('A senha deve conter no mínimo 6 caracteres.');
+      temErro = true;
+    }
     if (novaSenha !== confirmarSenha) {
-      setErro('A confirmação de senha não confere.');
-      return;
+      setErroConfirmacao('A confirmação de senha não confere.');
+      temErro = true;
     }
-    if (novaSenha.length < 6) {
-      setErro('A senha deve ter no mínimo 6 caracteres.');
-      return;
-    }
+    if (temErro) return;
+
     setCarregando(true);
     try {
       const r = await api.post<{ token: string } & Sessao>('/auth/primeiro-acesso', {
@@ -79,7 +94,12 @@ export default function Login() {
       salvarSessao(r.token, { pessoa: r.pessoa, perfis: r.perfis, unidades: r.unidades });
       nav('/');
     } catch (err: any) {
-      setErro(err.message || 'Erro ao concluir primeiro acesso.');
+      const msg = err.message || 'Erro ao concluir primeiro acesso.';
+      if (msg.toLowerCase().includes('senha') || msg.toLowerCase().includes('caractere')) {
+        setErroSenha(msg);
+      } else {
+        setErro(msg);
+      }
     } finally {
       setCarregando(false);
     }
@@ -132,7 +152,7 @@ export default function Login() {
           <div className="mb-6 flex rounded-xl bg-slate-100 dark:bg-slate-800 p-1">
             <button
               type="button"
-              onClick={() => { setAba('login'); setErro(''); }}
+              onClick={() => { setAba('login'); setErro(''); setErroSenha(''); setErroConfirmacao(''); }}
               className={`flex-1 rounded-lg py-2 text-xs font-bold transition-all cursor-pointer ${aba === 'login'
                   ? 'bg-white dark:bg-slate-900 text-navy dark:text-sky-400 shadow-sm'
                   : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
@@ -142,7 +162,7 @@ export default function Login() {
             </button>
             <button
               type="button"
-              onClick={() => { setAba('primeiro_acesso'); setErro(''); }}
+              onClick={() => { setAba('primeiro_acesso'); setErro(''); setErroSenha(''); setErroConfirmacao(''); }}
               className={`flex-1 rounded-lg py-2 text-xs font-bold transition-all cursor-pointer ${aba === 'primeiro_acesso'
                   ? 'bg-white dark:bg-slate-900 text-navy dark:text-sky-400 shadow-sm'
                   : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
@@ -174,16 +194,27 @@ export default function Login() {
               <Campo rotulo="Senha" obrigatorio>
                 <div className="relative">
                   <input
-                    className={inputCls + ' pl-9 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:border-sky-500 dark:focus:ring-sky-500/20'}
-                    type="password"
+                    className={inputCls + ' pl-9 pr-10 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:border-sky-500 dark:focus:ring-sky-500/20'}
+                    type={mostrarSenhaLogin ? 'text' : 'password'}
                     value={senha}
                     onChange={e => setSenha(e.target.value)}
                     placeholder="••••••••"
                     required
                   />
-                  <span className="absolute left-3 top-2.5 text-slate-400 dark:text-slate-500">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 pointer-events-none">
                     <Icone nome="shield" className="h-4 w-4" />
                   </span>
+                  <button
+                    type="button"
+                    onClick={() => setMostrarSenhaLogin(!mostrarSenhaLogin)}
+                    onMouseDown={e => e.preventDefault()}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 z-20 flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 hover:text-navy hover:bg-slate-100 dark:text-slate-400 dark:hover:text-sky-400 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                    title={mostrarSenhaLogin ? 'Ocultar senha' : 'Ver senha'}
+                    aria-label={mostrarSenhaLogin ? 'Ocultar senha' : 'Ver senha'}
+                    tabIndex={-1}
+                  >
+                    <Icone nome={mostrarSenhaLogin ? 'eyeOff' : 'eye'} className="h-4 w-4" />
+                  </button>
                 </div>
               </Campo>
 
@@ -286,7 +317,7 @@ export default function Login() {
                   </div>
                 </form>
               ) : (
-                <form onSubmit={concluirPrimeiroAcesso} className="space-y-4 animate-scale-in">
+                <form onSubmit={concluirPrimeiroAcesso} className="space-y-4 animate-scale-in" noValidate>
                   <div className="rounded-xl border border-sky-200 bg-sky-50/70 p-3 dark:border-sky-900/50 dark:bg-sky-950/40">
                     <div className="flex items-center gap-2">
                       <span className="flex h-7 w-7 items-center justify-center rounded-full bg-sky-500 text-white">
@@ -311,27 +342,71 @@ export default function Login() {
                   </p>
 
                   <Campo rotulo="Nova Senha (mínimo 6 caracteres)" obrigatorio>
-                    <input
-                      type="password"
-                      className={inputCls}
-                      value={novaSenha}
-                      onChange={e => setNovaSenha(e.target.value)}
-                      placeholder="••••••••"
-                      required
-                      minLength={6}
-                    />
+                    <div className="relative">
+                      <input
+                        type={mostrarNovaSenha ? 'text' : 'password'}
+                        className={`${inputCls} pr-10 ${erroSenha ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''}`}
+                        value={novaSenha}
+                        onChange={e => {
+                          setNovaSenha(e.target.value);
+                          if (erroSenha) setErroSenha('');
+                        }}
+                        placeholder="••••••••"
+                        required
+                        minLength={6}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setMostrarNovaSenha(!mostrarNovaSenha)}
+                        onMouseDown={e => e.preventDefault()}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 z-20 flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 hover:text-navy hover:bg-slate-100 dark:text-slate-400 dark:hover:text-sky-400 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                        title={mostrarNovaSenha ? 'Ocultar senha' : 'Ver senha'}
+                        aria-label={mostrarNovaSenha ? 'Ocultar senha' : 'Ver senha'}
+                        tabIndex={-1}
+                      >
+                        <Icone nome={mostrarNovaSenha ? 'eyeOff' : 'eye'} className="h-4 w-4" />
+                      </button>
+                    </div>
+                    {erroSenha && (
+                      <p className="mt-1.5 text-xs font-semibold text-red-600 dark:text-rose-400 flex items-center gap-1 animate-fade-in">
+                        <Icone nome="alert" className="h-3.5 w-3.5 shrink-0" />
+                        <span>{erroSenha}</span>
+                      </p>
+                    )}
                   </Campo>
 
                   <Campo rotulo="Confirmar Senha" obrigatorio>
-                    <input
-                      type="password"
-                      className={inputCls}
-                      value={confirmarSenha}
-                      onChange={e => setConfirmarSenha(e.target.value)}
-                      placeholder="••••••••"
-                      required
-                      minLength={6}
-                    />
+                    <div className="relative">
+                      <input
+                        type={mostrarConfirmarSenha ? 'text' : 'password'}
+                        className={`${inputCls} pr-10 ${erroConfirmacao ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''}`}
+                        value={confirmarSenha}
+                        onChange={e => {
+                          setConfirmarSenha(e.target.value);
+                          if (erroConfirmacao) setErroConfirmacao('');
+                        }}
+                        placeholder="••••••••"
+                        required
+                        minLength={6}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setMostrarConfirmarSenha(!mostrarConfirmarSenha)}
+                        onMouseDown={e => e.preventDefault()}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 z-20 flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 hover:text-navy hover:bg-slate-100 dark:text-slate-400 dark:hover:text-sky-400 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                        title={mostrarConfirmarSenha ? 'Ocultar senha' : 'Ver senha'}
+                        aria-label={mostrarConfirmarSenha ? 'Ocultar senha' : 'Ver senha'}
+                        tabIndex={-1}
+                      >
+                        <Icone nome={mostrarConfirmarSenha ? 'eyeOff' : 'eye'} className="h-4 w-4" />
+                      </button>
+                    </div>
+                    {erroConfirmacao && (
+                      <p className="mt-1.5 text-xs font-semibold text-red-600 dark:text-rose-400 flex items-center gap-1 animate-fade-in">
+                        <Icone nome="alert" className="h-3.5 w-3.5 shrink-0" />
+                        <span>{erroConfirmacao}</span>
+                      </p>
+                    )}
                   </Campo>
 
                   <div className="flex gap-2 pt-2">
@@ -339,7 +414,11 @@ export default function Login() {
                       type="button"
                       variante="claro"
                       className="w-1/3"
-                      onClick={() => setDadosValidacao(null)}
+                      onClick={() => {
+                        setDadosValidacao(null);
+                        setErroSenha('');
+                        setErroConfirmacao('');
+                      }}
                     >
                       Voltar
                     </Botao>

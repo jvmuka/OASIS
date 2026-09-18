@@ -24,6 +24,10 @@ export default function Layout() {
     .map(n => n[0].toUpperCase())
     .join('');
 
+  const textoApto = s.unidades && s.unidades.length > 0
+    ? s.unidades.map(u => (u.bloco ? `Apto ${u.numero_apartamento} (${u.bloco})` : `Apto ${u.numero_apartamento}`)).join(', ')
+    : null;
+
   const item = (to: string, rotulo: string, icone: React.ComponentProps<typeof Icone>['nome']) => (
     <NavLink
       key={to}
@@ -81,9 +85,16 @@ export default function Layout() {
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-navy-100 text-xs font-bold text-navy ring-2 ring-white dark:bg-slate-800 dark:text-sky-400 dark:ring-slate-700">
               {iniciais}
             </div>
-            <div className="hidden text-left md:block">
-              <p className="text-xs font-bold text-slate-800 dark:text-slate-200 leading-tight">{s.pessoa.nome}</p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
+            <div className="hidden text-left sm:block">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <p className="text-xs font-bold text-slate-800 dark:text-slate-200 leading-tight">{s.pessoa.nome}</p>
+                {textoApto && (
+                  <span className="rounded-md bg-navy-50 text-navy dark:bg-sky-950/60 dark:text-sky-300 px-1.5 py-0.5 text-[10px] font-bold border border-navy/10 dark:border-sky-800/60">
+                    {textoApto}
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5">
                 {tipos.join(' • ')}
               </p>
             </div>

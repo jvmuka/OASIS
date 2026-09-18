@@ -14,6 +14,41 @@ const DIAS = ['DOMINGO','SEGUNDA','TERCA','QUARTA','QUINTA','SEXTA','SABADO'];
 export class ReservasController {
   constructor(private db: DbService) {}
 
+  /** UC02 auxiliar: datas com reservas ou bloqueios no mês para uma área (usado para marcar dias ocupados no calendário) */
+  @Get('datas-ocupadas')
+  async datasOcupadas(
+    @Query('area', ParseIntPipe) area: number,
+    @Query('ano') anoStr?: string,
+    @Query('mes') mesStr?: string,
+  ) {
+    const agora = new Date();
+    const ano = anoStr ? parseInt(anoStr, 10) : agora.getFullYear();
+    const mes = mesStr ? parseInt(mesStr, 10) : agora.getMonth() + 1;
+
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const inicioMes = `${ano}-${pad(mes)}-01`;
+    const ultimoDia = new Date(ano, mes, 0).getDate();
+    const fimMes = `${ano}-${pad(mes)}-${pad(ultimoDia)}`;
+
+    const rows = await this.db.query(`
+      SELECT DISTINCT to_char(d::date, 'YYYY-MM-DD') AS data
+        FROM reserva r,
+             generate_series(r.data_hora_inicio::date, r.data_hora_fim::date, '1 day'::interval) d
+       WHERE r.id_area_comum = $1
+         AND r.status <> 'CANCELADA'
+         AND d::date BETWEEN $2::date AND $3::date
+      UNION
+      SELECT DISTINCT to_char(d::date, 'YYYY-MM-DD') AS data
+        FROM bloqueio_area b,
+             generate_series(b.data_hora_inicio::date, b.data_hora_fim::date, '1 day'::interval) d
+       WHERE b.id_area_comum = $1
+         AND d::date BETWEEN $2::date AND $3::date
+       ORDER BY data`,
+      [area, inicioMes, fimMes]);
+
+    return rows.map((r: any) => r.data);
+  }
+
   /** UC02: grade de intervalos livres/ocupados de uma area em uma data. */
   @Get('disponibilidade')
   async disponibilidade(@Query('area', ParseIntPipe) area: number, @Query('data') data: string) {

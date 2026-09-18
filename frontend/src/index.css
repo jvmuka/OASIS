@@ -87,3 +87,9 @@
   max-height: 90vh;
   max-height: 90dvh;
 }
+
+/* Oculta botão nativo e temporário de revelar senha do Edge/Chromium para não conflitar com o botão personalizado persistente */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}

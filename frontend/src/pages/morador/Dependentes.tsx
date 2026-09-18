@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api } from '../../api';
+import { api, sessaoAtual } from '../../api';
 import { Titulo, Cartao, Botao, Campo, inputCls, Badge, EmptyState, Modal, Icone, Mensagem, mascararCPF, mascararCelular } from '../../components/ui';
 
 interface VinculoTitular {
@@ -22,7 +22,9 @@ interface Dependente {
   cpf: string;
   data_nascimento: string;
   celular?: string;
+  tipo_vinculo?: 'PROPRIETARIO' | 'INQUILINO' | 'DEPENDENTE';
   grau_parentesco: string;
+  id_responsavel?: number;
   status_aprovacao: 'PENDENTE' | 'APROVADO' | 'REJEITADO';
   motivo_rejeicao?: string;
   codigo_ativacao?: string;
@@ -134,16 +136,20 @@ export default function Dependentes() {
     return idade;
   };
 
-  const formataParentesco = (p: string) => {
-    switch (p) {
+  const formataVinculoParentesco = (dep: Dependente) => {
+    if (dep.tipo_vinculo === 'PROPRIETARIO') return 'Titular (Proprietário)';
+    if (dep.tipo_vinculo === 'INQUILINO') return 'Titular (Inquilino)';
+    switch (dep.grau_parentesco) {
       case 'FILHO': return 'Filho(a)';
       case 'CONJUGE': return 'Cônjuge / Parceiro(a)';
       case 'ENTEADO': return 'Enteado(a)';
       case 'PAI_MAE': return 'Pai / Mãe';
-      default: return 'Outro Familiar';
+      default: return dep.grau_parentesco ? 'Outro Familiar' : 'Dependente';
     }
   };
 
+  const sessao = sessaoAtual();
+  const idUsuarioLogado = sessao?.pessoa?.id_pessoa;
   const ehTitular = vinculo && (vinculo.tipo_vinculo === 'PROPRIETARIO' || vinculo.tipo_vinculo === 'INQUILINO');
 
   return (
@@ -158,7 +164,7 @@ export default function Dependentes() {
 
       <Titulo
         icone={<Icone nome="users" className="h-5 w-5" />}
-        sub="Gerencie os dependentes vinculados à sua residência."
+        sub="Pessoas e familiares vinculados à sua residência."
         acao={
           ehTitular ? (
             <Botao
@@ -190,7 +196,7 @@ export default function Dependentes() {
         </div>
       )}
 
-      {/* Conteúdo Central: Lista de Dependentes ou Aviso de Vazio */}
+      {/* Conteúdo Central: Lista de Dependentes/Familiares ou Aviso de Vazio */}
       {carregando ? (
         <div className="flex h-48 items-center justify-center">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-navy border-t-transparent dark:border-sky-400" />
@@ -198,28 +204,44 @@ export default function Dependentes() {
       ) : dependentes.length === 0 ? (
         <EmptyState
           icone="users"
-          titulo="Nenhum dependente cadastrado"
-          descricao="Atualmente não há dependentes vinculados a esta residência."
+          titulo="Nenhum familiar cadastrado"
+          descricao="Atualmente não há familiares vinculados a esta residência."
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {dependentes.map(dep => {
                 const idade = calculaIdade(dep.data_nascimento);
+                const ehProprioUsuario = dep.id_pessoa === idUsuarioLogado;
+                const ehVinculoTitular = dep.tipo_vinculo === 'PROPRIETARIO' || dep.tipo_vinculo === 'INQUILINO';
+
                 return (
                   <Cartao key={dep.id_pessoa_unidade} className="relative overflow-hidden flex flex-col justify-between">
                     <div>
                       {/* Topo do Card */}
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-sm font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                          <div className={`flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold ${
+                            ehVinculoTitular 
+                              ? 'bg-navy/10 text-navy dark:bg-sky-950/60 dark:text-sky-300' 
+                              : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200'
+                          }`}>
                             {dep.nome.slice(0, 2).toUpperCase()}
                           </div>
                           <div>
-                            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                              {dep.nome}
-                            </h3>
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                                {dep.nome}
+                              </h3>
+                              {ehProprioUsuario && (
+                                <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/60 px-1.5 py-0.5 rounded-full border border-sky-200 dark:border-sky-800">
+                                  Você
+                                </span>
+                              )}
+                            </div>
                             <div className="flex items-center gap-2 mt-0.5">
-                              <Badge tipo="neutro">{formataParentesco(dep.grau_parentesco)}</Badge>
+                              <Badge tipo={ehVinculoTitular ? 'primario' : 'neutro'}>
+                                {formataVinculoParentesco(dep)}
+                              </Badge>
                               {idade !== null && (
                                 <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                                   {idade} {idade === 1 ? 'ano' : 'anos'}

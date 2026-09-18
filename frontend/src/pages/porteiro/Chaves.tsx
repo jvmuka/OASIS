@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { Botao, Campo, Cartao, inputCls, Mensagem, Titulo, Icone, Badge, EmptyState, Modal } from '../../components/ui';
+import SeletorMorador from '../../components/SeletorMorador';
 
 type Chave = {
   id_chave: number;
@@ -16,6 +17,7 @@ type Pessoa = {
   id_pessoa: number;
   nome: string;
   perfis: { tipo: string; id_perfil: number }[];
+  unidades?: { bloco: string; apartamento: string }[];
 };
 
 /** UC06 - Empréstimo e devolução de chaves das áreas comuns (UI/UX Pro Max) */
@@ -37,7 +39,11 @@ export default function Chaves() {
   }, []);
 
   const moradores = pessoas
-    .map(p => ({ nome: p.nome, perfil: p.perfis.find(x => x.tipo === 'MORADOR') }))
+    .map(p => ({
+      nome: p.nome,
+      perfil: p.perfis?.find(x => x.tipo === 'MORADOR'),
+      unidades: p.unidades,
+    }))
     .filter(p => p.perfil);
 
   async function confirmarEmprestimo() {
@@ -213,19 +219,17 @@ export default function Chaves() {
             </div>
 
             <Campo rotulo="Morador Solicitante" obrigatorio>
-              <select
-                className={inputCls}
-                value={solicitante}
-                onChange={e => setSolicitante(e.target.value)}
-                required
-              >
-                <option value="">Selecione o morador...</option>
-                {moradores.map(m => (
-                  <option key={m.perfil!.id_perfil} value={m.perfil!.id_perfil}>
-                    {m.nome}
-                  </option>
-                ))}
-              </select>
+              <SeletorMorador
+                moradores={moradores.map(m => ({
+                  id: m.perfil!.id_perfil,
+                  nome: m.nome,
+                  unidades: m.unidades,
+                }))}
+                valor={solicitante}
+                onChange={setSolicitante}
+                placeholder="Pesquisar por nome ou número do apto..."
+                obrigatorio
+              />
             </Campo>
           </div>
         )}

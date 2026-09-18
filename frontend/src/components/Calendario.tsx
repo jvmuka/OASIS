@@ -13,6 +13,8 @@ type Props = {
   minDate?: string;
   maxDate?: string;
   diasSemanaPermitidos?: number[]; // 0=Dom, 1=Seg, ..., 6=Sáb
+  datasComMarcacao?: string[]; // lista de datas com reservas (ex: ['2026-09-13'])
+  onMesAnoChange?: (ano: number, mes: number) => void;
 };
 
 function pad(n: number) {
@@ -26,7 +28,15 @@ function fmt(ano: number, mes: number, dia: number) {
  * Calendário mensal visual do OASIS (UI/UX Pro Max).
  * Grade de 7 colunas, navegação fluida, bloqueio de dias fora da janela e destaque de hoje/selecionado.
  */
-export default function Calendario({ dataSelecionada, onChange, minDate, maxDate, diasSemanaPermitidos }: Props) {
+export default function Calendario({
+  dataSelecionada,
+  onChange,
+  minDate,
+  maxDate,
+  diasSemanaPermitidos,
+  datasComMarcacao,
+  onMesAnoChange,
+}: Props) {
   const hoje = new Date();
   const [ano, setAno] = useState(dataSelecionada ? Number(dataSelecionada.slice(0, 4)) : hoje.getFullYear());
   const [mes, setMes] = useState(dataSelecionada ? Number(dataSelecionada.slice(5, 7)) - 1 : hoje.getMonth());
@@ -47,6 +57,7 @@ export default function Calendario({ dataSelecionada, onChange, minDate, maxDate
     }
     setMes(novoMes);
     setAno(novoAno);
+    onMesAnoChange?.(novoAno, novoMes);
   }
 
   function diaClicavel(dia: number): boolean {
@@ -72,6 +83,7 @@ export default function Calendario({ dataSelecionada, onChange, minDate, maxDate
     const sel = d === dataSelecionada;
     const eHoje = d === hojeStr;
     const ativo = diaClicavel(dia);
+    const temReserva = datasComMarcacao?.includes(d);
 
     celulas.push(
       <button
@@ -80,7 +92,7 @@ export default function Calendario({ dataSelecionada, onChange, minDate, maxDate
         disabled={!ativo}
         onClick={() => onChange(d)}
         className={
-          'flex h-9 w-9 items-center justify-center rounded-xl text-xs font-semibold transition-all duration-150 cursor-pointer ' +
+          'relative flex flex-col items-center justify-center h-9 w-9 rounded-xl text-xs font-semibold transition-all duration-150 cursor-pointer ' +
           (sel
             ? 'bg-navy text-white shadow-sm ring-2 ring-navy/30 dark:bg-sky-600 dark:ring-sky-500/40'
             : eHoje
@@ -90,7 +102,14 @@ export default function Calendario({ dataSelecionada, onChange, minDate, maxDate
             : 'cursor-not-allowed text-slate-300 dark:text-slate-700')
         }
       >
-        {dia}
+        <span className={temReserva ? '-mt-1' : ''}>{dia}</span>
+        {temReserva && (
+          <span
+            className={`absolute bottom-1 h-1.5 w-1.5 rounded-full ${
+              sel ? 'bg-rose-300 ring-1 ring-white' : 'bg-rose-500 ring-1 ring-white dark:ring-slate-900'
+            }`}
+          />
+        )}
       </button>
     );
   }
@@ -131,6 +150,14 @@ export default function Calendario({ dataSelecionada, onChange, minDate, maxDate
       <div className="grid grid-cols-7 gap-1 place-items-center">
         {celulas}
       </div>
+
+      {/* Legenda de dias com reserva */}
+      {datasComMarcacao && datasComMarcacao.length > 0 && (
+        <div className="mt-2.5 flex items-center justify-center gap-1.5 pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+          <span className="h-2 w-2 rounded-full bg-rose-500 inline-block ring-2 ring-rose-100 dark:ring-rose-950" />
+          <span>Dia com reserva</span>
+        </div>
+      )}
     </div>
   );
 }

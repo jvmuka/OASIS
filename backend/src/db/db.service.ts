@@ -1,4 +1,4 @@
-import { Injectable, OnModuleDestroy, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, OnModuleInit, OnModuleDestroy, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { Pool, PoolClient } from 'pg';
 
 /**
@@ -8,13 +8,24 @@ import { Pool, PoolClient } from 'pg';
  * comecando por "RNxx:", e este servico a converte em erro HTTP 400 legivel.
  */
 @Injectable()
-export class DbService implements OnModuleDestroy {
+export class DbService implements OnModuleInit, OnModuleDestroy {
   private pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     max: 20,                    // maximo de conexoes simultanias no pool
     connectionTimeoutMillis: 5_000,   // timeout para obter conexao do pool
     idleTimeoutMillis: 30_000,        // tempo maximo de ociosidade antes de fechar
   });
+
+  async onModuleInit() {
+    try {
+      await this.pool.query(`
+        ALTER TABLE codigo_primeiro_acesso ADD COLUMN IF NOT EXISTS usado_em TIMESTAMP;
+        ALTER TABLE codigo_primeiro_acesso ADD COLUMN IF NOT EXISTS criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+      `);
+    } catch {
+      // Ignora erro se a tabela ainda nao foi criada na primeira inicializacao
+    }
+  }
 
   async query<T = any>(sql: string, params: any[] = []): Promise<T[]> {
     try {

@@ -140,17 +140,20 @@ export class PortariaController {
 
   // ------------------------- painel da portaria (visao de reservas) -------------------------
   /**
-   * Areas ocupadas agora (reserva ATIVA em andamento) e reservas encerradas ha
-   * pouco (ate 3h) cujo horario de fim ja passou e que seguem sem cancelamento,
-   * marcadas como "em atraso" para o porteiro cobrar a liberacao/devolucao.
+   * Areas ocupadas agora (reserva ATIVA em andamento).
+   * Desaparece automaticamente assim que a reserva acaba (CURRENT_TIMESTAMP >= data_hora_fim).
    */
   @Get('ocupacao-agora') @Perfis('PORTEIRO', 'SINDICO')
-  ocupacaoAgora() {
+  async ocupacaoAgora() {
+    await this.db.query(
+      `UPDATE reserva SET status = 'CONCLUIDA' WHERE status = 'ATIVA' AND data_hora_fim < CURRENT_TIMESTAMP`
+    );
+
     return this.db.query(`
       SELECT r.id_reserva, a.nome AS area, p.nome AS morador, b.nome AS bloco,
              u.numero_apartamento AS apartamento, r.data_hora_inicio, r.data_hora_fim,
              r.numero_pessoas, FALSE AS em_atraso,
-             CEIL(EXTRACT(EPOCH FROM (r.data_hora_fim - CURRENT_TIMESTAMP)) / 60)::int AS minutos_restantes,
+             GREATEST(0, CEIL(EXTRACT(EPOCH FROM (r.data_hora_fim - CURRENT_TIMESTAMP)) / 60)::int) AS minutos_restantes,
              NULL::int AS minutos_atraso
         FROM reserva r
         JOIN area_comum a ON a.id_area_comum = r.id_area_comum
@@ -160,27 +163,9 @@ export class PortariaController {
         LEFT JOIN unidade u ON u.id_unidade = pu.id_unidade
         LEFT JOIN bloco b ON b.id_bloco = u.id_bloco
        WHERE r.status = 'ATIVA'
-         AND CURRENT_TIMESTAMP BETWEEN r.data_hora_inicio AND r.data_hora_fim
-
-       UNION ALL
-
-      SELECT r.id_reserva, a.nome, p.nome, b.nome,
-             u.numero_apartamento, r.data_hora_inicio, r.data_hora_fim,
-             r.numero_pessoas, TRUE,
-             NULL,
-             CEIL(EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - r.data_hora_fim)) / 60)::int
-        FROM reserva r
-        JOIN area_comum a ON a.id_area_comum = r.id_area_comum
-        JOIN perfil pf ON pf.id_perfil = r.id_perfil
-        JOIN pessoa p ON p.id_pessoa = pf.id_pessoa
-        LEFT JOIN pessoa_unidade pu ON pu.id_pessoa = p.id_pessoa AND pu.data_fim_ocupacao IS NULL
-        LEFT JOIN unidade u ON u.id_unidade = pu.id_unidade
-        LEFT JOIN bloco b ON b.id_bloco = u.id_bloco
-       WHERE r.status <> 'CANCELADA'
-         AND r.data_hora_fim < CURRENT_TIMESTAMP
-         AND r.data_hora_fim >= CURRENT_TIMESTAMP - INTERVAL '3 hours'
-
-       ORDER BY em_atraso ASC, data_hora_fim ASC`);
+         AND CURRENT_TIMESTAMP >= r.data_hora_inicio
+         AND CURRENT_TIMESTAMP < r.data_hora_fim
+       ORDER BY r.data_hora_fim ASC`);
   }
 
   /** Agenda do dia (padrao hoje) com a situacao calculada de cada reserva ativa. */
