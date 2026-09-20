@@ -217,7 +217,7 @@ CREATE TABLE entrega_chave (
     data_hora_retirada     TIMESTAMP  NOT NULL DEFAULT CURRENT_TIMESTAMP,
     data_hora_devolucao    TIMESTAMP,
     observacao             VARCHAR(255),
-    CONSTRAINT fk_ec_chave     FOREIGN KEY (id_chave)              REFERENCES chave (id_chave),
+    CONSTRAINT fk_ec_chave     FOREIGN KEY (id_chave)              REFERENCES chave (id_chave) ON DELETE CASCADE,
     CONSTRAINT fk_ec_solic     FOREIGN KEY (id_perfil_solicitante) REFERENCES perfil (id_perfil),
     CONSTRAINT fk_ec_entrega   FOREIGN KEY (id_perfil_entrega)     REFERENCES perfil (id_perfil),
     CONSTRAINT fk_ec_receb     FOREIGN KEY (id_perfil_recebimento) REFERENCES perfil (id_perfil),
@@ -497,13 +497,15 @@ BEGIN
         RAISE EXCEPTION 'RN02: area bloqueada no periodo solicitado.';
     END IF;
 
-    -- RN03: perfil bloqueado para a area ou para todas as areas
+    -- RN03: morador com acesso bloqueado para esta area comum ou para todas as areas
     IF EXISTS (
-        SELECT 1 FROM bloqueio_perfil p
-         WHERE p.id_perfil = NEW.id_perfil
-           AND (p.id_area_comum IS NULL OR p.id_area_comum = NEW.id_area_comum)
-           AND NEW.data_hora_inicio >= p.data_hora_inicio
-           AND (p.data_hora_fim IS NULL OR NEW.data_hora_inicio <= p.data_hora_fim)
+        SELECT 1 FROM bloqueio_perfil bp
+        JOIN perfil pf_bloq ON pf_bloq.id_perfil = bp.id_perfil
+        JOIN perfil pf_res  ON pf_res.id_perfil  = NEW.id_perfil
+         WHERE pf_bloq.id_pessoa = pf_res.id_pessoa
+           AND (bp.id_area_comum IS NULL OR bp.id_area_comum = NEW.id_area_comum)
+           AND NEW.data_hora_inicio >= bp.data_hora_inicio
+           AND (bp.data_hora_fim IS NULL OR NEW.data_hora_inicio <= bp.data_hora_fim)
     ) THEN
         RAISE EXCEPTION 'RN03: morador com acesso bloqueado para esta area comum.';
     END IF;
@@ -536,7 +538,10 @@ BEGIN
          WHERE h.id_area_comum = NEW.id_area_comum
            AND h.dia_semana    = v_dia
            AND NEW.data_hora_inicio::time >= h.hora_inicio
-           AND NEW.data_hora_fim::time    <= h.hora_fim
+           AND (
+               NEW.data_hora_fim::time <= h.hora_fim
+               OR (h.hora_fim >= '23:59:00'::time AND NEW.data_hora_fim::time <= '23:59:59'::time)
+           )
     ) THEN
         RAISE EXCEPTION 'RN05: horario fora da janela de funcionamento da area em %.', v_dia;
     END IF;
@@ -546,12 +551,12 @@ BEGIN
         RAISE EXCEPTION 'RN06: nao e permitido realizar reserva para horario no passado.';
     END IF;
 
-    v_dias_antec := NEW.data_hora_inicio::date - CURRENT_DATE;
-
-    IF v_dias_antec < v_area.antecedencia_minima_dias THEN
-        RAISE EXCEPTION 'RN06: a reserva exige antecedencia minima de % dia(s).',
-                        v_area.antecedencia_minima_dias;
+    IF NEW.data_hora_inicio < (CURRENT_TIMESTAMP + (COALESCE(v_area.antecedencia_minima_horas, v_area.antecedencia_minima_dias * 24) || ' hours')::INTERVAL) THEN
+        RAISE EXCEPTION 'RN06: a reserva exige antecedencia minima de % hora(s).',
+                        COALESCE(v_area.antecedencia_minima_horas, v_area.antecedencia_minima_dias * 24);
     END IF;
+
+    v_dias_antec := NEW.data_hora_inicio::date - CURRENT_DATE;
 
     IF v_dias_antec > v_area.antecedencia_maxima_dias THEN
         RAISE EXCEPTION 'RN06: a reserva so pode ser feita com ate % dia(s) de antecedencia.',
@@ -754,7 +759,8 @@ BEGIN
         SELECT NEW.id_aviso, p.id_perfil
           FROM perfil p
          WHERE p.data_fim IS NULL
-           AND p.recebe_notificacao = TRUE;
+           AND p.recebe_notificacao = TRUE
+           AND p.id_perfil <> NEW.id_perfil_autor;
     END IF;
     RETURN NEW;
 END;

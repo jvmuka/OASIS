@@ -46,13 +46,15 @@ BEGIN
         RAISE EXCEPTION 'RN02: area bloqueada no periodo solicitado.';
     END IF;
 
-    -- RN03: perfil bloqueado para a area ou para todas as areas
+    -- RN03: morador com acesso bloqueado para esta area comum ou para todas as areas
     IF EXISTS (
-        SELECT 1 FROM bloqueio_perfil p
-         WHERE p.id_perfil = NEW.id_perfil
-           AND (p.id_area_comum IS NULL OR p.id_area_comum = NEW.id_area_comum)
-           AND NEW.data_hora_inicio >= p.data_hora_inicio
-           AND (p.data_hora_fim IS NULL OR NEW.data_hora_inicio <= p.data_hora_fim)
+        SELECT 1 FROM bloqueio_perfil bp
+        JOIN perfil pf_bloq ON pf_bloq.id_perfil = bp.id_perfil
+        JOIN perfil pf_res  ON pf_res.id_perfil  = NEW.id_perfil
+         WHERE pf_bloq.id_pessoa = pf_res.id_pessoa
+           AND (bp.id_area_comum IS NULL OR bp.id_area_comum = NEW.id_area_comum)
+           AND NEW.data_hora_inicio >= bp.data_hora_inicio
+           AND (bp.data_hora_fim IS NULL OR NEW.data_hora_inicio <= bp.data_hora_fim)
     ) THEN
         RAISE EXCEPTION 'RN03: morador com acesso bloqueado para esta area comum.';
     END IF;

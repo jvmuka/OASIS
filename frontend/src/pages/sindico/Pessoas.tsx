@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api } from '../../api';
+import { api, sessaoAtual, salvarSessao } from '../../api';
 import {
   Botao,
   Campo,
@@ -58,6 +58,7 @@ type Pessoa = {
   codigo_ativacao?: string;
   responsavel?: Responsavel | null;
   dependentes: Dependente[];
+  total_bloqueios_ativos?: number;
 };
 
 type AprovacaoPendente = {
@@ -114,7 +115,37 @@ function formatarParentesco(p?: string) {
   }
 }
 
-/** Determina explicitamente o que o usuário é no condomínio */
+const OPCOES_PAPEIS = [
+  {
+    tipo: 'MORADOR',
+    titulo: 'Morador',
+    descricao: 'Reservas de áreas comuns, encomendas e gestão da família',
+    icone: 'home' as const,
+    corAtiva:
+      'border-emerald-500 bg-emerald-50/80 text-emerald-900 dark:bg-emerald-950/40 dark:border-emerald-500 dark:text-emerald-200 shadow-xs',
+    iconeCor: 'text-emerald-600 dark:text-emerald-400',
+  },
+  {
+    tipo: 'PORTEIRO',
+    titulo: 'Porteiro',
+    descricao: 'Portaria, encomendas e claviculário de chaves',
+    icone: 'key' as const,
+    corAtiva:
+      'border-amber-500 bg-amber-50/80 text-amber-900 dark:bg-amber-950/40 dark:border-amber-500 dark:text-amber-200 shadow-xs',
+    iconeCor: 'text-amber-600 dark:text-amber-400',
+  },
+  {
+    tipo: 'SINDICO',
+    titulo: 'Administrador',
+    descricao: 'Gestão geral, cadastros, avisos e relatórios',
+    icone: 'shield' as const,
+    corAtiva:
+      'border-indigo-500 bg-indigo-50/80 text-indigo-900 dark:bg-indigo-950/40 dark:border-indigo-500 dark:text-indigo-200 shadow-xs',
+    iconeCor: 'text-indigo-600 dark:text-indigo-400',
+  },
+];
+
+/** Determina explicitamente o que o usuário é no condomínio considerando qualquer combinação */
 function obterPapelUsuario(p: Pessoa): {
   papel: string;
   badgeCls: string;
@@ -124,9 +155,16 @@ function obterPapelUsuario(p: Pessoa): {
   const temSindico = tipos.includes('SINDICO') || tipos.includes('ADMINISTRADOR');
   const temMorador = tipos.includes('MORADOR');
   const temPorteiro = tipos.includes('PORTEIRO');
-  const temUnidade = p.unidades && p.unidades.length > 0;
 
-  if (temSindico && (temMorador || temUnidade)) {
+  if (temSindico && temMorador && temPorteiro) {
+    return {
+      papel: 'Administrador / Morador / Porteiro',
+      badgeCls:
+        'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/60 dark:text-indigo-200 border border-indigo-300 dark:border-indigo-700',
+      icone: 'shield',
+    };
+  }
+  if (temSindico && temMorador) {
     return {
       papel: 'Administrador / Morador',
       badgeCls:
@@ -134,11 +172,27 @@ function obterPapelUsuario(p: Pessoa): {
       icone: 'shield',
     };
   }
-  if (temSindico && !temMorador && !temUnidade) {
+  if (temSindico && temPorteiro) {
+    return {
+      papel: 'Administrador / Porteiro',
+      badgeCls:
+        'bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200/80 dark:border-purple-800/60',
+      icone: 'shield',
+    };
+  }
+  if (temPorteiro && temMorador) {
+    return {
+      papel: 'Porteiro / Morador',
+      badgeCls:
+        'bg-teal-50 text-teal-700 dark:bg-teal-950/60 dark:text-teal-300 border border-teal-200/80 dark:border-teal-800/60',
+      icone: 'key',
+    };
+  }
+  if (temSindico) {
     return {
       papel: 'Apenas Administrador',
       badgeCls:
-        'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/60',
+        'bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200/80 dark:border-purple-800/60',
       icone: 'shield',
     };
   }
@@ -146,23 +200,15 @@ function obterPapelUsuario(p: Pessoa): {
     return {
       papel: 'Porteiro',
       badgeCls:
-        'bg-teal-50 text-teal-700 dark:bg-teal-950/60 dark:text-teal-300 border border-teal-200/80 dark:border-teal-800/60',
+        'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/60',
       icone: 'key',
     };
   }
-  if (temMorador || temUnidade) {
-    return {
-      papel: 'Morador',
-      badgeCls:
-        'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800/60',
-      icone: 'home',
-    };
-  }
   return {
-    papel: tipos[0] || 'Sem perfil',
+    papel: 'Morador',
     badgeCls:
-      'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700',
-    icone: 'user',
+      'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/60',
+    icone: 'home',
   };
 }
 
@@ -197,8 +243,21 @@ export default function Pessoas() {
   const [codigoGeradoSucesso, setCodigoGeradoSucesso] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ t: string; tipo: 'erro' | 'ok' }>({ t: '', tipo: 'ok' });
 
+  const sessao = sessaoAtual();
+
   // Formulário de Cadastro
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{
+    nome: string;
+    email: string;
+    cpf: string;
+    data_nascimento: string;
+    celular: string;
+    id_unidade: string;
+    tipo_vinculo: string;
+    perfis: string[];
+    id_responsavel: string;
+    grau_parentesco: string;
+  }>({
     nome: '',
     email: '',
     cpf: '',
@@ -206,13 +265,24 @@ export default function Pessoas() {
     celular: '',
     id_unidade: '',
     tipo_vinculo: 'PROPRIETARIO',
-    tipo_perfil: 'MORADOR',
+    perfis: ['MORADOR'],
     id_responsavel: '',
     grau_parentesco: 'FILHO',
   });
 
   // Formulário de Edição
-  const [formEdicao, setFormEdicao] = useState({
+  const [formEdicao, setFormEdicao] = useState<{
+    nome: string;
+    email: string;
+    cpf: string;
+    data_nascimento: string;
+    celular: string;
+    id_unidade: string;
+    tipo_vinculo: string;
+    perfis: string[];
+    id_responsavel: string;
+    grau_parentesco: string;
+  }>({
     nome: '',
     email: '',
     cpf: '',
@@ -220,10 +290,51 @@ export default function Pessoas() {
     celular: '',
     id_unidade: '',
     tipo_vinculo: 'PROPRIETARIO',
-    tipo_perfil: 'MORADOR',
+    perfis: ['MORADOR'],
     id_responsavel: '',
     grau_parentesco: 'FILHO',
   });
+
+  // Contagem de administradores ativos para proteção do administrador único
+  const totalAdminsAtivos = pessoas.filter(p =>
+    p.ativo && (p.perfis || []).some(pf => pf.tipo === 'SINDICO' || pf.tipo === 'ADMINISTRADOR')
+  ).length;
+
+  const ehProprioUsuario = Boolean(
+    sessao?.pessoa?.id_pessoa && pessoaEditando?.id_pessoa === sessao.pessoa.id_pessoa
+  );
+  const ehUnicoAdmin = ehProprioUsuario && totalAdminsAtivos <= 1;
+
+  function togglePerfilEdicao(tipo: string) {
+    if (ehUnicoAdmin && tipo === 'SINDICO') return;
+    const atuais = formEdicao.perfis || [];
+    if (atuais.includes(tipo)) {
+      if (atuais.length === 1) {
+        setErroEdicao('A pessoa deve ter pelo menos um papel ativo no condomínio.');
+        return;
+      }
+      setErroEdicao(null);
+      setFormEdicao({ ...formEdicao, perfis: atuais.filter(t => t !== tipo) });
+    } else {
+      setErroEdicao(null);
+      setFormEdicao({ ...formEdicao, perfis: [...atuais, tipo] });
+    }
+  }
+
+  function togglePerfilCadastro(tipo: string) {
+    const atuais = form.perfis || [];
+    if (atuais.includes(tipo)) {
+      if (atuais.length === 1) {
+        setErroCadastro('A pessoa deve ter pelo menos um papel ativo no condomínio.');
+        return;
+      }
+      setErroCadastro(null);
+      setForm({ ...form, perfis: atuais.filter(t => t !== tipo) });
+    } else {
+      setErroCadastro(null);
+      setForm({ ...form, perfis: [...atuais, tipo] });
+    }
+  }
 
   // Penalidades e Restrições de Áreas Comuns (RN03)
   const [areas, setAreas] = useState<{ id_area_comum: number; nome: string }[]>([]);
@@ -278,6 +389,12 @@ export default function Pessoas() {
       return;
     }
 
+    if (!form.perfis || form.perfis.length === 0) {
+      setErroCadastro('Selecione ao menos um papel ativo para o usuário.');
+      setMsg({ t: 'Selecione ao menos um papel ativo para o usuário.', tipo: 'erro' });
+      return;
+    }
+
     setSalvando(true);
     setErroCadastro(null);
     setMsg({ t: '', tipo: 'ok' });
@@ -285,6 +402,7 @@ export default function Pessoas() {
       const res = await api.post<any>('/cadastros/pessoas', {
         ...form,
         cpf: cpfLimpo,
+        perfis: form.perfis,
         id_unidade: form.id_unidade ? Number(form.id_unidade) : undefined,
         id_responsavel: form.id_responsavel ? Number(form.id_responsavel) : undefined,
         grau_parentesco: form.tipo_vinculo === 'DEPENDENTE' ? form.grau_parentesco : undefined,
@@ -320,14 +438,12 @@ export default function Pessoas() {
     setPessoaEditando(p);
     const u = p.unidades && p.unidades[0];
     const tipos = (p.perfis || []).map(pf => pf.tipo);
-    let tipoPerfilInicial = 'MORADOR';
-    if ((tipos.includes('SINDICO') || tipos.includes('ADMINISTRADOR')) && (tipos.includes('MORADOR') || (p.unidades && p.unidades.length > 0))) {
-      tipoPerfilInicial = 'SINDICO_MORADOR';
-    } else if (tipos.includes('SINDICO') || tipos.includes('ADMINISTRADOR')) {
-      tipoPerfilInicial = 'SINDICO';
-    } else if (tipos.includes('PORTEIRO')) {
-      tipoPerfilInicial = 'PORTEIRO';
-    }
+    const perfisAtivos: string[] = [];
+    if (tipos.includes('MORADOR')) perfisAtivos.push('MORADOR');
+    if (tipos.includes('PORTEIRO')) perfisAtivos.push('PORTEIRO');
+    if (tipos.includes('SINDICO') || tipos.includes('ADMINISTRADOR')) perfisAtivos.push('SINDICO');
+
+    if (perfisAtivos.length === 0) perfisAtivos.push('MORADOR');
 
     setFormEdicao({
       nome: p.nome || '',
@@ -337,7 +453,7 @@ export default function Pessoas() {
       celular: mascararCelular(p.celular || ''),
       id_unidade: u ? String(u.id_unidade) : '',
       tipo_vinculo: u?.vinculo || 'PROPRIETARIO',
-      tipo_perfil: tipoPerfilInicial,
+      perfis: perfisAtivos,
       id_responsavel: u?.id_responsavel ? String(u.id_responsavel) : '',
       grau_parentesco: u?.parentesco || 'FILHO',
     });
@@ -352,6 +468,18 @@ export default function Pessoas() {
     if (cpfLimpo.length !== 11) {
       setErroEdicao('Erro de cadastro: O CPF deve conter exatamente 11 dígitos.');
       setMsg({ t: 'O CPF deve conter exatamente 11 dígitos.', tipo: 'erro' });
+      return;
+    }
+
+    if (!formEdicao.perfis || formEdicao.perfis.length === 0) {
+      setErroEdicao('A pessoa deve ter ao menos um papel ativo no condomínio.');
+      setMsg({ t: 'Selecione ao menos um papel ativo para o usuário.', tipo: 'erro' });
+      return;
+    }
+
+    if (ehUnicoAdmin && !formEdicao.perfis.includes('SINDICO')) {
+      setErroEdicao('Não é permitido remover o seu próprio perfil de administrador quando você é o único administrador ativo do condomínio.');
+      setMsg({ t: 'Você é o único administrador ativo e não pode remover este perfil de si mesmo.', tipo: 'erro' });
       return;
     }
 
@@ -372,8 +500,18 @@ export default function Pessoas() {
             ? Number(formEdicao.id_responsavel)
             : null,
         grau_parentesco: formEdicao.tipo_vinculo === 'DEPENDENTE' ? formEdicao.grau_parentesco : null,
-        tipo_perfil: formEdicao.tipo_perfil,
+        perfis: formEdicao.perfis,
       });
+
+      // Se editou o próprio usuário logado, atualiza a sessão local imediatamente
+      if (sessao && sessao.pessoa.id_pessoa === pessoaEditando.id_pessoa) {
+        const token = localStorage.getItem('oasis_token') || '';
+        const novosPerfisObj = formEdicao.perfis.map((tp, idx) => ({ id_perfil: idx + 1, tipo: tp as any }));
+        salvarSessao(token, {
+          ...sessao,
+          perfis: novosPerfisObj,
+        });
+      }
 
       setMsg({ t: `Cadastro de "${formEdicao.nome}" atualizado com sucesso!`, tipo: 'ok' });
       setModalEdicaoAberto(false);
@@ -536,7 +674,7 @@ export default function Pessoas() {
         id_area_comum: formBloqueio.id_area_comum ? Number(formBloqueio.id_area_comum) : undefined,
         motivo: formBloqueio.motivo,
         descricao: formBloqueio.descricao,
-        data_hora_fim: formBloqueio.data_hora_fim ? new Date(formBloqueio.data_hora_fim).toISOString() : undefined,
+        data_hora_fim: formBloqueio.data_hora_fim ? `${formBloqueio.data_hora_fim}T23:59:59` : undefined,
       });
       setMsg({ t: 'Penalidade / restrição aplicada com sucesso.', tipo: 'ok' });
       setFormBloqueio({
@@ -547,6 +685,7 @@ export default function Pessoas() {
       });
       const res = await api.get<any[]>(`/cadastros/pessoas/${pessoaBloqueio.id_pessoa}/bloqueios`);
       setBloqueiosPessoa(res);
+      carregarPessoas();
     } catch (err: any) {
       setMsg({ t: err.message, tipo: 'erro' });
     } finally {
@@ -562,6 +701,7 @@ export default function Pessoas() {
         const res = await api.get<any[]>(`/cadastros/pessoas/${pessoaBloqueio.id_pessoa}/bloqueios`);
         setBloqueiosPessoa(res);
       }
+      carregarPessoas();
     } catch (err: any) {
       setMsg({ t: err.message, tipo: 'erro' });
     }
@@ -585,7 +725,7 @@ export default function Pessoas() {
       celular: '',
       id_unidade: String(idUnidade),
       tipo_vinculo: 'DEPENDENTE',
-      tipo_perfil: 'MORADOR',
+      perfis: ['MORADOR'],
       id_responsavel: String(titular.id_pessoa),
       grau_parentesco: 'FILHO',
     });
@@ -637,7 +777,7 @@ export default function Pessoas() {
                 celular: '',
                 id_unidade: '',
                 tipo_vinculo: 'PROPRIETARIO',
-                tipo_perfil: 'MORADOR',
+                perfis: ['MORADOR'],
                 id_responsavel: '',
                 grau_parentesco: 'FILHO',
               });
@@ -900,6 +1040,14 @@ export default function Pessoas() {
                             <Badge tipo={p.ativo ? 'sucesso' : 'perigo'}>
                               {p.ativo ? 'Ativo' : 'Inativo'}
                             </Badge>
+                            {p.total_bloqueios_ativos && p.total_bloqueios_ativos > 0 ? (
+                              <span
+                                className="inline-flex items-center gap-1 rounded-md bg-red-100 text-red-700 dark:bg-rose-950/60 dark:text-rose-300 border border-red-200 dark:border-rose-900/60 px-1.5 py-0.5 text-[10px] font-bold"
+                                title="Usuário com penalidade / restrição ativa para áreas comuns"
+                              >
+                                🚫 {p.total_bloqueios_ativos} Penalidade{p.total_bloqueios_ativos > 1 ? 's' : ''}
+                              </span>
+                            ) : null}
                             {p.codigo_ativacao && (
                               <span
                                 className="font-mono text-[10px] font-bold text-sky-600 dark:text-sky-400"
@@ -933,10 +1081,14 @@ export default function Pessoas() {
                               <>
                                 <button
                                   onClick={() => abrirModalBloqueio(p)}
-                                  className="text-xs font-semibold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer"
+                                  className={`text-xs font-semibold hover:underline cursor-pointer ${
+                                    p.total_bloqueios_ativos && p.total_bloqueios_ativos > 0
+                                      ? 'text-red-600 dark:text-rose-400 font-bold'
+                                      : 'text-amber-600 dark:text-amber-400'
+                                  }`}
                                   title="Aplicar penalidade ou afastamento de áreas comuns"
                                 >
-                                  Penalidades
+                                  Penalidades{p.total_bloqueios_ativos && p.total_bloqueios_ativos > 0 ? ` (${p.total_bloqueios_ativos})` : ''}
                                 </button>
                                 <button
                                   onClick={() => setInativando(p)}
@@ -1273,6 +1425,7 @@ export default function Pessoas() {
         aberto={modalAberto}
         fechar={() => setModalAberto(false)}
         titulo="Cadastrar Nova Pessoa & Vínculo"
+        largura="max-w-2xl"
         rodape={
           <>
             <Botao type="button" variante="claro" onClick={() => setModalAberto(false)}>
@@ -1365,7 +1518,7 @@ export default function Pessoas() {
               Vínculo, Unidade & Perfil
             </p>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Campo rotulo="Unidade">
                 <select className={inputCls} value={form.id_unidade} onChange={c('id_unidade')}>
                   <option value="">Nenhuma (visitante/porteiro)</option>
@@ -1384,15 +1537,79 @@ export default function Pessoas() {
                   <option value="DEPENDENTE">Dependente Familiar</option>
                 </select>
               </Campo>
+            </div>
 
-              <Campo rotulo="Papel no Condomínio">
-                <select className={inputCls} value={form.tipo_perfil} onChange={c('tipo_perfil')}>
-                  <option value="MORADOR">Morador</option>
-                  <option value="SINDICO_MORADOR">Administrador / Morador</option>
-                  <option value="SINDICO">Apenas Administrador</option>
-                  <option value="PORTEIRO">Porteiro</option>
-                </select>
-              </Campo>
+            {/* SELEÇÃO MÚLTIPLA DE PAPÉIS NO CADASTRO */}
+            <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 space-y-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Papéis no Condomínio <span className="text-red-500">*</span>
+                </label>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Selecione um ou mais papéis simultâneos
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 items-stretch">
+                {OPCOES_PAPEIS.map(op => {
+                  const selecionado = form.perfis.includes(op.tipo);
+
+                  return (
+                    <div
+                      key={op.tipo}
+                      onClick={() => togglePerfilCadastro(op.tipo)}
+                      className={`relative flex flex-col justify-between rounded-xl border p-3 transition-all select-none cursor-pointer hover:shadow-xs ${
+                        selecionado
+                          ? op.corAtiva
+                          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600'
+                      }`}
+                    >
+                      <div>
+                        {/* Linha Superior: Ícone à esquerda, Checkbox à direita */}
+                        <div className="flex items-center justify-between">
+                          <div
+                            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                              selecionado
+                                ? 'bg-white/80 dark:bg-slate-800 shadow-2xs'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
+                            }`}
+                          >
+                            <Icone nome={op.icone} className={`h-4 w-4 ${selecionado ? op.iconeCor : ''}`} />
+                          </div>
+
+                          <div
+                            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
+                              selecionado
+                                ? 'border-transparent bg-navy text-white dark:bg-sky-500 shadow-2xs'
+                                : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800'
+                            }`}
+                          >
+                            {selecionado && (
+                              <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                <path
+                                  fillRule="evenodd"
+                                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Título */}
+                        <p className="text-xs font-bold text-slate-900 dark:text-slate-100 mt-2.5 leading-tight">
+                          {op.titulo}
+                        </p>
+
+                        {/* Descrição */}
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-snug">
+                          {op.descricao}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             {/* SE FOR DEPENDENTE: CAMPOS ADICIONAIS DE RESPONSÁVEL E PARENTESCO */}
@@ -1438,6 +1655,7 @@ export default function Pessoas() {
         aberto={modalEdicaoAberto}
         fechar={() => setModalEdicaoAberto(false)}
         titulo={`Editar Cadastro — ${pessoaEditando?.nome || ''}`}
+        largura="max-w-2xl"
         rodape={
           <>
             <Botao type="button" variante="claro" onClick={() => setModalEdicaoAberto(false)}>
@@ -1529,7 +1747,7 @@ export default function Pessoas() {
               Vínculo com Unidade & Papel
             </p>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Campo rotulo="Unidade">
                 <select className={inputCls} value={formEdicao.id_unidade} onChange={cEdicao('id_unidade')}>
                   <option value="">Nenhuma (visitante/porteiro)</option>
@@ -1548,15 +1766,102 @@ export default function Pessoas() {
                   <option value="DEPENDENTE">Dependente Familiar</option>
                 </select>
               </Campo>
+            </div>
 
-              <Campo rotulo="Papel no Condomínio">
-                <select className={inputCls} value={formEdicao.tipo_perfil} onChange={cEdicao('tipo_perfil')}>
-                  <option value="MORADOR">Morador</option>
-                  <option value="SINDICO_MORADOR">Administrador / Morador</option>
-                  <option value="SINDICO">Apenas Administrador</option>
-                  <option value="PORTEIRO">Porteiro</option>
-                </select>
-              </Campo>
+            {/* SELEÇÃO MÚLTIPLA DE PAPÉIS NA EDIÇÃO */}
+            <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 space-y-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Papéis no Condomínio <span className="text-red-500">*</span>
+                </label>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Marque todos os papéis que esta pessoa exercerá simultaneamente
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 items-stretch">
+                {OPCOES_PAPEIS.map(op => {
+                  const selecionado = formEdicao.perfis.includes(op.tipo);
+                  const bloqueado = ehUnicoAdmin && op.tipo === 'SINDICO';
+
+                  return (
+                    <div
+                      key={op.tipo}
+                      onClick={() => {
+                        if (!bloqueado) togglePerfilEdicao(op.tipo);
+                      }}
+                      className={`relative flex flex-col justify-between rounded-xl border p-3 transition-all select-none ${
+                        bloqueado
+                          ? 'cursor-not-allowed border-indigo-400 bg-indigo-50/80 dark:bg-indigo-950/50 dark:border-indigo-600 opacity-95'
+                          : 'cursor-pointer hover:shadow-xs'
+                      } ${
+                        selecionado
+                          ? op.corAtiva
+                          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600'
+                      }`}
+                    >
+                      <div>
+                        {/* Linha Superior: Ícone à esquerda, Checkbox à direita */}
+                        <div className="flex items-center justify-between">
+                          <div
+                            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                              selecionado
+                                ? 'bg-white/80 dark:bg-slate-800 shadow-2xs'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
+                            }`}
+                          >
+                            <Icone nome={op.icone} className={`h-4 w-4 ${selecionado ? op.iconeCor : ''}`} />
+                          </div>
+
+                          <div
+                            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
+                              selecionado
+                                ? 'border-transparent bg-navy text-white dark:bg-sky-500 shadow-2xs'
+                                : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800'
+                            }`}
+                          >
+                            {selecionado && (
+                              <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                <path
+                                  fillRule="evenodd"
+                                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Título & Badge de trava */}
+                        <div className="flex items-center gap-1.5 flex-wrap mt-2.5">
+                          <span className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-tight">
+                            {op.titulo}
+                          </span>
+                          {bloqueado && (
+                            <span className="rounded bg-amber-200/90 text-amber-900 dark:bg-amber-900/80 dark:text-amber-200 px-1.5 py-0.5 text-[9px] font-extrabold uppercase">
+                              🔒 Obrigatório
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Descrição */}
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-snug">
+                          {op.descricao}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {ehUnicoAdmin && (
+                <div className="flex items-center gap-2 p-2.5 rounded-lg bg-amber-50 border border-amber-200 dark:bg-amber-950/40 dark:border-amber-800/60 text-amber-800 dark:text-amber-300 text-xs">
+                  <Icone nome="shield" className="h-4 w-4 shrink-0" />
+                  <span>
+                    Você é o único administrador ativo do condomínio. Por segurança, seu perfil administrativo não pode ser removido.
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* SE FOR DEPENDENTE: RESPONSÁVEL E GRAU DE PARENTESCO */}
@@ -1662,7 +1967,9 @@ export default function Pessoas() {
       <Modal
         aberto={modalBloqueioAberto}
         fechar={() => setModalBloqueioAberto(false)}
-        titulo={`Penalidades & Restrições de Áreas — ${pessoaBloqueio?.nome || ''}`}
+        titulo={`Penalidades & Restrições de Áreas — ${pessoaBloqueio?.nome || ''}${
+          pessoaBloqueio?.email ? ` (${pessoaBloqueio.email})` : ''
+        }`}
         largura="max-w-2xl"
       >
         <div className="space-y-5">
@@ -1673,6 +1980,11 @@ export default function Pessoas() {
               <p className="mt-0.5">
                 O afastamento impede que o morador realize reservas para as áreas selecionadas (ou todas as áreas) durante o período estipulado, em decorrência de infração ou penalidade às regras do condomínio.
               </p>
+              {pessoaBloqueio && (
+                <p className="mt-1 text-[11px] font-semibold text-amber-800 dark:text-amber-200">
+                  Morador: {pessoaBloqueio.nome} • CPF: {pessoaBloqueio.cpf} • E-mail: {pessoaBloqueio.email}
+                </p>
+              )}
             </div>
           </div>
 

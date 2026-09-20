@@ -23,7 +23,7 @@ export class RelatoriosController {
             AND date_trunc('month', data_hora_inicio) = date_trunc('month', CURRENT_DATE)) AS reservas_mes,
         (SELECT COUNT(*) FROM encomenda WHERE status = 'AGUARDANDO_RETIRADA') AS encomendas_pendentes,
         (SELECT COUNT(*) FROM perfil
-          WHERE tipo_perfil = 'MORADOR' AND (data_fim IS NULL OR data_fim >= CURRENT_DATE)) AS moradores_ativos,
+          WHERE tipo_perfil = 'MORADOR' AND (data_fim IS NULL OR data_fim > CURRENT_DATE)) AS moradores_ativos,
         (SELECT COUNT(*) FROM chave WHERE status = 'EMPRESTADA') AS chaves_emprestadas`);
     const areas = await this.db.query(`
       SELECT a.nome, COUNT(r.id_reserva) AS reservas

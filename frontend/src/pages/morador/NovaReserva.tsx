@@ -2,77 +2,14 @@ import { useEffect, useState } from 'react';
 import { api, sessaoAtual } from '../../api';
 import { Botao, Campo, Cartao, inputCls, Mensagem, Titulo, Icone, Badge, EmptyState, ModalConfirmacao } from '../../components/ui';
 import Calendario from '../../components/Calendario';
+import type { SlotReserva, GradeHorarios, Area } from '../../types/areas';
+import { DOW_MAP } from '../../types/areas';
+import { formatarDiasSemana } from '../../utils/horarios';
 
-type Area = {
-  id_area_comum: number;
-  nome: string;
-  descricao?: string;
-  capacidade: number;
-  valor?: number | string;
-  requer_reserva?: boolean;
-  idade_minima?: number;
-  ativo: boolean;
-  duracao_slot_min: number;
-  antecedencia_minima_dias: number;
-  antecedencia_minima_horas?: number;
-  antecedencia_maxima_dias: number;
-  prazo_cancelamento_horas: number;
-  limite_reservas_semana: number;
-  reserva_por_dia?: boolean;
-  imagem_url?: string | null;
-  horarios?: { dia_semana: string; hora_inicio: string; hora_fim: string }[];
-  em_uso_agora?: boolean;
-  status_livre?: 'LIVRE' | 'EM_USO';
-  status_livre_atualizado_em?: string;
-  status_livre_observacao?: string;
-  status_livre_porteiro?: string;
-};
+// Aliases locais para compatibilidade com o restante do arquivo
+type Slot = SlotReserva;
+type Grade = GradeHorarios;
 
-const DOW_MAP: Record<string, number> = {
-  DOMINGO: 0,
-  SEGUNDA: 1,
-  TERCA: 2,
-  QUARTA: 3,
-  QUINTA: 4,
-  SEXTA: 5,
-  SABADO: 6,
-};
-
-export function formatarDiasSemana(horarios?: { dia_semana: string }[]): string {
-  if (!horarios || horarios.length === 0) return 'Nenhum dia configurado';
-  const diasAtivos = new Set(horarios.map(h => h.dia_semana));
-  if (diasAtivos.size === 7) return 'Todos os dias';
-  const semana = ['SEGUNDA', 'TERCA', 'QUARTA', 'QUINTA', 'SEXTA'];
-  const fimDeSemana = ['SABADO', 'DOMINGO'];
-  const sexADom = ['SEXTA', 'SABADO', 'DOMINGO'];
-
-  if (semana.every(d => diasAtivos.has(d)) && diasAtivos.size === 5) return 'Segunda a Sexta';
-  if (fimDeSemana.every(d => diasAtivos.has(d)) && diasAtivos.size === 2) return 'Fins de Semana (Sáb e Dom)';
-  if (sexADom.every(d => diasAtivos.has(d)) && diasAtivos.size === 3) return 'Sexta a Domingo';
-
-  const NOMES_CURTOS: Record<string, string> = {
-    DOMINGO: 'Dom',
-    SEGUNDA: 'Seg',
-    TERCA: 'Ter',
-    QUARTA: 'Qua',
-    QUINTA: 'Qui',
-    SEXTA: 'Sex',
-    SABADO: 'Sáb',
-  };
-  const ordem = ['DOMINGO', 'SEGUNDA', 'TERCA', 'QUARTA', 'QUINTA', 'SEXTA', 'SABADO'];
-  return ordem
-    .filter(d => diasAtivos.has(d))
-    .map(d => NOMES_CURTOS[d])
-    .join(', ');
-}
-
-type Slot = {
-  inicio: string;
-  fim: string;
-  status: 'LIVRE' | 'OCUPADO' | 'BLOQUEADO' | 'PASSADO' | 'ANTECEDENCIA_MINIMA';
-  motivo?: string;
-};
-type Grade = { dia_semana: string; regras: any; slots: Slot[] };
 
 /** UC02 + UC03: Nova Reserva de Área Comum (UI/UX Pro Max) */
 export default function NovaReserva() {
@@ -267,10 +204,15 @@ export default function NovaReserva() {
               <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
                 {areasLivres.map(a => {
                   const emUso = a.status_livre === 'EM_USO';
+                  const penalizado = Boolean(a.penalidade_usuario?.bloqueado);
                   return (
                     <Cartao
                       key={a.id_area_comum}
-                      className="overflow-hidden p-0 border border-slate-200 dark:border-slate-800 flex flex-col justify-between"
+                      className={`overflow-hidden p-0 border flex flex-col justify-between transition-all ${
+                        penalizado
+                          ? 'grayscale opacity-60 bg-slate-100 dark:bg-slate-900/60 border-slate-300 dark:border-slate-700 cursor-not-allowed select-none'
+                          : 'border-slate-200 dark:border-slate-800'
+                      }`}
                     >
                       <div>
                         {/* Foto e Badge de Status Livre */}
@@ -284,20 +226,32 @@ export default function NovaReserva() {
                           )}
                           <div className="absolute inset-0 bg-gradient-to-t from-slate-900/70 via-transparent to-transparent" />
                           
-                          {/* Badge de Ocupação da Portaria */}
-                          <div className="absolute top-3 right-3">
-                            {emUso ? (
-                              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/95 text-white text-[11px] font-bold px-2.5 py-1 backdrop-blur-xs shadow-sm">
-                                <span className="h-2 w-2 rounded-full bg-white animate-pulse" />
-                                Em uso agora
+                          {/* Badge de Ocupação ou Penalidade */}
+                          {penalizado ? (
+                            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-[1px] flex flex-col items-center justify-center p-3 text-center">
+                              <span className="inline-flex items-center gap-1.5 rounded-full bg-red-600/95 text-white text-xs font-bold px-3 py-1 shadow-md">
+                                <Icone nome="alert" className="h-4 w-4" />
+                                Acesso Bloqueado
                               </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600/90 text-white text-[11px] font-bold px-2.5 py-1 backdrop-blur-xs shadow-sm">
-                                <span className="h-2 w-2 rounded-full bg-white" />
-                                Livre para uso
+                              <span className="mt-1 text-[11px] font-semibold text-white/95">
+                                Penalidade ativa no condomínio
                               </span>
-                            )}
-                          </div>
+                            </div>
+                          ) : (
+                            <div className="absolute top-3 right-3">
+                              {emUso ? (
+                                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/95 text-white text-[11px] font-bold px-2.5 py-1 backdrop-blur-xs shadow-sm">
+                                  <span className="h-2 w-2 rounded-full bg-white animate-pulse" />
+                                  Em uso agora
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600/90 text-white text-[11px] font-bold px-2.5 py-1 backdrop-blur-xs shadow-sm">
+                                  <span className="h-2 w-2 rounded-full bg-white" />
+                                  Livre para uso
+                                </span>
+                              )}
+                            </div>
+                          )}
 
                           <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-white">
                             <span className="text-xs font-semibold backdrop-blur-xs bg-black/40 rounded-md px-2 py-0.5">
@@ -360,19 +314,37 @@ export default function NovaReserva() {
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 animate-fade-in">
               {areasComReserva.map(a => {
                 const valorArea = Number(a.valor || 0);
+                const penalizado = Boolean(a.penalidade_usuario?.bloqueado);
+
                 return (
                   <Cartao
                     key={a.id_area_comum}
-                    className="group cursor-pointer overflow-hidden p-0 transition-all duration-200 hover:-translate-y-0.5 hover:border-navy/30 dark:hover:border-sky-500/40 hover:shadow-card-hover"
+                    className={`overflow-hidden p-0 transition-all duration-200 ${
+                      penalizado
+                        ? 'grayscale opacity-60 bg-slate-100 dark:bg-slate-900/60 border-slate-300 dark:border-slate-700 cursor-not-allowed select-none'
+                        : 'group cursor-pointer hover:-translate-y-0.5 hover:border-navy/30 dark:hover:border-sky-500/40 hover:shadow-card-hover'
+                    }`}
                   >
-                    <div onClick={() => { setArea(a); setPessoas(Math.min(pessoas, a.capacidade)); }}>
+                    <div
+                      onClick={
+                        penalizado
+                          ? undefined
+                          : () => {
+                              setArea(a);
+                              setPessoas(Math.min(pessoas, a.capacidade));
+                            }
+                      }
+                      title={penalizado ? `Acesso bloqueado por penalidade: ${a.penalidade_usuario?.motivo}` : undefined}
+                    >
                       {/* Foto da Área */}
                       <div className="relative h-44 w-full overflow-hidden bg-slate-100 dark:bg-slate-800">
                         {a.imagem_url ? (
                           <img
                             src={a.imagem_url}
                             alt={a.nome}
-                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                            className={`h-full w-full object-cover transition-transform duration-300 ${
+                              penalizado ? '' : 'group-hover:scale-105'
+                            }`}
                           />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 text-slate-400">
@@ -381,20 +353,32 @@ export default function NovaReserva() {
                         )}
                         <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent" />
 
-                        {/* Indicador de ocupação em tempo real */}
-                        <div className="absolute top-3 right-3">
-                          {a.em_uso_agora ? (
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/95 text-white text-[11px] font-bold px-2.5 py-0.5 backdrop-blur-xs shadow-sm">
-                              <span className="h-2 w-2 rounded-full bg-white animate-pulse" />
-                              Em uso agora
+                        {/* Indicador de ocupação ou bloqueio por penalidade */}
+                        {penalizado ? (
+                          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-[1px] flex flex-col items-center justify-center p-3 text-center">
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-red-600/95 text-white text-xs font-bold px-3 py-1 shadow-md">
+                              <Icone nome="alert" className="h-4 w-4" />
+                              Acesso Bloqueado
                             </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600/90 text-white text-[11px] font-bold px-2.5 py-0.5 backdrop-blur-xs shadow-sm">
-                              <span className="h-2 w-2 rounded-full bg-white" />
-                              Livre agora
+                            <span className="mt-1 text-[11px] font-semibold text-white/95">
+                              Penalidade ativa no condomínio
                             </span>
-                          )}
-                        </div>
+                          </div>
+                        ) : (
+                          <div className="absolute top-3 right-3">
+                            {a.em_uso_agora ? (
+                              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/95 text-white text-[11px] font-bold px-2.5 py-0.5 backdrop-blur-xs shadow-sm">
+                                <span className="h-2 w-2 rounded-full bg-white animate-pulse" />
+                                Em uso agora
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600/90 text-white text-[11px] font-bold px-2.5 py-0.5 backdrop-blur-xs shadow-sm">
+                                <span className="h-2 w-2 rounded-full bg-white" />
+                                Livre agora
+                              </span>
+                            )}
+                          </div>
+                        )}
 
                         <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-white">
                           <span className="text-xs font-semibold backdrop-blur-xs bg-black/30 rounded-md px-2 py-0.5">
@@ -405,14 +389,45 @@ export default function NovaReserva() {
 
                       {/* Informações da Área */}
                       <div className="p-4 space-y-2">
-                        <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 group-hover:text-navy dark:group-hover:text-sky-400 transition-colors">
-                          {a.nome}
-                        </h3>
+                        <div className="flex items-center justify-between gap-2">
+                          <h3
+                            className={`text-base font-bold transition-colors ${
+                              penalizado
+                                ? 'text-slate-500 dark:text-slate-400'
+                                : 'text-slate-900 dark:text-slate-100 group-hover:text-navy dark:group-hover:text-sky-400'
+                            }`}
+                          >
+                            {a.nome}
+                          </h3>
+                          {penalizado && (
+                            <span className="rounded-md bg-red-100 text-red-700 dark:bg-rose-950/60 dark:text-rose-300 px-2 py-0.5 text-[10px] font-bold border border-red-200 dark:border-rose-900/60">
+                              Indisponível
+                            </span>
+                          )}
+                        </div>
 
-                        {a.descricao && (
-                          <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
-                            {a.descricao}
-                          </p>
+                        {penalizado && a.penalidade_usuario ? (
+                          <div className="rounded-lg bg-red-50/90 border border-red-200/90 dark:bg-rose-950/40 dark:border-rose-900/60 p-2.5 text-xs text-red-800 dark:text-rose-200 space-y-1">
+                            <div className="flex items-center gap-1.5 font-bold">
+                              <Icone nome="alert" className="h-3.5 w-3.5 shrink-0 text-red-600 dark:text-rose-400" />
+                              <span>Suspensão por Penalidade (RN03)</span>
+                            </div>
+                            <p className="text-[11px] leading-relaxed text-red-700 dark:text-rose-300">
+                              Motivo: <b>{a.penalidade_usuario.motivo}</b>
+                              {a.penalidade_usuario.descricao ? ` • "${a.penalidade_usuario.descricao}"` : ''}
+                            </p>
+                            <p className="text-[10px] text-red-600/80 dark:text-rose-400/80">
+                              {a.penalidade_usuario.data_hora_fim
+                                ? `Bloqueio vigente até ${new Date(a.penalidade_usuario.data_hora_fim).toLocaleDateString('pt-BR')}`
+                                : 'Bloqueio por prazo indeterminado'}
+                            </p>
+                          </div>
+                        ) : (
+                          a.descricao && (
+                            <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
+                              {a.descricao}
+                            </p>
+                          )
                         )}
 
                         <div className="flex flex-wrap gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 pt-1">
@@ -506,6 +521,28 @@ export default function NovaReserva() {
                   <p className="text-amber-900 dark:text-amber-300 leading-relaxed">
                     A taxa de utilização deste espaço será cobrada diretamente no próximo <b>boleto da taxa de condomínio</b> da sua unidade. O agendamento é registrado de imediato e o lançamento financeiro ocorrerá no fechamento mensal do condomínio.
                   </p>
+                </div>
+              </div>
+            )}
+
+            {/* Banner Bloqueador de Penalidade */}
+            {Boolean(area.penalidade_usuario?.bloqueado || grade?.bloqueio_usuario?.bloqueado) && (
+              <div className="mb-5 rounded-xl border border-red-300 bg-red-50/90 dark:border-rose-900/80 dark:bg-rose-950/40 p-4 text-xs text-red-900 dark:text-rose-200 flex items-start gap-3 shadow-xs">
+                <Icone nome="alert" className="h-5 w-5 text-red-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                <div className="space-y-1 leading-relaxed">
+                  <span className="text-sm font-bold text-red-800 dark:text-rose-300 block">
+                    🚫 Acesso Bloqueado por Penalidade Condominial (RN03)
+                  </span>
+                  <p>
+                    Seu usuário está temporariamente suspenso de realizar reservas para este espaço.
+                    Motivo: <b>{grade?.bloqueio_usuario?.motivo || area.penalidade_usuario?.motivo}</b>
+                    {(grade?.bloqueio_usuario?.descricao || area.penalidade_usuario?.descricao) ? ` — "${grade?.bloqueio_usuario?.descricao || area.penalidade_usuario?.descricao}"` : ''}.
+                  </p>
+                  {(grade?.bloqueio_usuario?.data_hora_fim || area.penalidade_usuario?.data_hora_fim) && (
+                    <p className="text-[11px] font-semibold text-red-700 dark:text-rose-400 pt-0.5">
+                      Vigência do afastamento até: {new Date(grade?.bloqueio_usuario?.data_hora_fim || area.penalidade_usuario!.data_hora_fim!).toLocaleDateString('pt-BR')}
+                    </p>
+                  )}
                 </div>
               </div>
             )}
@@ -728,7 +765,7 @@ export default function NovaReserva() {
                     </Botao>
                     <Botao
                       className="w-2/3 py-2.5"
-                      disabled={!slot}
+                      disabled={!slot || Boolean(area.penalidade_usuario?.bloqueado) || Boolean(grade?.bloqueio_usuario?.bloqueado)}
                       carregando={confirmando}
                       onClick={() => setModalConfirmar(true)}
                       icone={<Icone nome="check" className="h-4 w-4" />}

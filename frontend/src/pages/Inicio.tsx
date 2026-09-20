@@ -121,6 +121,18 @@ export default function Inicio() {
       ? 'PORTEIRO'
       : 'MORADOR';
 
+  const rotuloPapeis = Array.from(
+    new Set(
+      tipos.map(t =>
+        t === 'SINDICO' || t === 'ADMINISTRADOR'
+          ? 'Administrador'
+          : t === 'PORTEIRO'
+          ? 'Porteiro'
+          : 'Morador'
+      )
+    )
+  ).join(' • ');
+
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [reservas, setReservas] = useState<Reserva[]>([]);
@@ -395,7 +407,7 @@ export default function Inicio() {
   return (
     <div className="space-y-6">
       <Titulo
-        sub={ROTULO_PERFIL[perfilPrincipal] + (unidadesTexto ? ` • ${unidadesTexto}` : '')}
+        sub={(rotuloPapeis || ROTULO_PERFIL[perfilPrincipal]) + (unidadesTexto ? ` • ${unidadesTexto}` : '')}
         icone={<Icone nome="home" className="h-5 w-5" />}
       >
         {`${saudacaoPorHorario()}, ${primeiroNome}`}

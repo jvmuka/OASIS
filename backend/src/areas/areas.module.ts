@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Req, Module, UseGuards, ParseIntPipe, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Req, Module, UseGuards, ParseIntPipe, UseInterceptors, UploadedFile, BadRequestException, Logger } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import 'multer';
@@ -32,7 +32,8 @@ export class AreasController {
   constructor(private db: DbService) {}
 
   @Get()
-  listar() {
+  listar(@Req() req: any) {
+    const idPessoa = req.user?.sub || 0;
     return this.db.query(`
       SELECT a.*,
              COALESCE(json_agg(DISTINCT jsonb_build_object(
@@ -58,11 +59,28 @@ export class AreasController {
                   AND r.status = 'ATIVA'
                   AND CURRENT_TIMESTAMP >= r.data_hora_inicio
                   AND CURRENT_TIMESTAMP < r.data_hora_fim
-             ) AS em_uso_agora
+             ) AS em_uso_agora,
+             (
+               SELECT jsonb_build_object(
+                 'id_bloqueio_perfil', bp.id_bloqueio_perfil,
+                 'bloqueado', true,
+                 'motivo', bp.motivo,
+                 'descricao', bp.descricao,
+                 'data_hora_inicio', bp.data_hora_inicio,
+                 'data_hora_fim', bp.data_hora_fim
+               )
+                 FROM bloqueio_perfil bp
+                 JOIN perfil pf_b ON pf_b.id_perfil = bp.id_perfil
+                WHERE pf_b.id_pessoa = $1
+                  AND (bp.id_area_comum IS NULL OR bp.id_area_comum = a.id_area_comum)
+                  AND bp.data_hora_inicio <= CURRENT_TIMESTAMP
+                  AND (bp.data_hora_fim IS NULL OR bp.data_hora_fim >= CURRENT_TIMESTAMP)
+                LIMIT 1
+             ) AS penalidade_usuario
         FROM area_comum a
         LEFT JOIN area_horario h ON h.id_area_comum = a.id_area_comum
        GROUP BY a.id_area_comum
-       ORDER BY a.nome`);
+       ORDER BY a.nome`, [idPessoa]);
   }
 
   /** Lista todos os bloqueios e manutencoes de areas comuns. */
@@ -440,8 +458,9 @@ export class AreasController {
       throw new BadRequestException('Nao foi possivel processar a imagem enviada. Verifique se o arquivo nao esta corrompido.');
     }
 
-    console.log(
-      `[areas] compressao de imagem: ${(file.originalname || '').replace(/[^\w.-]/g, '_')} ${file.size} bytes -> ${processada.length} bytes`,
+    Logger.log(
+      `compressao de imagem: ${(file.originalname || '').replace(/[^\w.-]/g, '_')} ${file.size} bytes -> ${processada.length} bytes`,
+      'AreasController',
     );
 
     // Garante que o diretorio de uploads existe

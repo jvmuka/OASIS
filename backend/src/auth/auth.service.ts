@@ -186,7 +186,7 @@ export class AuthService {
     const perfis = await this.db.query(
       `SELECT id_perfil, tipo_perfil
          FROM perfil
-        WHERE id_pessoa = $1 AND (data_fim IS NULL OR data_fim >= CURRENT_DATE)
+        WHERE id_pessoa = $1 AND (data_fim IS NULL OR data_fim > CURRENT_DATE)
         ORDER BY data_inicio DESC`, [pessoa.id_pessoa]);
 
     const unidades = await this.db.query(

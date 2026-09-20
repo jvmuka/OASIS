@@ -51,7 +51,11 @@ export class ReservasController {
 
   /** UC02: grade de intervalos livres/ocupados de uma area em uma data. */
   @Get('disponibilidade')
-  async disponibilidade(@Query('area', ParseIntPipe) area: number, @Query('data') data: string) {
+  async disponibilidade(
+    @Req() req: any,
+    @Query('area', ParseIntPipe) area: number,
+    @Query('data') data: string
+  ) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(data || ''))
       throw new BadRequestException('Informe a data no formato AAAA-MM-DD.');
 
@@ -79,6 +83,18 @@ export class ReservasController {
           AND $2::date BETWEEN data_hora_inicio::date AND data_hora_fim::date`,
       [area, data]);
 
+    const idPessoa = req.user?.sub;
+    const [penalidadeUsuario] = await this.db.query(`
+      SELECT bp.id_bloqueio_perfil, bp.motivo, bp.descricao, bp.data_hora_inicio, bp.data_hora_fim
+        FROM bloqueio_perfil bp
+        JOIN perfil pf_b ON pf_b.id_perfil = bp.id_perfil
+       WHERE pf_b.id_pessoa = $1
+         AND (bp.id_area_comum IS NULL OR bp.id_area_comum = $2)
+         AND bp.data_hora_inicio <= ($3 || ' 23:59:59')::timestamp
+         AND (bp.data_hora_fim IS NULL OR bp.data_hora_fim >= ($3 || ' 00:00:00')::timestamp)
+       LIMIT 1`,
+      [idPessoa, area, data]);
+
     // monta a grade de slots em memoria
     const slots: any[] = [];
     const agora = new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
@@ -89,6 +105,12 @@ export class ReservasController {
     );
 
     const calcularStatusSlot = (slotIniStr: string, slotFimStr: string) => {
+      if (penalidadeUsuario) {
+        return {
+          status: 'BLOQUEADO',
+          motivo: `Acesso suspenso por penalidade (${penalidadeUsuario.motivo}${penalidadeUsuario.descricao ? ': ' + penalidadeUsuario.descricao : ''})`,
+        };
+      }
       const noPassado = slotIniStr <= agora;
       if (noPassado) {
         return { status: 'PASSADO', motivo: 'Horário já passou' };
@@ -170,6 +192,13 @@ export class ReservasController {
     return {
       area: { id_area_comum: info.id_area_comum, nome: info.nome, capacidade: info.capacidade, reserva_por_dia: Boolean(info.reserva_por_dia) },
       data, dia_semana: diaSemana,
+      bloqueio_usuario: penalidadeUsuario ? {
+        bloqueado: true,
+        motivo: penalidadeUsuario.motivo,
+        descricao: penalidadeUsuario.descricao,
+        data_hora_inicio: penalidadeUsuario.data_hora_inicio,
+        data_hora_fim: penalidadeUsuario.data_hora_fim,
+      } : null,
       regras: {
         antecedencia_minima_dias: info.antecedencia_minima_dias,
         antecedencia_minima_horas: antMinHoras,
@@ -195,6 +224,23 @@ export class ReservasController {
     if (!area) throw new BadRequestException('Área comum inexistente.');
     if (area.requer_reserva === false) {
       throw new BadRequestException(`O espaço "${area.nome}" é de uso livre e não necessita de reserva prévia.`);
+    }
+
+    const idPessoa = req.user?.sub;
+    const [penalidade] = await this.db.query(`
+      SELECT bp.motivo, bp.descricao
+        FROM bloqueio_perfil bp
+        JOIN perfil pf_b ON pf_b.id_perfil = bp.id_perfil
+       WHERE pf_b.id_pessoa = $1
+         AND (bp.id_area_comum IS NULL OR bp.id_area_comum = $2)
+         AND ($3::timestamp) >= bp.data_hora_inicio
+         AND (bp.data_hora_fim IS NULL OR ($3::timestamp) <= bp.data_hora_fim)
+       LIMIT 1`,
+      [idPessoa, b.id_area_comum, `${b.data} ${b.inicio}`]);
+    if (penalidade) {
+      throw new BadRequestException(
+        `RN03: morador com acesso bloqueado para esta area comum por penalidade (${penalidade.motivo}${penalidade.descricao ? ': ' + penalidade.descricao : ''}).`
+      );
     }
 
     const idPerfil = perfilDoUsuario(req.user, 'MORADOR');

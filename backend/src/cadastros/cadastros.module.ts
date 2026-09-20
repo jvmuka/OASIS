@@ -113,10 +113,16 @@ export class CadastrosController {
               )), '[]')
                 FROM pessoa_unidade pu_filho
                 JOIN pessoa p_filho ON p_filho.id_pessoa = pu_filho.id_pessoa
-               WHERE pu_filho.id_responsavel = p.id_pessoa AND pu_filho.data_fim_ocupacao IS NULL) AS dependentes
+               WHERE pu_filho.id_responsavel = p.id_pessoa AND pu_filho.data_fim_ocupacao IS NULL) AS dependentes,
+             -- Total de penalidades ativas para a pessoa
+             (SELECT COUNT(*)::INTEGER FROM bloqueio_perfil bp
+                JOIN perfil pf_b ON pf_b.id_perfil = bp.id_perfil
+               WHERE pf_b.id_pessoa = p.id_pessoa
+                 AND bp.data_hora_inicio <= CURRENT_TIMESTAMP
+                 AND (bp.data_hora_fim IS NULL OR bp.data_hora_fim >= CURRENT_TIMESTAMP)) AS total_bloqueios_ativos
         FROM pessoa p
         LEFT JOIN perfil pf ON pf.id_pessoa = p.id_pessoa
-             AND (pf.data_fim IS NULL OR pf.data_fim >= CURRENT_DATE)
+             AND (pf.data_fim IS NULL OR pf.data_fim > CURRENT_DATE)
         LEFT JOIN pessoa_unidade pu ON pu.id_pessoa = p.id_pessoa AND pu.data_fim_ocupacao IS NULL
         LEFT JOIN unidade u ON u.id_unidade = pu.id_unidade
         LEFT JOIN bloco   b ON b.id_bloco   = u.id_bloco
@@ -139,7 +145,13 @@ export class CadastrosController {
              p.status_conta, p.ativo,
              pu.id_pessoa_unidade, pu.id_unidade, u.numero_apartamento, b.nome AS bloco,
              pu.tipo_vinculo, pu.grau_parentesco, pu.reside, pu.status_aprovacao,
-             pu.id_responsavel, resp.nome AS nome_responsavel, resp.email AS email_responsavel, resp.celular AS celular_responsavel
+             pu.id_responsavel, resp.nome AS nome_responsavel, resp.email AS email_responsavel, resp.celular AS celular_responsavel,
+             COALESCE((
+               SELECT json_agg(jsonb_build_object('tipo', pf.tipo_perfil, 'id_perfil', pf.id_perfil))
+                 FROM perfil pf
+                WHERE pf.id_pessoa = p.id_pessoa
+                  AND (pf.data_fim IS NULL OR pf.data_fim > CURRENT_DATE)
+             ), '[]') AS perfis
         FROM pessoa p
         LEFT JOIN pessoa_unidade pu ON pu.id_pessoa = p.id_pessoa AND pu.data_fim_ocupacao IS NULL
         LEFT JOIN unidade u ON u.id_unidade = pu.id_unidade
@@ -176,7 +188,7 @@ export class CadastrosController {
     @Req() req: any,
     @Body() b: {
       nome: string; email: string; cpf: string; data_nascimento: string; celular?: string;
-      id_unidade?: number; tipo_vinculo?: string; tipo_perfil: string;
+      id_unidade?: number; tipo_vinculo?: string; tipo_perfil?: string; perfis?: string[];
       id_responsavel?: number; grau_parentesco?: string;
     }
   ) {
@@ -226,18 +238,33 @@ export class CadastrosController {
           [p.id_pessoa, b.id_unidade, vinculo, idResp, parentesco]);
       }
 
-      // 4. Perfil de acesso
-      let perfil: any;
-      if (b.tipo_perfil === 'SINDICO_MORADOR') {
-        await c.query(`INSERT INTO perfil (id_pessoa, tipo_perfil) VALUES ($1, 'SINDICO')`, [p.id_pessoa]);
-        perfil = (await c.query(
-          `INSERT INTO perfil (id_pessoa, tipo_perfil) VALUES ($1, 'MORADOR') RETURNING id_perfil, tipo_perfil`,
-          [p.id_pessoa]
+      // 4. Perfil de acesso (suporte a múltiplos papéis simultâneos)
+      let listaPerfis: string[] = [];
+      if (Array.isArray(b.perfis) && b.perfis.length > 0) {
+        listaPerfis = b.perfis.map(pf => (pf === 'ADMINISTRADOR' ? 'SINDICO' : pf.trim().toUpperCase()));
+      } else if (b.tipo_perfil) {
+        if (b.tipo_perfil === 'SINDICO_MORADOR') {
+          listaPerfis = ['SINDICO', 'MORADOR'];
+        } else if (b.tipo_perfil === 'SINDICO' || b.tipo_perfil === 'ADMINISTRADOR') {
+          listaPerfis = ['SINDICO'];
+        } else if (b.tipo_perfil === 'PORTEIRO') {
+          listaPerfis = ['PORTEIRO'];
+        } else if (b.tipo_perfil === 'MORADOR') {
+          listaPerfis = ['MORADOR'];
+        }
+      }
+      listaPerfis = Array.from(new Set(listaPerfis)).filter(pf => ['MORADOR', 'PORTEIRO', 'SINDICO'].includes(pf));
+      if (listaPerfis.length === 0) {
+        listaPerfis = ['MORADOR'];
+      }
+
+      let perfil: any = null;
+      for (const tp of listaPerfis) {
+        const row = (await c.query(
+          `INSERT INTO perfil (id_pessoa, tipo_perfil) VALUES ($1, $2) RETURNING id_perfil, tipo_perfil`,
+          [p.id_pessoa, tp]
         )).rows[0];
-      } else {
-        perfil = (await c.query(
-          `INSERT INTO perfil (id_pessoa, tipo_perfil) VALUES ($1,$2)
-           RETURNING id_perfil, tipo_perfil`, [p.id_pessoa, b.tipo_perfil || 'MORADOR'])).rows[0];
+        if (!perfil) perfil = row;
       }
 
       // 5. Geração do código legível de ativação / primeiro acesso
@@ -427,6 +454,7 @@ export class CadastrosController {
 
   @Put('pessoas/:id') @Perfis('SINDICO')
   async editarPessoa(
+    @Req() req: any,
     @Param('id', ParseIntPipe) id: number,
     @Body() b: {
       nome?: string;
@@ -439,6 +467,7 @@ export class CadastrosController {
       id_responsavel?: number;
       grau_parentesco?: string;
       tipo_perfil?: string;
+      perfis?: string[];
     }
   ) {
     return this.db.transacao(async c => {
@@ -516,36 +545,70 @@ export class CadastrosController {
         }
       }
 
-      // 4. Atualiza tipo de perfil se especificado
-      if (b.tipo_perfil) {
-        if (b.tipo_perfil === 'SINDICO_MORADOR') {
-          for (const tp of ['SINDICO', 'MORADOR']) {
-            const has = await c.query(
-              `SELECT id_perfil FROM perfil WHERE id_pessoa = $1 AND tipo_perfil = $2 AND (data_fim IS NULL OR data_fim >= CURRENT_DATE)`,
-              [id, tp]
-            );
-            if (has.rows.length === 0) {
-              await c.query(`INSERT INTO perfil (id_pessoa, tipo_perfil) VALUES ($1, $2)`, [id, tp]);
-            }
+      // 4. Atualiza tipos de perfil (suporte a múltiplos papéis e proteção do único administrador)
+      if (b.perfis !== undefined || b.tipo_perfil !== undefined) {
+        let novosPerfis: string[] = [];
+        if (Array.isArray(b.perfis)) {
+          novosPerfis = b.perfis.map(pf => (pf === 'ADMINISTRADOR' ? 'SINDICO' : pf.trim().toUpperCase()));
+        } else if (b.tipo_perfil) {
+          if (b.tipo_perfil === 'SINDICO_MORADOR') {
+            novosPerfis = ['SINDICO', 'MORADOR'];
+          } else if (b.tipo_perfil === 'SINDICO' || b.tipo_perfil === 'ADMINISTRADOR') {
+            novosPerfis = ['SINDICO'];
+          } else if (b.tipo_perfil === 'PORTEIRO') {
+            novosPerfis = ['PORTEIRO'];
+          } else if (b.tipo_perfil === 'MORADOR') {
+            novosPerfis = ['MORADOR'];
           }
-          await c.query(
-            `UPDATE perfil SET data_fim = CURRENT_DATE WHERE id_pessoa = $1 AND tipo_perfil = 'PORTEIRO' AND data_fim IS NULL`,
-            [id]
+        }
+        novosPerfis = Array.from(new Set(novosPerfis)).filter(pf => ['MORADOR', 'PORTEIRO', 'SINDICO'].includes(pf));
+
+        if (novosPerfis.length === 0) {
+          throw new BadRequestException('A pessoa deve possuir pelo menos um papel ativo no condomínio.');
+        }
+
+        // RN: Não permitir que o próprio administrador tire seu perfil de administrador quando houver apenas 1 administrador ativo
+        const editandoASiMesmo = (id === req.user?.sub);
+        const contemAdmin = novosPerfis.includes('SINDICO');
+
+        if (editandoASiMesmo && !contemAdmin) {
+          const contagem = await c.query(
+            `SELECT COUNT(DISTINCT pf.id_pessoa)::INTEGER AS total
+               FROM perfil pf
+              WHERE pf.tipo_perfil IN ('SINDICO', 'ADMINISTRADOR')
+                AND (pf.data_fim IS NULL OR pf.data_fim > CURRENT_DATE)`
           );
-        } else {
-          const desejado = b.tipo_perfil;
+          const totalAdmins = Number(contagem.rows[0]?.total || 0);
+          if (totalAdmins <= 1) {
+            throw new BadRequestException(
+              'Não é permitido remover o seu próprio perfil de administrador quando você é o único administrador ativo do condomínio.'
+            );
+          }
+        }
+
+        // Ativa ou insere cada perfil solicitado
+        for (const tp of novosPerfis) {
           const has = await c.query(
-            `SELECT id_perfil FROM perfil WHERE id_pessoa = $1 AND tipo_perfil = $2 AND (data_fim IS NULL OR data_fim >= CURRENT_DATE)`,
-            [id, desejado]
+            `SELECT id_perfil, data_fim FROM perfil WHERE id_pessoa = $1 AND tipo_perfil = $2`,
+            [id, tp]
           );
           if (has.rows.length === 0) {
-            await c.query(`INSERT INTO perfil (id_pessoa, tipo_perfil) VALUES ($1, $2)`, [id, desejado]);
+            await c.query(`INSERT INTO perfil (id_pessoa, tipo_perfil) VALUES ($1, $2)`, [id, tp]);
+          } else if (has.rows[0].data_fim !== null) {
+            await c.query(`UPDATE perfil SET data_fim = NULL WHERE id_perfil = $1`, [has.rows[0].id_perfil]);
           }
-          await c.query(
-            `UPDATE perfil SET data_fim = CURRENT_DATE WHERE id_pessoa = $1 AND tipo_perfil <> $2 AND data_fim IS NULL`,
-            [id, desejado]
-          );
         }
+
+        // Desativa quaisquer outros perfis da pessoa que não foram selecionados
+        const tiposPermitidos = [...novosPerfis];
+        await c.query(
+          `UPDATE perfil
+              SET data_fim = CURRENT_DATE
+            WHERE id_pessoa = $1
+              AND tipo_perfil <> ALL($2::tipo_perfil_enum[])
+              AND (data_fim IS NULL OR data_fim > CURRENT_DATE)`,
+          [id, tiposPermitidos]
+        );
       }
 
       return p;
@@ -553,12 +616,29 @@ export class CadastrosController {
   }
 
   @Patch('pessoas/:id/inativar') @Perfis('SINDICO')
-  inativar(@Param('id', ParseIntPipe) id: number) {
+  inativar(
+    @Req() req: any,
+    @Param('id', ParseIntPipe) id: number
+  ) {
     return this.db.transacao(async c => {
+      if (id === req.user?.sub) {
+        const contagem = await c.query(
+          `SELECT COUNT(DISTINCT pf.id_pessoa)::INTEGER AS total
+             FROM perfil pf
+            WHERE pf.tipo_perfil IN ('SINDICO', 'ADMINISTRADOR')
+              AND (pf.data_fim IS NULL OR pf.data_fim > CURRENT_DATE)`
+        );
+        if (Number(contagem.rows[0]?.total || 0) <= 1) {
+          throw new BadRequestException(
+            'Não é permitido inativar a si mesmo quando você é o único administrador ativo do condomínio.'
+          );
+        }
+      }
+
       await c.query(`UPDATE pessoa SET ativo = FALSE WHERE id_pessoa = $1`, [id]);
       await c.query(
         `UPDATE perfil SET data_fim = CURRENT_DATE
-          WHERE id_pessoa = $1 AND data_fim IS NULL`, [id]);
+          WHERE id_pessoa = $1 AND (data_fim IS NULL OR data_fim > CURRENT_DATE)`, [id]);
       await c.query(
         `UPDATE pessoa_unidade SET data_fim_ocupacao = CURRENT_DATE
           WHERE id_pessoa = $1 AND data_fim_ocupacao IS NULL`, [id]);
@@ -616,8 +696,14 @@ export class CadastrosController {
   }
 
   @Delete('pessoas/:id') @Perfis('SINDICO')
-  async excluirPessoa(@Param('id', ParseIntPipe) id: number) {
+  async excluirPessoa(
+    @Req() req: any,
+    @Param('id', ParseIntPipe) id: number
+  ) {
     return this.db.transacao(async c => {
+      if (id === req.user?.sub) {
+        throw new BadRequestException('Não é permitido excluir o seu próprio usuário administrador.');
+      }
       // 1. Verifica se a pessoa possui reservas no condomínio
       const reservas = await c.query(
         `SELECT COUNT(*) AS total FROM reserva r
@@ -693,7 +779,10 @@ export class CadastrosController {
     const idPerfilSindico = perfilDoUsuario(req.user, 'SINDICO');
 
     const perfis = await this.db.query(
-      `SELECT id_perfil FROM perfil WHERE id_pessoa = $1 AND (data_fim IS NULL OR data_fim >= CURRENT_DATE) LIMIT 1`,
+      `SELECT id_perfil FROM perfil
+        WHERE id_pessoa = $1 AND (data_fim IS NULL OR data_fim > CURRENT_DATE)
+        ORDER BY (CASE WHEN tipo_perfil = 'MORADOR' THEN 1 ELSE 2 END)
+        LIMIT 1`,
       [idPessoa]);
     if (!perfis.length) {
       throw new BadRequestException('Esta pessoa não possui perfil ativo para aplicação de penalidade.');
@@ -701,7 +790,11 @@ export class CadastrosController {
     const idPerfilMorador = perfis[0].id_perfil;
 
     const inicio = b.data_hora_inicio ? new Date(b.data_hora_inicio) : new Date();
-    const fim = b.data_hora_fim ? new Date(b.data_hora_fim) : null;
+    let fim: Date | null = null;
+    if (b.data_hora_fim) {
+      const fimStr = b.data_hora_fim.length === 10 ? `${b.data_hora_fim}T23:59:59.999` : b.data_hora_fim;
+      fim = new Date(fimStr);
+    }
 
     if (fim && fim <= inicio) {
       throw new BadRequestException('A data/hora de término do afastamento deve ser posterior ao início.');

@@ -27,6 +27,7 @@ export class DbService implements OnModuleInit, OnModuleDestroy {
         ALTER TABLE area_comum ADD COLUMN IF NOT EXISTS status_livre_atualizado_em TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
         ALTER TABLE area_comum ADD COLUMN IF NOT EXISTS status_livre_observacao VARCHAR(255);
         ALTER TABLE area_comum ADD COLUMN IF NOT EXISTS status_livre_porteiro VARCHAR(100);
+        ALTER TABLE chave ALTER COLUMN codigo TYPE VARCHAR(100);
       `);
     } catch {
       // Ignora erro se a tabela ainda nao foi criada na primeira inicializacao
