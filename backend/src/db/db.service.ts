@@ -21,6 +21,12 @@ export class DbService implements OnModuleInit, OnModuleDestroy {
       await this.pool.query(`
         ALTER TABLE codigo_primeiro_acesso ADD COLUMN IF NOT EXISTS usado_em TIMESTAMP;
         ALTER TABLE codigo_primeiro_acesso ADD COLUMN IF NOT EXISTS criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+        ALTER TABLE area_comum ALTER COLUMN descricao TYPE TEXT;
+        ALTER TABLE area_comum ADD COLUMN IF NOT EXISTS requer_reserva BOOLEAN NOT NULL DEFAULT true;
+        ALTER TABLE area_comum ADD COLUMN IF NOT EXISTS status_livre VARCHAR(20) NOT NULL DEFAULT 'LIVRE';
+        ALTER TABLE area_comum ADD COLUMN IF NOT EXISTS status_livre_atualizado_em TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
+        ALTER TABLE area_comum ADD COLUMN IF NOT EXISTS status_livre_observacao VARCHAR(255);
+        ALTER TABLE area_comum ADD COLUMN IF NOT EXISTS status_livre_porteiro VARCHAR(100);
       `);
     } catch {
       // Ignora erro se a tabela ainda nao foi criada na primeira inicializacao

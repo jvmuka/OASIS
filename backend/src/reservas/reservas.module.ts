@@ -58,6 +58,9 @@ export class ReservasController {
     const [info] = await this.db.query(
       `SELECT * FROM area_comum WHERE id_area_comum = $1`, [area]);
     if (!info) throw new BadRequestException('Area comum inexistente.');
+    if (info.requer_reserva === false) {
+      throw new BadRequestException(`O espaço "${info.nome}" é de uso livre e não requer reserva prévia.`);
+    }
 
     const diaSemana = DIAS[new Date(data + 'T12:00:00').getDay()];
     const janelas = await this.db.query(
@@ -147,9 +150,18 @@ export class ReservasController {
 
   /** UC03: registrar a reserva (gatilhos RN01 a RN07 validam no INSERT). */
   @Post() @Perfis('MORADOR')
-  criar(@Req() req: any, @Body() b: {
+  async criar(@Req() req: any, @Body() b: {
     id_area_comum: number; data: string; inicio: string; fim: string; numero_pessoas: number;
   }) {
+    const [area] = await this.db.query(
+      `SELECT nome, requer_reserva FROM area_comum WHERE id_area_comum = $1`,
+      [b.id_area_comum]
+    );
+    if (!area) throw new BadRequestException('Área comum inexistente.');
+    if (area.requer_reserva === false) {
+      throw new BadRequestException(`O espaço "${area.nome}" é de uso livre e não necessita de reserva prévia.`);
+    }
+
     const idPerfil = perfilDoUsuario(req.user, 'MORADOR');
     const fimAjustado = (b.fim === '24:00') ? '23:59:59' : b.fim;
     return this.db.query(`

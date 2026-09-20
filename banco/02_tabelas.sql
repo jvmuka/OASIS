@@ -189,7 +189,7 @@ CREATE TABLE entrega_chave (
     data_hora_retirada     TIMESTAMP  NOT NULL DEFAULT CURRENT_TIMESTAMP,
     data_hora_devolucao    TIMESTAMP,
     observacao             VARCHAR(255),
-    CONSTRAINT fk_ec_chave     FOREIGN KEY (id_chave)              REFERENCES chave (id_chave),
+    CONSTRAINT fk_ec_chave     FOREIGN KEY (id_chave)              REFERENCES chave (id_chave) ON DELETE CASCADE,
     CONSTRAINT fk_ec_solic     FOREIGN KEY (id_perfil_solicitante) REFERENCES perfil (id_perfil),
     CONSTRAINT fk_ec_entrega   FOREIGN KEY (id_perfil_entrega)     REFERENCES perfil (id_perfil),
     CONSTRAINT fk_ec_receb     FOREIGN KEY (id_perfil_recebimento) REFERENCES perfil (id_perfil),

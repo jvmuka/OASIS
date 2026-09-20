@@ -159,6 +159,7 @@ export default function Layout() {
                 </p>
                 <div className="space-y-1">
                   {item('/portaria/painel', 'Painel da Portaria', 'building')}
+                  {item('/portaria/areas-livres', 'Áreas de Uso Livre', 'clock')}
                   {item('/portaria/encomendas', 'Encomendas', 'package')}
                   {item('/portaria/chaves', 'Controle de Chaves', 'key')}
                 </div>
@@ -173,6 +174,8 @@ export default function Layout() {
                 <div className="space-y-1">
                   {item('/sindico/painel', 'Painel Geral', 'home')}
                   {!tipos.includes('PORTEIRO') && item('/portaria/painel', 'Painel da Portaria', 'building')}
+                  {!tipos.includes('PORTEIRO') && item('/portaria/areas-livres', 'Áreas de Uso Livre', 'clock')}
+                  {item('/portaria/chaves', 'Controle de Chaves', 'key')}
                   {item('/sindico/areas', 'Áreas Comuns', 'building')}
                   {item('/sindico/pessoas', 'Pessoas & Unidades', 'users')}
                   {item('/sindico/avisos', 'Publicar Avisos', 'megaphone')}

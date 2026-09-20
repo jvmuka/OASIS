@@ -6,6 +6,7 @@ import { IMAGEM_MAX_BYTES, IMAGEM_MAX_MB, IMAGEM_TIPOS_ACEITOS, IMAGEM_EXTENSOES
 type Area = {
   id_area_comum: number;
   nome: string;
+  descricao?: string | null;
   capacidade: number;
   ativo: boolean;
   duracao_slot_min: number;
@@ -15,6 +16,21 @@ type Area = {
   prazo_cancelamento_horas: number;
   limite_reservas_semana: number;
   reserva_por_dia?: boolean;
+  requer_reserva?: boolean;
+  valor?: number;
+  exige_chave?: boolean;
+  chaves?: {
+    id_chave: number;
+    codigo: string;
+    status: string;
+    responsavel?: string | null;
+    data_hora_retirada?: string | null;
+  }[];
+  status_livre?: 'LIVRE' | 'EM_USO';
+  status_livre_atualizado_em?: string | null;
+  status_livre_observacao?: string | null;
+  status_livre_porteiro?: string | null;
+  em_uso_agora?: boolean;
   imagem_url?: string | null;
   horarios: { dia_semana: string; hora_inicio: string; hora_fim: string }[];
 };
@@ -358,8 +374,17 @@ export default function Areas() {
   const [reativarConfirmar, setReativarConfirmar] = useState<Area | null>(null);
   const [processandoCicloVida, setProcessandoCicloVida] = useState(false);
 
+  // Estados para gestão e edição de chaves físicas pelo Síndico
+  const [chaveEditando, setChaveEditando] = useState<{ id_chave: number; codigo: string; observacao?: string } | null>(null);
+  const [chaveExcluindo, setChaveExcluindo] = useState<{ id_chave: number; codigo: string; status: string } | null>(null);
+  const [modalNovaChaveAreaId, setModalNovaChaveAreaId] = useState<number | null>(null);
+  const [codigoNovaChaveModal, setCodigoNovaChaveModal] = useState('');
+  const [obsNovaChaveModal, setObsNovaChaveModal] = useState('');
+  const [processandoChaveModal, setProcessandoChaveModal] = useState(false);
+
   const [form, setForm] = useState({
     nome: '',
+    descricao: '',
     capacidade: 10,
     tipo_acesso: 'LIVRE',
     tipo_uso: 'RESERVAVEL',
@@ -369,6 +394,10 @@ export default function Areas() {
     prazo_cancelamento_horas: 24,
     limite_reservas_semana: 2,
     reserva_por_dia: false,
+    requer_reserva: true,
+    valor: 0,
+    exige_chave: false,
+    codigo_chave: '',
   });
 
   // Estado avançado para agendamento de manutenção (UI/UX Pro Max)
@@ -492,6 +521,7 @@ export default function Areas() {
       setMsg({ t: `Área "${form.nome}" cadastrada com sucesso.`, tipo: 'ok' });
       setForm({
         nome: '',
+        descricao: '',
         capacidade: 10,
         tipo_acesso: 'LIVRE',
         tipo_uso: 'RESERVAVEL',
@@ -501,6 +531,10 @@ export default function Areas() {
         prazo_cancelamento_horas: 24,
         limite_reservas_semana: 2,
         reserva_por_dia: false,
+        requer_reserva: true,
+        valor: 0,
+        exige_chave: false,
+        codigo_chave: '',
       });
       setHorariosCriar(criarHorariosPadrao());
       if (fileInputCriar.current) fileInputCriar.current.value = '';
@@ -670,10 +704,92 @@ export default function Areas() {
     return itens;
   }
 
+  // --- Operações de Chaves Físicas pelo Síndico ---
+  async function salvarEdicaoChaveModal() {
+    if (!chaveEditando) return;
+    if (!chaveEditando.codigo.trim()) {
+      setMsg({ t: 'O código da chave é obrigatório.', tipo: 'erro' });
+      return;
+    }
+    setProcessandoChaveModal(true);
+    try {
+      await api.put(`/portaria/chaves/${chaveEditando.id_chave}`, {
+        codigo: chaveEditando.codigo.trim(),
+        observacao: chaveEditando.observacao?.trim() || null,
+      });
+      setMsg({ t: `Chave atualizada para "${chaveEditando.codigo.trim().toUpperCase()}" com sucesso!`, tipo: 'ok' });
+      setChaveEditando(null);
+      const novasAreas = await api.get<Area[]>('/areas');
+      setAreas(novasAreas);
+      if (editando) {
+        const atual = novasAreas.find(x => x.id_area_comum === editando.id_area_comum);
+        if (atual) setEditando(prev => prev ? { ...prev, chaves: atual.chaves } : null);
+      }
+    } catch (err: any) {
+      setMsg({ t: err.message, tipo: 'erro' });
+    } finally {
+      setProcessandoChaveModal(false);
+    }
+  }
+
+  async function confirmarExclusaoChaveModal() {
+    if (!chaveExcluindo) return;
+    setProcessandoChaveModal(true);
+    try {
+      await api.delete(`/portaria/chaves/${chaveExcluindo.id_chave}`);
+      setMsg({ t: `Chave "${chaveExcluindo.codigo}" excluída com sucesso.`, tipo: 'ok' });
+      setChaveExcluindo(null);
+      const novasAreas = await api.get<Area[]>('/areas');
+      setAreas(novasAreas);
+      if (editando) {
+        const atual = novasAreas.find(x => x.id_area_comum === editando.id_area_comum);
+        if (atual) setEditando(prev => prev ? { ...prev, chaves: atual.chaves } : null);
+      }
+    } catch (err: any) {
+      setMsg({ t: err.message, tipo: 'erro' });
+    } finally {
+      setProcessandoChaveModal(false);
+    }
+  }
+
+  async function cadastrarNovaChaveModal(e: React.FormEvent) {
+    e.preventDefault();
+    if (!modalNovaChaveAreaId || !codigoNovaChaveModal.trim()) {
+      setMsg({ t: 'Informe o código da nova chave.', tipo: 'erro' });
+      return;
+    }
+    setProcessandoChaveModal(true);
+    try {
+      await api.post('/portaria/chaves', {
+        id_area_comum: modalNovaChaveAreaId,
+        codigo: codigoNovaChaveModal.trim(),
+        observacao: obsNovaChaveModal.trim() || undefined,
+      });
+      setMsg({ t: `Chave "${codigoNovaChaveModal.trim().toUpperCase()}" cadastrada com sucesso!`, tipo: 'ok' });
+      setModalNovaChaveAreaId(null);
+      setCodigoNovaChaveModal('');
+      setObsNovaChaveModal('');
+      const novasAreas = await api.get<Area[]>('/areas');
+      setAreas(novasAreas);
+      if (editando) {
+        const atual = novasAreas.find(x => x.id_area_comum === editando.id_area_comum);
+        if (atual) setEditando(prev => prev ? { ...prev, chaves: atual.chaves } : null);
+      }
+    } catch (err: any) {
+      setMsg({ t: err.message, tipo: 'erro' });
+    } finally {
+      setProcessandoChaveModal(false);
+    }
+  }
+
   function abrirEdicao(a: Area) {
     const antMinHoras = a.antecedencia_minima_horas ?? (a.antecedencia_minima_dias * 24);
     setEditando({
       ...a,
+      descricao: a.descricao ?? '',
+      valor: a.valor !== undefined ? Number(a.valor) : 0,
+      requer_reserva: a.requer_reserva !== undefined ? Boolean(a.requer_reserva) : true,
+      exige_chave: Boolean(a.exige_chave),
       antecedencia_minima_horas: antMinHoras,
       reserva_por_dia: Boolean(a.reserva_por_dia),
     });
@@ -717,6 +833,10 @@ export default function Areas() {
     try {
       await api.put(`/areas/${editando.id_area_comum}`, {
         nome: editando.nome,
+        descricao: editando.descricao ?? '',
+        valor: editando.valor !== undefined ? Number(editando.valor) : 0,
+        requer_reserva: editando.requer_reserva !== undefined ? Boolean(editando.requer_reserva) : true,
+        exige_chave: Boolean(editando.exige_chave),
         capacidade: editando.capacidade,
         duracao_slot_min: editando.duracao_slot_min,
         antecedencia_minima_horas: editando.antecedencia_minima_horas ?? (editando.antecedencia_minima_dias * 24),
@@ -795,14 +915,37 @@ export default function Areas() {
               </div>
             )}
             <div>
-              <p className="font-bold text-slate-900 dark:text-slate-100 leading-tight">{a.nome}</p>
-              <p className="text-[11px] text-slate-400 dark:text-slate-500">Máx. {a.limite_reservas_semana}x/semana por unidade</p>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <p className="font-bold text-slate-900 dark:text-slate-100 leading-tight">{a.nome}</p>
+                {a.requer_reserva === false ? (
+                  <span className="rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.2 text-[10px] font-bold border border-emerald-200/60 dark:border-emerald-800/60">
+                    Uso Livre
+                  </span>
+                ) : (
+                  <span className="rounded-full bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 px-1.5 py-0.2 text-[10px] font-bold border border-sky-200/60 dark:border-sky-800/60">
+                    Com Reserva
+                  </span>
+                )}
+                {Number(a.valor || 0) > 0 && (
+                  <span className="rounded-full bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 px-1.5 py-0.2 text-[10px] font-bold border border-amber-200/60 dark:border-amber-800/60">
+                    R$ {Number(a.valor).toFixed(2).replace('.', ',')}
+                  </span>
+                )}
+              </div>
+              {a.descricao && (
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1 max-w-xs">{a.descricao}</p>
+              )}
+              <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                {a.requer_reserva === false ? 'Acesso livre e rotativo' : `Máx. ${a.limite_reservas_semana}x/semana por unidade`}
+              </p>
             </div>
           </div>
         </td>
         <td className="py-3 px-2 text-xs font-semibold text-slate-700 dark:text-slate-300">{a.capacidade} pessoas</td>
         <td className="py-3 px-2 text-xs text-slate-600 dark:text-slate-300">
-          {a.reserva_por_dia ? (
+          {a.requer_reserva === false ? (
+            <span className="text-xs text-slate-400 dark:text-slate-500 italic">Livre</span>
+          ) : a.reserva_por_dia ? (
             <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 px-2 py-0.5 text-xs font-semibold">
               Dia Inteiro
             </span>
@@ -811,14 +954,54 @@ export default function Areas() {
           )}
         </td>
         <td className="py-3 px-2 text-xs text-slate-600 dark:text-slate-300">
-          {formatarHoras(a.antecedencia_minima_horas ?? a.antecedencia_minima_dias * 24)}
+          {a.requer_reserva === false ? (
+            <span className="text-xs text-slate-400 dark:text-slate-500 italic">—</span>
+          ) : (
+            formatarHoras(a.antecedencia_minima_horas ?? a.antecedencia_minima_dias * 24)
+          )}
         </td>
-        <td className="py-3 px-2 text-xs text-slate-600 dark:text-slate-300">{formatarHoras(a.prazo_cancelamento_horas)}</td>
+        <td className="py-3 px-2 text-xs text-slate-600 dark:text-slate-300">
+          {a.requer_reserva === false ? (
+            <span className="text-xs text-slate-400 dark:text-slate-500 italic">—</span>
+          ) : (
+            formatarHoras(a.prazo_cancelamento_horas)
+          )}
+        </td>
         <td className="py-3 px-2">
           <span className="inline-flex items-center gap-1 rounded-md bg-navy-50 text-navy dark:bg-sky-950/60 dark:text-sky-300 px-2 py-0.5 text-xs font-semibold">
             <Icone nome="calendar" className="h-3 w-3 text-slate-400 dark:text-slate-500" />
             {formatarDiasResumo(a.horarios)}
           </span>
+        </td>
+        <td className="py-3 px-2">
+          {a.exige_chave ? (
+            (() => {
+              const emprestada = a.chaves?.find(c => c.status === 'EMPRESTADA');
+              if (emprestada) {
+                return (
+                  <span
+                    className="inline-flex items-center gap-1 rounded-md bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 px-2 py-0.5 text-[11px] font-semibold border border-amber-200/60 dark:border-amber-800/60"
+                    title={`Chave (${emprestada.codigo}) emprestada para ${emprestada.responsavel || 'morador'}`}
+                  >
+                    <Icone nome="key" className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+                    <span>Emprestada ({emprestada.responsavel?.split(' ')[0] || 'Morador'})</span>
+                  </span>
+                );
+              }
+              const qtdChaves = a.chaves?.length || 0;
+              return (
+                <span
+                  className="inline-flex items-center gap-1 rounded-md bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 text-[11px] font-semibold border border-emerald-200/60 dark:border-emerald-800/60"
+                  title="Chave física controlada pela portaria e disponível na recepção"
+                >
+                  <Icone nome="key" className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                  <span>Disponível {qtdChaves > 1 ? `(${qtdChaves})` : ''}</span>
+                </span>
+              );
+            })()
+          ) : (
+            <span className="text-slate-400 dark:text-slate-500 text-xs italic">Não requer</span>
+          )}
         </td>
         <td className="py-3 px-2">
           <Badge tipo={!a.ativo ? 'perigo' : emManutencao ? 'aviso' : 'sucesso'}>
@@ -887,6 +1070,7 @@ export default function Areas() {
               onClick={() => {
                 setForm({
                   nome: '',
+                  descricao: '',
                   capacidade: 10,
                   tipo_acesso: 'LIVRE',
                   tipo_uso: 'RESERVAVEL',
@@ -896,6 +1080,10 @@ export default function Areas() {
                   prazo_cancelamento_horas: 24,
                   limite_reservas_semana: 2,
                   reserva_por_dia: false,
+                  requer_reserva: true,
+                  valor: 0,
+                  exige_chave: false,
+                  codigo_chave: '',
                 });
                 if (fileInputCriar.current) fileInputCriar.current.value = '';
                 setModalCriarAberto(true);
@@ -962,6 +1150,7 @@ export default function Areas() {
                   <th className="py-3 px-2">Antecedência Mínima</th>
                   <th className="py-3 px-2">Prazo Cancel.</th>
                   <th className="py-3 px-2">Funcionamento</th>
+                  <th className="py-3 px-2">Chave</th>
                   <th className="py-3 px-2">Situação</th>
                   <th className="py-3 px-3 text-right">Ações</th>
                 </tr>
@@ -999,6 +1188,7 @@ export default function Areas() {
                   <th className="py-3 px-2">Antecedência Mínima</th>
                   <th className="py-3 px-2">Prazo Cancel.</th>
                   <th className="py-3 px-2">Funcionamento</th>
+                  <th className="py-3 px-2">Chave</th>
                   <th className="py-3 px-2">Situação</th>
                   <th className="py-3 px-3 text-right">Ações</th>
                 </tr>
@@ -1747,6 +1937,72 @@ export default function Areas() {
             />
           </Campo>
 
+          <Campo rotulo="Descrição Geral do Espaço" dica="Opcional: regras de uso, comodidades, itens inclusos">
+            <textarea
+              className={inputCls + ' resize-y min-h-[70px]'}
+              placeholder="Ex.: Espaço climatizado com churrasqueira, forno de pizza e mesas para convidados."
+              value={form.descricao}
+              onChange={e => setForm({ ...form, descricao: e.target.value })}
+              rows={2}
+            />
+          </Campo>
+
+          {/* Tipo de Espaço / Modalidade de Agendamento */}
+          <div className="space-y-1.5">
+            <span className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+              Tipo de Espaço <span className="text-red-500">*</span>
+            </span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, requer_reserva: true })}
+                className={`flex items-start gap-2.5 rounded-xl border p-3 text-left transition-all cursor-pointer ${
+                  form.requer_reserva
+                    ? 'border-navy bg-navy/5 ring-1 ring-navy dark:border-sky-500 dark:bg-sky-950/30 dark:ring-sky-500'
+                    : 'border-slate-200 bg-white hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-slate-600'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="tipo_espaco_criar"
+                  checked={form.requer_reserva}
+                  onChange={() => setForm({ ...form, requer_reserva: true })}
+                  className="mt-0.5 h-4 w-4 text-navy focus:ring-navy dark:text-sky-500 cursor-pointer"
+                />
+                <div>
+                  <p className="text-xs font-bold text-slate-900 dark:text-slate-100">Requer Agendamento</p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    O morador reserva com antecedência por horários ou diária completa.
+                  </p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, requer_reserva: false, valor: 0 })}
+                className={`flex items-start gap-2.5 rounded-xl border p-3 text-left transition-all cursor-pointer ${
+                  !form.requer_reserva
+                    ? 'border-emerald-600 bg-emerald-50/70 ring-1 ring-emerald-600 dark:border-emerald-400 dark:bg-emerald-950/30 dark:ring-emerald-400'
+                    : 'border-slate-200 bg-white hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-slate-600'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="tipo_espaco_criar"
+                  checked={!form.requer_reserva}
+                  onChange={() => setForm({ ...form, requer_reserva: false, valor: 0 })}
+                  className="mt-0.5 h-4 w-4 text-emerald-600 focus:ring-emerald-500 dark:text-emerald-400 cursor-pointer"
+                />
+                <div>
+                  <p className="text-xs font-bold text-slate-900 dark:text-slate-100">Uso Livre (Sem Agendamento)</p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Acesso rotativo livre (ex.: piscina, academia). O porteiro gerencia o status.
+                  </p>
+                </div>
+              </button>
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <Campo rotulo="Capacidade (Pessoas)" obrigatorio>
               <input
@@ -1759,17 +2015,48 @@ export default function Areas() {
               />
             </Campo>
 
-            <Campo rotulo="Limite Semanal / Unid." obrigatorio>
-              <input
-                type="number"
-                min={1}
-                className={inputCls}
-                placeholder="1"
-                value={form.limite_reservas_semana === 0 ? '' : form.limite_reservas_semana}
-                onChange={e => setForm({ ...form, limite_reservas_semana: parseNum(e.target.value, 1) })}
-              />
-            </Campo>
+            {form.requer_reserva ? (
+              <Campo rotulo="Limite Semanal / Unid." obrigatorio>
+                <input
+                  type="number"
+                  min={1}
+                  className={inputCls}
+                  placeholder="1"
+                  value={form.limite_reservas_semana === 0 ? '' : form.limite_reservas_semana}
+                  onChange={e => setForm({ ...form, limite_reservas_semana: parseNum(e.target.value, 1) })}
+                />
+              </Campo>
+            ) : (
+              <Campo rotulo="Taxa de Reserva" dica="Uso livre não possui taxa">
+                <input
+                  type="text"
+                  disabled
+                  className={inputCls + ' bg-slate-100 text-slate-400 cursor-not-allowed'}
+                  value="Gratuita (Uso Livre)"
+                />
+              </Campo>
+            )}
           </div>
+
+          {form.requer_reserva ? (
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-50/60 dark:bg-slate-850 p-3.5 space-y-3.5">
+              <Campo
+                rotulo="Taxa de Reserva (R$)"
+                dica="Deixe 0 para gratuita. Se cobrada, o morador é alertado de que o valor constará no boleto do condomínio."
+              >
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400">R$</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    className={`${inputCls} pl-9 font-semibold`}
+                    placeholder="0,00"
+                    value={form.valor === 0 ? '' : form.valor}
+                    onChange={e => setForm({ ...form, valor: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
+              </Campo>
 
           {/* Modalidade de Reserva */}
           <div className="space-y-1.5">
@@ -1964,8 +2251,84 @@ export default function Areas() {
               onChange={e => setForm({ ...form, antecedencia_maxima_dias: parseNum(e.target.value, 0) })}
             />
           </Campo>
+        </div>
+      ) : null}
 
-          {/* Configuração de Dias e Horários de Funcionamento */}
+      {/* Controle de Chave Física */}
+      <div className="rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-50/60 dark:bg-slate-850 p-3.5 space-y-2.5">
+        <div className="flex items-center gap-2">
+          <Icone nome="key" className="h-4 w-4 text-amber-500" />
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200">
+            Controle de Chave Física
+          </span>
+        </div>
+        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+          Defina se este espaço possui fechadura com chave física que deve ser controlada pela portaria (empréstimo/devolução aos moradores).
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+          <button
+            type="button"
+            onClick={() => setForm({ ...form, exige_chave: false })}
+            className={`flex items-start gap-2.5 rounded-xl border p-3 text-left transition-all cursor-pointer ${
+              !form.exige_chave
+                ? 'border-navy bg-navy/5 ring-1 ring-navy dark:border-sky-500 dark:bg-sky-950/30 dark:ring-sky-500'
+                : 'border-slate-200 bg-white hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-slate-600'
+            }`}
+          >
+            <input
+              type="radio"
+              name="exige_chave_criar"
+              checked={!form.exige_chave}
+              onChange={() => setForm({ ...form, exige_chave: false })}
+              className="mt-0.5 h-4 w-4 text-navy focus:ring-navy dark:text-sky-500 cursor-pointer"
+            />
+            <div>
+              <p className="text-xs font-bold text-slate-900 dark:text-slate-100">Não Requer Chave</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Acesso livre ou por fechadura digital. Não constará no claviculário da portaria.
+              </p>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setForm({ ...form, exige_chave: true })}
+            className={`flex items-start gap-2.5 rounded-xl border p-3 text-left transition-all cursor-pointer ${
+              form.exige_chave
+                ? 'border-amber-500 bg-amber-500/10 ring-1 ring-amber-500 dark:border-amber-400 dark:bg-amber-950/30 dark:ring-amber-400'
+                : 'border-slate-200 bg-white hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-slate-600'
+            }`}
+          >
+            <input
+              type="radio"
+              name="exige_chave_criar"
+              checked={form.exige_chave}
+              onChange={() => setForm({ ...form, exige_chave: true })}
+              className="mt-0.5 h-4 w-4 text-amber-600 focus:ring-amber-500 dark:text-amber-400 cursor-pointer"
+            />
+            <div>
+              <p className="text-xs font-bold text-slate-900 dark:text-slate-100">Requer Chave Física</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Aparece no claviculário da portaria para empréstimo e devolução de moradores.
+              </p>
+            </div>
+          </button>
+        </div>
+        {form.exige_chave && (
+          <div className="pt-2">
+            <Campo rotulo="Código da Chave (Opcional)" dica="Se deixar em branco, um código como CH-SL-01 será gerado automaticamente.">
+              <input
+                className={inputCls}
+                placeholder="Ex.: CH-SF-01"
+                value={form.codigo_chave}
+                onChange={e => setForm({ ...form, codigo_chave: e.target.value })}
+              />
+            </Campo>
+          </div>
+        )}
+      </div>
+
+      {/* Configuração de Dias e Horários de Funcionamento */}
           <SeletorHorariosSemana
             horarios={horariosCriar}
             onChange={setHorariosCriar}
@@ -2021,6 +2384,72 @@ export default function Areas() {
               />
             </Campo>
 
+            <Campo rotulo="Descrição Geral do Espaço" dica="Opcional: regras de uso, comodidades, itens inclusos">
+              <textarea
+                className={inputCls + ' resize-y min-h-[70px]'}
+                placeholder="Ex.: Espaço climatizado com churrasqueira, forno de pizza e mesas para convidados."
+                value={editando.descricao ?? ''}
+                onChange={e => setEditando({ ...editando, descricao: e.target.value })}
+                rows={2}
+              />
+            </Campo>
+
+            {/* Tipo de Espaço / Modalidade de Agendamento */}
+            <div className="space-y-1.5">
+              <span className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                Tipo de Espaço <span className="text-red-500">*</span>
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditando({ ...editando, requer_reserva: true })}
+                  className={`flex items-start gap-2.5 rounded-xl border p-3 text-left transition-all cursor-pointer ${
+                    editando.requer_reserva !== false
+                      ? 'border-navy bg-navy/5 ring-1 ring-navy dark:border-sky-500 dark:bg-sky-950/30 dark:ring-sky-500'
+                      : 'border-slate-200 bg-white hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-slate-600'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="tipo_espaco_editar"
+                    checked={editando.requer_reserva !== false}
+                    onChange={() => setEditando({ ...editando, requer_reserva: true })}
+                    className="mt-0.5 h-4 w-4 text-navy focus:ring-navy dark:text-sky-500 cursor-pointer"
+                  />
+                  <div>
+                    <p className="text-xs font-bold text-slate-900 dark:text-slate-100">Requer Agendamento</p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      O morador reserva com antecedência por horários ou diária completa.
+                    </p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setEditando({ ...editando, requer_reserva: false, valor: 0 })}
+                  className={`flex items-start gap-2.5 rounded-xl border p-3 text-left transition-all cursor-pointer ${
+                    editando.requer_reserva === false
+                      ? 'border-emerald-600 bg-emerald-50/70 ring-1 ring-emerald-600 dark:border-emerald-400 dark:bg-emerald-950/30 dark:ring-emerald-400'
+                      : 'border-slate-200 bg-white hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-slate-600'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="tipo_espaco_editar"
+                    checked={editando.requer_reserva === false}
+                    onChange={() => setEditando({ ...editando, requer_reserva: false, valor: 0 })}
+                    className="mt-0.5 h-4 w-4 text-emerald-600 focus:ring-emerald-500 dark:text-emerald-400 cursor-pointer"
+                  />
+                  <div>
+                    <p className="text-xs font-bold text-slate-900 dark:text-slate-100">Uso Livre (Sem Agendamento)</p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Acesso rotativo livre (ex.: piscina, academia). O porteiro gerencia o status.
+                    </p>
+                  </div>
+                </button>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <Campo rotulo="Capacidade (Pessoas)">
                 <input
@@ -2032,16 +2461,47 @@ export default function Areas() {
                 />
               </Campo>
 
-              <Campo rotulo="Limite Semanal / Unid.">
-                <input
-                  type="number"
-                  min={1}
-                  className={inputCls}
-                  value={editando.limite_reservas_semana === 0 ? '' : editando.limite_reservas_semana}
-                  onChange={e => setEditando({ ...editando, limite_reservas_semana: parseNum(e.target.value, 1) })}
-                />
-              </Campo>
+              {editando.requer_reserva !== false ? (
+                <Campo rotulo="Limite Semanal / Unid.">
+                  <input
+                    type="number"
+                    min={1}
+                    className={inputCls}
+                    value={editando.limite_reservas_semana === 0 ? '' : editando.limite_reservas_semana}
+                    onChange={e => setEditando({ ...editando, limite_reservas_semana: parseNum(e.target.value, 1) })}
+                  />
+                </Campo>
+              ) : (
+                <Campo rotulo="Taxa de Reserva" dica="Uso livre não possui taxa">
+                  <input
+                    type="text"
+                    disabled
+                    className={inputCls + ' bg-slate-100 text-slate-400 cursor-not-allowed'}
+                    value="Gratuita (Uso Livre)"
+                  />
+                </Campo>
+              )}
             </div>
+
+            {editando.requer_reserva !== false ? (
+              <div className="rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-50/60 dark:bg-slate-850 p-3.5 space-y-3.5">
+                <Campo
+                  rotulo="Taxa de Reserva (R$)"
+                  dica="Deixe 0 para gratuita. Se cobrada, o morador é alertado de que o valor constará no boleto do condomínio."
+                >
+                  <div className="relative">
+                    <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400">R$</span>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      className={`${inputCls} pl-9 font-semibold`}
+                      placeholder="0,00"
+                      value={editando.valor === 0 ? '' : (editando.valor ?? '')}
+                      onChange={e => setEditando({ ...editando, valor: parseFloat(e.target.value) || 0 })}
+                    />
+                  </div>
+                </Campo>
 
             {/* Modalidade de Reserva */}
             <div className="space-y-1.5">
@@ -2236,8 +2696,153 @@ export default function Areas() {
                 onChange={e => setEditando({ ...editando, antecedencia_maxima_dias: parseNum(e.target.value, 0) })}
               />
             </Campo>
+          </div>
+        ) : null}
 
-            {/* Configuração de Dias e Horários de Funcionamento */}
+        {/* Controle de Chave Física */}
+        <div className="rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-50/60 dark:bg-slate-850 p-3.5 space-y-2.5">
+          <div className="flex items-center gap-2">
+            <Icone nome="key" className="h-4 w-4 text-amber-500" />
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200">
+              Controle de Chave Física
+            </span>
+          </div>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+            Defina se este espaço possui fechadura com chave física que deve ser controlada pela portaria (empréstimo/devolução aos moradores).
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => setEditando({ ...editando, exige_chave: false })}
+              className={`flex items-start gap-2.5 rounded-xl border p-3 text-left transition-all cursor-pointer ${
+                !editando.exige_chave
+                  ? 'border-navy bg-navy/5 ring-1 ring-navy dark:border-sky-500 dark:bg-sky-950/30 dark:ring-sky-500'
+                  : 'border-slate-200 bg-white hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-slate-600'
+              }`}
+            >
+              <input
+                type="radio"
+                name="exige_chave_editar"
+                checked={!editando.exige_chave}
+                onChange={() => setEditando({ ...editando, exige_chave: false })}
+                className="mt-0.5 h-4 w-4 text-navy focus:ring-navy dark:text-sky-500 cursor-pointer"
+              />
+              <div>
+                <p className="text-xs font-bold text-slate-900 dark:text-slate-100">Não Requer Chave</p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Acesso livre ou digital. Não constará no claviculário da portaria.
+                </p>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setEditando({ ...editando, exige_chave: true })}
+              className={`flex items-start gap-2.5 rounded-xl border p-3 text-left transition-all cursor-pointer ${
+                editando.exige_chave
+                  ? 'border-amber-500 bg-amber-500/10 ring-1 ring-amber-500 dark:border-amber-400 dark:bg-amber-950/30 dark:ring-amber-400'
+                  : 'border-slate-200 bg-white hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-slate-600'
+              }`}
+            >
+              <input
+                type="radio"
+                name="exige_chave_editar"
+                checked={Boolean(editando.exige_chave)}
+                onChange={() => setEditando({ ...editando, exige_chave: true })}
+                className="mt-0.5 h-4 w-4 text-amber-600 focus:ring-amber-500 dark:text-amber-400 cursor-pointer"
+              />
+              <div>
+                <p className="text-xs font-bold text-slate-900 dark:text-slate-100">Requer Chave Física</p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Aparece no claviculário da portaria para controle de empréstimos.
+                </p>
+              </div>
+            </button>
+          </div>
+
+          {/* Status das Chaves cadastradas */}
+          {editando.exige_chave && (
+            <div className="mt-3 rounded-xl border border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-900 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  Chaves Registradas ({editando.chaves?.length || 0})
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModalNovaChaveAreaId(editando.id_area_comum);
+                    setCodigoNovaChaveModal('');
+                    setObsNovaChaveModal('');
+                  }}
+                  className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold text-navy hover:bg-navy-50 dark:text-sky-400 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  <Icone nome="plus" className="h-3 w-3" />
+                  <span>Adicionar Cópia / Via</span>
+                </button>
+              </div>
+
+              {(!editando.chaves || editando.chaves.length === 0) ? (
+                <div className="rounded-lg border border-dashed border-slate-200 dark:border-slate-800 p-3 text-center">
+                  <p className="text-xs text-slate-400 dark:text-slate-500">
+                    Nenhuma chave cadastrada ainda para este espaço. Clique no botão acima para adicionar.
+                  </p>
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {editando.chaves.map(ch => (
+                    <div key={ch.id_chave} className="py-2 flex items-center justify-between text-xs gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Icone nome="key" className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                        <span className="font-mono font-bold text-slate-800 dark:text-slate-200 truncate">{ch.codigo}</span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {ch.status === 'EMPRESTADA' ? (
+                          <span className="rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 px-2 py-0.5 text-[11px] font-semibold">
+                            Emprestada: {ch.responsavel || 'Morador'}
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 text-[11px] font-semibold">
+                            Disponível na Portaria
+                          </span>
+                        )}
+                        <div className="flex items-center gap-1 ml-1">
+                          <button
+                            type="button"
+                            onClick={() => setChaveEditando({ id_chave: ch.id_chave, codigo: ch.codigo, observacao: '' })}
+                            title="Editar código ou nome da chave"
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-navy hover:bg-slate-100 dark:hover:bg-slate-800 dark:hover:text-sky-400 transition-colors cursor-pointer"
+                          >
+                            <Icone nome="edit" className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (ch.status === 'EMPRESTADA') {
+                                setMsg({ t: `A chave "${ch.codigo}" está emprestada no momento e não pode ser excluída. Registre a devolução antes.`, tipo: 'erro' });
+                                return;
+                              }
+                              setChaveExcluindo(ch);
+                            }}
+                            disabled={ch.status === 'EMPRESTADA'}
+                            title={ch.status === 'EMPRESTADA' ? 'Chave emprestada não pode ser excluída' : 'Excluir chave'}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            <Icone nome="trash" className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 pt-1">
+                Para realizar empréstimos e devoluções aos moradores, acesse o menu <b>Controle de Chaves</b>.
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Configuração de Dias e Horários de Funcionamento */}
             <SeletorHorariosSemana
               horarios={horariosEditar}
               onChange={setHorariosEditar}
@@ -2273,6 +2878,96 @@ export default function Areas() {
           </div>
         )}
       </Modal>
+
+      {/* Modal de Edição de Chave Física (Síndico) */}
+      <Modal
+        aberto={!!chaveEditando}
+        fechar={() => setChaveEditando(null)}
+        titulo="Editar Chave Física"
+        largura="max-w-md"
+        rodape={
+          <>
+            <Botao type="button" variante="claro" onClick={() => setChaveEditando(null)}>
+              Cancelar
+            </Botao>
+            <Botao type="button" onClick={salvarEdicaoChaveModal} carregando={processandoChaveModal}>
+              Salvar Chave
+            </Botao>
+          </>
+        }
+      >
+        {chaveEditando && (
+          <div className="space-y-4">
+            <Campo rotulo="Código / Nome da Chave" obrigatorio dica="Identificação física gravada na chave ou chaveiro">
+              <input
+                className={inputCls}
+                value={chaveEditando.codigo}
+                onChange={e => setChaveEditando({ ...chaveEditando, codigo: e.target.value })}
+                placeholder="Ex.: CH-PIZZA-01"
+                required
+              />
+            </Campo>
+            <Campo rotulo="Observação / Descrição" dica="Opcional: chave mestra, cópia reserva, etc.">
+              <input
+                className={inputCls}
+                value={chaveEditando.observacao || ''}
+                onChange={e => setChaveEditando({ ...chaveEditando, observacao: e.target.value })}
+                placeholder="Ex.: Cópia da recepção"
+              />
+            </Campo>
+          </div>
+        )}
+      </Modal>
+
+      {/* Modal de Cadastro de Nova Via de Chave (Síndico) */}
+      <Modal
+        aberto={!!modalNovaChaveAreaId}
+        fechar={() => setModalNovaChaveAreaId(null)}
+        titulo="Cadastrar Nova Cópia / Via de Chave"
+        largura="max-w-md"
+        rodape={
+          <>
+            <Botao type="button" variante="claro" onClick={() => setModalNovaChaveAreaId(null)}>
+              Cancelar
+            </Botao>
+            <Botao type="button" onClick={cadastrarNovaChaveModal} carregando={processandoChaveModal}>
+              Cadastrar Chave
+            </Botao>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Campo rotulo="Código da Nova Chave" obrigatorio dica="Identificação única da chave">
+            <input
+              className={inputCls}
+              value={codigoNovaChaveModal}
+              onChange={e => setCodigoNovaChaveModal(e.target.value)}
+              placeholder="Ex.: CH-PIZZA-02"
+              required
+            />
+          </Campo>
+          <Campo rotulo="Observação / Destino" dica="Opcional: 2ª via da portaria, cópia do síndico, etc.">
+            <input
+              className={inputCls}
+              value={obsNovaChaveModal}
+              onChange={e => setObsNovaChaveModal(e.target.value)}
+              placeholder="Ex.: 2ª via sobressalente"
+            />
+          </Campo>
+        </div>
+      </Modal>
+
+      {/* Confirmação de Exclusão de Chave Física */}
+      <ModalConfirmacao
+        aberto={!!chaveExcluindo}
+        fechar={() => setChaveExcluindo(null)}
+        confirmar={confirmarExclusaoChaveModal}
+        titulo="Excluir Chave Física"
+        mensagem={`Tem certeza que deseja excluir permanentemente a chave "${chaveExcluindo?.codigo}"? Esta ação removerá a chave do claviculário.`}
+        textoBotaoConfirmar="Excluir Chave"
+        variante="perigo"
+        carregando={processandoChaveModal}
+      />
 
       <Mensagem texto={msg.t} tipo={msg.tipo} aoFechar={() => setMsg({ t: '', tipo: 'ok' })} />
     </div>

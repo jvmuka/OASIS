@@ -6,7 +6,10 @@ import Calendario from '../../components/Calendario';
 type Area = {
   id_area_comum: number;
   nome: string;
+  descricao?: string;
   capacidade: number;
+  valor?: number | string;
+  requer_reserva?: boolean;
   idade_minima?: number;
   ativo: boolean;
   duracao_slot_min: number;
@@ -18,6 +21,11 @@ type Area = {
   reserva_por_dia?: boolean;
   imagem_url?: string | null;
   horarios?: { dia_semana: string; hora_inicio: string; hora_fim: string }[];
+  em_uso_agora?: boolean;
+  status_livre?: 'LIVRE' | 'EM_USO';
+  status_livre_atualizado_em?: string;
+  status_livre_observacao?: string;
+  status_livre_porteiro?: string;
 };
 
 const DOW_MAP: Record<string, number> = {
@@ -66,6 +74,7 @@ export default function NovaReserva() {
   const s = sessaoAtual()!;
   const unidade = s.unidades[0];
   const [areas, setAreas] = useState<Area[]>([]);
+  const [abaAtiva, setAbaAtiva] = useState<'com_reserva' | 'livre'>('com_reserva');
   const [area, setArea] = useState<Area | null>(null);
   const [data, setData] = useState('');
   const [grade, setGrade] = useState<Grade | null>(null);
@@ -82,8 +91,15 @@ export default function NovaReserva() {
   });
 
   useEffect(() => {
-    api.get<Area[]>('/areas').then(a => setAreas(a.filter(x => x.ativo)));
+    carregarAreas();
   }, []);
+
+  function carregarAreas() {
+    api.get<Area[]>('/areas').then(a => setAreas(a.filter(x => x.ativo)));
+  }
+
+  const areasComReserva = areas.filter(a => a.requer_reserva !== false);
+  const areasLivres = areas.filter(a => a.requer_reserva === false);
 
   useEffect(() => {
     if (!area || !area.reserva_por_dia) {
@@ -138,6 +154,7 @@ export default function NovaReserva() {
           .catch(() => {});
       }
       await consultar(data, false);
+      carregarAreas();
     } catch (e: any) {
       setMsg({ t: e.message, tipo: 'erro' });
     } finally {
@@ -168,12 +185,15 @@ export default function NovaReserva() {
     setData('');
     setDatasOcupadas([]);
     setMsg({ t: '', tipo: 'ok' });
+    carregarAreas();
   }
+
+  const taxaNumero = area ? Number(area.valor || 0) : 0;
 
   return (
     <div className="space-y-6">
       <Titulo
-        sub="Selecione um espaço coletivo, consulte o calendário e reserve seus horários."
+        sub="Consulte os espaços coletivos do condomínio, horários de funcionamento e reserve sua data."
         icone={<Icone nome="calendar" className="h-5 w-5" />}
         acao={
           <div className="flex items-center gap-2 rounded-xl bg-slate-100/80 dark:bg-slate-800 px-3.5 py-1.5 text-xs text-slate-600 dark:text-slate-300 font-medium">
@@ -185,72 +205,240 @@ export default function NovaReserva() {
           </div>
         }
       >
-        Nova Reserva de Área
+        Áreas Comuns & Reservas
       </Titulo>
 
-      {/* Passo 1: Seleção de Área */}
+      {/* Passo 1: Seleção de Área ou Consulta de Áreas Livres */}
       {!area && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Escolha a Área Comum ({areas.length} disponíveis)
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {areas.map(a => (
-              <Cartao
-                key={a.id_area_comum}
-                className="group cursor-pointer overflow-hidden p-0 transition-all duration-200 hover:-translate-y-0.5 hover:border-navy/30 dark:hover:border-sky-500/40 hover:shadow-card-hover"
+          {/* Se houver áreas de uso livre, exibe abas; caso contrário, esconde as abas */}
+          {areasLivres.length > 0 ? (
+            <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
+              <button
+                type="button"
+                onClick={() => setAbaAtiva('com_reserva')}
+                className={`inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                  abaAtiva === 'com_reserva'
+                    ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
+                    : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
+                }`}
               >
-                <div onClick={() => { setArea(a); setPessoas(Math.min(pessoas, a.capacidade)); }}>
-                  {/* Foto da Área */}
-                  <div className="relative h-44 w-full overflow-hidden bg-slate-100 dark:bg-slate-800">
-                    {a.imagem_url ? (
-                      <img
-                        src={a.imagem_url}
-                        alt={a.nome}
-                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 text-slate-400">
-                        <Icone nome="building" className="h-10 w-10" />
-                      </div>
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent" />
-                    <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-white">
-                      <span className="text-xs font-semibold backdrop-blur-xs bg-black/30 rounded-md px-2 py-0.5">
-                        Capacidade: {a.capacidade} pessoas
-                      </span>
-                    </div>
-                  </div>
+                <Icone nome="calendar" className="h-4 w-4" />
+                Espaços com Agendamento ({areasComReserva.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setAbaAtiva('livre')}
+                className={`inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                  abaAtiva === 'livre'
+                    ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
+                    : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
+                }`}
+              >
+                <Icone nome="sparkles" className="h-4 w-4" />
+                Espaços de Uso Livre ({areasLivres.length})
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Escolha a Área Comum ({areasComReserva.length} disponíveis)
+              </h2>
+            </div>
+          )}
 
-                  {/* Informações da Área */}
-                  <div className="p-4">
-                    <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 group-hover:text-navy dark:group-hover:text-sky-400 transition-colors">
-                      {a.nome}
-                    </h3>
-                    <div className="mt-2.5 flex flex-wrap gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
-                      <span className="rounded-md bg-navy-50 text-navy dark:bg-sky-950/60 dark:text-sky-300 px-2 py-0.5 font-bold">
-                        {formatarDiasSemana(a.horarios)}
-                      </span>
-                      {a.reserva_por_dia && (
-                        <span className="rounded-md bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 px-2 py-0.5 font-bold">
-                          Reserva por Diária
-                        </span>
-                      )}
-                      <span className="rounded-md bg-slate-100 dark:bg-slate-800 dark:text-slate-300 px-2 py-0.5 font-medium">
-                        Antecedência: {a.antecedencia_minima_dias} a {a.antecedencia_maxima_dias}d
-                      </span>
-                      <span className="rounded-md bg-slate-100 dark:bg-slate-800 dark:text-slate-300 px-2 py-0.5 font-medium">
-                        Máx. {a.limite_reservas_semana}x/sem
-                      </span>
+          {/* Lista de Espaços de Uso Livre (Sem Reserva) */}
+          {areasLivres.length > 0 && abaAtiva === 'livre' && (
+            <div className="space-y-4 animate-fade-in">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Estes espaços têm acesso rotativo e não requerem agendamento prévio. O status de ocupação é atualizado pela portaria em tempo real.
+                </p>
+                <Botao variante="claro" tamanho="sm" icone={<Icone nome="filter" className="h-3.5 w-3.5" />} onClick={carregarAreas}>
+                  Atualizar Status
+                </Botao>
+              </div>
+
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                {areasLivres.map(a => {
+                  const emUso = a.status_livre === 'EM_USO';
+                  return (
+                    <Cartao
+                      key={a.id_area_comum}
+                      className="overflow-hidden p-0 border border-slate-200 dark:border-slate-800 flex flex-col justify-between"
+                    >
+                      <div>
+                        {/* Foto e Badge de Status Livre */}
+                        <div className="relative h-44 w-full overflow-hidden bg-slate-100 dark:bg-slate-800">
+                          {a.imagem_url ? (
+                            <img src={a.imagem_url} alt={a.nome} className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 text-slate-400">
+                              <Icone nome="building" className="h-10 w-10" />
+                            </div>
+                          )}
+                          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/70 via-transparent to-transparent" />
+                          
+                          {/* Badge de Ocupação da Portaria */}
+                          <div className="absolute top-3 right-3">
+                            {emUso ? (
+                              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/95 text-white text-[11px] font-bold px-2.5 py-1 backdrop-blur-xs shadow-sm">
+                                <span className="h-2 w-2 rounded-full bg-white animate-pulse" />
+                                Em uso agora
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600/90 text-white text-[11px] font-bold px-2.5 py-1 backdrop-blur-xs shadow-sm">
+                                <span className="h-2 w-2 rounded-full bg-white" />
+                                Livre para uso
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-white">
+                            <span className="text-xs font-semibold backdrop-blur-xs bg-black/40 rounded-md px-2 py-0.5">
+                              Capacidade: {a.capacidade} pessoas
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Informações da Área Livre */}
+                        <div className="p-4 space-y-3">
+                          <div>
+                            <div className="flex items-center justify-between gap-2">
+                              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">{a.nome}</h3>
+                              <span className="rounded-md bg-sky-50 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300 px-2 py-0.5 text-[10px] font-bold">
+                                Acesso Livre
+                              </span>
+                            </div>
+                            {a.descricao && (
+                              <p className="mt-2 text-xs text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-line">
+                                {a.descricao}
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="rounded-xl border border-slate-100 bg-slate-50/70 dark:border-slate-800/80 dark:bg-slate-800/40 p-2.5 space-y-1.5 text-[11px]">
+                            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                              <Icone nome="clock" className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                              <span>Funcionamento: <b>{formatarDiasSemana(a.horarios)}</b></span>
+                            </div>
+                            {a.status_livre_observacao && (
+                              <div className="flex items-start gap-1.5 text-amber-800 dark:text-amber-300 font-medium pt-0.5 border-t border-slate-200/60 dark:border-slate-700/60">
+                                <Icone nome="info" className="h-3.5 w-3.5 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                                <span>Obs. Portaria: <i>"{a.status_livre_observacao}"</i></span>
+                              </div>
+                            )}
+                            {a.status_livre_atualizado_em && (
+                              <p className="text-[10px] text-slate-400 dark:text-slate-500 pt-0.5">
+                                Atualizado às {new Date(a.status_livre_atualizado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} ({new Date(a.status_livre_atualizado_em).toLocaleDateString('pt-BR')}) por {a.status_livre_porteiro || 'Portaria'}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="p-4 pt-0">
+                        <div className="rounded-lg bg-slate-100/80 dark:bg-slate-800/60 p-2 text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                          <Icone nome="check" className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                          <span>Não requer agendamento prévio.</span>
+                        </div>
+                      </div>
+                    </Cartao>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Lista de Espaços com Agendamento (Reserva) */}
+          {(areasLivres.length === 0 || abaAtiva === 'com_reserva') && (
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 animate-fade-in">
+              {areasComReserva.map(a => {
+                const valorArea = Number(a.valor || 0);
+                return (
+                  <Cartao
+                    key={a.id_area_comum}
+                    className="group cursor-pointer overflow-hidden p-0 transition-all duration-200 hover:-translate-y-0.5 hover:border-navy/30 dark:hover:border-sky-500/40 hover:shadow-card-hover"
+                  >
+                    <div onClick={() => { setArea(a); setPessoas(Math.min(pessoas, a.capacidade)); }}>
+                      {/* Foto da Área */}
+                      <div className="relative h-44 w-full overflow-hidden bg-slate-100 dark:bg-slate-800">
+                        {a.imagem_url ? (
+                          <img
+                            src={a.imagem_url}
+                            alt={a.nome}
+                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 text-slate-400">
+                            <Icone nome="building" className="h-10 w-10" />
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent" />
+
+                        {/* Indicador de ocupação em tempo real */}
+                        <div className="absolute top-3 right-3">
+                          {a.em_uso_agora ? (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/95 text-white text-[11px] font-bold px-2.5 py-0.5 backdrop-blur-xs shadow-sm">
+                              <span className="h-2 w-2 rounded-full bg-white animate-pulse" />
+                              Em uso agora
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600/90 text-white text-[11px] font-bold px-2.5 py-0.5 backdrop-blur-xs shadow-sm">
+                              <span className="h-2 w-2 rounded-full bg-white" />
+                              Livre agora
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-white">
+                          <span className="text-xs font-semibold backdrop-blur-xs bg-black/30 rounded-md px-2 py-0.5">
+                            Capacidade: {a.capacidade} pessoas
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Informações da Área */}
+                      <div className="p-4 space-y-2">
+                        <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 group-hover:text-navy dark:group-hover:text-sky-400 transition-colors">
+                          {a.nome}
+                        </h3>
+
+                        {a.descricao && (
+                          <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
+                            {a.descricao}
+                          </p>
+                        )}
+
+                        <div className="flex flex-wrap gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 pt-1">
+                          <span className="rounded-md bg-navy-50 text-navy dark:bg-sky-950/60 dark:text-sky-300 px-2 py-0.5 font-bold">
+                            {formatarDiasSemana(a.horarios)}
+                          </span>
+                          {a.reserva_por_dia && (
+                            <span className="rounded-md bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 px-2 py-0.5 font-bold">
+                              Reserva por Diária
+                            </span>
+                          )}
+                          {/* Exibe valor APENAS se for cobrada taxa (> 0). Quando gratuita, não exibe aviso */}
+                          {valorArea > 0 && (
+                            <span className="rounded-md bg-amber-50 text-amber-900 border border-amber-300/80 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-700/80 px-2 py-0.5 font-bold">
+                              Taxa: R$ {valorArea.toFixed(2).replace('.', ',')} (Boleto)
+                            </span>
+                          )}
+                          <span className="rounded-md bg-slate-100 dark:bg-slate-800 dark:text-slate-300 px-2 py-0.5 font-medium">
+                            Antecedência: {a.antecedencia_minima_dias} a {a.antecedencia_maxima_dias}d
+                          </span>
+                          <span className="rounded-md bg-slate-100 dark:bg-slate-800 dark:text-slate-300 px-2 py-0.5 font-medium">
+                            Máx. {a.limite_reservas_semana}x/sem
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              </Cartao>
-            ))}
-          </div>
+                  </Cartao>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -297,6 +485,21 @@ export default function NovaReserva() {
               </Botao>
             </div>
 
+            {/* Aviso de Taxa no Boleto - Exibido APENAS quando a área possui taxa configurada (> 0) */}
+            {taxaNumero > 0 && (
+              <div className="mb-5 flex items-start gap-3 rounded-xl border border-amber-300/90 bg-amber-50/90 dark:border-amber-700/70 dark:bg-amber-950/40 p-3.5 text-xs text-amber-950 dark:text-amber-200">
+                <Icone nome="alert" className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+                <div className="space-y-1">
+                  <span className="font-bold text-sm">
+                    Taxa de Reserva: R$ {taxaNumero.toFixed(2).replace('.', ',')}
+                  </span>
+                  <p className="text-amber-900 dark:text-amber-300 leading-relaxed">
+                    A taxa de utilização deste espaço será cobrada diretamente no próximo <b>boleto da taxa de condomínio</b> da sua unidade. O agendamento é registrado de imediato e o lançamento financeiro ocorrerá no fechamento mensal do condomínio.
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="grid gap-6 md:grid-cols-12">
               {/* Coluna Esquerda: Calendário & Regras */}
               <div className="space-y-4 md:col-span-6">
@@ -328,6 +531,15 @@ export default function NovaReserva() {
                     onChange={e => setPessoas(Math.max(1, Math.min(area.capacidade, Number(e.target.value) || 1)))}
                   />
                 </Campo>
+
+                {area.descricao && (
+                  <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 dark:border-slate-800 dark:bg-slate-800/50 p-3.5 text-xs text-slate-600 dark:text-slate-300 space-y-1">
+                    <p className="font-bold text-navy dark:text-sky-400">Descrição e Orientações:</p>
+                    <p className="text-slate-600 dark:text-slate-300 whitespace-pre-line leading-relaxed">
+                      {area.descricao}
+                    </p>
+                  </div>
+                )}
 
                 <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 dark:border-slate-800 dark:bg-slate-800/50 p-3.5 text-xs text-slate-600 dark:text-slate-300 space-y-1">
                   <p className="font-bold text-navy dark:text-sky-400">Regras deste Espaço:</p>
@@ -449,8 +661,13 @@ export default function NovaReserva() {
                 {/* Botão de Confirmação */}
                 <div className="mt-6 border-t border-slate-100 dark:border-slate-800 pt-4">
                   {slot && (
-                    <div className="mb-3 rounded-xl bg-navy-50/70 dark:bg-sky-950/50 dark:text-sky-300 p-3 text-xs text-navy font-medium">
-                      Resumo: <b>{area.nome}</b> em <b>{data}</b> das <b>{slot.inicio} às {slot.fim}</b> ({pessoas} pessoas).
+                    <div className="mb-3 rounded-xl bg-navy-50/70 dark:bg-sky-950/50 dark:text-sky-300 p-3 text-xs text-navy font-medium space-y-1">
+                      <div>Resumo: <b>{area.nome}</b> em <b>{data}</b> das <b>{slot.inicio} às {slot.fim}</b> ({pessoas} pessoas).</div>
+                      {taxaNumero > 0 && (
+                        <div className="text-amber-800 dark:text-amber-300 font-bold">
+                          • Taxa: R$ {taxaNumero.toFixed(2).replace('.', ',')} (será cobrada no boleto do condomínio)
+                        </div>
+                      )}
                     </div>
                   )}
                   <div className="flex gap-2.5">
@@ -492,6 +709,17 @@ export default function NovaReserva() {
                     <p>Data do Agendamento: <b className="text-slate-900 dark:text-slate-100">{data} ({grade?.dia_semana})</b></p>
                     <p>Horário Selecionado: <b className="text-slate-900 dark:text-slate-100">{slot.inicio} às {slot.fim}</b></p>
                     <p>Pessoas Presentes: <b className="text-slate-900 dark:text-slate-100">{pessoas} pessoa(s)</b></p>
+                    {taxaNumero > 0 && (
+                      <div className="rounded-lg bg-amber-100/90 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-700/80 p-2.5 text-amber-950 dark:text-amber-200">
+                        <p className="font-bold flex items-center gap-1.5">
+                          <Icone nome="alert" className="h-3.5 w-3.5 shrink-0 text-amber-700 dark:text-amber-400" />
+                          Aviso de Cobrança no Boleto:
+                        </p>
+                        <p className="mt-1">
+                          Será debitada a taxa de <b>R$ {taxaNumero.toFixed(2).replace('.', ',')}</b> diretamente no próximo <b>boleto da taxa de condomínio</b> da sua unidade.
+                        </p>
+                      </div>
+                    )}
                     <p className="pt-1 text-[11px] text-slate-500 dark:text-slate-400 border-t border-slate-200/60 dark:border-slate-700">
                       Cancelamento disponível até {area.prazo_cancelamento_horas}h antes do horário inicial.
                     </p>

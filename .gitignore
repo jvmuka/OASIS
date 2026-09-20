@@ -14,3 +14,5 @@ build/
 .DS_Store
 # imagens enviadas (gerados em runtime)
 backend/uploads/
+# scripts e temporarios locais
+scratch/

@@ -15,6 +15,7 @@ import Painel from './pages/sindico/Painel';
 import Areas from './pages/sindico/Areas';
 import Pessoas from './pages/sindico/Pessoas';
 import PublicarAviso from './pages/sindico/PublicarAviso';
+import AreasLivres from './pages/porteiro/AreasLivres';
 
 /** Redireciona para o painel inicial do perfil (ou login, se nao houver sessao). */
 function RedirecionaInicio() {
@@ -47,8 +48,9 @@ export default function App() {
         <Route path="/mural" element={<Protegida><Mural /></Protegida>} />
         {/* Porteiro */}
         <Route path="/portaria/painel" element={<Protegida perfil={['PORTEIRO', 'SINDICO']}><Portaria /></Protegida>} />
+        <Route path="/portaria/areas-livres" element={<Protegida perfil={['PORTEIRO', 'SINDICO']}><AreasLivres /></Protegida>} />
         <Route path="/portaria/encomendas" element={<Protegida perfil="PORTEIRO"><Encomendas /></Protegida>} />
-        <Route path="/portaria/chaves" element={<Protegida perfil="PORTEIRO"><Chaves /></Protegida>} />
+        <Route path="/portaria/chaves" element={<Protegida perfil={['PORTEIRO', 'SINDICO']}><Chaves /></Protegida>} />
         {/* Sindico */}
         <Route path="/sindico/painel" element={<Protegida perfil="SINDICO"><Painel /></Protegida>} />
         <Route path="/sindico/areas" element={<Protegida perfil="SINDICO"><Areas /></Protegida>} />

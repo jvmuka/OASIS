@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Req, Module, UseGuards, ParseIntPipe, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Req, Module, UseGuards, ParseIntPipe, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import 'multer';
@@ -12,6 +12,15 @@ import { IMAGEM_MAX_BYTES, IMAGEM_TIPOS_REGEX } from '../common/upload.constants
 const IMAGEM_LARGURA_MAX = 1200;
 /** Qualidade WebP aplicada na compressao das imagens enviadas. */
 const IMAGEM_QUALIDADE_WEBP = 80;
+
+function gerarSiglaChave(nome: string): string {
+  return nome
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(0, 8) || 'AREA';
+}
 
 /**
  * UC09 - Gerenciar Areas Comuns e Recursos.
@@ -28,7 +37,28 @@ export class AreasController {
       SELECT a.*,
              COALESCE(json_agg(DISTINCT jsonb_build_object(
                'dia_semana', h.dia_semana, 'hora_inicio', h.hora_inicio, 'hora_fim', h.hora_fim))
-               FILTER (WHERE h.id_horario IS NOT NULL), '[]') AS horarios
+               FILTER (WHERE h.id_horario IS NOT NULL), '[]') AS horarios,
+             COALESCE((
+               SELECT json_agg(jsonb_build_object(
+                 'id_chave', c.id_chave,
+                 'codigo', c.codigo,
+                 'status', c.status,
+                 'responsavel', p.nome,
+                 'data_hora_retirada', ec.data_hora_retirada
+               ) ORDER BY c.codigo)
+                 FROM chave c
+                 LEFT JOIN entrega_chave ec ON ec.id_chave = c.id_chave AND ec.data_hora_devolucao IS NULL
+                 LEFT JOIN perfil pf ON pf.id_perfil = ec.id_perfil_solicitante
+                 LEFT JOIN pessoa p ON p.id_pessoa = pf.id_pessoa
+                WHERE c.id_area_comum = a.id_area_comum
+             ), '[]'::json) AS chaves,
+             EXISTS (
+               SELECT 1 FROM reserva r
+                WHERE r.id_area_comum = a.id_area_comum
+                  AND r.status = 'ATIVA'
+                  AND CURRENT_TIMESTAMP >= r.data_hora_inicio
+                  AND CURRENT_TIMESTAMP < r.data_hora_fim
+             ) AS em_uso_agora
         FROM area_comum a
         LEFT JOIN area_horario h ON h.id_area_comum = a.id_area_comum
        GROUP BY a.id_area_comum
@@ -224,14 +254,27 @@ export class AreasController {
         INSERT INTO area_comum
           (nome, descricao, capacidade, tipo_acesso, tipo_uso, duracao_slot_min,
            antecedencia_minima_dias, antecedencia_maxima_dias,
-           prazo_cancelamento_horas, limite_reservas_semana, exige_chave, valor, imagem_url, antecedencia_minima_horas, idade_minima, reserva_por_dia)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *`,
+           prazo_cancelamento_horas, limite_reservas_semana, exige_chave, valor, imagem_url, antecedencia_minima_horas, idade_minima, reserva_por_dia, requer_reserva)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING *`,
         [a.nome, a.descricao || null, a.capacidade, a.tipo_acesso || 'LIVRE', a.tipo_uso || 'RESERVAVEL',
          a.duracao_slot_min ?? 60, antMinDias,
          a.antecedencia_maxima_dias ?? 30, a.prazo_cancelamento_horas ?? 24,
-         a.limite_reservas_semana ?? 2, a.exige_chave ?? false, a.valor ?? 0,
-         a.imagem_url || null, antMinHoras, a.idade_minima ?? 0, Boolean(a.reserva_por_dia)]);
+         a.limite_reservas_semana ?? 2, a.exige_chave ?? false, a.valor !== undefined ? Number(a.valor) : 0,
+         a.imagem_url || null, antMinHoras, a.idade_minima ?? 0, Boolean(a.reserva_por_dia),
+         a.requer_reserva !== undefined ? Boolean(a.requer_reserva) : true]);
       const novaArea = res.rows[0];
+
+      if (Boolean(a.exige_chave)) {
+        let cod = a.codigo_chave?.trim().toUpperCase() || `CH-${gerarSiglaChave(novaArea.nome)}-01`;
+        const existe = await client.query(`SELECT 1 FROM chave WHERE codigo = $1`, [cod]);
+        if (existe.rows.length > 0) {
+          cod = `CH-${novaArea.id_area_comum}-${Date.now().toString().slice(-4)}`;
+        }
+        await client.query(`
+          INSERT INTO chave (id_area_comum, codigo, status, observacao)
+          VALUES ($1, $2, 'DISPONIVEL', 'Chave principal')
+        `, [novaArea.id_area_comum, cod]);
+      }
 
       if (Array.isArray(a.horarios) && a.horarios.length > 0) {
         for (const h of a.horarios) {
@@ -258,7 +301,8 @@ export class AreasController {
     return this.db.transacao(async client => {
       const res = await client.query(`
         UPDATE area_comum SET
-          nome = COALESCE($2,nome), descricao = COALESCE($3,descricao),
+          nome = COALESCE($2,nome),
+          descricao = CASE WHEN $15::boolean THEN $3 ELSE descricao END,
           capacidade = COALESCE($4,capacidade),
           duracao_slot_min = COALESCE($5,duracao_slot_min),
           antecedencia_minima_dias = COALESCE($6,antecedencia_minima_dias),
@@ -269,14 +313,54 @@ export class AreasController {
           imagem_url = COALESCE($11,imagem_url),
           antecedencia_minima_horas = COALESCE($12,antecedencia_minima_horas),
           idade_minima = COALESCE($13,idade_minima),
-          reserva_por_dia = COALESCE($14,reserva_por_dia)
+          reserva_por_dia = COALESCE($14,reserva_por_dia),
+          valor = COALESCE($16,valor),
+          requer_reserva = COALESCE($17,requer_reserva),
+          exige_chave = COALESCE($18,exige_chave)
         WHERE id_area_comum = $1 RETURNING *`,
-        [id, a.nome, a.descricao, a.capacidade, a.duracao_slot_min,
+        [id, a.nome, a.descricao !== undefined ? (a.descricao ? a.descricao.trim() : null) : null, a.capacidade, a.duracao_slot_min,
          antMinDias, a.antecedencia_maxima_dias,
          a.prazo_cancelamento_horas, a.limite_reservas_semana, a.ativo,
-         a.imagem_url, antMinHoras, a.idade_minima, a.reserva_por_dia !== undefined ? Boolean(a.reserva_por_dia) : null]);
+         a.imagem_url, antMinHoras, a.idade_minima,
+         a.reserva_por_dia !== undefined ? Boolean(a.reserva_por_dia) : null,
+         a.descricao !== undefined,
+         a.valor !== undefined ? Number(a.valor) : null,
+         a.requer_reserva !== undefined ? Boolean(a.requer_reserva) : null,
+         a.exige_chave !== undefined ? Boolean(a.exige_chave) : null]);
       const areaAtualizada = res.rows[0];
       if (!areaAtualizada) throw new BadRequestException('Área comum inexistente.');
+
+      if (a.exige_chave !== undefined) {
+        if (a.exige_chave === false) {
+          const emprestada = await client.query(`
+            SELECT c.codigo, p.nome AS responsavel
+              FROM chave c
+              JOIN entrega_chave ec ON ec.id_chave = c.id_chave AND ec.data_hora_devolucao IS NULL
+              JOIN perfil pf ON pf.id_perfil = ec.id_perfil_solicitante
+              JOIN pessoa p ON p.id_pessoa = pf.id_pessoa
+             WHERE c.id_area_comum = $1
+             LIMIT 1
+          `, [id]);
+          if (emprestada.rows.length > 0) {
+            throw new BadRequestException(
+              `Não é possível desativar a exigência de chave: a chave "${emprestada.rows[0].codigo}" está atualmente emprestada para ${emprestada.rows[0].responsavel}. Registre a devolução antes de alterar.`
+            );
+          }
+        } else if (a.exige_chave === true) {
+          const chavesExistentes = await client.query(`SELECT id_chave FROM chave WHERE id_area_comum = $1`, [id]);
+          if (chavesExistentes.rows.length === 0) {
+            let cod = a.codigo_chave?.trim().toUpperCase() || `CH-${gerarSiglaChave(areaAtualizada.nome)}-01`;
+            const existe = await client.query(`SELECT 1 FROM chave WHERE codigo = $1`, [cod]);
+            if (existe.rows.length > 0) {
+              cod = `CH-${areaAtualizada.id_area_comum}-${Date.now().toString().slice(-4)}`;
+            }
+            await client.query(`
+              INSERT INTO chave (id_area_comum, codigo, status, observacao)
+              VALUES ($1, $2, 'DISPONIVEL', 'Chave principal')
+            `, [id, cod]);
+          }
+        }
+      }
 
       if (Array.isArray(a.horarios)) {
         await client.query(`DELETE FROM area_horario WHERE id_area_comum = $1`, [id]);
@@ -292,6 +376,36 @@ export class AreasController {
 
       return areaAtualizada;
     });
+  }
+
+  /** Atualiza o status em tempo real de uma area de uso livre (LIVRE / EM_USO) - PORTEIRO e SINDICO */
+  @Patch(':id/status-livre') @Perfis('PORTEIRO', 'SINDICO')
+  async atualizarStatusLivre(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { status_livre: 'LIVRE' | 'EM_USO'; observacao?: string },
+    @Req() req: any
+  ) {
+    if (!['LIVRE', 'EM_USO'].includes(body.status_livre)) {
+      throw new BadRequestException('Status inválido. Use LIVRE ou EM_USO.');
+    }
+    const nomePorteiro = req.user?.nome || 'Portaria';
+    const obs = body.observacao !== undefined ? body.observacao.trim() : null;
+
+    const res = await this.db.query(
+      `UPDATE area_comum SET
+         status_livre = $2,
+         status_livre_observacao = $3,
+         status_livre_porteiro = $4,
+         status_livre_atualizado_em = CURRENT_TIMESTAMP
+       WHERE id_area_comum = $1
+       RETURNING id_area_comum, nome, status_livre, status_livre_observacao, status_livre_porteiro, status_livre_atualizado_em`,
+      [id, body.status_livre, obs, nomePorteiro]
+    );
+
+    if (!res.length) {
+      throw new BadRequestException('Área comum não encontrada.');
+    }
+    return res[0];
   }
 
   /** Upload de imagem para uma area comum. Redimensiona e comprime para WebP antes de gravar em disco. */

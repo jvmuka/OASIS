@@ -388,22 +388,25 @@ export function Campo({
   rotulo,
   obrigatorio,
   ajuda,
+  dica,
   children,
   className = '',
 }: {
   rotulo: string;
   obrigatorio?: boolean;
   ajuda?: string;
+  dica?: string;
   children: React.ReactNode;
   className?: string;
 }) {
+  const textoAux = ajuda || dica;
   return (
     <div className={`block text-sm ${className}`}>
       <span className="mb-1.5 flex items-center justify-between text-xs font-semibold text-slate-700 dark:text-slate-300">
         <span>
           {rotulo} {obrigatorio && <span className="text-red-500 dark:text-rose-400">*</span>}
         </span>
-        {ajuda && <span className="text-[11px] font-normal text-slate-400 dark:text-slate-500">{ajuda}</span>}
+        {textoAux && <span className="text-[11px] font-normal text-slate-400 dark:text-slate-500">{textoAux}</span>}
       </span>
       {children}
     </div>

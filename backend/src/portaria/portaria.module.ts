@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, Module, UseGuards, Req, ParseIntPipe, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, Module, UseGuards, Req, ParseIntPipe, BadRequestException } from '@nestjs/common';
 import { DbService } from '../db/db.service';
 import { JwtAuthGuard, PerfilGuard, Perfis, perfilDoUsuario } from '../auth/guards';
 
@@ -100,42 +100,108 @@ export class PortariaController {
   @Get('chaves') @Perfis('PORTEIRO', 'SINDICO')
   chaves() {
     return this.db.query(`
-      SELECT c.id_chave, c.codigo, c.status, a.nome AS area,
-             ec.id_entrega_chave, p.nome AS responsavel, ec.data_hora_retirada
+      SELECT c.id_chave, c.codigo, c.status, c.id_area_comum, a.nome AS area,
+             ec.id_entrega_chave, p.nome AS responsavel, ec.data_hora_retirada,
+             u.numero_apartamento AS apartamento, b.nome AS bloco, p.celular AS contato_responsavel
         FROM chave c
         JOIN area_comum a ON a.id_area_comum = c.id_area_comum
         LEFT JOIN entrega_chave ec ON ec.id_chave = c.id_chave AND ec.data_hora_devolucao IS NULL
         LEFT JOIN perfil pf ON pf.id_perfil = ec.id_perfil_solicitante
         LEFT JOIN pessoa p ON p.id_pessoa = pf.id_pessoa
+        LEFT JOIN pessoa_unidade pu ON pu.id_pessoa = p.id_pessoa AND pu.data_fim_ocupacao IS NULL
+        LEFT JOIN unidade u ON u.id_unidade = pu.id_unidade
+        LEFT JOIN bloco b ON b.id_bloco = u.id_bloco
+       WHERE a.ativo = TRUE AND a.exige_chave = TRUE
        ORDER BY a.nome, c.codigo`);
   }
 
-  /** UC06 emprestimo: gatilho RN09 valida disponibilidade e muda o status. */
-  @Post('chaves/:id/emprestimo') @Perfis('PORTEIRO')
+  /** UC06 emprestimo: gatilho RN09 valida disponibilidade e muda o status. Permitido a PORTEIRO e SINDICO. */
+  @Post('chaves/:id/emprestimo') @Perfis('PORTEIRO', 'SINDICO')
   emprestar(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body() b: {
     id_perfil_solicitante: number; id_reserva?: number; observacao?: string;
   }) {
-    const idPorteiro = perfilDoUsuario(req.user, 'PORTEIRO');
+    const idOperador = req.user.perfis?.find((p: any) => p.tipo === 'PORTEIRO' || p.tipo === 'SINDICO')?.id_perfil
+      || perfilDoUsuario(req.user);
     return this.db.query(`
       INSERT INTO entrega_chave (id_chave, id_perfil_solicitante, id_perfil_entrega, id_reserva, observacao)
       VALUES ($1,$2,$3,$4,$5) RETURNING id_entrega_chave, data_hora_retirada`,
-      [id, b.id_perfil_solicitante, idPorteiro, b.id_reserva || null, b.observacao || null])
+      [id, b.id_perfil_solicitante, idOperador, b.id_reserva || null, b.observacao || null])
       .then(r => r[0]);
   }
 
-  /** UC06 devolucao: gatilho RN10 valida e libera a chave. */
-  @Patch('chaves/emprestimos/:id/devolucao') @Perfis('PORTEIRO')
+  /** UC06 devolucao: gatilho RN10 valida e libera a chave. Permitido a PORTEIRO e SINDICO. */
+  @Patch('chaves/emprestimos/:id/devolucao') @Perfis('PORTEIRO', 'SINDICO')
   devolver(@Req() req: any, @Param('id', ParseIntPipe) id: number) {
-    const idPorteiro = perfilDoUsuario(req.user, 'PORTEIRO');
+    const idOperador = req.user.perfis?.find((p: any) => p.tipo === 'PORTEIRO' || p.tipo === 'SINDICO')?.id_perfil
+      || perfilDoUsuario(req.user);
     return this.db.query(`
       UPDATE entrega_chave
          SET data_hora_devolucao = CURRENT_TIMESTAMP, id_perfil_recebimento = $2
        WHERE id_entrega_chave = $1 AND data_hora_devolucao IS NULL
-       RETURNING id_entrega_chave, data_hora_devolucao`, [id, idPorteiro])
+       RETURNING id_entrega_chave, data_hora_devolucao`, [id, idOperador])
       .then(r => {
-        if (!r.length) throw new BadRequestException('Emprestimo inexistente ou ja devolvido.');
+        if (!r.length) throw new BadRequestException('Empréstimo inexistente ou já devolvido.');
         return r[0];
       });
+  }
+
+  /** Cadastra uma nova via/cópia de chave para uma área comum (SINDICO). */
+  @Post('chaves') @Perfis('SINDICO')
+  async criarChave(@Body() b: { id_area_comum: number; codigo: string; observacao?: string }) {
+    if (!b.id_area_comum || !b.codigo?.trim()) {
+      throw new BadRequestException('Informe a área comum e o código da chave.');
+    }
+    const codigo = b.codigo.trim().toUpperCase();
+    const existe = await this.db.query(`SELECT 1 FROM chave WHERE codigo = $1`, [codigo]);
+    if (existe.length) {
+      throw new BadRequestException(`Já existe uma chave cadastrada com o código "${codigo}".`);
+    }
+    const res = await this.db.query(`
+      INSERT INTO chave (id_area_comum, codigo, status, observacao)
+      VALUES ($1, $2, 'DISPONIVEL', $3)
+      RETURNING *`,
+      [b.id_area_comum, codigo, b.observacao?.trim() || null]
+    );
+    await this.db.query(`UPDATE area_comum SET exige_chave = TRUE WHERE id_area_comum = $1`, [b.id_area_comum]);
+    return res[0];
+  }
+
+  /** Atualiza o código/nome e observação de uma chave física (SINDICO). */
+  @Put('chaves/:id') @Perfis('SINDICO')
+  async editarChave(@Param('id', ParseIntPipe) id: number, @Body() b: { codigo: string; observacao?: string }) {
+    if (!b.codigo?.trim()) {
+      throw new BadRequestException('O código da chave é obrigatório.');
+    }
+    const codigo = b.codigo.trim().toUpperCase();
+    const chave = await this.db.query(`SELECT id_chave, codigo, status FROM chave WHERE id_chave = $1`, [id]);
+    if (!chave.length) throw new BadRequestException('Chave não encontrada.');
+
+    const existe = await this.db.query(`SELECT 1 FROM chave WHERE codigo = $1 AND id_chave <> $2`, [codigo, id]);
+    if (existe.length) {
+      throw new BadRequestException(`Já existe outra chave cadastrada com o código "${codigo}".`);
+    }
+
+    const res = await this.db.query(`
+      UPDATE chave
+         SET codigo = $1, observacao = $2
+       WHERE id_chave = $3
+       RETURNING *`,
+      [codigo, b.observacao !== undefined ? b.observacao.trim() || null : null, id]
+    );
+    return res[0];
+  }
+
+  /** Exclui uma chave física caso não esteja emprestada no momento (SINDICO). */
+  @Delete('chaves/:id') @Perfis('SINDICO')
+  async excluirChave(@Param('id', ParseIntPipe) id: number) {
+    const chave = await this.db.query(`SELECT id_chave, id_area_comum, status, codigo FROM chave WHERE id_chave = $1`, [id]);
+    if (!chave.length) throw new BadRequestException('Chave não encontrada.');
+    if (chave[0].status === 'EMPRESTADA') {
+      throw new BadRequestException(`A chave "${chave[0].codigo}" está emprestada no momento e não pode ser excluída. Registre a devolução antes.`);
+    }
+    await this.db.query(`DELETE FROM entrega_chave WHERE id_chave = $1`, [id]);
+    await this.db.query(`DELETE FROM chave WHERE id_chave = $1`, [id]);
+    return { ok: true, id_chave: id, id_area_comum: chave[0].id_area_comum };
   }
 
   // ------------------------- painel da portaria (visao de reservas) -------------------------
