@@ -95,7 +95,7 @@ export default function Layout() {
                 )}
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5">
-                {tipos.join(' • ')}
+                {tipos.map(t => (t === 'SINDICO' || t === 'ADMINISTRADOR' ? 'Administrador' : t === 'PORTEIRO' ? 'Porteiro' : 'Morador')).join(' • ')}
               </p>
             </div>
           </div>
@@ -166,7 +166,7 @@ export default function Layout() {
               </div>
             )}
 
-            {tipos.includes('SINDICO') && (
+            {(tipos.includes('SINDICO') || tipos.includes('ADMINISTRADOR')) && (
               <div>
                 <p className="px-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                   Administração

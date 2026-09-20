@@ -151,7 +151,7 @@ CREATE TABLE area_utensilio (
 CREATE TABLE chave (
     id_chave       SERIAL             PRIMARY KEY,
     id_area_comum  INTEGER            NOT NULL,
-    codigo         VARCHAR(20)        NOT NULL UNIQUE,
+    codigo         VARCHAR(100)       NOT NULL UNIQUE,
     status         status_chave_enum  NOT NULL DEFAULT 'DISPONIVEL',
     observacao     VARCHAR(255),
     CONSTRAINT fk_chave_area FOREIGN KEY (id_area_comum) REFERENCES area_comum (id_area_comum)

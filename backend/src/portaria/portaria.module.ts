@@ -96,6 +96,38 @@ export class PortariaController {
          e.data_hora_recebimento DESC`, [req.user.sub]);
   }
 
+  /** Chaves atualmente em posse do morador ou de pessoas da mesma unidade familiar. */
+  @Get('minhas-chaves') @Perfis('MORADOR', 'SINDICO', 'ADMINISTRADOR', 'PORTEIRO')
+  minhasChaves(@Req() req: any) {
+    const idPessoa = req.user.sub;
+    return this.db.query(`
+      SELECT ec.id_entrega_chave, c.id_chave, c.codigo, c.status AS status_chave,
+             a.id_area_comum, a.nome AS area, a.imagem_url AS area_imagem,
+             ec.data_hora_retirada,
+             p.id_pessoa, p.nome AS responsavel, p.celular AS contato_responsavel,
+             u.numero_apartamento AS apartamento, b.nome AS bloco,
+             CASE WHEN p.id_pessoa = $1 THEN true ELSE false END AS com_voce
+        FROM entrega_chave ec
+        JOIN chave c ON c.id_chave = ec.id_chave
+        JOIN area_comum a ON a.id_area_comum = c.id_area_comum
+        JOIN perfil pf ON pf.id_perfil = ec.id_perfil_solicitante
+        JOIN pessoa p ON p.id_pessoa = pf.id_pessoa
+        LEFT JOIN pessoa_unidade pu ON pu.id_pessoa = p.id_pessoa AND pu.data_fim_ocupacao IS NULL
+        LEFT JOIN unidade u ON u.id_unidade = pu.id_unidade
+        LEFT JOIN bloco b ON b.id_bloco = u.id_bloco
+       WHERE ec.data_hora_devolucao IS NULL
+         AND (
+           p.id_pessoa = $1
+           OR pu.id_unidade IN (
+             SELECT pu_user.id_unidade
+               FROM pessoa_unidade pu_user
+              WHERE pu_user.id_pessoa = $1
+                AND pu_user.data_fim_ocupacao IS NULL
+           )
+         )
+       ORDER BY ec.data_hora_retirada DESC`, [idPessoa]);
+  }
+
   // ------------------------- chaves -------------------------
   @Get('chaves') @Perfis('PORTEIRO', 'SINDICO')
   chaves() {
@@ -186,7 +218,7 @@ export class PortariaController {
          SET codigo = $1, observacao = $2
        WHERE id_chave = $3
        RETURNING *`,
-      [codigo, b.observacao !== undefined ? b.observacao.trim() || null : null, id]
+      [codigo, b.observacao?.trim() || null, id]
     );
     return res[0];
   }

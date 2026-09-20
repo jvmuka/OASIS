@@ -6,7 +6,7 @@
 -- ---------------------------------------------------------------------
 -- Tipos enumerados (dominios fechados)
 -- ---------------------------------------------------------------------
-CREATE TYPE tipo_perfil_enum            AS ENUM ('MORADOR','SINDICO','PORTEIRO');
+CREATE TYPE tipo_perfil_enum            AS ENUM ('MORADOR','ADMINISTRADOR','SINDICO','PORTEIRO');
 CREATE TYPE tipo_vinculo_enum           AS ENUM ('PROPRIETARIO','INQUILINO','DEPENDENTE');
 CREATE TYPE pavimento_enum              AS ENUM ('TERREO','SUBSOLO_1','SUBSOLO_2');
 CREATE TYPE tipo_vaga_enum              AS ENUM ('SIMPLES','DUPLA');
@@ -179,7 +179,7 @@ CREATE TABLE area_utensilio (
 CREATE TABLE chave (
     id_chave       SERIAL             PRIMARY KEY,
     id_area_comum  INTEGER            NOT NULL,
-    codigo         VARCHAR(20)        NOT NULL UNIQUE,
+    codigo         VARCHAR(100)       NOT NULL UNIQUE,
     status         status_chave_enum  NOT NULL DEFAULT 'DISPONIVEL',
     observacao     VARCHAR(255),
     CONSTRAINT fk_chave_area FOREIGN KEY (id_area_comum) REFERENCES area_comum (id_area_comum)

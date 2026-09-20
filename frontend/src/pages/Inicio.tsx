@@ -16,11 +16,28 @@ type AvisoMeu = { id_aviso: number; lido: boolean };
 type MinhaEncomenda = { id_encomenda: number; status: 'AGUARDANDO_RETIRADA' | 'RETIRADA' | 'DEVOLVIDA' };
 type EncomendaPortaria = { id_encomenda: number; status: string };
 type Chave = { id_chave: number; status: 'DISPONIVEL' | 'EMPRESTADA' | 'EXTRAVIADA' };
+type MinhaChaveEmprestada = {
+  id_entrega_chave: number;
+  id_chave: number;
+  codigo: string;
+  status_chave: string;
+  id_area_comum: number;
+  area: string;
+  area_imagem?: string | null;
+  data_hora_retirada: string;
+  id_pessoa: number;
+  responsavel: string;
+  contato_responsavel?: string;
+  apartamento?: string;
+  bloco?: string;
+  com_voce: boolean;
+};
 
-type PerfilPrincipal = 'SINDICO' | 'PORTEIRO' | 'MORADOR';
+type PerfilPrincipal = 'ADMINISTRADOR' | 'SINDICO' | 'PORTEIRO' | 'MORADOR';
 
 const ROTULO_PERFIL: Record<PerfilPrincipal, string> = {
-  SINDICO: 'Síndico',
+  ADMINISTRADOR: 'Administrador',
+  SINDICO: 'Administrador',
   PORTEIRO: 'Porteiro',
   MORADOR: 'Morador',
 };
@@ -98,8 +115,8 @@ function Atalho({ to, rotulo, descricao, icone }: { to: string; rotulo: string; 
 export default function Inicio() {
   const s = sessaoAtual();
   const tipos = s ? s.perfis.map(p => p.tipo) : [];
-  const perfilPrincipal: PerfilPrincipal = tipos.includes('SINDICO')
-    ? 'SINDICO'
+  const perfilPrincipal: PerfilPrincipal = (tipos.includes('ADMINISTRADOR') || tipos.includes('SINDICO'))
+    ? 'ADMINISTRADOR'
     : tipos.includes('PORTEIRO')
       ? 'PORTEIRO'
       : 'MORADOR';
@@ -111,10 +128,13 @@ export default function Inicio() {
   const [minhasEncomendas, setMinhasEncomendas] = useState<MinhaEncomenda[]>([]);
   const [encomendasPortaria, setEncomendasPortaria] = useState<EncomendaPortaria[]>([]);
   const [chaves, setChaves] = useState<Chave[]>([]);
+  const [minhasChaves, setMinhasChaves] = useState<MinhaChaveEmprestada[]>([]);
 
   const carregar = () => {
     setCarregando(true);
     setErro(null);
+
+    const pMinhasChaves = api.get<MinhaChaveEmprestada[]>('/portaria/minhas-chaves').catch(() => []);
 
     let chamadas: Promise<any>[];
     if (perfilPrincipal === 'MORADOR') {
@@ -122,17 +142,20 @@ export default function Inicio() {
         api.get<Reserva[]>('/reservas/minhas'),
         api.get<AvisoMeu[]>('/avisos/meus'),
         api.get<MinhaEncomenda[]>('/portaria/minhas-encomendas'),
+        pMinhasChaves,
       ];
     } else if (perfilPrincipal === 'PORTEIRO') {
       chamadas = [
         api.get<EncomendaPortaria[]>('/portaria/encomendas?status=AGUARDANDO_RETIRADA'),
         api.get<Chave[]>('/portaria/chaves'),
+        pMinhasChaves,
       ];
     } else {
       chamadas = [
         api.get<EncomendaPortaria[]>('/portaria/encomendas?status=AGUARDANDO_RETIRADA'),
         api.get<Chave[]>('/portaria/chaves'),
         api.get<AvisoMeu[]>('/avisos/meus'),
+        pMinhasChaves,
       ];
     }
 
@@ -142,13 +165,16 @@ export default function Inicio() {
           setReservas(res[0]);
           setAvisos(res[1]);
           setMinhasEncomendas(res[2]);
+          setMinhasChaves(res[3] || []);
         } else if (perfilPrincipal === 'PORTEIRO') {
           setEncomendasPortaria(res[0]);
           setChaves(res[1]);
+          setMinhasChaves(res[2] || []);
         } else {
           setEncomendasPortaria(res[0]);
           setChaves(res[1]);
           setAvisos(res[2]);
+          setMinhasChaves(res[3] || []);
         }
       })
       .catch(err => setErro(err.message || 'Erro ao carregar o resumo.'))
@@ -229,6 +255,25 @@ export default function Inicio() {
       />,
     ];
 
+    if (minhasChaves.length > 0) {
+      cardsResumo.push(
+        <CartaoResumo
+          key="chaves"
+          titulo="Chaves da Residência"
+          valor={
+            <span className="text-amber-600 dark:text-amber-400">
+              {minhasChaves.length} {minhasChaves.length === 1 ? 'Chave' : 'Chaves'}
+            </span>
+          }
+          legenda={
+            `${minhasChaves[0].com_voce ? 'Com você' : `Com ${minhasChaves[0].responsavel}`} (${minhasChaves[0].area})`
+          }
+          icone="key"
+          cor="bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800"
+        />
+      );
+    }
+
     atalhos = [
       { to: '/morador/reservar', rotulo: 'Nova Reserva', descricao: 'Reserve as áreas comuns do condomínio', icone: 'calendar' },
       { to: '/morador/reservas', rotulo: 'Minhas Reservas', descricao: 'Veja, acompanhe e cancele suas reservas', icone: 'clock' },
@@ -236,7 +281,8 @@ export default function Inicio() {
       { to: '/mural', rotulo: 'Mural de Avisos', descricao: 'Comunicados do condomínio', icone: 'pin' },
     ];
   } else if (perfilPrincipal === 'PORTEIRO') {
-    const emprestadas = chaves.filter(c => c.status === 'EMPRESTADA').length;
+    const emprestadasGeral = chaves.filter(c => c.status === 'EMPRESTADA').length;
+    const minhasEmprestadas = minhasChaves.length;
 
     cardsResumo = [
       <CartaoResumo
@@ -249,11 +295,32 @@ export default function Inicio() {
       />,
       <CartaoResumo
         key="chaves"
-        titulo="Chaves"
-        valor={emprestadas}
-        legenda={emprestadas ? 'Emprestadas no momento' : 'Todas disponíveis'}
+        titulo={minhasEmprestadas > 0 ? "Chaves (Sua Família)" : "Chaves do Condomínio"}
+        valor={
+          minhasEmprestadas > 0 ? (
+            <span className="text-amber-600 dark:text-amber-400">
+              {minhasEmprestadas} <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">com sua família</span>
+            </span>
+          ) : (
+            emprestadasGeral
+          )
+        }
+        legenda={
+          minhasEmprestadas > 0
+            ? `${minhasChaves[0].com_voce ? '1 com você' : `1 com ${minhasChaves[0].responsavel}`} (${minhasChaves[0].area}) • ${emprestadasGeral} no condomínio`
+            : (emprestadasGeral ? `${emprestadasGeral} no condomínio (0 com você)` : 'Todas disponíveis')
+        }
         icone="key"
-        cor="bg-indigo-50 text-indigo-600 border-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-400 dark:border-indigo-900/60"
+        cor={
+          minhasEmprestadas > 0
+            ? 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800'
+            : 'bg-indigo-50 text-indigo-600 border-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-400 dark:border-indigo-900/60'
+        }
+        acao={
+          <Link to="/portaria/chaves" className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-navy hover:underline dark:text-sky-400">
+            Controle de chaves <Icone nome="chevronRight" className="h-3 w-3" />
+          </Link>
+        }
       />,
     ];
 
@@ -264,7 +331,8 @@ export default function Inicio() {
       { to: '/mural', rotulo: 'Mural de Avisos', descricao: 'Comunicados do condomínio', icone: 'pin' },
     ];
   } else {
-    const emprestadas = chaves.filter(c => c.status === 'EMPRESTADA').length;
+    const emprestadasGeral = chaves.filter(c => c.status === 'EMPRESTADA').length;
+    const minhasEmprestadas = minhasChaves.length;
     const naoLidos = avisos.filter(a => !a.lido).length;
 
     cardsResumo = [
@@ -278,11 +346,32 @@ export default function Inicio() {
       />,
       <CartaoResumo
         key="chaves"
-        titulo="Chaves"
-        valor={emprestadas}
-        legenda={emprestadas ? 'Emprestadas no momento' : 'Todas disponíveis'}
+        titulo={minhasEmprestadas > 0 ? "Chaves (Sua Família)" : "Chaves do Condomínio"}
+        valor={
+          minhasEmprestadas > 0 ? (
+            <span className="text-amber-600 dark:text-amber-400">
+              {minhasEmprestadas} <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">com sua família</span>
+            </span>
+          ) : (
+            emprestadasGeral
+          )
+        }
+        legenda={
+          minhasEmprestadas > 0
+            ? `${minhasChaves[0].com_voce ? '1 com você' : `1 com ${minhasChaves[0].responsavel}`} (${minhasChaves[0].area}) • ${emprestadasGeral} no total`
+            : (emprestadasGeral ? `${emprestadasGeral} emprestadas no condomínio (0 com você)` : 'Todas disponíveis')
+        }
         icone="key"
-        cor="bg-indigo-50 text-indigo-600 border-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-400 dark:border-indigo-900/60"
+        cor={
+          minhasEmprestadas > 0
+            ? 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800'
+            : 'bg-indigo-50 text-indigo-600 border-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-400 dark:border-indigo-900/60'
+        }
+        acao={
+          <Link to="/portaria/chaves" className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-navy hover:underline dark:text-sky-400">
+            Controle de chaves <Icone nome="chevronRight" className="h-3 w-3" />
+          </Link>
+        }
       />,
       <CartaoResumo
         key="avisos"
@@ -337,6 +426,77 @@ export default function Inicio() {
         </Cartao>
       ) : (
         <>
+          {/* Banner de Chave(s) em Posse da Residência */}
+          {minhasChaves.length > 0 && (
+            <div className="rounded-2xl border border-amber-300/90 bg-gradient-to-r from-amber-50/95 via-orange-50/70 to-amber-50/95 dark:border-amber-700/80 dark:from-amber-950/40 dark:via-orange-950/20 dark:to-amber-950/40 p-4 shadow-sm animate-fade-in">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-amber-200/80 dark:border-amber-800/60 pb-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white shadow-xs">
+                    <Icone nome="key" className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-amber-950 dark:text-amber-200 flex items-center gap-2">
+                      Chave em Posse da sua Residência
+                      <span className="rounded-full bg-amber-500/20 text-amber-900 dark:text-amber-300 text-[11px] font-bold px-2.5 py-0.5 border border-amber-300/70 dark:border-amber-700/70">
+                        {minhasChaves.length} {minhasChaves.length === 1 ? 'chave ativa' : 'chaves ativas'}
+                      </span>
+                    </h3>
+                    <p className="text-xs text-amber-800/90 dark:text-amber-300/80">
+                      Identificamos que você ou sua família estão com chave(s) retirada(s) na portaria.
+                    </p>
+                  </div>
+                </div>
+
+                {(perfilPrincipal === 'ADMINISTRADOR' || perfilPrincipal === 'PORTEIRO') && (
+                  <Link
+                    to="/portaria/chaves"
+                    className="inline-flex items-center gap-1.5 self-start sm:self-center text-xs font-bold text-amber-900 hover:text-navy dark:text-amber-300 dark:hover:text-white transition-colors bg-white/90 dark:bg-amber-900/60 border border-amber-300/80 dark:border-amber-700 px-3 py-1.5 rounded-lg shadow-2xs"
+                  >
+                    Controle de Chaves <Icone nome="chevronRight" className="h-3.5 w-3.5" />
+                  </Link>
+                )}
+              </div>
+
+              <div className="mt-3 divide-y divide-amber-200/60 dark:divide-amber-800/40">
+                {minhasChaves.map(ch => (
+                  <div key={ch.id_entrega_chave} className="py-2.5 first:pt-0 last:pb-0 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                    <div className="flex items-start gap-2.5">
+                      <span className="mt-1 h-2 w-2 rounded-full bg-amber-500 shrink-0" />
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-slate-900 dark:text-slate-100 text-sm">{ch.area}</span>
+                          <span className="rounded-md bg-amber-200/70 text-amber-900 dark:bg-amber-900/80 dark:text-amber-200 font-mono text-[11px] font-bold px-2 py-0.5">
+                            {ch.codigo}
+                          </span>
+                          {ch.com_voce ? (
+                            <span className="rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 text-[10px] font-bold px-2 py-0.5 border border-emerald-300/60 dark:border-emerald-700">
+                              COM VOCÊ
+                            </span>
+                          ) : (
+                            <span className="rounded-md bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300 text-[10px] font-bold px-2 py-0.5 border border-blue-300/60 dark:border-blue-700">
+                              COM FAMILIAR ({ch.responsavel})
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1 text-slate-600 dark:text-slate-300 text-xs">
+                          {ch.com_voce ? (
+                            <>Retirada por <b>você</b> em {formatarDataHora(ch.data_hora_retirada)}.</>
+                          ) : (
+                            <>Retirada pelo familiar <b>{ch.responsavel}</b> em {formatarDataHora(ch.data_hora_retirada)}.</>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="text-[11px] text-amber-900/80 dark:text-amber-300/70 italic sm:text-right">
+                      Lembre-se de devolver na portaria após o uso.
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">{cardsResumo}</div>
 
           <div>

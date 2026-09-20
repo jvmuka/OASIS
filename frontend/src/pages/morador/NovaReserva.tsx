@@ -66,7 +66,12 @@ export function formatarDiasSemana(horarios?: { dia_semana: string }[]): string 
     .join(', ');
 }
 
-type Slot = { inicio: string; fim: string; status: 'LIVRE' | 'OCUPADO' | 'BLOQUEADO' | 'PASSADO' };
+type Slot = {
+  inicio: string;
+  fim: string;
+  status: 'LIVRE' | 'OCUPADO' | 'BLOQUEADO' | 'PASSADO' | 'ANTECEDENCIA_MINIMA';
+  motivo?: string;
+};
 type Grade = { dia_semana: string; regras: any; slots: Slot[] };
 
 /** UC02 + UC03: Nova Reserva de Área Comum (UI/UX Pro Max) */
@@ -416,7 +421,12 @@ export default function NovaReserva() {
                           </span>
                           {a.reserva_por_dia && (
                             <span className="rounded-md bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 px-2 py-0.5 font-bold">
-                              Reserva por Diária
+                              {(() => {
+                                const temMultiplos = (a.horarios || []).some((h, i, arr) =>
+                                  arr.some((other, j) => i !== j && other.dia_semana === h.dia_semana)
+                                );
+                                return temMultiplos ? 'Reserva por Turnos' : 'Reserva por Dia Inteiro';
+                              })()}
                             </span>
                           )}
                           {/* Exibe valor APENAS se for cobrada taxa (> 0). Quando gratuita, não exibe aviso */}
@@ -549,7 +559,7 @@ export default function NovaReserva() {
                     </li>
                     {area.reserva_por_dia && (
                       <li>
-                        Modalidade: <b className="text-amber-700 dark:text-amber-400">Reserva por diária completa</b> (ocupa todo o horário de funcionamento do dia).
+                        Modalidade: <b className="text-amber-700 dark:text-amber-400">Reserva por turno ou diária completa</b>.
                       </li>
                     )}
                     <li>Antecedência: {area.antecedencia_minima_dias} a {area.antecedencia_maxima_dias} dias.</li>
@@ -563,7 +573,7 @@ export default function NovaReserva() {
               <div className="flex flex-col justify-between md:col-span-6 md:border-l md:border-slate-100 dark:md:border-slate-800 md:pl-6">
                 <div>
                   <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    2. {area.reserva_por_dia ? 'Disponibilidade da Diária' : 'Escolha o Horário'} ({data ? `${data} - ${grade?.dia_semana || ''}` : 'Nenhuma data selecionada'})
+                    2. {area.reserva_por_dia ? (grade?.slots && grade.slots.length > 1 ? 'Selecione o Turno' : 'Diária Completa') : 'Escolha o Horário'} ({data ? `${data} - ${grade?.dia_semana || ''}` : 'Nenhuma data selecionada'})
                   </p>
 
                   {!data && (
@@ -590,71 +600,108 @@ export default function NovaReserva() {
                   )}
 
                   {data && !carregandoGrade && grade && grade.slots.length > 0 && (
-                    <div className={(area.reserva_por_dia || grade.regras?.reserva_por_dia) ? 'space-y-2' : 'grid max-h-72 grid-cols-1 sm:grid-cols-2 gap-2 overflow-y-auto pr-1'}>
-                      {grade.slots.map(sl => {
-                        const sel = slot?.inicio === sl.inicio;
-                        const dataHoraSlot = new Date(`${data}T${sl.inicio}:00`);
-                        const agora = new Date();
-                        const noPassado = dataHoraSlot <= agora || sl.status === 'PASSADO';
-                        const bloqueado = !noPassado && sl.status === 'BLOQUEADO';
-                        const ocupado = !noPassado && sl.status === 'OCUPADO';
-                        const livre = !noPassado && sl.status === 'LIVRE';
-                        const rotuloStatus = livre
-                          ? 'LIVRE'
-                          : bloqueado
-                            ? 'MANUTENÇÃO'
-                            : ocupado
-                              ? 'OCUPADO'
-                              : 'INDISPONÍVEL';
+                    <>
+                      {/* Legenda de Status */}
+                      <div className="mb-2 flex flex-wrap items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400">
+                        <span className="flex items-center gap-1.5 font-medium">
+                          <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                          Livre
+                        </span>
+                        <span className="flex items-center gap-1.5 font-medium">
+                          <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
+                          Antecedência Mínima
+                        </span>
+                        <span className="flex items-center gap-1.5 font-medium">
+                          <span className="h-2.5 w-2.5 rounded-full bg-slate-400" />
+                          Ocupado / Indisponível
+                        </span>
+                      </div>
 
-                        const isDiaria = area.reserva_por_dia || grade.regras?.reserva_por_dia;
+                      <div className={(area.reserva_por_dia || grade.regras?.reserva_por_dia) ? 'space-y-2' : 'grid max-h-72 grid-cols-1 sm:grid-cols-2 gap-2 overflow-y-auto pr-1'}>
+                        {grade.slots.map(sl => {
+                          const sel = slot?.inicio === sl.inicio;
+                          const dataHoraSlot = new Date(`${data}T${sl.inicio}:00`);
+                          const agora = new Date();
+                          const antMinHoras = area.antecedencia_minima_horas ?? (area.antecedencia_minima_dias ? area.antecedencia_minima_dias * 24 : 0);
+                          const diffHoras = (dataHoraSlot.getTime() - agora.getTime()) / (1000 * 60 * 60);
 
-                        return (
-                          <button
-                            key={sl.inicio}
-                            disabled={!livre}
-                            onClick={() => setSlot(sl)}
-                            className={
-                              `flex items-center justify-between rounded-xl border ${isDiaria ? 'p-3.5 w-full' : 'p-2.5'} text-xs font-semibold transition-all ` +
-                              (sel
-                                ? 'border-navy bg-navy text-white shadow-sm ring-2 ring-navy/20 dark:bg-sky-600 dark:border-sky-500 cursor-pointer'
-                                : livre
-                                  ? 'border-slate-200 bg-white text-slate-700 hover:border-navy hover:bg-navy-50/40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:bg-slate-700 cursor-pointer'
-                                  : bloqueado
-                                    ? 'cursor-not-allowed border-amber-300/90 bg-amber-50/80 text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-300'
-                                    : ocupado
-                                      ? 'cursor-not-allowed border-slate-200/90 bg-slate-100/80 text-slate-700 dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-400'
-                                      : 'cursor-not-allowed border-red-200/90 bg-red-50/80 text-red-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300')
-                            }
-                          >
-                            <div className="text-left">
-                              {isDiaria && (
-                                <span className={`block text-[10px] font-bold uppercase tracking-wider ${sel ? 'text-white/80' : 'text-slate-400 dark:text-slate-400'}`}>
-                                  Diária Completa
-                                </span>
-                              )}
-                              <span className={isDiaria ? 'text-sm font-bold' : ''}>
-                                {sl.inicio} – {sl.fim}
-                              </span>
-                            </div>
-                            <span
-                              className={`text-[10px] font-bold rounded-md px-2 py-1 ${sel
-                                  ? 'bg-white/20 text-white'
+                          const noPassado = dataHoraSlot <= agora || sl.status === 'PASSADO';
+                          const antecedenciaMinima = !noPassado && (sl.status === 'ANTECEDENCIA_MINIMA' || (antMinHoras > 0 && diffHoras < antMinHoras && sl.status !== 'BLOQUEADO' && sl.status !== 'OCUPADO'));
+                          const bloqueado = !noPassado && !antecedenciaMinima && sl.status === 'BLOQUEADO';
+                          const ocupado = !noPassado && !antecedenciaMinima && sl.status === 'OCUPADO';
+                          const livre = !noPassado && !antecedenciaMinima && !bloqueado && !ocupado && sl.status === 'LIVRE';
+
+                          const motivoAntecedencia = sl.motivo || (antMinHoras < 24 ? `Exige antecedência mínima de ${antMinHoras}h` : `Exige antecedência mínima de ${Math.floor(antMinHoras / 24)}d`);
+
+                          const rotuloStatus = livre
+                            ? 'LIVRE'
+                            : antecedenciaMinima
+                              ? 'ANTECEDÊNCIA MÍNIMA'
+                              : bloqueado
+                                ? 'MANUTENÇÃO'
+                                : ocupado
+                                  ? 'OCUPADO'
+                                  : 'INDISPONÍVEL';
+
+                          const isDiaria = area.reserva_por_dia || grade.regras?.reserva_por_dia;
+
+                          return (
+                            <button
+                              key={sl.inicio}
+                              type="button"
+                              disabled={!livre}
+                              onClick={() => setSlot(sl)}
+                              className={
+                                `flex items-center justify-between rounded-xl border ${isDiaria ? 'p-3.5 w-full' : 'p-2.5'} text-xs font-semibold transition-all ` +
+                                (sel
+                                  ? 'border-navy bg-navy text-white shadow-sm ring-2 ring-navy/20 dark:bg-sky-600 dark:border-sky-500 cursor-pointer'
                                   : livre
-                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/60'
-                                    : bloqueado
-                                      ? 'bg-amber-100 text-amber-800 border border-amber-300/80 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-700/60'
-                                      : ocupado
-                                        ? 'bg-slate-200 text-slate-700 border border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
-                                        : 'bg-red-100 text-red-700 border border-red-200/80 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800/60'
-                                }`}
+                                    ? 'border-slate-200 bg-white text-slate-700 hover:border-navy hover:bg-navy-50/40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:bg-slate-700 cursor-pointer'
+                                    : antecedenciaMinima
+                                      ? 'cursor-not-allowed border-amber-400/90 bg-amber-50/90 text-amber-950 dark:border-amber-700/80 dark:bg-amber-950/40 dark:text-amber-200 shadow-xs'
+                                      : bloqueado
+                                        ? 'cursor-not-allowed border-amber-300/90 bg-amber-50/80 text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-300'
+                                        : ocupado
+                                          ? 'cursor-not-allowed border-slate-200/90 bg-slate-100/80 text-slate-700 dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-400'
+                                          : 'cursor-not-allowed border-red-200/90 bg-red-50/80 text-red-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300')
+                              }
                             >
-                              {rotuloStatus}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
+                              <div className="text-left">
+                                {isDiaria && (
+                                  <span className={`block text-[10px] font-bold uppercase tracking-wider ${sel ? 'text-white/80' : 'text-slate-400 dark:text-slate-400'}`}>
+                                    {grade.slots.length > 1 ? `Turno ${grade.slots.findIndex(s => s.inicio === sl.inicio) + 1}` : 'Diária Completa'}
+                                  </span>
+                                )}
+                                <span className={isDiaria ? 'text-sm font-bold' : ''}>
+                                  {sl.inicio} – {sl.fim}
+                                </span>
+                                {antecedenciaMinima && (
+                                  <span className="block text-[11px] font-medium text-amber-800 dark:text-amber-300 mt-0.5">
+                                    ⚠️ {motivoAntecedencia}
+                                  </span>
+                                )}
+                              </div>
+                              <span
+                                className={`text-[10px] font-bold rounded-md px-2 py-1 ${sel
+                                    ? 'bg-white/20 text-white'
+                                    : livre
+                                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/60'
+                                      : antecedenciaMinima
+                                        ? 'bg-amber-100 text-amber-900 border border-amber-400/80 dark:bg-amber-900/60 dark:text-amber-200 dark:border-amber-700/80'
+                                        : bloqueado
+                                          ? 'bg-amber-100 text-amber-800 border border-amber-300/80 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-700/60'
+                                          : ocupado
+                                            ? 'bg-slate-200 text-slate-700 border border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+                                            : 'bg-red-100 text-red-700 border border-red-200/80 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800/60'
+                                  }`}
+                              >
+                                {rotuloStatus}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </>
                   )}
                 </div>
 

@@ -10,7 +10,7 @@ import { IMAGEM_MAX_MB } from './constants';
 const TOKEN_KEY = 'oasis_token';
 const SESSAO_KEY = 'oasis_sessao';
 
-export type Perfil = { id_perfil: number; tipo: 'MORADOR' | 'SINDICO' | 'PORTEIRO' };
+export type Perfil = { id_perfil: number; tipo: 'MORADOR' | 'SINDICO' | 'ADMINISTRADOR' | 'PORTEIRO' };
 export type Sessao = {
   pessoa: { id_pessoa: number; nome: string; email: string };
   perfis: Perfil[];
@@ -41,7 +41,7 @@ export function sair() {
 /** Rota de pouso apos o login (e do "Inicio"/logo do cabecalho): cada perfil tem seu painel. */
 export function painelInicial(sessao: Sessao): string {
   const tipos = sessao.perfis.map(p => p.tipo);
-  if (tipos.includes('SINDICO')) return '/inicio';
+  if (tipos.includes('SINDICO') || tipos.includes('ADMINISTRADOR')) return '/inicio';
   if (tipos.includes('PORTEIRO')) return '/portaria/painel';
   return '/inicio';
 }

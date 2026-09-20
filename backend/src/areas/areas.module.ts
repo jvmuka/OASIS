@@ -247,7 +247,7 @@ export class AreasController {
       throw new BadRequestException('Informe o nome e a capacidade do espaço comum.');
     }
     const antMinHoras = a.antecedencia_minima_horas ?? (a.antecedencia_minima_dias !== undefined ? a.antecedencia_minima_dias * 24 : 0);
-    const antMinDias = Math.ceil(antMinHoras / 24);
+    const antMinDias = Math.floor(antMinHoras / 24);
 
     return this.db.transacao(async client => {
       const res = await client.query(`
@@ -279,10 +279,11 @@ export class AreasController {
       if (Array.isArray(a.horarios) && a.horarios.length > 0) {
         for (const h of a.horarios) {
           if (h.dia_semana && h.hora_inicio && h.hora_fim) {
+            const hFim = (h.hora_fim === '24:00' || h.hora_fim === '23:59') ? '23:59:59' : h.hora_fim;
             await client.query(`
               INSERT INTO area_horario (id_area_comum, dia_semana, hora_inicio, hora_fim)
               VALUES ($1, $2, $3, $4)`,
-              [novaArea.id_area_comum, h.dia_semana, h.hora_inicio, h.hora_fim]);
+              [novaArea.id_area_comum, h.dia_semana, h.hora_inicio, hFim]);
           }
         }
       }
@@ -296,7 +297,7 @@ export class AreasController {
     const antMinHoras = a.antecedencia_minima_horas !== undefined
       ? a.antecedencia_minima_horas
       : (a.antecedencia_minima_dias !== undefined ? a.antecedencia_minima_dias * 24 : null);
-    const antMinDias = antMinHoras !== null ? Math.ceil(antMinHoras / 24) : null;
+    const antMinDias = antMinHoras !== null ? Math.floor(antMinHoras / 24) : null;
 
     return this.db.transacao(async client => {
       const res = await client.query(`
@@ -366,10 +367,11 @@ export class AreasController {
         await client.query(`DELETE FROM area_horario WHERE id_area_comum = $1`, [id]);
         for (const h of a.horarios) {
           if (h.dia_semana && h.hora_inicio && h.hora_fim) {
+            const hFim = (h.hora_fim === '24:00' || h.hora_fim === '23:59') ? '23:59:59' : h.hora_fim;
             await client.query(`
               INSERT INTO area_horario (id_area_comum, dia_semana, hora_inicio, hora_fim)
               VALUES ($1, $2, $3, $4)`,
-              [id, h.dia_semana, h.hora_inicio, h.hora_fim]);
+              [id, h.dia_semana, h.hora_inicio, hFim]);
           }
         }
       }

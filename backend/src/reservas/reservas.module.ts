@@ -82,26 +82,58 @@ export class ReservasController {
     // monta a grade de slots em memoria
     const slots: any[] = [];
     const agora = new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
+    const antMinHoras = Number(
+      info.antecedencia_minima_horas !== null && info.antecedencia_minima_horas !== undefined
+        ? info.antecedencia_minima_horas
+        : (info.antecedencia_minima_dias ? info.antecedencia_minima_dias * 24 : 0)
+    );
+
+    const calcularStatusSlot = (slotIniStr: string, slotFimStr: string) => {
+      const noPassado = slotIniStr <= agora;
+      if (noPassado) {
+        return { status: 'PASSADO', motivo: 'Horário já passou' };
+      }
+
+      const bloqueado = bloqueios.some(r => {
+        const bIni = new Date(r.data_hora_inicio).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
+        const bFim = new Date(r.data_hora_fim).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
+        return slotIniStr < bFim && slotFimStr > bIni;
+      });
+      if (bloqueado) {
+        return { status: 'BLOQUEADO', motivo: 'Horário bloqueado pela administração' };
+      }
+
+      const ocupado = reservas.some(r => {
+        const rIni = new Date(r.data_hora_inicio).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
+        const rFim = new Date(r.data_hora_fim).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
+        return slotIniStr < rFim && slotFimStr > rIni;
+      });
+      if (ocupado) {
+        return { status: 'OCUPADO', motivo: 'Horário já reservado por outro morador' };
+      }
+
+      if (antMinHoras > 0) {
+        const diffHoras = (new Date(slotIniStr).getTime() - new Date(agora).getTime()) / (1000 * 60 * 60);
+        if (diffHoras < antMinHoras) {
+          const tempoTexto = antMinHoras < 24 ? `${antMinHoras}h` : `${Math.floor(antMinHoras / 24)}d`;
+          return {
+            status: 'ANTECEDENCIA_MINIMA',
+            motivo: `Exige antecedência mínima de ${tempoTexto}`,
+          };
+        }
+      }
+
+      return { status: 'LIVRE' };
+    };
 
     if (info.reserva_por_dia) {
       for (const j of janelas) {
         const hIni = String(j.hora_inicio).slice(0, 5);
         const hFim = String(j.hora_fim).slice(0, 5);
         const slotIniStr = `${data}T${hIni}:00`;
-        const slotFimStr = `${data}T${hFim === '24:00' ? '23:59:59' : hFim + ':00'}`;
-        const noPassado = slotIniStr <= agora;
-        const ocupado = reservas.some(r => {
-          const rIni = new Date(r.data_hora_inicio).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
-          const rFim = new Date(r.data_hora_fim).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
-          return slotIniStr < rFim && slotFimStr > rIni;
-        });
-        const bloqueado = bloqueios.some(r => {
-          const bIni = new Date(r.data_hora_inicio).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
-          const bFim = new Date(r.data_hora_fim).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
-          return slotIniStr < bFim && slotFimStr > bIni;
-        });
-        const status = noPassado ? 'PASSADO' : bloqueado ? 'BLOQUEADO' : ocupado ? 'OCUPADO' : 'LIVRE';
-        slots.push({ inicio: hIni, fim: hFim, status });
+        const slotFimStr = `${data}T${(hFim === '24:00' || hFim === '23:59') ? '23:59:59' : hFim + ':00'}`;
+        const { status, motivo } = calcularStatusSlot(slotIniStr, slotFimStr);
+        slots.push({ inicio: hIni, fim: hFim, status, ...(motivo ? { motivo } : {}) });
       }
     } else {
       const passo = info.duracao_slot_min;
@@ -110,26 +142,28 @@ export class ReservasController {
         const [hf, mf] = String(j.hora_fim).split(':').map(Number);
         let ini = h * 60 + m;
         const fim = (hf === 23 && mf === 59) ? 1440 : (hf * 60 + mf);
+        let gerouSlotJanela = false;
         while (ini + passo <= fim) {
           const hIni = `${String(Math.floor(ini / 60)).padStart(2, '0')}:${String(ini % 60).padStart(2, '0')}`;
           const fimSlot = ini + passo;
           const hFim = `${String(Math.floor(fimSlot / 60)).padStart(2, '0')}:${String(fimSlot % 60).padStart(2, '0')}`;
           const slotIniStr = `${data}T${hIni}:00`;
           const slotFimStr = `${data}T${hFim}:00`;
-          const noPassado = slotIniStr <= agora;
-          const ocupado = reservas.some(r => {
-            const rIni = new Date(r.data_hora_inicio).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
-            const rFim = new Date(r.data_hora_fim).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
-            return slotIniStr < rFim && slotFimStr > rIni;
-          });
-          const bloqueado = bloqueios.some(r => {
-            const bIni = new Date(r.data_hora_inicio).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
-            const bFim = new Date(r.data_hora_fim).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
-            return slotIniStr < bFim && slotFimStr > bIni;
-          });
-          const status = noPassado ? 'PASSADO' : bloqueado ? 'BLOQUEADO' : ocupado ? 'OCUPADO' : 'LIVRE';
-          slots.push({ inicio: hIni, fim: hFim, status });
+          const { status, motivo } = calcularStatusSlot(slotIniStr, slotFimStr);
+          slots.push({ inicio: hIni, fim: hFim, status, ...(motivo ? { motivo } : {}) });
           ini = fimSlot;
+          gerouSlotJanela = true;
+        }
+
+        // Se a janela configurada tem duração menor que o passo (ex: turno de 3h30 mas passo configurado em 4h),
+        // emite o turno como 1 slot integral para não perder o horário configurado pelo condomínio.
+        if (!gerouSlotJanela && fim > (h * 60 + m)) {
+          const hIni = String(j.hora_inicio).slice(0, 5);
+          const hFim = String(j.hora_fim).slice(0, 5);
+          const slotIniStr = `${data}T${hIni}:00`;
+          const slotFimStr = `${data}T${(hFim === '24:00' || hFim === '23:59') ? '23:59:59' : hFim + ':00'}`;
+          const { status, motivo } = calcularStatusSlot(slotIniStr, slotFimStr);
+          slots.push({ inicio: hIni, fim: hFim, status, ...(motivo ? { motivo } : {}) });
         }
       }
     }
@@ -138,6 +172,7 @@ export class ReservasController {
       data, dia_semana: diaSemana,
       regras: {
         antecedencia_minima_dias: info.antecedencia_minima_dias,
+        antecedencia_minima_horas: antMinHoras,
         antecedencia_maxima_dias: info.antecedencia_maxima_dias,
         prazo_cancelamento_horas: info.prazo_cancelamento_horas,
         limite_reservas_semana: info.limite_reservas_semana,
@@ -163,7 +198,7 @@ export class ReservasController {
     }
 
     const idPerfil = perfilDoUsuario(req.user, 'MORADOR');
-    const fimAjustado = (b.fim === '24:00') ? '23:59:59' : b.fim;
+    const fimAjustado = (b.fim === '24:00' || b.fim === '23:59') ? '23:59:59' : b.fim;
     return this.db.query(`
       INSERT INTO reserva (id_area_comum, id_perfil, data_hora_inicio, data_hora_fim, numero_pessoas)
       VALUES ($1,$2,($3 || ' ' || $4)::timestamp,($3 || ' ' || $5)::timestamp,$6)

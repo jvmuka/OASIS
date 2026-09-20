@@ -36,7 +36,9 @@ export class PerfilGuard implements CanActivate {
     if (!exigidos || !exigidos.length) return true;
     const user = ctx.switchToHttp().getRequest().user;
     const meus: string[] = (user?.perfis || []).map((p: any) => p.tipo);
-    if (exigidos.some(t => meus.includes(t))) return true;
+    const sinonimos = (t: string) => (t === 'SINDICO' || t === 'ADMINISTRADOR' ? ['SINDICO', 'ADMINISTRADOR'] : [t]);
+    const permitidos = new Set(exigidos.flatMap(sinonimos));
+    if (meus.some(t => permitidos.has(t))) return true;
     throw new ForbiddenException('Acesso restrito ao(s) perfil(is): ' + exigidos.join(', '));
   }
 }
@@ -44,7 +46,14 @@ export class PerfilGuard implements CanActivate {
 /** Devolve o id_perfil do usuario para um tipo especifico (ou o primeiro). */
 export function perfilDoUsuario(user: any, tipo?: string): number {
   const lista = user?.perfis || [];
-  const alvo = tipo ? lista.find((p: any) => p.tipo === tipo) : lista[0];
+  let alvo;
+  if (!tipo) {
+    alvo = lista[0];
+  } else if (tipo === 'SINDICO' || tipo === 'ADMINISTRADOR') {
+    alvo = lista.find((p: any) => p.tipo === 'ADMINISTRADOR' || p.tipo === 'SINDICO');
+  } else {
+    alvo = lista.find((p: any) => p.tipo === tipo);
+  }
   if (!alvo) throw new ForbiddenException('Usuario sem o perfil necessario.');
   return alvo.id_perfil;
 }

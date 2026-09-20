@@ -85,7 +85,10 @@ BEGIN
          WHERE h.id_area_comum = NEW.id_area_comum
            AND h.dia_semana    = v_dia
            AND NEW.data_hora_inicio::time >= h.hora_inicio
-           AND NEW.data_hora_fim::time    <= h.hora_fim
+           AND (
+               NEW.data_hora_fim::time <= h.hora_fim
+               OR (h.hora_fim >= '23:59:00'::time AND NEW.data_hora_fim::time <= '23:59:59'::time)
+           )
     ) THEN
         RAISE EXCEPTION 'RN05: horario fora da janela de funcionamento da area em %.', v_dia;
     END IF;

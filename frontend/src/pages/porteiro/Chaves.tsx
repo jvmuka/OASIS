@@ -30,10 +30,10 @@ type AreaItem = {
   exige_chave: boolean;
 };
 
-/** UC06 - Empréstimo e devolução de chaves das áreas comuns (Portaria & Síndico) */
+/** UC06 - Empréstimo e devolução de chaves das áreas comuns (Portaria & Administrador) */
 export default function Chaves() {
   const sessao = sessaoAtual();
-  const ehSindico = sessao?.perfis.some(p => p.tipo === 'SINDICO');
+  const ehAdmin = sessao?.perfis.some(p => p.tipo === 'ADMINISTRADOR' || p.tipo === 'SINDICO');
 
   const [chaves, setChaves] = useState<Chave[]>([]);
   const [pessoas, setPessoas] = useState<Pessoa[]>([]);
@@ -198,7 +198,7 @@ export default function Chaves() {
             >
               Atualizar
             </Botao>
-            {ehSindico && (
+            {ehAdmin && (
               <Botao
                 tamanho="sm"
                 icone={<Icone nome="plus" className="h-3.5 w-3.5" />}
@@ -344,7 +344,7 @@ export default function Chaves() {
                       <Badge tipo={disponivel ? 'sucesso' : 'aviso'}>
                         {disponivel ? 'Disponível' : 'Emprestada'}
                       </Badge>
-                      {ehSindico && (
+                      {ehAdmin && (
                         <div className="flex items-center gap-0.5 ml-1">
                           <button
                             type="button"

@@ -55,7 +55,7 @@ type Dependencias = {
   pode_excluir: boolean;
 };
 
-/** Opções de horários de 30 em 30 min cobrindo as 24 horas do dia (meia-noite a meia-noite) */
+/** Opções de horários de 30 em 30 min cobrindo as 24 horas do dia (meia-noite a 23h59) */
 const HORARIOS_DIA = [
   '00:00', '00:30', '01:00', '01:30', '02:00', '02:30', '03:00', '03:30',
   '04:00', '04:30', '05:00', '05:30', '06:00', '06:30', '07:00', '07:30',
@@ -63,16 +63,20 @@ const HORARIOS_DIA = [
   '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30',
   '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30',
   '20:00', '20:30', '21:00', '21:30', '22:00', '22:30', '23:00', '23:30',
-  '23:59', '24:00'
+  '23:59'
 ];
 
 type DiaSemana = 'DOMINGO' | 'SEGUNDA' | 'TERCA' | 'QUARTA' | 'QUINTA' | 'SEXTA' | 'SABADO';
 
+type JanelaHorario = {
+  hora_inicio: string;
+  hora_fim: string;
+};
+
 type HorarioForm = {
   dia_semana: DiaSemana;
   ativo: boolean;
-  hora_inicio: string;
-  hora_fim: string;
+  turnos: JanelaHorario[];
 };
 
 const DIAS_SEMANA_CONFIG: { dia: DiaSemana; label: string; sigla: string }[] = [
@@ -89,8 +93,7 @@ function criarHorariosPadrao(): HorarioForm[] {
   return DIAS_SEMANA_CONFIG.map(d => ({
     dia_semana: d.dia,
     ativo: true,
-    hora_inicio: '08:00',
-    hora_fim: '22:00',
+    turnos: [{ hora_inicio: '08:00', hora_fim: '22:00' }],
   }));
 }
 
@@ -122,35 +125,178 @@ function formatarDiasResumo(horarios?: { dia_semana: string }[]): string {
     .join(', ');
 }
 
-/** Componente interativo para configuração de dias e horários de funcionamento de áreas comuns */
+type ConflitoTurnoInfo = {
+  tipo: 'INVALIDO' | 'CONFLITO';
+  mensagem: string;
+};
+
+/** Analisa em tempo real se os turnos do dia possuem término <= início ou sobreposição entre si. */
+function analisarConflitosDia(turnos: JanelaHorario[]): {
+  conflitosPorTurno: Map<number, ConflitoTurnoInfo>;
+  temConflito: boolean;
+} {
+  const conflitosPorTurno = new Map<number, ConflitoTurnoInfo>();
+  if (!turnos || turnos.length === 0) return { conflitosPorTurno, temConflito: false };
+
+  const toMin = (hStr: string, isFim: boolean) => {
+    const [h, m] = (hStr || '00:00').split(':').map(Number);
+    if (isFim && (h === 24 || (h === 23 && m === 59))) return 1440;
+    return (h || 0) * 60 + (m || 0);
+  };
+
+  // 1. Validar término > início em cada turno individualmente
+  for (let i = 0; i < turnos.length; i++) {
+    const ini = toMin(turnos[i].hora_inicio, false);
+    const fim = toMin(turnos[i].hora_fim, true);
+    if (fim <= ini) {
+      conflitosPorTurno.set(i, {
+        tipo: 'INVALIDO',
+        mensagem: 'O horário de término deve ser posterior ao horário de início.',
+      });
+    }
+  }
+
+  // 2. Validar sobreposição entre quaisquer turnos no mesmo dia
+  for (let i = 0; i < turnos.length; i++) {
+    const iniA = toMin(turnos[i].hora_inicio, false);
+    const fimA = toMin(turnos[i].hora_fim, true);
+    if (fimA <= iniA) continue; // já com erro
+
+    for (let j = i + 1; j < turnos.length; j++) {
+      const iniB = toMin(turnos[j].hora_inicio, false);
+      const fimB = toMin(turnos[j].hora_fim, true);
+      if (fimB <= iniB) continue;
+
+      // Sobreposição: iniA < fimB && fimA > iniB
+      if (iniA < fimB && fimA > iniB) {
+        if (!conflitosPorTurno.has(i)) {
+          conflitosPorTurno.set(i, {
+            tipo: 'CONFLITO',
+            mensagem: `Conflito de horário com o Turno ${j + 1} (${turnos[j].hora_inicio} às ${turnos[j].hora_fim}).`,
+          });
+        }
+        if (!conflitosPorTurno.has(j)) {
+          conflitosPorTurno.set(j, {
+            tipo: 'CONFLITO',
+            mensagem: `Conflito de horário com o Turno ${i + 1} (${turnos[i].hora_inicio} às ${turnos[i].hora_fim}).`,
+          });
+        }
+      }
+    }
+  }
+
+  return {
+    conflitosPorTurno,
+    temConflito: conflitosPorTurno.size > 0,
+  };
+}
+
+/** Componente interativo para configuração de dias e horários/turnos de funcionamento de áreas comuns */
 function SeletorHorariosSemana({
   horarios,
   onChange,
   onPreset,
+  permiteTurnos = true,
 }: {
   horarios: HorarioForm[];
   onChange: (novos: HorarioForm[]) => void;
-  onPreset: (tipo: 'TODOS' | 'SEG_SEX' | 'FIM_DE_SEMANA' | 'SEX_DOM' | 'VINTE_QUATRO_HORAS') => void;
+  onPreset: (tipo: 'TODOS' | 'SEG_SEX' | 'FIM_DE_SEMANA' | 'SEX_DOM' | 'VINTE_QUATRO_HORAS' | 'MUDANCA_TURNOS') => void;
+  permiteTurnos?: boolean;
 }) {
   function alternarDia(dia: DiaSemana) {
     onChange(
-      horarios.map(h => (h.dia_semana === dia ? { ...h, ativo: !h.ativo } : h))
+      horarios.map(h => {
+        if (h.dia_semana !== dia) return h;
+        const novoAtivo = !h.ativo;
+        return {
+          ...h,
+          ativo: novoAtivo,
+          turnos: h.turnos && h.turnos.length > 0 ? h.turnos : [{ hora_inicio: '08:00', hora_fim: '22:00' }],
+        };
+      })
     );
   }
 
-  function mudarHora(dia: DiaSemana, campo: 'hora_inicio' | 'hora_fim', val: string) {
+  function mudarHoraTurno(dia: DiaSemana, index: number, campo: 'hora_inicio' | 'hora_fim', val: string) {
     onChange(
-      horarios.map(h => (h.dia_semana === dia ? { ...h, [campo]: val } : h))
+      horarios.map(h => {
+        if (h.dia_semana !== dia) return h;
+        const novosTurnos = h.turnos.map((t, i) => (i === index ? { ...t, [campo]: val } : t));
+        return { ...h, turnos: novosTurnos };
+      })
+    );
+  }
+
+  function adicionarTurno(dia: DiaSemana) {
+    if (!permiteTurnos) return;
+    onChange(
+      horarios.map(h => {
+        if (h.dia_semana !== dia) return h;
+        const turnosAtuais = h.turnos || [];
+        const toMin = (s: string) => {
+          const [hora, min] = s.split(':').map(Number);
+          return (hora === 24 || (hora === 23 && min === 59)) ? 1440 : (hora * 60 + min);
+        };
+        const ultTurno = turnosAtuais[turnosAtuais.length - 1];
+        let novoIni = '13:30';
+        let novoFim = '17:00';
+        if (ultTurno) {
+          const minTermino = toMin(ultTurno.hora_fim);
+          if (minTermino < 1350) {
+            const minNovoIni = Math.min(1380, minTermino + 30);
+            const minNovoFim = Math.min(1439, minNovoIni + 210);
+            novoIni = `${String(Math.floor(minNovoIni / 60)).padStart(2, '0')}:${String(minNovoIni % 60).padStart(2, '0')}`;
+            novoFim = minNovoFim >= 1439 ? '23:59' : `${String(Math.floor(minNovoFim / 60)).padStart(2, '0')}:${String(minNovoFim % 60).padStart(2, '0')}`;
+          } else if (turnosAtuais.length === 1 && ultTurno.hora_fim === '23:59') {
+            // Se o primeiro turno cobria até 23:59, divide amigavelmente para evitar conflito imediato
+            const novos = [{ ...ultTurno, hora_fim: '12:00' }];
+            novoIni = '13:30';
+            novoFim = '18:00';
+            return {
+              ...h,
+              turnos: [...novos, { hora_inicio: novoIni, hora_fim: novoFim }],
+            };
+          }
+        }
+        return {
+          ...h,
+          turnos: [...h.turnos, { hora_inicio: novoIni, hora_fim: novoFim }],
+        };
+      })
+    );
+  }
+
+  function removerTurno(dia: DiaSemana, index: number) {
+    if (!permiteTurnos) return;
+    onChange(
+      horarios.map(h => {
+        if (h.dia_semana !== dia) return h;
+        const novosTurnos = h.turnos.filter((_, i) => i !== index);
+        return {
+          ...h,
+          turnos: novosTurnos.length > 0 ? novosTurnos : [{ hora_inicio: '08:00', hora_fim: '22:00' }],
+        };
+      })
     );
   }
 
   function copiarHorarioParaAtivos(base: HorarioForm) {
+    const turnosParaCopiar = permiteTurnos
+      ? base.turnos.map(t => ({ ...t }))
+      : [base.turnos[0] ? { ...base.turnos[0] } : { hora_inicio: '08:00', hora_fim: '22:00' }];
     onChange(
       horarios.map(h =>
-        h.ativo ? { ...h, hora_inicio: base.hora_inicio, hora_fim: base.hora_fim } : h
+        h.ativo ? { ...h, turnos: turnosParaCopiar.map(t => ({ ...t })) } : h
       )
     );
   }
+
+  // Verifica se há algum dia ativo com conflito
+  const temQualquerConflito = horarios.some(h => {
+    if (!h.ativo) return false;
+    const t = permiteTurnos ? (h.turnos || []) : [h.turnos?.[0] || { hora_inicio: '08:00', hora_fim: '22:00' }];
+    return analisarConflitosDia(t).temConflito;
+  });
 
   return (
     <div className="space-y-3 rounded-2xl border border-slate-200/80 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-900/50">
@@ -160,20 +306,32 @@ function SeletorHorariosSemana({
             Dias e Horários de Funcionamento <span className="text-red-500">*</span>
           </span>
           <p className="text-[11px] text-slate-500 dark:text-slate-400">
-            Defina em quais dias da semana este espaço pode receber reservas e suas janelas de funcionamento.
+            {permiteTurnos
+              ? 'Configure os dias e turnos de funcionamento. É possível definir múltiplos turnos no mesmo dia (ex: pausa de almoço das 12h às 13h30).'
+              : 'Defina os dias e o horário de funcionamento da diária (horário de abertura e término da diária completa).'}
           </p>
         </div>
       </div>
 
+      {/* Alerta Imediato Global se houver conflito em algum dia */}
+      {temQualquerConflito && (
+        <div className="flex items-center gap-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 p-2.5 text-xs text-rose-700 dark:text-rose-300 animate-in fade-in duration-150">
+          <Icone nome="alert" className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0" />
+          <p className="font-semibold">
+            Atenção: Existem horários conflitantes ou sobrepostos destacados em vermelho abaixo. Ajuste os turnos para que não haja sobreposição.
+          </p>
+        </div>
+      )}
+
       {/* Atalhos Rápidos de Seleção */}
-      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-5 text-xs">
+      <div className={`grid grid-cols-2 gap-1.5 ${permiteTurnos ? 'sm:grid-cols-6' : 'sm:grid-cols-5'} text-xs`}>
         <button
           type="button"
           onClick={() => onPreset('VINTE_QUATRO_HORAS')}
           className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-center font-medium text-slate-700 hover:border-navy hover:text-navy dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-sky-500 dark:hover:text-sky-400 transition-all cursor-pointer shadow-xs"
         >
           <span className="block font-bold text-[11px]">24 Horas</span>
-          <span className="text-[10px] text-slate-400">00h às 24h</span>
+          <span className="text-[10px] text-slate-400">00h às 23h59</span>
         </button>
         <button
           type="button"
@@ -189,7 +347,7 @@ function SeletorHorariosSemana({
           className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-center font-medium text-slate-700 hover:border-navy hover:text-navy dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-sky-500 dark:hover:text-sky-400 transition-all cursor-pointer shadow-xs"
         >
           <span className="block font-bold text-[11px]">Seg a Sex</span>
-          <span className="text-[10px] text-slate-400">Dias úteis</span>
+          <span className="text-[10px] text-slate-400">08h às 18h</span>
         </button>
         <button
           type="button"
@@ -207,6 +365,16 @@ function SeletorHorariosSemana({
           <span className="block font-bold text-[11px]">Sex a Dom</span>
           <span className="text-[10px] text-slate-400">Salão de Festas</span>
         </button>
+        {permiteTurnos && (
+          <button
+            type="button"
+            onClick={() => onPreset('MUDANCA_TURNOS')}
+            className="rounded-lg border border-sky-300 bg-sky-50/70 px-2 py-1.5 text-center font-medium text-sky-800 hover:border-sky-600 hover:bg-sky-100 dark:border-sky-700 dark:bg-sky-950/60 dark:text-sky-300 dark:hover:bg-sky-900 transition-all cursor-pointer shadow-xs"
+          >
+            <span className="block font-bold text-[11px]">Mudança (2 Turnos)</span>
+            <span className="text-[10px] text-sky-600 dark:text-sky-400">Pausa 12h-13h30</span>
+          </button>
+        )}
       </div>
 
       {/* Tabela / Lista dos 7 Dias da Semana */}
@@ -215,73 +383,156 @@ function SeletorHorariosSemana({
           const item = horarios.find(h => h.dia_semana === d.dia) || {
             dia_semana: d.dia,
             ativo: false,
-            hora_inicio: '08:00',
-            hora_fim: '22:00',
+            turnos: [{ hora_inicio: '08:00', hora_fim: '22:00' }],
           };
+          const turnos = item.turnos && item.turnos.length > 0 ? item.turnos : [{ hora_inicio: '08:00', hora_fim: '22:00' }];
+          const turnosExibicao = permiteTurnos ? turnos : [turnos[0] || { hora_inicio: '08:00', hora_fim: '22:00' }];
+          const analise = item.ativo ? analisarConflitosDia(turnosExibicao) : { conflitosPorTurno: new Map<number, ConflitoTurnoInfo>(), temConflito: false };
+
           return (
             <div
               key={d.dia}
-              className={`flex flex-col sm:flex-row sm:items-center justify-between p-2.5 transition-colors gap-2 ${
+              className={`flex flex-col sm:flex-row sm:items-start justify-between p-2.5 transition-colors gap-2 ${
                 item.ativo
-                  ? 'bg-white dark:bg-slate-800/80'
+                  ? analise.temConflito
+                    ? 'bg-rose-50/40 dark:bg-rose-950/20'
+                    : 'bg-white dark:bg-slate-800/80'
                   : 'bg-slate-50/70 text-slate-400 dark:bg-slate-900/40 dark:text-slate-500'
               }`}
             >
-              <label className="flex items-center gap-2.5 cursor-pointer select-none sm:w-44">
-                <input
-                  type="checkbox"
-                  checked={item.ativo}
-                  onChange={() => alternarDia(d.dia)}
-                  className="h-4 w-4 rounded-sm border-slate-300 text-navy focus:ring-navy dark:border-slate-600 dark:bg-slate-700 dark:focus:ring-sky-500 cursor-pointer"
-                />
-                <span className={`text-xs font-semibold ${item.ativo ? 'text-slate-800 dark:text-slate-100' : 'text-slate-400 dark:text-slate-500 line-through'}`}>
-                  {d.label}
-                </span>
-              </label>
+              <div className="sm:w-48 pt-1">
+                <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={item.ativo}
+                    onChange={() => alternarDia(d.dia)}
+                    className="h-4 w-4 rounded-sm border-slate-300 text-navy focus:ring-navy dark:border-slate-600 dark:bg-slate-700 dark:focus:ring-sky-500 cursor-pointer"
+                  />
+                  <span className={`text-xs font-semibold ${item.ativo ? (analise.temConflito ? 'text-rose-700 dark:text-rose-300 font-bold' : 'text-slate-800 dark:text-slate-100') : 'text-slate-400 dark:text-slate-500 line-through'}`}>
+                    {d.label}
+                  </span>
+                </label>
+                {item.ativo && (
+                  <div className="pl-6 pt-0.5 space-y-0.5">
+                    {analise.temConflito ? (
+                      <span className="inline-flex items-center gap-1 rounded bg-rose-100 dark:bg-rose-900/60 text-rose-700 dark:text-rose-300 px-1.5 py-0.5 text-[10px] font-bold">
+                        <Icone nome="alert" className="h-3 w-3 text-rose-500" />
+                        Conflito de horários
+                      </span>
+                    ) : permiteTurnos && turnos.length > 1 ? (
+                      <span className="block text-[10px] text-sky-600 dark:text-sky-400 font-medium">
+                        {turnos.length} turnos configurados
+                      </span>
+                    ) : null}
+                  </div>
+                )}
+              </div>
 
               {item.ativo ? (
-                <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">De:</span>
-                    <select
-                      className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 focus:border-navy focus:ring-1 focus:ring-navy cursor-pointer"
-                      value={item.hora_inicio}
-                      onChange={e => mudarHora(d.dia, 'hora_inicio', e.target.value)}
-                    >
-                      {HORARIOS_DIA.map(h => (
-                        <option key={h} value={h}>
-                          {h}
-                        </option>
-                      ))}
-                    </select>
+                <div className="flex-1 space-y-2">
+                  <div className="space-y-2">
+                    {turnosExibicao.map((t, idx) => {
+                      const conflito = analise.conflitosPorTurno.get(idx);
+                      return (
+                        <div key={idx} className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-2 text-xs">
+                            {permiteTurnos && turnos.length > 1 && (
+                              <span className={`text-[10px] font-bold rounded px-1.5 py-0.5 ${
+                                conflito
+                                  ? 'bg-rose-100 text-rose-800 dark:bg-rose-900/70 dark:text-rose-200'
+                                  : 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400'
+                              }`}>
+                                Turno {idx + 1}
+                              </span>
+                            )}
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">De:</span>
+                              <select
+                                className={`rounded-lg border px-2 py-1 text-xs transition-colors cursor-pointer ${
+                                  conflito
+                                    ? 'border-rose-500 bg-rose-50/80 text-rose-900 font-semibold ring-1 ring-rose-500 dark:border-rose-500 dark:bg-rose-950/60 dark:text-rose-200'
+                                    : 'border-slate-200 bg-white font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 focus:border-navy focus:ring-1 focus:ring-navy'
+                                }`}
+                                value={t.hora_inicio}
+                                onChange={e => mudarHoraTurno(d.dia, idx, 'hora_inicio', e.target.value)}
+                              >
+                                {HORARIOS_DIA.map(h => (
+                                  <option key={h} value={h}>
+                                    {h}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Até:</span>
+                              <select
+                                className={`rounded-lg border px-2 py-1 text-xs transition-colors cursor-pointer ${
+                                  conflito
+                                    ? 'border-rose-500 bg-rose-50/80 text-rose-900 font-semibold ring-1 ring-rose-500 dark:border-rose-500 dark:bg-rose-950/60 dark:text-rose-200'
+                                    : 'border-slate-200 bg-white font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 focus:border-navy focus:ring-1 focus:ring-navy'
+                                }`}
+                                value={t.hora_fim}
+                                onChange={e => mudarHoraTurno(d.dia, idx, 'hora_fim', e.target.value)}
+                              >
+                                {HORARIOS_DIA.map(h => (
+                                  <option key={h} value={h}>
+                                    {h}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            {permiteTurnos && turnos.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => removerTurno(d.dia, idx)}
+                                title="Remover este turno"
+                                className="rounded-md p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                              >
+                                <Icone nome="x" className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Aviso rápido em vermelho se houver conflito */}
+                          {conflito && (
+                            <div className="flex items-center gap-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/50 border border-rose-200/80 dark:border-rose-900/60 px-2 py-1 text-[11px] font-semibold text-rose-700 dark:text-rose-300 animate-in fade-in duration-150">
+                              <Icone nome="alert" className="h-3.5 w-3.5 text-rose-500 shrink-0" />
+                              <span>{conflito.mensagem}</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
 
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Até:</span>
-                    <select
-                      className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 focus:border-navy focus:ring-1 focus:ring-navy cursor-pointer"
-                      value={item.hora_fim}
-                      onChange={e => mudarHora(d.dia, 'hora_fim', e.target.value)}
+                  <div className="flex items-center gap-2 pt-1 border-t border-slate-100 dark:border-slate-800/60">
+                    {permiteTurnos && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => adicionarTurno(d.dia)}
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-navy hover:text-navy-light dark:text-sky-400 dark:hover:text-sky-300 transition-colors cursor-pointer"
+                        >
+                          <Icone nome="plus" className="h-3 w-3" />
+                          Adicionar Turno
+                        </button>
+                        <span className="text-slate-300 dark:text-slate-700">•</span>
+                      </>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => copiarHorarioParaAtivos(item)}
+                      title={permiteTurnos ? "Copiar os turnos deste dia para todos os dias ativos" : "Copiar o horário deste dia para todos os dias ativos"}
+                      className="text-[10px] font-semibold text-slate-500 hover:text-navy dark:text-slate-400 dark:hover:text-sky-400 transition-colors cursor-pointer"
                     >
-                      {HORARIOS_DIA.map(h => (
-                        <option key={h} value={h}>
-                          {h}
-                        </option>
-                      ))}
-                    </select>
+                      Replicar para dias ativos
+                    </button>
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={() => copiarHorarioParaAtivos(item)}
-                    title="Copiar este horário de abertura e fechamento para todos os dias ativos"
-                    className="rounded-md border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 text-slate-500 hover:bg-slate-100 hover:text-navy dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-sky-400 transition-colors cursor-pointer text-[10px] font-semibold"
-                  >
-                    Replicar
-                  </button>
                 </div>
               ) : (
-                <div className="text-xs text-slate-400 dark:text-slate-500 italic pr-2">
+                <div className="text-xs text-slate-400 dark:text-slate-500 italic pr-2 pt-1">
                   Fechado neste dia
                 </div>
               )}
@@ -359,7 +610,24 @@ export default function Areas() {
   const [msg, setMsg] = useState<{ t: string; tipo: 'erro' | 'ok' }>({ t: '', tipo: 'ok' });
   const [modalCriarAberto, setModalCriarAberto] = useState(false);
   const [modalBloqueioAberto, setModalBloqueioAberto] = useState(false);
-  const [editando, setEditando] = useState<Area | null>(null);
+  const [editando, setEditando] = useState<(Area & { modalidade?: 'HORARIOS' | 'DIA_INTEIRO' }) | null>(null);
+
+  function selecionarModalidadeEditar(mod: 'HORARIOS' | 'DIA_INTEIRO') {
+    if (!editando) return;
+    if (mod === 'DIA_INTEIRO') {
+      setEditando(e => e ? ({ ...e, modalidade: 'DIA_INTEIRO', reserva_por_dia: true }) : null);
+      setHorariosEditar(prev =>
+        prev.map(h => ({
+          ...h,
+          turnos: h.turnos && h.turnos.length > 1
+            ? [{ hora_inicio: h.turnos[0].hora_inicio, hora_fim: h.turnos[h.turnos.length - 1].hora_fim }]
+            : (h.turnos && h.turnos.length > 0 ? h.turnos : [{ hora_inicio: '08:00', hora_fim: '22:00' }]),
+        }))
+      );
+    } else {
+      setEditando(e => e ? ({ ...e, modalidade: 'HORARIOS', reserva_por_dia: false }) : null);
+    }
+  }
   const [excluindoBloqueio, setExcluindoBloqueio] = useState<BloqueioArea | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [previewImagem, setPreviewImagem] = useState<string | null>(null);
@@ -393,12 +661,29 @@ export default function Areas() {
     antecedencia_maxima_dias: 30,
     prazo_cancelamento_horas: 24,
     limite_reservas_semana: 2,
+    modalidade: 'HORARIOS' as 'HORARIOS' | 'DIA_INTEIRO',
     reserva_por_dia: false,
     requer_reserva: true,
     valor: 0,
     exige_chave: false,
     codigo_chave: '',
   });
+
+  function selecionarModalidadeCriar(mod: 'HORARIOS' | 'DIA_INTEIRO') {
+    if (mod === 'DIA_INTEIRO') {
+      setForm(f => ({ ...f, modalidade: 'DIA_INTEIRO', reserva_por_dia: true }));
+      setHorariosCriar(prev =>
+        prev.map(h => ({
+          ...h,
+          turnos: h.turnos && h.turnos.length > 1
+            ? [{ hora_inicio: h.turnos[0].hora_inicio, hora_fim: h.turnos[h.turnos.length - 1].hora_fim }]
+            : (h.turnos && h.turnos.length > 0 ? h.turnos : [{ hora_inicio: '08:00', hora_fim: '22:00' }]),
+        }))
+      );
+    } else {
+      setForm(f => ({ ...f, modalidade: 'HORARIOS', reserva_por_dia: false }));
+    }
+  }
 
   // Estado avançado para agendamento de manutenção (UI/UX Pro Max)
   const [tipoPeriodo, setTipoPeriodo] = useState<'UNICO' | 'MULTIPLO'>('UNICO');
@@ -446,27 +731,38 @@ export default function Areas() {
     }
   }
 
-  function aplicarPresetDias(tipo: 'TODOS' | 'SEG_SEX' | 'FIM_DE_SEMANA' | 'SEX_DOM' | 'VINTE_QUATRO_HORAS', modo: 'CRIAR' | 'EDITAR') {
+  function aplicarPresetDias(tipo: 'TODOS' | 'SEG_SEX' | 'FIM_DE_SEMANA' | 'SEX_DOM' | 'VINTE_QUATRO_HORAS' | 'MUDANCA_TURNOS', modo: 'CRIAR' | 'EDITAR') {
     const fn = modo === 'CRIAR' ? setHorariosCriar : setHorariosEditar;
     fn(prev =>
       prev.map(h => {
         if (tipo === 'VINTE_QUATRO_HORAS') {
-          return { ...h, ativo: true, hora_inicio: '00:00', hora_fim: '24:00' };
+          return { ...h, ativo: true, turnos: [{ hora_inicio: '00:00', hora_fim: '23:59' }] };
         }
         if (tipo === 'TODOS') {
-          return { ...h, ativo: true, hora_inicio: '08:00', hora_fim: '22:00' };
+          return { ...h, ativo: true, turnos: [{ hora_inicio: '08:00', hora_fim: '22:00' }] };
         }
         if (tipo === 'SEG_SEX') {
           const isSegSex = ['SEGUNDA', 'TERCA', 'QUARTA', 'QUINTA', 'SEXTA'].includes(h.dia_semana);
-          return { ...h, ativo: isSegSex, hora_inicio: '08:00', hora_fim: '22:00' };
+          return { ...h, ativo: isSegSex, turnos: [{ hora_inicio: '08:00', hora_fim: '18:00' }] };
         }
         if (tipo === 'FIM_DE_SEMANA') {
           const isFim = ['SABADO', 'DOMINGO'].includes(h.dia_semana);
-          return { ...h, ativo: isFim, hora_inicio: '08:00', hora_fim: '23:00' };
+          return { ...h, ativo: isFim, turnos: [{ hora_inicio: '08:00', hora_fim: '22:00' }] };
         }
         if (tipo === 'SEX_DOM') {
           const isSexDom = ['SEXTA', 'SABADO', 'DOMINGO'].includes(h.dia_semana);
-          return { ...h, ativo: isSexDom, hora_inicio: '08:00', hora_fim: '23:00' };
+          return { ...h, ativo: isSexDom, turnos: [{ hora_inicio: '10:00', hora_fim: '22:00' }] };
+        }
+        if (tipo === 'MUDANCA_TURNOS') {
+          const isSegSex = ['SEGUNDA', 'TERCA', 'QUARTA', 'QUINTA', 'SEXTA'].includes(h.dia_semana);
+          return {
+            ...h,
+            ativo: isSegSex,
+            turnos: [
+              { hora_inicio: '08:00', hora_fim: '12:00' },
+              { hora_inicio: '13:30', hora_fim: '17:00' },
+            ],
+          };
         }
         return h;
       })
@@ -496,22 +792,35 @@ export default function Areas() {
       setMsg({ t: 'Selecione ao menos um dia da semana de funcionamento para o espaço.', tipo: 'erro' });
       return;
     }
-    for (const h of diasAtivos) {
-      if (h.hora_fim <= h.hora_inicio) {
-        setMsg({ t: `O horário de término deve ser após o de início no dia ${h.dia_semana}.`, tipo: 'erro' });
+    for (const d of diasAtivos) {
+      if (!d.turnos || d.turnos.length === 0) {
+        setMsg({ t: `Adicione ao menos um turno para o dia ${d.dia_semana}.`, tipo: 'erro' });
+        return;
+      }
+      const analise = analisarConflitosDia(d.turnos);
+      if (analise.temConflito) {
+        const primeiroErro = Array.from(analise.conflitosPorTurno.values())[0];
+        setMsg({
+          t: `No dia ${d.dia_semana}: ${primeiroErro?.mensagem || 'Existem turnos com horários conflitantes ou inválidos.'}`,
+          tipo: 'erro',
+        });
         return;
       }
     }
 
     setSalvando(true);
     try {
+      const ehDiaInteiro = form.modalidade === 'DIA_INTEIRO';
       const payload = {
         ...form,
-        horarios: diasAtivos.map(h => ({
-          dia_semana: h.dia_semana,
-          hora_inicio: h.hora_inicio,
-          hora_fim: h.hora_fim,
-        })),
+        horarios: diasAtivos.flatMap(d => {
+          const turnosAUsar = ehDiaInteiro ? [d.turnos[0]] : d.turnos;
+          return turnosAUsar.map(t => ({
+            dia_semana: d.dia_semana,
+            hora_inicio: t.hora_inicio,
+            hora_fim: t.hora_fim === '24:00' ? '23:59' : t.hora_fim,
+          }));
+        }),
       };
       const area = await api.post<Area>('/areas', payload);
       const file = fileInputCriar.current?.files?.[0];
@@ -530,6 +839,7 @@ export default function Areas() {
         antecedencia_maxima_dias: 30,
         prazo_cancelamento_horas: 24,
         limite_reservas_semana: 2,
+        modalidade: 'HORARIOS',
         reserva_por_dia: false,
         requer_reserva: true,
         valor: 0,
@@ -784,6 +1094,8 @@ export default function Areas() {
 
   function abrirEdicao(a: Area) {
     const antMinHoras = a.antecedencia_minima_horas ?? (a.antecedencia_minima_dias * 24);
+    const modInicial: 'HORARIOS' | 'DIA_INTEIRO' = a.reserva_por_dia ? 'DIA_INTEIRO' : 'HORARIOS';
+
     setEditando({
       ...a,
       descricao: a.descricao ?? '',
@@ -792,24 +1104,32 @@ export default function Areas() {
       exige_chave: Boolean(a.exige_chave),
       antecedencia_minima_horas: antMinHoras,
       reserva_por_dia: Boolean(a.reserva_por_dia),
+      modalidade: modInicial,
     });
     setPreviewImagem(a.imagem_url || null);
 
     const horariosCarregados = DIAS_SEMANA_CONFIG.map(d => {
-      const encontrado = a.horarios?.find(h => h.dia_semana === d.dia);
-      if (encontrado) {
+      const encontrados = (a.horarios || [])
+        .filter(h => h.dia_semana === d.dia)
+        .sort((x, y) => x.hora_inicio.localeCompare(y.hora_inicio));
+
+      if (encontrados.length > 0) {
         return {
           dia_semana: d.dia,
           ativo: true,
-          hora_inicio: encontrado.hora_inicio.slice(0, 5),
-          hora_fim: encontrado.hora_fim.slice(0, 5),
+          turnos: encontrados.map(h => {
+            const hFim = h.hora_fim.slice(0, 5);
+            return {
+              hora_inicio: h.hora_inicio.slice(0, 5),
+              hora_fim: hFim === '24:00' ? '23:59' : hFim,
+            };
+          }),
         };
       }
       return {
         dia_semana: d.dia,
         ativo: false,
-        hora_inicio: '08:00',
-        hora_fim: '22:00',
+        turnos: [{ hora_inicio: '08:00', hora_fim: '22:00' }],
       };
     });
     setHorariosEditar(horariosCarregados);
@@ -822,15 +1142,25 @@ export default function Areas() {
       setMsg({ t: 'Selecione ao menos um dia da semana de funcionamento para o espaço.', tipo: 'erro' });
       return;
     }
-    for (const h of diasAtivos) {
-      if (h.hora_fim <= h.hora_inicio) {
-        setMsg({ t: `O horário de término deve ser após o de início no dia ${h.dia_semana}.`, tipo: 'erro' });
+    for (const d of diasAtivos) {
+      if (!d.turnos || d.turnos.length === 0) {
+        setMsg({ t: `Adicione ao menos um turno para o dia ${d.dia_semana}.`, tipo: 'erro' });
+        return;
+      }
+      const analise = analisarConflitosDia(d.turnos);
+      if (analise.temConflito) {
+        const primeiroErro = Array.from(analise.conflitosPorTurno.values())[0];
+        setMsg({
+          t: `No dia ${d.dia_semana}: ${primeiroErro?.mensagem || 'Existem turnos com horários conflitantes ou inválidos.'}`,
+          tipo: 'erro',
+        });
         return;
       }
     }
 
     setSalvando(true);
     try {
+      const ehDiaInteiro = editando.modalidade === 'DIA_INTEIRO';
       await api.put(`/areas/${editando.id_area_comum}`, {
         nome: editando.nome,
         descricao: editando.descricao ?? '',
@@ -844,11 +1174,14 @@ export default function Areas() {
         prazo_cancelamento_horas: editando.prazo_cancelamento_horas,
         limite_reservas_semana: editando.limite_reservas_semana,
         reserva_por_dia: Boolean(editando.reserva_por_dia),
-        horarios: diasAtivos.map(h => ({
-          dia_semana: h.dia_semana,
-          hora_inicio: h.hora_inicio,
-          hora_fim: h.hora_fim,
-        })),
+        horarios: diasAtivos.flatMap(d => {
+          const turnosAUsar = ehDiaInteiro ? [d.turnos[0]] : d.turnos;
+          return turnosAUsar.map(t => ({
+            dia_semana: d.dia_semana,
+            hora_inicio: t.hora_inicio,
+            hora_fim: t.hora_fim === '24:00' ? '23:59' : t.hora_fim,
+          }));
+        }),
       });
       const file = fileInputEditar.current?.files?.[0];
       if (file) {
@@ -1079,6 +1412,7 @@ export default function Areas() {
                   antecedencia_maxima_dias: 30,
                   prazo_cancelamento_horas: 24,
                   limite_reservas_semana: 2,
+                  modalidade: 'HORARIOS',
                   reserva_por_dia: false,
                   requer_reserva: true,
                   valor: 0,
@@ -2066,9 +2400,9 @@ export default function Areas() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={() => setForm({ ...form, reserva_por_dia: false })}
+                onClick={() => selecionarModalidadeCriar('HORARIOS')}
                 className={`flex items-start gap-2.5 rounded-xl border p-3 text-left transition-all cursor-pointer ${
-                  !form.reserva_por_dia
+                  form.modalidade === 'HORARIOS'
                     ? 'border-navy bg-navy/5 ring-1 ring-navy dark:border-sky-500 dark:bg-sky-950/30 dark:ring-sky-500'
                     : 'border-slate-200 bg-white hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-slate-600'
                 }`}
@@ -2076,23 +2410,23 @@ export default function Areas() {
                 <input
                   type="radio"
                   name="modalidade_criar"
-                  checked={!form.reserva_por_dia}
-                  onChange={() => setForm({ ...form, reserva_por_dia: false })}
+                  checked={form.modalidade === 'HORARIOS'}
+                  onChange={() => selecionarModalidadeCriar('HORARIOS')}
                   className="mt-0.5 h-4 w-4 text-navy focus:ring-navy dark:text-sky-500 cursor-pointer"
                 />
                 <div>
                   <p className="text-xs font-bold text-slate-900 dark:text-slate-100">Por Horários / Faixas</p>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    O morador reserva frações de tempo (ex.: 1h, 2h, 4h).
+                    O morador reserva frações de tempo (ex.: 1h, 2h, 4h). Permite múltiplos turnos no mesmo dia (ex.: pausa de almoço).
                   </p>
                 </div>
               </button>
 
               <button
                 type="button"
-                onClick={() => setForm({ ...form, reserva_por_dia: true })}
+                onClick={() => selecionarModalidadeCriar('DIA_INTEIRO')}
                 className={`flex items-start gap-2.5 rounded-xl border p-3 text-left transition-all cursor-pointer ${
-                  form.reserva_por_dia
+                  form.modalidade === 'DIA_INTEIRO'
                     ? 'border-amber-500 bg-amber-500/10 ring-1 ring-amber-500 dark:border-amber-400 dark:bg-amber-950/30 dark:ring-amber-400'
                     : 'border-slate-200 bg-white hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-slate-600'
                 }`}
@@ -2100,22 +2434,22 @@ export default function Areas() {
                 <input
                   type="radio"
                   name="modalidade_criar"
-                  checked={form.reserva_por_dia}
-                  onChange={() => setForm({ ...form, reserva_por_dia: true })}
+                  checked={form.modalidade === 'DIA_INTEIRO'}
+                  onChange={() => selecionarModalidadeCriar('DIA_INTEIRO')}
                   className="mt-0.5 h-4 w-4 text-amber-600 focus:ring-amber-500 dark:text-amber-400 cursor-pointer"
                 />
                 <div>
                   <p className="text-xs font-bold text-slate-900 dark:text-slate-100">Por Dia Inteiro</p>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Reserva a diária completa conforme o horário de funcionamento do dia.
+                    Reserva a diária completa (horário único de funcionamento, sem divisão por turnos).
                   </p>
                 </div>
               </button>
             </div>
           </div>
 
-          {/* Duração da Reserva (apenas quando modalidade por horários) */}
-          {!form.reserva_por_dia ? (
+          {/* Duração da Reserva ou Mensagem Informativa */}
+          {form.modalidade === 'HORARIOS' ? (
             <label className="block text-sm">
               <span className="mb-1.5 block text-xs font-semibold text-slate-700 dark:text-slate-300">
                 Duração da Reserva <span className="text-red-500">*</span>
@@ -2158,9 +2492,9 @@ export default function Areas() {
             </label>
           ) : (
             <div className="rounded-xl border border-amber-200/80 bg-amber-50/70 dark:border-amber-900/60 dark:bg-amber-950/30 p-3 text-xs text-amber-900 dark:text-amber-200">
-              <p className="font-semibold">Reserva por Diária Ativada</p>
+              <p className="font-semibold">Reserva por Diária Completa Ativada</p>
               <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80 mt-0.5">
-                A reserva cobrirá o dia todo automaticamente, iniciando e finalizando exatamente nos horários definidos em "Dias e Horários de Funcionamento" abaixo.
+                A reserva cobrirá o dia todo automaticamente. Os horários definem apenas o início e o término da diária completa (não é possível separar por turnos).
               </p>
             </div>
           )}
@@ -2333,6 +2667,7 @@ export default function Areas() {
             horarios={horariosCriar}
             onChange={setHorariosCriar}
             onPreset={t => aplicarPresetDias(t, 'CRIAR')}
+            permiteTurnos={form.modalidade !== 'DIA_INTEIRO'}
           />
 
           <Campo rotulo="Imagem / Foto da Área">
@@ -2511,9 +2846,9 @@ export default function Areas() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={() => setEditando({ ...editando, reserva_por_dia: false })}
+                  onClick={() => selecionarModalidadeEditar('HORARIOS')}
                   className={`flex items-start gap-2.5 rounded-xl border p-3 text-left transition-all cursor-pointer ${
-                    !editando.reserva_por_dia
+                    editando.modalidade === 'HORARIOS'
                       ? 'border-navy bg-navy/5 ring-1 ring-navy dark:border-sky-500 dark:bg-sky-950/30 dark:ring-sky-500'
                       : 'border-slate-200 bg-white hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-slate-600'
                   }`}
@@ -2521,23 +2856,23 @@ export default function Areas() {
                   <input
                     type="radio"
                     name="modalidade_editar"
-                    checked={!editando.reserva_por_dia}
-                    onChange={() => setEditando({ ...editando, reserva_por_dia: false })}
+                    checked={editando.modalidade === 'HORARIOS'}
+                    onChange={() => selecionarModalidadeEditar('HORARIOS')}
                     className="mt-0.5 h-4 w-4 text-navy focus:ring-navy dark:text-sky-500 cursor-pointer"
                   />
                   <div>
                     <p className="text-xs font-bold text-slate-900 dark:text-slate-100">Por Horários / Faixas</p>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                      O morador reserva frações de tempo (ex.: 1h, 2h, 4h).
+                      O morador reserva frações de tempo (ex.: 1h, 2h, 4h). Permite múltiplos turnos no mesmo dia (ex.: pausa de almoço).
                     </p>
                   </div>
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => setEditando({ ...editando, reserva_por_dia: true })}
+                  onClick={() => selecionarModalidadeEditar('DIA_INTEIRO')}
                   className={`flex items-start gap-2.5 rounded-xl border p-3 text-left transition-all cursor-pointer ${
-                    editando.reserva_por_dia
+                    editando.modalidade === 'DIA_INTEIRO'
                       ? 'border-amber-500 bg-amber-500/10 ring-1 ring-amber-500 dark:border-amber-400 dark:bg-amber-950/30 dark:ring-amber-400'
                       : 'border-slate-200 bg-white hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-slate-600'
                   }`}
@@ -2545,22 +2880,22 @@ export default function Areas() {
                   <input
                     type="radio"
                     name="modalidade_editar"
-                    checked={Boolean(editando.reserva_por_dia)}
-                    onChange={() => setEditando({ ...editando, reserva_por_dia: true })}
+                    checked={editando.modalidade === 'DIA_INTEIRO'}
+                    onChange={() => selecionarModalidadeEditar('DIA_INTEIRO')}
                     className="mt-0.5 h-4 w-4 text-amber-600 focus:ring-amber-500 dark:text-amber-400 cursor-pointer"
                   />
                   <div>
                     <p className="text-xs font-bold text-slate-900 dark:text-slate-100">Por Dia Inteiro</p>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                      Reserva a diária completa conforme o horário de funcionamento do dia.
+                      Reserva a diária completa (horário único de funcionamento, sem divisão por turnos).
                     </p>
                   </div>
                 </button>
               </div>
             </div>
 
-            {/* Duração da Reserva (apenas quando modalidade por horários) */}
-            {!editando.reserva_por_dia ? (
+            {/* Duração da Reserva ou Mensagem Informativa */}
+            {editando.modalidade === 'HORARIOS' ? (
               <label className="block text-sm">
                 <span className="mb-1.5 block text-xs font-semibold text-slate-700 dark:text-slate-300">
                   Duração da Reserva <span className="text-red-500">*</span>
@@ -2603,9 +2938,9 @@ export default function Areas() {
               </label>
             ) : (
               <div className="rounded-xl border border-amber-200/80 bg-amber-50/70 dark:border-amber-900/60 dark:bg-amber-950/30 p-3 text-xs text-amber-900 dark:text-amber-200">
-                <p className="font-semibold">Reserva por Diária Ativada</p>
+                <p className="font-semibold">Reserva por Diária Completa Ativada</p>
                 <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80 mt-0.5">
-                  A reserva cobrirá o dia todo automaticamente, iniciando e finalizando exatamente nos horários definidos em "Dias e Horários de Funcionamento" abaixo.
+                  A reserva cobrirá o dia todo automaticamente. Os horários definem apenas o início e o término da diária completa (não é possível separar por turnos).
                 </p>
               </div>
             )}
@@ -2847,6 +3182,7 @@ export default function Areas() {
               horarios={horariosEditar}
               onChange={setHorariosEditar}
               onPreset={t => aplicarPresetDias(t, 'EDITAR')}
+              permiteTurnos={editando.modalidade !== 'DIA_INTEIRO'}
             />
 
             <Campo rotulo="Substituir Imagem">

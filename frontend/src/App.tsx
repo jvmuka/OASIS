@@ -29,7 +29,11 @@ function Protegida({ perfil, children }: { perfil?: string | string[]; children:
   const s = sessaoAtual();
   if (!s) return <Navigate to="/login" replace />;
   const exigidos = perfil ? (Array.isArray(perfil) ? perfil : [perfil]) : null;
-  if (exigidos && !s.perfis.some(p => exigidos.includes(p.tipo))) return <Navigate to="/" replace />;
+  if (exigidos) {
+    const sinonimos = (t: string) => (t === 'SINDICO' || t === 'ADMINISTRADOR' ? ['SINDICO', 'ADMINISTRADOR'] : [t]);
+    const permitidos = new Set(exigidos.flatMap(sinonimos));
+    if (!s.perfis.some(p => permitidos.has(p.tipo))) return <Navigate to="/" replace />;
+  }
   return children;
 }
 
@@ -46,16 +50,16 @@ export default function App() {
         <Route path="/morador/encomendas" element={<Protegida perfil="MORADOR"><MinhasEncomendas /></Protegida>} />
         <Route path="/morador/familia" element={<Protegida perfil="MORADOR"><Dependentes /></Protegida>} />
         <Route path="/mural" element={<Protegida><Mural /></Protegida>} />
-        {/* Porteiro */}
-        <Route path="/portaria/painel" element={<Protegida perfil={['PORTEIRO', 'SINDICO']}><Portaria /></Protegida>} />
-        <Route path="/portaria/areas-livres" element={<Protegida perfil={['PORTEIRO', 'SINDICO']}><AreasLivres /></Protegida>} />
+        {/* Porteiro e Administrador */}
+        <Route path="/portaria/painel" element={<Protegida perfil={['PORTEIRO', 'ADMINISTRADOR', 'SINDICO']}><Portaria /></Protegida>} />
+        <Route path="/portaria/areas-livres" element={<Protegida perfil={['PORTEIRO', 'ADMINISTRADOR', 'SINDICO']}><AreasLivres /></Protegida>} />
         <Route path="/portaria/encomendas" element={<Protegida perfil="PORTEIRO"><Encomendas /></Protegida>} />
-        <Route path="/portaria/chaves" element={<Protegida perfil={['PORTEIRO', 'SINDICO']}><Chaves /></Protegida>} />
-        {/* Sindico */}
-        <Route path="/sindico/painel" element={<Protegida perfil="SINDICO"><Painel /></Protegida>} />
-        <Route path="/sindico/areas" element={<Protegida perfil="SINDICO"><Areas /></Protegida>} />
-        <Route path="/sindico/pessoas" element={<Protegida perfil="SINDICO"><Pessoas /></Protegida>} />
-        <Route path="/sindico/avisos" element={<Protegida perfil="SINDICO"><PublicarAviso /></Protegida>} />
+        <Route path="/portaria/chaves" element={<Protegida perfil={['PORTEIRO', 'ADMINISTRADOR', 'SINDICO']}><Chaves /></Protegida>} />
+        {/* Administrador */}
+        <Route path="/sindico/painel" element={<Protegida perfil={['ADMINISTRADOR', 'SINDICO']}><Painel /></Protegida>} />
+        <Route path="/sindico/areas" element={<Protegida perfil={['ADMINISTRADOR', 'SINDICO']}><Areas /></Protegida>} />
+        <Route path="/sindico/pessoas" element={<Protegida perfil={['ADMINISTRADOR', 'SINDICO']}><Pessoas /></Protegida>} />
+        <Route path="/sindico/avisos" element={<Protegida perfil={['ADMINISTRADOR', 'SINDICO']}><PublicarAviso /></Protegida>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

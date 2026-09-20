@@ -121,14 +121,14 @@ function obterPapelUsuario(p: Pessoa): {
   icone: 'shield' | 'home' | 'key' | 'user';
 } {
   const tipos = (p.perfis || []).map(pf => pf.tipo);
-  const temSindico = tipos.includes('SINDICO');
+  const temSindico = tipos.includes('SINDICO') || tipos.includes('ADMINISTRADOR');
   const temMorador = tipos.includes('MORADOR');
   const temPorteiro = tipos.includes('PORTEIRO');
   const temUnidade = p.unidades && p.unidades.length > 0;
 
   if (temSindico && (temMorador || temUnidade)) {
     return {
-      papel: 'Síndico / Morador',
+      papel: 'Administrador / Morador',
       badgeCls:
         'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/60',
       icone: 'shield',
@@ -136,7 +136,7 @@ function obterPapelUsuario(p: Pessoa): {
   }
   if (temSindico && !temMorador && !temUnidade) {
     return {
-      papel: 'Apenas Síndico',
+      papel: 'Apenas Administrador',
       badgeCls:
         'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/60',
       icone: 'shield',
@@ -321,9 +321,9 @@ export default function Pessoas() {
     const u = p.unidades && p.unidades[0];
     const tipos = (p.perfis || []).map(pf => pf.tipo);
     let tipoPerfilInicial = 'MORADOR';
-    if (tipos.includes('SINDICO') && (tipos.includes('MORADOR') || (p.unidades && p.unidades.length > 0))) {
+    if ((tipos.includes('SINDICO') || tipos.includes('ADMINISTRADOR')) && (tipos.includes('MORADOR') || (p.unidades && p.unidades.length > 0))) {
       tipoPerfilInicial = 'SINDICO_MORADOR';
-    } else if (tipos.includes('SINDICO')) {
+    } else if (tipos.includes('SINDICO') || tipos.includes('ADMINISTRADOR')) {
       tipoPerfilInicial = 'SINDICO';
     } else if (tipos.includes('PORTEIRO')) {
       tipoPerfilInicial = 'PORTEIRO';
@@ -1388,8 +1388,8 @@ export default function Pessoas() {
               <Campo rotulo="Papel no Condomínio">
                 <select className={inputCls} value={form.tipo_perfil} onChange={c('tipo_perfil')}>
                   <option value="MORADOR">Morador</option>
-                  <option value="SINDICO_MORADOR">Síndico / Morador</option>
-                  <option value="SINDICO">Apenas Síndico</option>
+                  <option value="SINDICO_MORADOR">Administrador / Morador</option>
+                  <option value="SINDICO">Apenas Administrador</option>
                   <option value="PORTEIRO">Porteiro</option>
                 </select>
               </Campo>
@@ -1552,8 +1552,8 @@ export default function Pessoas() {
               <Campo rotulo="Papel no Condomínio">
                 <select className={inputCls} value={formEdicao.tipo_perfil} onChange={cEdicao('tipo_perfil')}>
                   <option value="MORADOR">Morador</option>
-                  <option value="SINDICO_MORADOR">Síndico / Morador</option>
-                  <option value="SINDICO">Apenas Síndico</option>
+                  <option value="SINDICO_MORADOR">Administrador / Morador</option>
+                  <option value="SINDICO">Apenas Administrador</option>
                   <option value="PORTEIRO">Porteiro</option>
                 </select>
               </Campo>
