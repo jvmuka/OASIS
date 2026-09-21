@@ -266,18 +266,32 @@ export class PortariaController {
        ORDER BY r.data_hora_fim ASC`);
   }
 
-  /** Agenda do dia (padrao hoje) com a situacao calculada de cada reserva ativa. */
+  /** Agenda do dia, mês ou qualquer data com a situacao calculada de cada reserva. */
   @Get('agenda') @Perfis('PORTEIRO', 'SINDICO')
-  agenda(@Query('data') data?: string) {
-    const dia = data && /^\d{4}-\d{2}-\d{2}$/.test(data)
-      ? data
-      : new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).slice(0, 10);
+  agenda(@Query('data') data?: string, @Query('mes') mes?: string) {
+    const paramMes = mes || (data && /^\d{4}-\d{2}$/.test(data) ? data : undefined);
+    const isQualquerData = (data === 'TODAS' || data === 'qualquer') && !paramMes;
+
+    let whereClause = '';
+    const params: any[] = [];
+
+    if (paramMes) {
+      whereClause = `WHERE to_char(r.data_hora_inicio, 'YYYY-MM') = $1`;
+      params.push(paramMes);
+    } else if (!isQualquerData) {
+      const dia = data && /^\d{4}-\d{2}-\d{2}$/.test(data)
+        ? data
+        : new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).slice(0, 10);
+      whereClause = 'WHERE r.data_hora_inicio::date = $1::date';
+      params.push(dia);
+    }
 
     return this.db.query(`
       SELECT r.id_reserva, a.nome AS area, p.nome AS morador, b.nome AS bloco,
              u.numero_apartamento AS apartamento, r.data_hora_inicio, r.data_hora_fim,
-             r.numero_pessoas,
-             CASE WHEN r.data_hora_inicio > CURRENT_TIMESTAMP THEN 'AGENDADA'
+             r.numero_pessoas, r.status,
+             CASE WHEN r.status = 'CANCELADA' THEN 'CANCELADA'
+                  WHEN r.data_hora_inicio > CURRENT_TIMESTAMP THEN 'AGENDADA'
                   WHEN r.data_hora_fim < CURRENT_TIMESTAMP THEN 'ENCERRADA'
                   ELSE 'EM_ANDAMENTO' END AS situacao
         FROM reserva r
@@ -287,8 +301,12 @@ export class PortariaController {
         LEFT JOIN pessoa_unidade pu ON pu.id_pessoa = p.id_pessoa AND pu.data_fim_ocupacao IS NULL
         LEFT JOIN unidade u ON u.id_unidade = pu.id_unidade
         LEFT JOIN bloco b ON b.id_bloco = u.id_bloco
-       WHERE r.status <> 'CANCELADA' AND r.data_hora_inicio::date = $1::date
-       ORDER BY r.data_hora_inicio`, [dia]).then(reservas => ({ data: dia, reservas }));
+       ${whereClause}
+       ORDER BY r.data_hora_inicio ${paramMes || isQualquerData ? 'DESC' : 'ASC'}
+       LIMIT ${isQualquerData || paramMes ? 200 : 100}`, params).then(reservas => ({
+         data: paramMes || (isQualquerData ? 'TODAS' : params[0]),
+         reservas
+       }));
   }
 
   /** Busca moradores por nome, CPF, bloco ou apartamento, indicando quem esta em atividade agora. */

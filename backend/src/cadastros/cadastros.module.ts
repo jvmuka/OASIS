@@ -220,6 +220,25 @@ export class CadastrosController {
         throw new BadRequestException('Erro de cadastro: O CPF deve conter exatamente 11 dígitos numéricos.');
       }
 
+      // Validação amigável de duplicidade antes da inserção
+      const pessoaDuplicada = await c.query(
+        `SELECT id_pessoa, nome, cpf, email, ativo FROM pessoa WHERE cpf = $1 OR LOWER(email) = LOWER($2) LIMIT 1`,
+        [cpfLimpo, b.email]
+      );
+      if (pessoaDuplicada.rows.length > 0) {
+        const dup = pessoaDuplicada.rows[0];
+        if (dup.cpf === cpfLimpo) {
+          throw new BadRequestException(
+            `Erro de cadastro: O CPF informado (${b.cpf}) já está cadastrado no sistema para "${dup.nome}". Cada morador ou dependente deve possuir um CPF próprio e exclusivo.`
+          );
+        }
+        if (dup.email?.toLowerCase() === b.email?.toLowerCase()) {
+          throw new BadRequestException(
+            `Erro de cadastro: O e-mail de login (${b.email}) já está cadastrado para "${dup.nome}". Cada usuário deve possuir um e-mail individual.`
+          );
+        }
+      }
+
       const p = (await c.query(
         `INSERT INTO pessoa (uid_firebase, nome, email, cpf, data_nascimento, celular, status_conta)
          VALUES ($1,$2,$3,$4,$5,$6,'AGUARDANDO_PRIMEIRO_ACESSO')
@@ -575,7 +594,7 @@ export class CadastrosController {
           const contagem = await c.query(
             `SELECT COUNT(DISTINCT pf.id_pessoa)::INTEGER AS total
                FROM perfil pf
-              WHERE pf.tipo_perfil IN ('SINDICO', 'ADMINISTRADOR')
+              WHERE pf.tipo_perfil = 'SINDICO'
                 AND (pf.data_fim IS NULL OR pf.data_fim > CURRENT_DATE)`
           );
           const totalAdmins = Number(contagem.rows[0]?.total || 0);
@@ -625,7 +644,7 @@ export class CadastrosController {
         const contagem = await c.query(
           `SELECT COUNT(DISTINCT pf.id_pessoa)::INTEGER AS total
              FROM perfil pf
-            WHERE pf.tipo_perfil IN ('SINDICO', 'ADMINISTRADOR')
+            WHERE pf.tipo_perfil = 'SINDICO'
               AND (pf.data_fim IS NULL OR pf.data_fim > CURRENT_DATE)`
         );
         if (Number(contagem.rows[0]?.total || 0) <= 1) {
@@ -701,9 +720,42 @@ export class CadastrosController {
     @Param('id', ParseIntPipe) id: number
   ) {
     return this.db.transacao(async c => {
+      // 0. Verifica se a pessoa existe
+      const pessoaExistente = await c.query(
+        `SELECT id_pessoa, nome FROM pessoa WHERE id_pessoa = $1`, [id]);
+      if (!pessoaExistente.rows.length) {
+        throw new BadRequestException('Pessoa não encontrada no sistema.');
+      }
+      const nomePessoa = pessoaExistente.rows[0].nome;
+
+      // 0.1 Proteção contra auto-exclusão
       if (id === req.user?.sub) {
         throw new BadRequestException('Não é permitido excluir o seu próprio usuário administrador.');
       }
+
+      // 0.2 Proteção contra exclusão do único administrador ativo do condomínio
+      const ehAdmin = await c.query(
+        `SELECT 1 FROM perfil
+          WHERE id_pessoa = $1
+            AND tipo_perfil = 'SINDICO'
+            AND (data_fim IS NULL OR data_fim > CURRENT_DATE)`,
+        [id]
+      );
+      if (ehAdmin.rows.length > 0) {
+        const contagemAdmins = await c.query(
+          `SELECT COUNT(DISTINCT pf.id_pessoa)::INTEGER AS total
+             FROM perfil pf
+            WHERE pf.tipo_perfil = 'SINDICO'
+              AND pf.id_pessoa <> $1
+              AND (pf.data_fim IS NULL OR pf.data_fim > CURRENT_DATE)`
+        );
+        if (Number(contagemAdmins.rows[0]?.total || 0) < 1) {
+          throw new BadRequestException(
+            'Não é permitido excluir este usuário pois ele é o único administrador ativo do condomínio.'
+          );
+        }
+      }
+
       // 1. Verifica se a pessoa possui reservas no condomínio
       const reservas = await c.query(
         `SELECT COUNT(*) AS total FROM reserva r
@@ -714,35 +766,89 @@ export class CadastrosController {
         );
       }
 
-      // 2. Verifica se a pessoa possui encomendas registradas
+      // 2. Verifica se a pessoa possui encomendas registradas (destinatário, portaria ou entrega)
       const encomendas = await c.query(
-        `SELECT COUNT(*) AS total FROM encomenda WHERE id_pessoa_destinatario = $1`, [id]);
+        `SELECT COUNT(*) AS total FROM encomenda
+          WHERE id_pessoa_destinatario = $1
+             OR id_perfil_recebimento IN (SELECT id_perfil FROM perfil WHERE id_pessoa = $1)
+             OR id_perfil_entrega IN (SELECT id_perfil FROM perfil WHERE id_pessoa = $1)`, [id]);
       if (parseInt(encomendas.rows[0].total, 10) > 0) {
         throw new BadRequestException(
           'Não é possível excluir permanentemente esta pessoa pois ela possui histórico de encomendas registradas na portaria. Mantenha o cadastro inativo para preservar a auditoria.'
         );
       }
 
-      // 3. Verifica se a pessoa possui empréstimos de chaves
+      // 3. Verifica se a pessoa possui empréstimos de chaves na portaria (solicitante, entrega ou recebimento)
       const chaves = await c.query(
         `SELECT COUNT(*) AS total FROM entrega_chave ec
-          WHERE ec.id_perfil_retirada IN (SELECT id_perfil FROM perfil WHERE id_pessoa = $1)`, [id]);
+          WHERE ec.id_perfil_solicitante IN (SELECT id_perfil FROM perfil WHERE id_pessoa = $1)
+             OR ec.id_perfil_entrega IN (SELECT id_perfil FROM perfil WHERE id_pessoa = $1)
+             OR ec.id_perfil_recebimento IN (SELECT id_perfil FROM perfil WHERE id_pessoa = $1)`, [id]);
       if (parseInt(chaves.rows[0].total, 10) > 0) {
         throw new BadRequestException(
-          'Não é possível excluir permanentemente esta pessoa pois ela possui histórico de empréstimo de chaves registrado na portaria.'
+          'Não é possível excluir permanentemente esta pessoa pois ela possui histórico de empréstimo de chaves registrado na portaria. Mantenha o cadastro inativo para preservar a auditoria.'
         );
       }
 
-      // 4. Sem histórico crítico (ex: cadastro errado ou recém-criado por engano) -> remove tudo com segurança
+      // 4. Verifica se a pessoa publicou comunicados no mural
+      const avisos = await c.query(
+        `SELECT COUNT(*) AS total FROM aviso
+          WHERE id_perfil_autor IN (SELECT id_perfil FROM perfil WHERE id_pessoa = $1)`, [id]);
+      if (parseInt(avisos.rows[0].total, 10) > 0) {
+        throw new BadRequestException(
+          'Não é possível excluir permanentemente esta pessoa pois ela possui comunicados/avisos publicados no mural. Utilize a opção "Inativar" para suspender o acesso preservando os registros.'
+        );
+      }
+
+      // 5. Verifica se a pessoa registrou bloqueios/penalidades de áreas ou perfil
+      const bloqueios = await c.query(
+        `SELECT COUNT(*) AS total FROM bloqueio_perfil
+          WHERE id_perfil_registro IN (SELECT id_perfil FROM perfil WHERE id_pessoa = $1)`, [id]);
+      const bloqueiosArea = await c.query(
+        `SELECT COUNT(*) AS total FROM bloqueio_area
+          WHERE id_perfil_registro IN (SELECT id_perfil FROM perfil WHERE id_pessoa = $1)`, [id]);
+      if (parseInt(bloqueios.rows[0].total, 10) > 0 || parseInt(bloqueiosArea.rows[0].total, 10) > 0) {
+        throw new BadRequestException(
+          'Não é possível excluir permanentemente esta pessoa pois ela possui registros administrativos de penalidades ou bloqueios. Mantenha o cadastro inativo para fins de auditoria.'
+        );
+      }
+
+      // 6. Verifica se é titular responsável por dependentes cadastrados
+      const dependentes = await c.query(
+        `SELECT p.nome FROM pessoa_unidade pu
+           JOIN pessoa p ON p.id_pessoa = pu.id_pessoa
+          WHERE pu.id_responsavel = $1 AND pu.id_pessoa <> $1`, [id]);
+      if (dependentes.rows.length > 0) {
+        const nomesDep = dependentes.rows.map((d: any) => d.nome).join(', ');
+        throw new BadRequestException(
+          `Não é possível excluir esta pessoa pois ela é o titular responsável pelos seguintes dependentes: ${nomesDep}. Remova ou reatribua os dependentes antes de excluir o titular.`
+        );
+      }
+
+      // 7. Sem histórico impeditivo: remove dependências secundárias e exclui o registro
+      // 7.1 Desvincula de códigos de ativação gerados para terceiros
+      await c.query(
+        `UPDATE codigo_primeiro_acesso
+            SET id_perfil_gerador = NULL
+          WHERE id_perfil_gerador IN (SELECT id_perfil FROM perfil WHERE id_pessoa = $1)`, [id]);
+
+      // 7.2 Remove códigos gerados para a própria pessoa
       await c.query(`DELETE FROM codigo_primeiro_acesso WHERE id_pessoa = $1`, [id]);
+
+      // 7.3 Remove penalidades disciplinares sofridas pela própria pessoa
       await c.query(`DELETE FROM bloqueio_perfil WHERE id_perfil IN (SELECT id_perfil FROM perfil WHERE id_pessoa = $1)`, [id]);
+
+      // 7.4 Remove confirmações de leitura de avisos
       await c.query(`DELETE FROM aviso_perfil WHERE id_perfil IN (SELECT id_perfil FROM perfil WHERE id_pessoa = $1)`, [id]);
-      await c.query(`DELETE FROM aviso WHERE id_perfil_autor IN (SELECT id_perfil FROM perfil WHERE id_pessoa = $1)`, [id]);
-      await c.query(`DELETE FROM pessoa_unidade WHERE id_pessoa = $1 OR id_responsavel = $1`, [id]);
+
+      // 7.5 Remove vínculos com unidades da própria pessoa
+      await c.query(`DELETE FROM pessoa_unidade WHERE id_pessoa = $1`, [id]);
+
+      // 7.6 Remove perfis e usuário
       await c.query(`DELETE FROM perfil WHERE id_pessoa = $1`, [id]);
       await c.query(`DELETE FROM pessoa WHERE id_pessoa = $1`, [id]);
 
-      return { ok: true, mensagem: 'Cadastro excluído permanentemente com sucesso.' };
+      return { ok: true, mensagem: `Cadastro de "${nomePessoa}" excluído definitivamente com sucesso.` };
     });
   }
 

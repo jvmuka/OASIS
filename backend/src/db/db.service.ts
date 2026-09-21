@@ -120,8 +120,8 @@ export class DbService implements OnModuleInit, OnModuleDestroy {
       if (e?.constraint === 'uk_unidade_inquilino_ativo' || msg.includes('uk_unidade_inquilino_ativo')) {
         return new BadRequestException('Erro de cadastro: Este apartamento já possui um inquilino ativo cadastrado.');
       }
-      if (e?.constraint?.includes('cpf') || msg.includes('cpf')) {
-        return new BadRequestException('Erro de cadastro: Este CPF já está cadastrado no sistema.');
+      if (e?.constraint?.includes('cpf') || e?.constraint?.includes('uid_firebase') || msg.includes('cpf') || msg.includes('uid_firebase')) {
+        return new BadRequestException('Erro de cadastro: Este CPF já possui cadastro no sistema.');
       }
       if (e?.constraint?.includes('email') || msg.includes('email')) {
         return new BadRequestException('Erro de cadastro: Este e-mail já está cadastrado no sistema.');
@@ -144,9 +144,8 @@ export class DbService implements OnModuleInit, OnModuleDestroy {
       }
       return new BadRequestException('Valor inválido para as regras do sistema: ' + (e.constraint || msg));
     }
-    // Loga apenas o codigo e a constraint sem dados sensiveis da query
-    console.error('[DB] erro inesperado:', e?.code || 'desconhecido', e?.constraint || '');
-    return new InternalServerErrorException('Erro interno de banco de dados.');
+    console.error('[DB] erro inesperado:', e?.code || 'desconhecido', e?.message || '', e?.constraint || '');
+    return new InternalServerErrorException('Erro interno de banco de dados: ' + (e?.message || 'falha na operação.'));
   }
 
   onModuleDestroy() { return this.pool.end(); }

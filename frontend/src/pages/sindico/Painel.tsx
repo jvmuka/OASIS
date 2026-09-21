@@ -12,6 +12,8 @@ import {
 } from '../../components/Graficos';
 
 type Painel = {
+  mes_selecionado: string;
+  meses_disponiveis: { valor: string; rotulo: string }[];
   totais: {
     reservas_mes: number | string;
     encomendas_pendentes: number | string;
@@ -27,6 +29,7 @@ type Painel = {
     nome: string;
     area: string;
     data_hora_inicio: string;
+    data_hora_fim?: string;
     status: string;
     unidade?: string | null;
   }[];
@@ -35,19 +38,39 @@ type Painel = {
 /**
  * UC13 - Painel Administrativo Geral do Síndico / Gestor
  * Apresenta indicadores consolidados, gráficos vetoriais nativos (Evolução, Donut e Ranking),
- * Super Cards interativos com links diretos e atalhos rápidos de gestão.
+ * seletor de mês para análise temporal, Super Cards operacionais e filtros rápidos de agendamentos.
  */
 export default function PainelAdmin() {
   const [d, setD] = useState<Painel | null>(null);
+  const [mesSelecionado, setMesSelecionado] = useState<string>('');
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
 
-  const carregar = () => {
+  // Filtros de agendamentos
+  const [buscaAgendamento, setBuscaAgendamento] = useState('');
+  const [filtroArea, setFiltroArea] = useState('TODAS');
+  const [filtroStatus, setFiltroStatus] = useState('TODOS');
+  const [todasAreas, setTodasAreas] = useState<string[]>([]);
+
+  useEffect(() => {
+    api.get<{ id_area_comum: number; nome: string; ativo: boolean }[]>('/areas')
+      .then(lista => {
+        const nomes = lista.filter(a => a.ativo !== false).map(a => a.nome).sort();
+        setTodasAreas(nomes);
+      })
+      .catch(() => {});
+  }, []);
+
+  const carregar = (mes?: string) => {
     setCarregando(true);
     setErro(null);
+    const query = mes ? `?mes=${mes}` : '';
     api
-      .get<Painel>('/relatorios/painel')
-      .then(res => setD(res))
+      .get<Painel>(`/relatorios/painel${query}`)
+      .then(res => {
+        setD(res);
+        setMesSelecionado(res.mes_selecionado);
+      })
       .catch(err => setErro(err.message || 'Erro ao consultar indicadores.'))
       .finally(() => setCarregando(false));
   };
@@ -56,7 +79,7 @@ export default function PainelAdmin() {
     carregar();
   }, []);
 
-  if (carregando) {
+  if (carregando && !d) {
     return (
       <div className="flex h-72 items-center justify-center">
         <div className="flex flex-col items-center gap-3 text-sm text-slate-500">
@@ -89,7 +112,7 @@ export default function PainelAdmin() {
             titulo="Não foi possível carregar os indicadores"
             descricao={erro || 'Houve uma falha ao obter os dados consolidados.'}
             acao={
-              <Botao onClick={carregar} variante="primario" tamanho="sm">
+              <Botao onClick={() => carregar(mesSelecionado)} variante="primario" tamanho="sm">
                 Tentar Novamente
               </Botao>
             }
@@ -98,6 +121,30 @@ export default function PainelAdmin() {
       </div>
     );
   }
+
+  // Obter lista única de todas as áreas comuns cadastradas e presentes no período
+  const areasUnicas = Array.from(
+    new Set([
+      ...todasAreas,
+      ...d.areas_mais_usadas.map(a => a.nome),
+      ...d.reservas_recentes.map(r => r.area),
+    ])
+  ).filter(Boolean).sort();
+
+  // Filtragem dos agendamentos
+  const agendamentosFiltrados = d.reservas_recentes.filter(r => {
+    const termo = buscaAgendamento.toLowerCase().trim();
+    const matchBusca =
+      !termo ||
+      r.nome.toLowerCase().includes(termo) ||
+      (r.unidade && r.unidade.toLowerCase().includes(termo));
+    const matchArea = filtroArea === 'TODAS' || r.area === filtroArea;
+    const matchStatus = filtroStatus === 'TODOS' || r.status === filtroStatus;
+    return matchBusca && matchArea && matchStatus;
+  });
+
+  const temFiltroAtivo =
+    buscaAgendamento.trim() !== '' || filtroArea !== 'TODAS' || filtroStatus !== 'TODOS';
 
   const kpis = [
     {
@@ -151,11 +198,12 @@ export default function PainelAdmin() {
   ];
 
   const totalEvolucao = d.evolucao_mensal.reduce((acc, p) => acc + Number(p.total), 0);
+  const rotuloMesAtual = d.meses_disponiveis.find(m => m.valor === mesSelecionado)?.rotulo || mesSelecionado;
 
   return (
     <div className="space-y-7">
-      {/* Top Header com Ações Rápidas de Gestão */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* Top Header com Seletor de Mês e Ações Rápidas */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <Titulo
             sub="Visão estratégica consolidada, métricas operacionais e fluxo de utilização do condomínio."
@@ -166,6 +214,29 @@ export default function PainelAdmin() {
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Seletor de Mês de Análise */}
+          <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 shadow-2xs dark:border-slate-800 dark:bg-slate-900">
+            <Icone nome="calendar" className="h-4 w-4 text-slate-400" />
+            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden sm:inline">
+              Mês:
+            </span>
+            <select
+              value={mesSelecionado}
+              onChange={e => {
+                const novoMes = e.target.value;
+                setMesSelecionado(novoMes);
+                carregar(novoMes);
+              }}
+              className="bg-transparent text-xs font-bold text-slate-800 focus:outline-hidden dark:text-slate-100 cursor-pointer pr-1"
+            >
+              {d.meses_disponiveis.map(m => (
+                <option key={m.valor} value={m.valor} className="dark:bg-slate-900">
+                  {m.rotulo}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <Link
             to="/sindico/avisos"
             className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 hover:text-navy dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-sky-400 transition-all"
@@ -174,20 +245,22 @@ export default function PainelAdmin() {
             <span>Publicar Aviso</span>
           </Link>
 
+          {/* Botão sólido Novo Morador (sem gradiente/fade) */}
           <Link
             to="/sindico/pessoas"
-            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-navy to-brand-blue px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:opacity-95 dark:from-sky-600 dark:to-cyan-600 transition-all"
+            className="inline-flex items-center gap-2 rounded-xl bg-navy px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-navy/90 dark:bg-sky-600 dark:hover:bg-sky-500 transition-colors"
           >
             <Icone nome="plus" className="h-4 w-4" />
             <span>Novo Morador</span>
           </Link>
 
           <button
-            onClick={carregar}
+            onClick={() => carregar(mesSelecionado)}
             title="Atualizar dados"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-navy hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400 dark:hover:text-sky-400 dark:hover:bg-slate-800 transition-all"
+            disabled={carregando}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-navy hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400 dark:hover:text-sky-400 dark:hover:bg-slate-800 transition-all disabled:opacity-50"
           >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className={`h-4 w-4 ${carregando ? 'animate-spin text-navy dark:text-sky-400' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -257,12 +330,12 @@ export default function PainelAdmin() {
                   Evolução de Agendamentos
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Volume de reservas mensais nos últimos 6 meses
+                  Volume de reservas nos 6 meses até {rotuloMesAtual}
                 </p>
               </div>
               <div className="flex items-center gap-2 self-start sm:self-auto">
                 <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-sky-50 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/60">
-                  Total: {totalEvolucao} reservas
+                  Total no período: {totalEvolucao} reservas
                 </span>
               </div>
             </div>
@@ -280,22 +353,26 @@ export default function PainelAdmin() {
                 Status das Reservas
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Proporção por estado de confirmação
+                Proporção em {rotuloMesAtual}
               </p>
             </div>
 
             <div className="py-4 my-auto">
-              <GraficoDonutStatus dados={d.status_reservas} />
+              <GraficoDonutStatus
+                dados={d.status_reservas}
+                statusAtivo={filtroStatus}
+                onSelectStatus={st => setFiltroStatus(curr => (curr === st ? 'TODOS' : st))}
+              />
             </div>
 
             <div className="pt-3 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400 dark:text-slate-500 text-center">
-              Atualização contínua com base nos registros
+              Clique em um status para filtrar os agendamentos abaixo
             </div>
           </Cartao>
         </div>
       </div>
 
-      {/* 3. Grid de Ranking de Áreas e Reservas Recentes */}
+      {/* 3. Grid de Ranking de Áreas e Reservas com Filtros */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Áreas mais utilizadas */}
         <Cartao className="p-6">
@@ -306,42 +383,136 @@ export default function PainelAdmin() {
                 Espaços Mais Demandados
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Ranking consolidado de reservas por área comum
+                Ranking de reservas em {rotuloMesAtual}
               </p>
             </div>
             <span className="text-xs font-semibold text-slate-400 dark:text-slate-500">
-              {d.areas_mais_usadas.length} áreas ativas
+              {d.areas_mais_usadas.length} áreas registradas
             </span>
           </div>
 
           <GraficoBarrasAreas dados={d.areas_mais_usadas} />
         </Cartao>
 
-        {/* Reservas Recentes com Morador e Unidade */}
+        {/* Reservas Recentes com Filtros de Morador/Apto, Área e Status */}
         <Cartao className="p-6">
-          <div className="mb-5 flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-4">
+          <div className="mb-4 flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3">
             <div>
               <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                 <Icone nome="clock" className="h-4 w-4 text-navy dark:text-sky-400" />
-                Últimos Agendamentos
+                Agendamentos no Período
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Atividades recentes registradas no sistema
+                Pesquise por morador, apartamento ou filtre por área e status
               </p>
             </div>
             <Link
               to="/portaria/painel"
-              className="text-xs font-bold text-navy hover:underline dark:text-sky-400"
+              className="text-xs font-bold text-navy hover:underline dark:text-sky-400 shrink-0"
             >
-              Ver agenda
+              Ver agenda completa
             </Link>
           </div>
 
-          {d.reservas_recentes.length === 0 ? (
-            <EmptyState titulo="Nenhuma reserva recente" descricao="As novas reservas realizadas aparecerão aqui." />
+          {/* Barra de Filtros: Busca textual + Filtro de Área Comum + Filtro de Status */}
+          <div className="mb-4 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2.5">
+            <div className="relative flex-1 min-w-[180px]">
+              <input
+                type="text"
+                value={buscaAgendamento}
+                onChange={e => setBuscaAgendamento(e.target.value)}
+                placeholder="Buscar morador ou apto..."
+                className="w-full rounded-xl border border-slate-200 bg-slate-50/70 py-1.5 pl-8 pr-8 text-xs text-slate-800 placeholder-slate-400 focus:border-navy focus:bg-white focus:outline-hidden dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-200 dark:placeholder-slate-500 dark:focus:border-sky-500 transition-colors"
+              />
+              <span className="absolute left-2.5 top-2 text-slate-400 dark:text-slate-500 pointer-events-none">
+                <Icone nome="search" className="h-3.5 w-3.5" />
+              </span>
+              {buscaAgendamento && (
+                <button
+                  onClick={() => setBuscaAgendamento('')}
+                  className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                  title="Limpar busca"
+                >
+                  <Icone nome="x" className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+
+            <div className="relative flex-1 min-w-[150px]">
+              <select
+                value={filtroArea}
+                onChange={e => setFiltroArea(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50/70 py-1.5 px-3 text-xs font-medium text-slate-700 focus:border-navy focus:bg-white focus:outline-hidden dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-200 dark:focus:border-sky-500 transition-colors cursor-pointer"
+              >
+                <option value="TODAS">Todas as áreas comuns</option>
+                {areasUnicas.map(areaNome => (
+                  <option key={areaNome} value={areaNome} className="dark:bg-slate-900">
+                    {areaNome}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="relative flex-1 min-w-[130px]">
+              <select
+                value={filtroStatus}
+                onChange={e => setFiltroStatus(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50/70 py-1.5 px-3 text-xs font-medium text-slate-700 focus:border-navy focus:bg-white focus:outline-hidden dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-200 dark:focus:border-sky-500 transition-colors cursor-pointer"
+              >
+                <option value="TODOS">Todos os status</option>
+                <option value="ATIVA">Ativas</option>
+                <option value="CONCLUIDA">Concluídas</option>
+                <option value="CANCELADA">Canceladas</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Feedback de Resultados dos Filtros */}
+          {temFiltroAtivo && (
+            <div className="mb-3 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 px-1">
+              <span>
+                Exibindo <strong>{agendamentosFiltrados.length}</strong> de {d.reservas_recentes.length} agendamentos
+              </span>
+              <button
+                onClick={() => {
+                  setBuscaAgendamento('');
+                  setFiltroArea('TODAS');
+                  setFiltroStatus('TODOS');
+                }}
+                className="font-bold text-navy hover:underline dark:text-sky-400"
+              >
+                Limpar filtros
+              </button>
+            </div>
+          )}
+
+          {agendamentosFiltrados.length === 0 ? (
+            <EmptyState
+              titulo={temFiltroAtivo ? 'Nenhum agendamento encontrado' : 'Nenhuma reserva recente'}
+              descricao={
+                temFiltroAtivo
+                  ? 'Nenhum resultado corresponde à pesquisa, área ou status informado.'
+                  : 'As reservas registradas para este período aparecerão aqui.'
+              }
+              acao={
+                temFiltroAtivo ? (
+                  <Botao
+                    variante="secundario"
+                    tamanho="sm"
+                    onClick={() => {
+                      setBuscaAgendamento('');
+                      setFiltroArea('TODAS');
+                      setFiltroStatus('TODOS');
+                    }}
+                  >
+                    Redefinir Filtros
+                  </Botao>
+                ) : undefined
+              }
+            />
           ) : (
-            <div className="divide-y divide-slate-100 dark:divide-slate-800/80">
-              {d.reservas_recentes.map((r, i) => (
+            <div className="divide-y divide-slate-100 dark:divide-slate-800/80 max-h-[380px] overflow-y-auto pr-1">
+              {agendamentosFiltrados.map((r, i) => (
                 <div key={r.id_reserva || i} className="flex items-center justify-between py-3.5 first:pt-0 last:pb-0">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-navy/10 to-brand-blue/15 text-xs font-black text-navy dark:from-sky-950 dark:to-cyan-950 dark:text-sky-400 border border-slate-200/50 dark:border-slate-800">
@@ -447,4 +618,5 @@ export default function PainelAdmin() {
     </div>
   );
 }
+
 

@@ -18,8 +18,9 @@ export type ItemAreaRanking = {
 };
 
 /**
- * Gráfico de Área / Linha suave vetorial em SVG para Evolução Mensal.
- * Inclui gradientes dinâmicos, grid sutil, pontos de ancoragem e suporte nativo a Dark Mode.
+ * Gráfico Moderno de Colunas Mensais (Vertical Bar Chart) em SVG para Evolução de Agendamentos.
+ * Substitui a antiga linha spline que gerava flatlines em meses vazios e curvas distorcidas.
+ * Oferece colunas com gradiente, cantos arredondados, valores no topo, grid sutil e tooltips interativos.
  */
 export function GraficoEvolucaoMensal({ dados }: { dados: PontoEvolucao[] }) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
@@ -32,48 +33,24 @@ export function GraficoEvolucaoMensal({ dados }: { dados: PontoEvolucao[] }) {
     );
   }
 
-  const svgWidth = 500;
+  const svgWidth = 540;
   const svgHeight = 220;
-  const padLeft = 45;
-  const padRight = 30;
-  const padTop = 25;
+  const padLeft = 40;
+  const padRight = 25;
+  const padTop = 30;
   const padBottom = 40;
 
   const chartW = svgWidth - padLeft - padRight;
   const chartH = svgHeight - padTop - padBottom;
 
-  const maxVal = Math.max(5, ...dados.map(d => d.total));
-  // Arredonda para múltiplo de 2 ou 5
-  const gridMax = Math.ceil(maxVal / 2) * 2;
+  const totalGeral = dados.reduce((acc, d) => acc + d.total, 0);
+  const maxVal = Math.max(4, ...dados.map(d => d.total));
+  // Arredonda para múltiplo conveniente
+  const gridMax = maxVal <= 6 ? 6 : Math.ceil(maxVal / 2) * 2;
 
-  const stepX = dados.length > 1 ? chartW / (dados.length - 1) : chartW;
-
-  const points = dados.map((d, i) => {
-    const x = padLeft + i * stepX;
-    const y = padTop + chartH - (d.total / gridMax) * chartH;
-    return { x, y, ...d };
-  });
-
-  // Constrói curva Bezier cúbica suave
-  let linePath = '';
-  if (points.length > 0) {
-    linePath = `M ${points[0].x} ${points[0].y}`;
-    for (let i = 0; i < points.length - 1; i++) {
-      const p0 = points[i];
-      const p1 = points[i + 1];
-      const cpX1 = p0.x + (p1.x - p0.x) / 2;
-      const cpY1 = p0.y;
-      const cpX2 = p0.x + (p1.x - p0.x) / 2;
-      const cpY2 = p1.y;
-      linePath += ` C ${cpX1} ${cpY1}, ${cpX2} ${cpY2}, ${p1.x} ${p1.y}`;
-    }
-  }
-
-  const lastPoint = points[points.length - 1];
-  const firstPoint = points[0];
-  const areaPath = linePath
-    ? `${linePath} L ${lastPoint.x} ${padTop + chartH} L ${firstPoint.x} ${padTop + chartH} Z`
-    : '';
+  const numBars = dados.length;
+  const colWidth = chartW / numBars;
+  const barWidth = Math.min(42, colWidth * 0.62);
 
   const gridLines = [0, gridMax / 2, gridMax];
 
@@ -83,18 +60,7 @@ export function GraficoEvolucaoMensal({ dados }: { dados: PontoEvolucao[] }) {
         viewBox={`0 0 ${svgWidth} ${svgHeight}`}
         className="w-full h-auto overflow-visible select-none"
       >
-        <defs>
-          <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#0284c7" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#0284c7" stopOpacity="0.0" />
-          </linearGradient>
-          <linearGradient id="lineGradient" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#1f3864" />
-            <stop offset="100%" stopColor="#38bdf8" />
-          </linearGradient>
-        </defs>
-
-        {/* Linhas de grade horizontal */}
+        {/* Linhas de grade horizontal com rótulos */}
         {gridLines.map((val, idx) => {
           const y = padTop + chartH - (val / gridMax) * chartH;
           return (
@@ -120,88 +86,104 @@ export function GraficoEvolucaoMensal({ dados }: { dados: PontoEvolucao[] }) {
           );
         })}
 
-        {/* Área preenchida */}
-        {areaPath && (
-          <path d={areaPath} fill="url(#areaGradient)" className="transition-all duration-300" />
-        )}
-
-        {/* Linha principal com gradiente */}
-        {linePath && (
-          <path
-            d={linePath}
-            fill="none"
-            stroke="url(#lineGradient)"
-            strokeWidth={3}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="filter drop-shadow-xs"
-          />
-        )}
-
-        {/* Rótulos dos meses no eixo X e pontos */}
-        {points.map((p, i) => {
+        {/* Colunas mensais com preenchimento sólido institucional (sem fade/gradiente) */}
+        {dados.map((d, i) => {
+          const xCenter = padLeft + i * colWidth + colWidth / 2;
+          const xBar = xCenter - barWidth / 2;
           const isHovered = hoveredIndex === i;
+          const isLast = i === dados.length - 1;
+
+          const barHeight = d.total > 0 ? (d.total / gridMax) * chartH : 4;
+          const yBar = padTop + chartH - barHeight;
+          const percTotal = totalGeral > 0 ? Math.round((d.total / totalGeral) * 100) : 0;
+
           return (
-            <g key={i} className="group cursor-pointer">
-              {/* Linha vertical indicadora no hover */}
-              {isHovered && (
-                <line
-                  x1={p.x}
-                  y1={padTop}
-                  x2={p.x}
-                  y2={padTop + chartH}
-                  className="stroke-sky-400/60 dark:stroke-sky-500/40"
-                  strokeWidth={1.5}
-                  strokeDasharray="2 2"
+            <g
+              key={d.mes_chave}
+              className="cursor-pointer group"
+              onMouseEnter={() => setHoveredIndex(i)}
+              onMouseLeave={() => setHoveredIndex(null)}
+            >
+              {/* Área invisível mais ampla para facilitar o hover */}
+              <rect
+                x={xCenter - colWidth / 2}
+                y={padTop}
+                width={colWidth}
+                height={chartH + padBottom}
+                fill="transparent"
+              />
+
+              {/* Barra da coluna sólida (sem fade/gradiente) */}
+              {d.total > 0 ? (
+                <rect
+                  x={xBar}
+                  y={yBar}
+                  width={barWidth}
+                  height={barHeight}
+                  rx={6}
+                  fill={isHovered ? '#1e40af' : '#1f3864'}
+                  className="transition-colors duration-150 dark:fill-sky-500 dark:hover:fill-sky-400"
+                />
+              ) : (
+                /* Barra sutil sólida para meses com zero reservas */
+                <rect
+                  x={xBar}
+                  y={padTop + chartH - 4}
+                  width={barWidth}
+                  height={4}
+                  rx={2}
+                  className="fill-slate-200 dark:fill-slate-700 transition-colors group-hover:fill-slate-300 dark:group-hover:fill-slate-600"
                 />
               )}
 
-              {/* Ponto na curva */}
-              <circle
-                cx={p.x}
-                cy={p.y}
-                r={isHovered ? 6 : 4}
-                className={`transition-all duration-150 ${
-                  isHovered
-                    ? 'fill-white stroke-sky-500 stroke-[3px] dark:fill-slate-900 dark:stroke-sky-400'
-                    : 'fill-white stroke-navy stroke-[2.5px] dark:fill-slate-950 dark:stroke-sky-400'
-                }`}
-                onMouseEnter={() => setHoveredIndex(i)}
-                onMouseLeave={() => setHoveredIndex(null)}
-              />
-
-              {/* Rótulo do Mês */}
+              {/* Rótulo de valor sobre a barra */}
               <text
-                x={p.x}
-                y={padTop + chartH + 18}
+                x={xCenter}
+                y={d.total > 0 ? yBar - 7 : padTop + chartH - 10}
                 textAnchor="middle"
-                className={`text-[11px] transition-colors font-bold ${
-                  isHovered
-                    ? 'fill-navy font-extrabold dark:fill-sky-400'
+                className={`text-[11px] font-extrabold transition-colors ${
+                  d.total > 0
+                    ? isLast
+                      ? 'fill-navy dark:fill-sky-400 font-black'
+                      : 'fill-slate-700 dark:fill-slate-300'
+                    : 'fill-slate-400 dark:fill-slate-600 text-[10px]'
+                }`}
+              >
+                {d.total > 0 ? d.total : '—'}
+              </text>
+
+              {/* Rótulo do Mês no eixo X */}
+              <text
+                x={xCenter}
+                y={padTop + chartH + 20}
+                textAnchor="middle"
+                className={`text-[11px] font-bold transition-colors ${
+                  isHovered || isLast
+                    ? 'fill-navy font-black dark:fill-sky-400'
                     : 'fill-slate-500 dark:fill-slate-400'
                 }`}
               >
-                {p.mes_rotulo}
+                {d.mes_rotulo}
               </text>
 
-              {/* Badge/Tooltip com valor */}
+              {/* Tooltip flutuante no hover */}
               {isHovered && (
-                <g transform={`translate(${p.x}, ${p.y - 14})`}>
+                <g transform={`translate(${xCenter}, ${Math.max(padTop - 12, yBar - 24)})`}>
                   <rect
-                    x={-24}
+                    x={-42}
                     y={-18}
-                    width={48}
-                    height={20}
+                    width={84}
+                    height={22}
                     rx={6}
-                    className="fill-slate-900 dark:fill-sky-500"
+                    className="fill-slate-900 dark:fill-sky-500 shadow-md"
                   />
                   <text
                     x={0}
-                    y={-4.5}
+                    y={-3.5}
                     textAnchor="middle"
                     className="fill-white dark:fill-slate-950 text-[10px] font-bold"
                   >
-                    {p.total} res.
+                    {d.total} res. ({percTotal}%)
                   </text>
                 </g>
               )}
@@ -214,42 +196,61 @@ export function GraficoEvolucaoMensal({ dados }: { dados: PontoEvolucao[] }) {
 }
 
 /**
- * Gráfico Donut (Rosca) em SVG para distribuição de status das reservas.
- * Fatias calculadas geometricamente com cores semânticas e centro informativo.
+ * Gráfico Donut (Rosca) em SVG de Alta Precisão para Distribuição de Status.
+ * Utiliza fatias separadas com gap limpo (eliminando artefatos de sobreposição do strokeLinecap="round"),
+ * centro informativo com totalizador e cartões de status interativos com barras proporcionais.
  */
-export function GraficoDonutStatus({ dados }: { dados: ItemStatusReserva[] }) {
+export function GraficoDonutStatus({
+  dados,
+  statusAtivo,
+  onSelectStatus,
+}: {
+  dados: ItemStatusReserva[];
+  statusAtivo?: string;
+  onSelectStatus?: (status: string) => void;
+}) {
+  const [hoveredStatus, setHoveredStatus] = useState<string | null>(null);
+
   const total = dados.reduce((acc, d) => acc + Number(d.total), 0);
 
-  const configStatus: Record<string, { rotulo: string; cor: string; classeBg: string; classeTexto: string }> = {
+  const configStatus: Record<
+    string,
+    { rotulo: string; cor: string; classeBg: string; classeTexto: string; classeBorda: string }
+  > = {
     CONCLUIDA: {
       rotulo: 'Concluídas',
       cor: '#10b981',
       classeBg: 'bg-emerald-500',
       classeTexto: 'text-emerald-700 dark:text-emerald-400',
+      classeBorda: 'border-emerald-200 dark:border-emerald-900/60',
     },
     ATIVA: {
       rotulo: 'Ativas',
       cor: '#0284c7',
       classeBg: 'bg-sky-500',
       classeTexto: 'text-sky-700 dark:text-sky-400',
+      classeBorda: 'border-sky-200 dark:border-sky-900/60',
     },
     CANCELADA: {
       rotulo: 'Canceladas',
       cor: '#ef4444',
       classeBg: 'bg-rose-500',
       classeTexto: 'text-rose-700 dark:text-rose-400',
+      classeBorda: 'border-rose-200 dark:border-rose-900/60',
     },
   };
 
-  const raio = 62;
+  const raio = 54;
   const circunferencia = 2 * Math.PI * raio;
+  const gapPixel = total > 1 ? 4 : 0; // Gap nítido entre fatias
 
   let acumulado = 0;
   const fatias = dados.map(item => {
     const qtd = Number(item.total);
     const perc = total > 0 ? (qtd / total) * 100 : 0;
-    const comprimento = (perc / 100) * circunferencia;
-    const offset = (acumulado / 100) * circunferencia;
+    const comprimentoBruto = (perc / 100) * circunferencia;
+    const comprimento = Math.max(0, comprimentoBruto - gapPixel);
+    const offset = (acumulado / 100) * circunferencia + gapPixel / 2;
     acumulado += perc;
 
     const conf = configStatus[item.status] || {
@@ -257,6 +258,7 @@ export function GraficoDonutStatus({ dados }: { dados: ItemStatusReserva[] }) {
       cor: '#94a3b8',
       classeBg: 'bg-slate-400',
       classeTexto: 'text-slate-600 dark:text-slate-400',
+      classeBorda: 'border-slate-200 dark:border-slate-800',
     };
 
     return {
@@ -265,6 +267,7 @@ export function GraficoDonutStatus({ dados }: { dados: ItemStatusReserva[] }) {
       cor: conf.cor,
       classeBg: conf.classeBg,
       classeTexto: conf.classeTexto,
+      classeBorda: conf.classeBorda,
       qtd,
       perc: Math.round(perc),
       comprimento,
@@ -273,83 +276,109 @@ export function GraficoDonutStatus({ dados }: { dados: ItemStatusReserva[] }) {
   });
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-around gap-6">
-      {/* Donut SVG */}
-      <div className="relative flex items-center justify-center">
-        <svg width="180" height="180" viewBox="0 0 180 180" className="transform -rotate-90">
-          {/* Anel de fundo suave */}
+    <div className="flex flex-col items-center justify-center gap-4 w-full">
+      {/* Donut SVG sem sobreposição de bordas arredondadas */}
+      <div className="relative flex items-center justify-center shrink-0">
+        <svg width="156" height="156" viewBox="0 0 156 156" className="transform -rotate-90">
+          {/* Anel de fundo */}
           <circle
-            cx="90"
-            cy="90"
+            cx="78"
+            cy="78"
             r={raio}
             fill="transparent"
-            strokeWidth="20"
+            strokeWidth="16"
             className="stroke-slate-100 dark:stroke-slate-800"
           />
 
           {total > 0 ? (
-            fatias.map(f => (
-              <circle
-                key={f.status}
-                cx="90"
-                cy="90"
-                r={raio}
-                fill="transparent"
-                stroke={f.cor}
-                strokeWidth="20"
-                strokeDasharray={`${f.comprimento} ${circunferencia - f.comprimento}`}
-                strokeDashoffset={-f.offset}
-                strokeLinecap="round"
-                className="transition-all duration-500 hover:opacity-85 cursor-pointer"
-              />
-            ))
+            fatias.map(f => {
+              const isSelected = statusAtivo === f.status || hoveredStatus === f.status;
+              return (
+                <circle
+                  key={f.status}
+                  cx="78"
+                  cy="78"
+                  r={raio}
+                  fill="transparent"
+                  stroke={f.cor}
+                  strokeWidth={isSelected ? 20 : 16}
+                  strokeDasharray={`${f.comprimento} ${circunferencia - f.comprimento}`}
+                  strokeDashoffset={-f.offset}
+                  strokeLinecap="butt" // Garante extremidades limpas e precisas
+                  className="transition-all duration-300 cursor-pointer"
+                  onMouseEnter={() => setHoveredStatus(f.status)}
+                  onMouseLeave={() => setHoveredStatus(null)}
+                  onClick={() => onSelectStatus && onSelectStatus(f.status)}
+                />
+              );
+            })
           ) : (
             <circle
-              cx="90"
-              cy="90"
+              cx="78"
+              cy="78"
               r={raio}
               fill="transparent"
               stroke="#cbd5e1"
-              strokeWidth="20"
+              strokeWidth="16"
               strokeDasharray={`${circunferencia} 0`}
             />
           )}
         </svg>
 
-        {/* Texto no centro da rosca */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-          <span className="text-2xl font-extrabold text-slate-900 dark:text-slate-100 leading-none">
+        {/* Texto centralizador */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center select-none pointer-events-none">
+          <span className="text-2xl font-black text-slate-900 dark:text-slate-100 leading-none">
             {total}
           </span>
-          <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 mt-0.5 uppercase tracking-wider">
+          <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 mt-1 uppercase tracking-wider">
             {total === 1 ? 'Reserva' : 'Reservas'}
           </span>
         </div>
       </div>
 
-      {/* Legenda Lateral com Percentuais */}
-      <div className="space-y-3 w-full sm:w-auto min-w-[160px]">
-        {fatias.map(f => (
-          <div
-            key={f.status}
-            className="flex items-center justify-between gap-4 p-2 rounded-xl bg-slate-50/70 hover:bg-slate-100 dark:bg-slate-800/40 dark:hover:bg-slate-800/70 transition-colors"
-          >
-            <div className="flex items-center gap-2.5">
-              <span className={`h-3 w-3 rounded-full ${f.classeBg} shadow-2xs`} />
-              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                {f.rotulo}
-              </span>
+      {/* Cartões Interativos de Status com Largura 100% sem cortes */}
+      <div className="space-y-2 w-full">
+        {fatias.map(f => {
+          const isSelected = statusAtivo === f.status || hoveredStatus === f.status;
+          return (
+            <div
+              key={f.status}
+              onClick={() => onSelectStatus && onSelectStatus(f.status)}
+              onMouseEnter={() => setHoveredStatus(f.status)}
+              onMouseLeave={() => setHoveredStatus(null)}
+              className={`p-2 rounded-xl border transition-all cursor-pointer ${
+                isSelected
+                  ? 'bg-slate-100/90 dark:bg-slate-800 shadow-xs ring-1 ring-slate-300 dark:ring-slate-700'
+                  : 'bg-slate-50/70 hover:bg-slate-100/80 dark:bg-slate-800/40 dark:hover:bg-slate-800/70 border-slate-100 dark:border-slate-800'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${f.classeBg} shadow-2xs`} />
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
+                    {f.rotulo}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="text-xs font-black text-slate-900 dark:text-slate-100">
+                    {f.qtd}
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">
+                    ({f.perc}%)
+                  </span>
+                </div>
+              </div>
+
+              {/* Mini barra de progresso do status */}
+              <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-200/60 dark:bg-slate-700/60">
+                <div
+                  className={`h-full rounded-full ${f.classeBg} transition-all duration-500`}
+                  style={{ width: `${f.perc}%` }}
+                />
+              </div>
             </div>
-            <div className="text-right">
-              <span className="text-xs font-extrabold text-slate-900 dark:text-slate-100">
-                {f.qtd}
-              </span>
-              <span className="text-[10px] text-slate-400 dark:text-slate-500 ml-1.5 font-medium">
-                ({f.perc}%)
-              </span>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -406,3 +435,4 @@ export function GraficoBarrasAreas({ dados }: { dados: ItemAreaRanking[] }) {
     </div>
   );
 }
+

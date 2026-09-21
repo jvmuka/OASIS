@@ -1100,6 +1100,13 @@ export default function Pessoas() {
                                 >
                                   Inativar
                                 </button>
+                                <button
+                                  onClick={() => setExcluindo(p)}
+                                  className="text-xs font-semibold text-slate-400 hover:text-red-600 dark:text-slate-500 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                                  title="Excluir cadastro permanentemente"
+                                >
+                                  Excluir
+                                </button>
                               </>
                             ) : (
                               <>
@@ -1393,11 +1400,18 @@ export default function Pessoas() {
                     Penalidades
                   </Botao>
                   <Botao
-                    variante="perigo"
+                    variante="secundario"
                     tamanho="sm"
                     onClick={() => setInativando(perfilSelecionado)}
                   >
                     Inativar Usuário
+                  </Botao>
+                  <Botao
+                    variante="perigo"
+                    tamanho="sm"
+                    onClick={() => setExcluindo(perfilSelecionado)}
+                  >
+                    Excluir Definitivamente
                   </Botao>
                 </>
               ) : (
@@ -1660,20 +1674,36 @@ export default function Pessoas() {
         titulo={`Editar Cadastro — ${pessoaEditando?.nome || ''}`}
         largura="max-w-2xl"
         rodape={
-          <>
-            <Botao type="button" variante="claro" onClick={() => setModalEdicaoAberto(false)}>
-              Cancelar
-            </Botao>
-            <Botao
-              type="submit"
-              form="form-edicao-pessoa"
-              variante="primario"
-              carregando={salvandoEdicao}
-              icone={<Icone nome="check" className="h-4 w-4" />}
-            >
-              Salvar Alterações
-            </Botao>
-          </>
+          <div className="flex items-center justify-between w-full">
+            {pessoaEditando ? (
+              <Botao
+                type="button"
+                variante="perigo"
+                tamanho="sm"
+                onClick={() => {
+                  setExcluindo(pessoaEditando);
+                  setModalEdicaoAberto(false);
+                }}
+                icone={<Icone nome="trash" className="h-4 w-4" />}
+              >
+                Excluir Usuário
+              </Botao>
+            ) : <div />}
+            <div className="flex items-center gap-2">
+              <Botao type="button" variante="claro" onClick={() => setModalEdicaoAberto(false)}>
+                Cancelar
+              </Botao>
+              <Botao
+                type="submit"
+                form="form-edicao-pessoa"
+                variante="primario"
+                carregando={salvandoEdicao}
+                icone={<Icone nome="check" className="h-4 w-4" />}
+              >
+                Salvar Alterações
+              </Botao>
+            </div>
+          </div>
         }
       >
         <form id="form-edicao-pessoa" onSubmit={salvarEdicao} className="space-y-4">
@@ -1948,15 +1978,28 @@ export default function Pessoas() {
           aberto={!!popupErro}
           fechar={() => setPopupErro(null)}
           confirmar={() => setPopupErro(null)}
-          titulo="Aviso de Cadastro"
+          titulo={popupErro.toLowerCase().includes('excluir') ? 'Aviso de Exclusão' : 'Aviso de Cadastro'}
           mensagem={
             <div className="space-y-2 text-left">
               <p className="text-xs font-bold text-red-600 dark:text-rose-400">
                 {popupErro}
               </p>
-              <p className="text-[11px] text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/80 p-2.5 rounded-lg border border-slate-200/60 dark:border-slate-700">
-                Regra Condominial: Cada apartamento pode ter no máximo 1 proprietário ativo e 1 inquilino ativo. Caso precise trocar o titular ou corrigir um cadastro anterior, edite o perfil existente ou inative o morador atual.
-              </p>
+              {popupErro.toLowerCase().includes('apartamento') ||
+              popupErro.toLowerCase().includes('proprietário') ||
+              popupErro.toLowerCase().includes('inquilino') ? (
+                <p className="text-[11px] text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/80 p-2.5 rounded-lg border border-slate-200/60 dark:border-slate-700">
+                  Regra Condominial: Cada apartamento pode ter no máximo 1 proprietário ativo e 1 inquilino ativo. Caso precise trocar o titular ou corrigir um cadastro anterior, edite o perfil existente ou inative o morador atual.
+                </p>
+              ) : popupErro.toLowerCase().includes('histórico') ||
+                popupErro.toLowerCase().includes('reserva') ||
+                popupErro.toLowerCase().includes('encomenda') ||
+                popupErro.toLowerCase().includes('chave') ||
+                popupErro.toLowerCase().includes('comunicado') ||
+                popupErro.toLowerCase().includes('bloqueio') ? (
+                <p className="text-[11px] text-slate-600 dark:text-slate-300 bg-amber-50 dark:bg-amber-950/40 p-2.5 rounded-lg border border-amber-200/60 dark:border-amber-800/60 text-amber-900 dark:text-amber-200">
+                  Auditoria & Histórico: Para preservar os registros de portaria e reservas do condomínio, pessoas com histórico oficial não podem ser apagadas do banco. Utilize a opção "Inativar" para revogar todo e qualquer acesso com segurança.
+                </p>
+              ) : null}
             </div>
           }
           textoBotaoConfirmar="Entendido"
