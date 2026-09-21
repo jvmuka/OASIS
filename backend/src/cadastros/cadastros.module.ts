@@ -800,6 +800,22 @@ export class CadastrosController {
       throw new BadRequestException('A data/hora de término do afastamento deve ser posterior ao início.');
     }
 
+    const canceladas = await this.db.query(
+      `UPDATE reserva r
+          SET status = 'CANCELADA',
+              data_hora_cancelamento = CURRENT_TIMESTAMP,
+              motivo_cancelamento = $1
+         FROM perfil pf_res, perfil pf_bloq
+        WHERE r.id_perfil = pf_res.id_perfil
+          AND pf_bloq.id_perfil = $2
+          AND pf_res.id_pessoa = pf_bloq.id_pessoa
+          AND r.status = 'ATIVA'
+          AND ($3::INTEGER IS NULL OR r.id_area_comum = $3::INTEGER)
+          AND (r.data_hora_fim > $4 AND ($5::TIMESTAMP IS NULL OR r.data_hora_inicio < $5::TIMESTAMP))
+        RETURNING r.id_reserva`,
+      [`PENALIDADE: Bloqueio do morador (${b.motivo || 'INFRACAO'}).`, idPerfilMorador, b.id_area_comum || null, inicio, fim]
+    );
+
     const res = await this.db.query(
       `INSERT INTO bloqueio_perfil (id_perfil, id_area_comum, id_perfil_registro, data_hora_inicio, data_hora_fim, motivo, descricao)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -807,7 +823,10 @@ export class CadastrosController {
       [idPerfilMorador, b.id_area_comum || null, idPerfilSindico, inicio, fim, b.motivo || 'INFRACAO', b.descricao || null]
     );
 
-    return res[0];
+    return {
+      ...res[0],
+      reservas_canceladas: canceladas.length,
+    };
   }
 
   @Patch('bloqueios/:id/encerrar') @Perfis('SINDICO')

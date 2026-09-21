@@ -15,6 +15,7 @@ async function bootstrap() {
   }
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  app.set('trust proxy', 1);           // confia no proxy reverso do Vite e Docker para identificacao correta do IP
   app.setGlobalPrefix('api');          // todas as rotas comecam com /api
 
   // Seguranca: restringe CORS ao dominio do frontend

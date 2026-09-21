@@ -3,6 +3,7 @@ import { api } from '../../api';
 import { Cartao, Titulo, Icone, Badge, EmptyState } from '../../components/ui';
 
 type Aviso = {
+  id_aviso: number;
   id_aviso_perfil: number;
   titulo: string;
   conteudo: string;
@@ -33,14 +34,14 @@ export default function Mural() {
   }, []);
 
   async function abrir(a: Aviso) {
-    const jaAberto = aberto === a.id_aviso_perfil;
-    setAberto(jaAberto ? null : a.id_aviso_perfil);
+    const jaAberto = aberto === a.id_aviso;
+    setAberto(jaAberto ? null : a.id_aviso);
     if (!a.lido) {
-      await api.patch(`/avisos/${a.id_aviso_perfil}/lido`);
+      await api.patch(`/avisos/${a.id_aviso}/lido`).catch(() => {});
       // Atualiza localmente o status de lido
       setAvisos(prev =>
         prev.map(item =>
-          item.id_aviso_perfil === a.id_aviso_perfil ? { ...item, lido: true } : item
+          item.id_aviso === a.id_aviso ? { ...item, lido: true } : item
         )
       );
     }
@@ -99,10 +100,10 @@ export default function Mural() {
       ) : (
         <div className="space-y-3.5">
           {avisosFiltrados.map(a => {
-            const eAberto = aberto === a.id_aviso_perfil;
+            const eAberto = aberto === a.id_aviso;
             return (
               <Cartao
-                key={a.id_aviso_perfil}
+                key={a.id_aviso}
                 className={`cursor-pointer transition-all duration-200 hover:shadow-card-hover ${
                   a.fixado ? 'border-amber-200/90 bg-amber-50/20 dark:border-amber-900/60 dark:bg-amber-950/20' : ''
                 } ${!a.lido ? 'ring-1 ring-navy/15 dark:ring-sky-500/30' : ''}`}

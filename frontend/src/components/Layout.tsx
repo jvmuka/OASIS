@@ -66,16 +66,22 @@ export default function Layout() {
             <Icone nome={menuAberto ? 'x' : 'filter'} className="h-5 w-5" />
           </button>
 
-          <Link to={rotaInicial} className="flex items-center gap-2.5" title="Ir para o painel inicial">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-navy to-navy-light text-white shadow-xs dark:from-sky-600 dark:to-navy">
-              <Icone nome="building" className="h-5 w-5" />
+          <Link to={rotaInicial} className="flex items-center gap-2 group" title="Ir para o painel inicial">
+            <div className="flex items-center">
+              <img
+                src="/logos/logo-deitada-navy.png"
+                alt="OASIS"
+                className="h-7 sm:h-8 w-auto object-contain dark:hidden transition-transform duration-150 group-hover:scale-[1.02]"
+              />
+              <img
+                src="/logos/logo-deitada-sky.png"
+                alt="OASIS"
+                className="h-7 sm:h-8 w-auto object-contain hidden dark:block transition-transform duration-150 group-hover:scale-[1.02]"
+              />
             </div>
-            <div>
-              <span className="text-base font-extrabold tracking-tight text-navy dark:text-sky-400">OASIS</span>
-              <span className="ml-1.5 hidden rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-400 sm:inline-block">
-                CONDOMÍNIO
-              </span>
-            </div>
+            <span className="hidden rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400 sm:inline-block tracking-wider uppercase">
+              Condomínio
+            </span>
           </Link>
         </div>
 

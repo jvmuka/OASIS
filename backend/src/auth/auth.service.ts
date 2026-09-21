@@ -60,6 +60,12 @@ export function validarForcaSenha(senha: string): { erro: string | null; avisos:
   return { erro: null, avisos };
 }
 
+function gerarCodigoRecuperacao(): string {
+  const CHARSET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const bytes = crypto.randomBytes(6);
+  return 'REC-' + Array.from(bytes).map(b => CHARSET[b % CHARSET.length]).join('');
+}
+
 @Injectable()
 export class AuthService {
   constructor(private db: DbService, private jwt: JwtService) {}
@@ -173,6 +179,118 @@ export class AuthService {
     // Retorna avisos de senha fraca (nao bloqueantes) junto com a sessao
     if (avisos.length > 0) {
       return { ...resultado, aviso_senha: 'Sua senha e considerada fraca. ' + avisos.join(' ') };
+    }
+    return resultado;
+  }
+
+  async solicitarRecuperacaoSenha(email: string) {
+    if (!email || !email.trim()) {
+      throw new BadRequestException('Informe o seu e-mail cadastrado.');
+    }
+
+    const emailLimpo = email.trim().toLowerCase();
+    const pessoas = await this.db.query(
+      `SELECT id_pessoa, nome, email, status_conta, ativo FROM pessoa WHERE LOWER(email) = $1`,
+      [emailLimpo]
+    );
+
+    if (!pessoas.length || !pessoas[0].ativo) {
+      // Retorno padrao para evitar enumeracao de usuarios, mas claro
+      return {
+        ok: true,
+        mensagem: 'Se o e-mail informado estiver cadastrado, você receberá o código de recuperação.',
+      };
+    }
+
+    const pessoa = pessoas[0];
+    if (pessoa.status_conta === 'BLOQUEADO') {
+      throw new BadRequestException('Esta conta está bloqueada pela administração.');
+    }
+
+    // Invalida eventuais codigos de recuperacao anteriores ainda disponiveis
+    await this.db.query(
+      `UPDATE codigo_primeiro_acesso
+          SET status = 'CANCELADO'
+        WHERE id_pessoa = $1
+          AND status = 'DISPONIVEL'
+          AND tipo = 'RECUPERACAO'`,
+      [pessoa.id_pessoa]
+    );
+
+    const codigo = gerarCodigoRecuperacao();
+
+    // Validade de 2 horas para recuperacao
+    await this.db.query(
+      `INSERT INTO codigo_primeiro_acesso (codigo, id_pessoa, status, tipo, data_expiracao)
+       VALUES ($1, $2, 'DISPONIVEL', 'RECUPERACAO', CURRENT_TIMESTAMP + INTERVAL '2 hours')`,
+      [codigo, pessoa.id_pessoa]
+    );
+
+    return {
+      ok: true,
+      mensagem: 'Código de recuperação gerado com sucesso. Verifique seu e-mail.',
+      codigo_dev: codigo, // Exibido para facilitar demonstracao e testes locais
+    };
+  }
+
+  async redefinirSenhaComCodigo(codigo: string, email: string, novaSenha: string) {
+    if (!codigo || !email || !novaSenha) {
+      throw new BadRequestException('Todos os campos são obrigatórios.');
+    }
+    const { erro, avisos } = validarForcaSenha(novaSenha);
+    if (erro) throw new BadRequestException(erro);
+
+    const resultado = await this.db.transacao(async client => {
+      const res = await client.query(`
+        SELECT c.id_codigo, c.id_pessoa, c.status, c.data_expiracao, p.email
+          FROM codigo_primeiro_acesso c
+          JOIN pessoa p ON p.id_pessoa = c.id_pessoa
+         WHERE UPPER(c.codigo) = UPPER($1) AND LOWER(p.email) = LOWER($2)
+         FOR UPDATE`, [codigo.trim(), email.trim().toLowerCase()]);
+
+      if (!res.rows.length) {
+        throw new BadRequestException('Código de recuperação ou e-mail inválidos.');
+      }
+      const c = res.rows[0];
+
+      if (c.status !== 'DISPONIVEL') {
+        throw new BadRequestException('Este código já foi utilizado ou cancelado.');
+      }
+      if (new Date(c.data_expiracao) < new Date()) {
+        throw new BadRequestException('Este código de recuperação expirou.');
+      }
+
+      const hash = hashSenha(novaSenha);
+
+      await client.query(
+        `UPDATE pessoa SET senha_hash = $1, status_conta = 'ATIVO' WHERE id_pessoa = $2`,
+        [hash, c.id_pessoa]
+      );
+
+      try {
+        await client.query(
+          `UPDATE codigo_primeiro_acesso
+              SET status = 'USADO',
+                  data_utilizacao = CURRENT_TIMESTAMP,
+                  usado_em = CURRENT_TIMESTAMP
+            WHERE id_codigo = $1`,
+          [c.id_codigo]
+        );
+      } catch {
+        await client.query(
+          `UPDATE codigo_primeiro_acesso
+              SET status = 'USADO',
+                  data_utilizacao = CURRENT_TIMESTAMP
+            WHERE id_codigo = $1`,
+          [c.id_codigo]
+        );
+      }
+
+      return this.gerarSessaoParaPessoa(c.id_pessoa);
+    });
+
+    if (avisos.length > 0) {
+      return { ...resultado, aviso_senha: 'Sua senha é considerada fraca. ' + avisos.join(' ') };
     }
     return resultado;
   }

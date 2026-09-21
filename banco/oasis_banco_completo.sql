@@ -311,6 +311,7 @@ CREATE TABLE codigo_primeiro_acesso (
     codigo               VARCHAR(30)         NOT NULL UNIQUE,
     id_pessoa            INTEGER             NOT NULL,
     id_perfil_gerador    INTEGER,
+    tipo                 VARCHAR(30)         NOT NULL DEFAULT 'PRIMEIRO_ACESSO',
     status               status_codigo_enum  NOT NULL DEFAULT 'DISPONIVEL',
     criado_em            TIMESTAMP           NOT NULL DEFAULT CURRENT_TIMESTAMP,
     data_criacao         TIMESTAMP           NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -608,8 +609,8 @@ BEGIN
         SELECT prazo_cancelamento_horas INTO v_prazo
           FROM area_comum WHERE id_area_comum = NEW.id_area_comum;
 
-        -- Cancelamento por manutencao/interdicao ou administrativo nao e barrado pelo prazo do morador
-        IF (NEW.motivo_cancelamento IS NULL OR (NEW.motivo_cancelamento NOT LIKE 'MANUTENCAO%' AND NEW.motivo_cancelamento NOT LIKE 'ADMINISTRATIVO%')) THEN
+        -- Cancelamento por manutencao/interdicao, administrativo ou penalidade nao e barrado pelo prazo do morador
+        IF (NEW.motivo_cancelamento IS NULL OR (NEW.motivo_cancelamento NOT LIKE 'MANUTENCAO%' AND NEW.motivo_cancelamento NOT LIKE 'ADMINISTRATIVO%' AND NEW.motivo_cancelamento NOT LIKE 'PENALIDADE%')) THEN
             IF CURRENT_TIMESTAMP > (OLD.data_hora_inicio - (v_prazo || ' hours')::INTERVAL) THEN
                 RAISE EXCEPTION 'RN08: cancelamento permitido somente ate % hora(s) antes do inicio.',
                                 v_prazo;
@@ -816,6 +817,31 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER tg_valida_dependente
     BEFORE INSERT OR UPDATE ON pessoa_unidade
     FOR EACH ROW EXECUTE FUNCTION fn_valida_dependente();
+
+-- ---------------------------------------------------------------------
+-- RN18: cancelamento automatico de reservas ativas ao aplicar penalidade
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION fn_bloqueio_perfil_cancela_reservas() RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE reserva r
+       SET status = 'CANCELADA',
+           data_hora_cancelamento = CURRENT_TIMESTAMP,
+           motivo_cancelamento = 'PENALIDADE: ' || COALESCE(NEW.motivo::text, 'Bloqueio disciplinar aplicado pelo sindico.')
+      FROM perfil pf_res, perfil pf_bloq
+     WHERE r.id_perfil = pf_res.id_perfil
+       AND pf_bloq.id_perfil = NEW.id_perfil
+       AND pf_res.id_pessoa = pf_bloq.id_pessoa
+       AND r.status = 'ATIVA'
+       AND (NEW.id_area_comum IS NULL OR r.id_area_comum = NEW.id_area_comum)
+       AND (r.data_hora_fim > NEW.data_hora_inicio AND (NEW.data_hora_fim IS NULL OR r.data_hora_inicio < NEW.data_hora_fim));
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS tg_bloqueio_perfil_cancela_reservas ON bloqueio_perfil;
+CREATE TRIGGER tg_bloqueio_perfil_cancela_reservas
+    AFTER INSERT ON bloqueio_perfil
+    FOR EACH ROW EXECUTE FUNCTION fn_bloqueio_perfil_cancela_reservas();
 
 -- ---------------------------------------------------------------------
 -- Carga inicial de avisos no mural (com trigger ativo para distribuicao)

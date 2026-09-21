@@ -283,6 +283,7 @@ CREATE TABLE codigo_primeiro_acesso (
     codigo               VARCHAR(30)         NOT NULL UNIQUE,
     id_pessoa            INTEGER             NOT NULL,
     id_perfil_gerador    INTEGER,
+    tipo                 VARCHAR(30)         NOT NULL DEFAULT 'PRIMEIRO_ACESSO',
     status               status_codigo_enum  NOT NULL DEFAULT 'DISPONIVEL',
     criado_em            TIMESTAMP           NOT NULL DEFAULT CURRENT_TIMESTAMP,
     data_criacao         TIMESTAMP           NOT NULL DEFAULT CURRENT_TIMESTAMP,

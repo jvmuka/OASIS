@@ -670,13 +670,16 @@ export default function Pessoas() {
     if (!pessoaBloqueio) return;
     setSalvandoBloqueio(true);
     try {
-      await api.post(`/cadastros/pessoas/${pessoaBloqueio.id_pessoa}/bloqueios`, {
+      const r = await api.post<any>(`/cadastros/pessoas/${pessoaBloqueio.id_pessoa}/bloqueios`, {
         id_area_comum: formBloqueio.id_area_comum ? Number(formBloqueio.id_area_comum) : undefined,
         motivo: formBloqueio.motivo,
         descricao: formBloqueio.descricao,
         data_hora_fim: formBloqueio.data_hora_fim ? `${formBloqueio.data_hora_fim}T23:59:59` : undefined,
       });
-      setMsg({ t: 'Penalidade / restrição aplicada com sucesso.', tipo: 'ok' });
+      const canceladasTexto = r?.reservas_canceladas && r.reservas_canceladas > 0
+        ? ` (${r.reservas_canceladas} reserva(s) ativa(s) cancelada(s) automaticamente)`
+        : '';
+      setMsg({ t: `Penalidade aplicada com sucesso.${canceladasTexto}`, tipo: 'ok' });
       setFormBloqueio({
         id_area_comum: '',
         motivo: 'INFRACAO',

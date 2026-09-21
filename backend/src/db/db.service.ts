@@ -21,6 +21,7 @@ export class DbService implements OnModuleInit, OnModuleDestroy {
       await this.pool.query(`
         ALTER TABLE codigo_primeiro_acesso ADD COLUMN IF NOT EXISTS usado_em TIMESTAMP;
         ALTER TABLE codigo_primeiro_acesso ADD COLUMN IF NOT EXISTS criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+        ALTER TABLE codigo_primeiro_acesso ADD COLUMN IF NOT EXISTS tipo VARCHAR(30) DEFAULT 'PRIMEIRO_ACESSO';
         ALTER TABLE area_comum ALTER COLUMN descricao TYPE TEXT;
         ALTER TABLE area_comum ADD COLUMN IF NOT EXISTS requer_reserva BOOLEAN NOT NULL DEFAULT true;
         ALTER TABLE area_comum ADD COLUMN IF NOT EXISTS status_livre VARCHAR(20) NOT NULL DEFAULT 'LIVRE';
@@ -28,9 +29,56 @@ export class DbService implements OnModuleInit, OnModuleDestroy {
         ALTER TABLE area_comum ADD COLUMN IF NOT EXISTS status_livre_observacao VARCHAR(255);
         ALTER TABLE area_comum ADD COLUMN IF NOT EXISTS status_livre_porteiro VARCHAR(100);
         ALTER TABLE chave ALTER COLUMN codigo TYPE VARCHAR(100);
+
+        CREATE OR REPLACE FUNCTION fn_cancela_reserva() RETURNS TRIGGER AS $$
+        DECLARE
+            v_prazo INTEGER;
+        BEGIN
+            IF NEW.status = 'CANCELADA' AND OLD.status <> 'CANCELADA' THEN
+                IF OLD.status = 'CONCLUIDA' THEN
+                    RAISE EXCEPTION 'RN08: nao e permitido cancelar uma reserva ja concluida.';
+                END IF;
+
+                SELECT prazo_cancelamento_horas INTO v_prazo
+                  FROM area_comum WHERE id_area_comum = NEW.id_area_comum;
+
+                IF (NEW.motivo_cancelamento IS NULL OR (NEW.motivo_cancelamento NOT LIKE 'MANUTENCAO%' AND NEW.motivo_cancelamento NOT LIKE 'ADMINISTRATIVO%' AND NEW.motivo_cancelamento NOT LIKE 'PENALIDADE%')) THEN
+                    IF CURRENT_TIMESTAMP > (OLD.data_hora_inicio - (v_prazo || ' hours')::INTERVAL) THEN
+                        RAISE EXCEPTION 'RN08: cancelamento permitido somente ate % hora(s) antes do inicio.',
+                                        v_prazo;
+                    END IF;
+                END IF;
+
+                NEW.data_hora_cancelamento := COALESCE(NEW.data_hora_cancelamento, CURRENT_TIMESTAMP);
+            END IF;
+            RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql;
+
+        CREATE OR REPLACE FUNCTION fn_bloqueio_perfil_cancela_reservas() RETURNS TRIGGER AS $$
+        BEGIN
+            UPDATE reserva r
+               SET status = 'CANCELADA',
+                   data_hora_cancelamento = CURRENT_TIMESTAMP,
+                   motivo_cancelamento = 'PENALIDADE: ' || COALESCE(NEW.motivo::text, 'Bloqueio disciplinar aplicado pelo sindico.')
+              FROM perfil pf_res, perfil pf_bloq
+             WHERE r.id_perfil = pf_res.id_perfil
+               AND pf_bloq.id_perfil = NEW.id_perfil
+               AND pf_res.id_pessoa = pf_bloq.id_pessoa
+               AND r.status = 'ATIVA'
+               AND (NEW.id_area_comum IS NULL OR r.id_area_comum = NEW.id_area_comum)
+               AND (r.data_hora_fim > NEW.data_hora_inicio AND (NEW.data_hora_fim IS NULL OR r.data_hora_inicio < NEW.data_hora_fim));
+            RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql;
+
+        DROP TRIGGER IF EXISTS tg_bloqueio_perfil_cancela_reservas ON bloqueio_perfil;
+        CREATE TRIGGER tg_bloqueio_perfil_cancela_reservas
+            AFTER INSERT ON bloqueio_perfil
+            FOR EACH ROW EXECUTE FUNCTION fn_bloqueio_perfil_cancela_reservas();
       `);
-    } catch {
-      // Ignora erro se a tabela ainda nao foi criada na primeira inicializacao
+    } catch (err) {
+      console.warn('Aviso na migracao automatica do banco:', err);
     }
   }
 

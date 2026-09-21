@@ -63,19 +63,27 @@ export class AvisosController {
       }));
   }
 
-  @Patch(':idAvisoPerfil/lido')
-  async marcarLido(@Req() req: any, @Param('idAvisoPerfil', ParseIntPipe) id: number) {
+  @Patch(':id/lido')
+  async marcarLido(@Req() req: any, @Param('id', ParseIntPipe) id: number) {
     const idsPerfis: number[] = (req.user?.perfis || []).map((p: any) => p.id_perfil);
     if (!idsPerfis.length) throw new BadRequestException('Perfil não encontrado.');
 
-    if (id > 0) {
-      const r = await this.db.query(`
-        UPDATE aviso_perfil SET lido = TRUE
-         WHERE id_aviso_perfil = $1 AND id_perfil = ANY($2::int[])
-         RETURNING id_aviso_perfil, lido, data_hora_leitura`, [id, idsPerfis]);
-      if (r.length) return r[0];
-    }
-    return { ok: true };
+    // 1. Tenta atualizar caso o id fornecido seja id_aviso_perfil ou id_aviso existente
+    const r = await this.db.query(`
+      UPDATE aviso_perfil SET lido = TRUE, data_hora_leitura = COALESCE(data_hora_leitura, CURRENT_TIMESTAMP)
+       WHERE (id_aviso_perfil = $1 OR id_aviso = $1) AND id_perfil = ANY($2::int[])
+       RETURNING id_aviso_perfil, lido, data_hora_leitura`, [id, idsPerfis]);
+    if (r.length) return r[0];
+
+    // 2. Se for aviso de escopo MURAL que ainda não tinha linha em aviso_perfil, insere
+    const idPerfil = idsPerfis[0];
+    const ins = await this.db.query(`
+      INSERT INTO aviso_perfil (id_aviso, id_perfil, lido, data_hora_leitura)
+      VALUES ($1, $2, TRUE, CURRENT_TIMESTAMP)
+      ON CONFLICT (id_aviso, id_perfil)
+      DO UPDATE SET lido = TRUE, data_hora_leitura = COALESCE(aviso_perfil.data_hora_leitura, CURRENT_TIMESTAMP)
+      RETURNING id_aviso_perfil, lido, data_hora_leitura`, [id, idPerfil]);
+    return ins[0] || { ok: true };
   }
 
   @Post() @Perfis('SINDICO')

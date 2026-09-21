@@ -15,7 +15,7 @@ import { RelatoriosModule } from './relatorios/relatorios.module';
     ConfigModule.forRoot({ isGlobal: true }),   // carrega o .env
     ThrottlerModule.forRoot([{
       ttl: 60_000,  // janela de 1 minuto (em milissegundos)
-      limit: 60,    // maximo 60 requisicoes por minuto por IP
+      limit: 180,   // maximo 180 requisicoes por minuto por IP (permite navegacao fluida no SPA)
     }]),
     DbModule,
     AuthModule,
