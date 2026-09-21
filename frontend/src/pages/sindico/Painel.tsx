@@ -366,7 +366,9 @@ export default function PainelAdmin() {
             </div>
 
             <div className="pt-3 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400 dark:text-slate-500 text-center">
-              Clique em um status para filtrar os agendamentos abaixo
+              {d.status_reservas.reduce((acc, s) => acc + Number(s.total), 0) > 0
+                ? 'Clique em um status para filtrar os agendamentos abaixo'
+                : `Sem agendamentos registrados em ${rotuloMesAtual}`}
             </div>
           </Cartao>
         </div>
@@ -488,11 +490,11 @@ export default function PainelAdmin() {
 
           {agendamentosFiltrados.length === 0 ? (
             <EmptyState
-              titulo={temFiltroAtivo ? 'Nenhum agendamento encontrado' : 'Nenhuma reserva recente'}
+              titulo={temFiltroAtivo ? 'Nenhum agendamento encontrado' : `Nenhuma reserva em ${rotuloMesAtual}`}
               descricao={
                 temFiltroAtivo
                   ? 'Nenhum resultado corresponde à pesquisa, área ou status informado.'
-                  : 'As reservas registradas para este período aparecerão aqui.'
+                  : `Não foram registrados agendamentos de áreas comuns para ${rotuloMesAtual}.`
               }
               acao={
                 temFiltroAtivo ? (

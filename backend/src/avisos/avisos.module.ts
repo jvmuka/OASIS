@@ -20,6 +20,34 @@ export class AvisosController {
              a.data_hora_publicacao, a.data_hora_expiracao,
              p.nome AS autor,
              CASE
+               WHEN a.escopo = 'INDIVIDUAL' OR a.titulo ILIKE '%encomenda%' THEN 'ENCOMENDA'
+               ELSE 'ADMINISTRADOR'
+             END AS categoria,
+             CASE
+               WHEN a.escopo = 'INDIVIDUAL' THEN (
+                 SELECT p_dest.nome
+                   FROM aviso_perfil ap_dest
+                   JOIN perfil pf_dest ON pf_dest.id_perfil = ap_dest.id_perfil
+                   JOIN pessoa p_dest ON p_dest.id_pessoa = pf_dest.id_pessoa
+                  WHERE ap_dest.id_aviso = a.id_aviso
+                  LIMIT 1
+               )
+               ELSE 'Todos os Moradores'
+             END AS destinatario_nome,
+             CASE
+               WHEN a.escopo = 'INDIVIDUAL' THEN (
+                 SELECT CONCAT('Bloco ', b.nome, ' - Ap ', u.numero_apartamento)
+                   FROM aviso_perfil ap_dest
+                   JOIN perfil pf_dest ON pf_dest.id_perfil = ap_dest.id_perfil
+                   JOIN pessoa_unidade pu ON pu.id_pessoa = pf_dest.id_pessoa AND pu.data_fim_ocupacao IS NULL
+                   JOIN unidade u ON u.id_unidade = pu.id_unidade
+                   JOIN bloco b ON b.id_bloco = u.id_bloco
+                  WHERE ap_dest.id_aviso = a.id_aviso
+                  LIMIT 1
+               )
+               ELSE 'Condomínio Completo'
+             END AS destinatario_unidade,
+             CASE
                WHEN a.data_hora_publicacao > CURRENT_TIMESTAMP THEN 'AGENDADO'
                WHEN a.data_hora_expiracao IS NOT NULL AND a.data_hora_expiracao <= CURRENT_TIMESTAMP THEN 'EXPIRADO'
                ELSE 'PUBLICADO'
@@ -44,7 +72,11 @@ export class AvisosController {
              a.fixado, a.data_hora_publicacao,
              COALESCE(ap.lido, FALSE) AS lido,
              ap.data_hora_leitura,
-             p.nome AS autor
+             p.nome AS autor,
+             CASE
+               WHEN a.escopo = 'INDIVIDUAL' OR a.titulo ILIKE '%encomenda%' THEN 'ENCOMENDA'
+               ELSE 'ADMINISTRADOR'
+             END AS categoria
         FROM aviso a
         JOIN perfil pf ON pf.id_perfil = a.id_perfil_autor
         JOIN pessoa p ON p.id_pessoa = pf.id_pessoa

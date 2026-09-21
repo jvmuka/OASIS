@@ -12,6 +12,7 @@ type Aviso = {
   lido: boolean;
   data_hora_publicacao: string;
   escopo: string;
+  categoria?: 'ADMINISTRADOR' | 'ENCOMENDA';
 };
 
 /** UC05 - Mural de Avisos com comunicados da administração (UI/UX Pro Max) */
@@ -19,7 +20,7 @@ export default function Mural() {
   const [avisos, setAvisos] = useState<Aviso[]>([]);
   const [aberto, setAberto] = useState<number | null>(null);
   const [carregando, setCarregando] = useState(true);
-  const [filtro, setFiltro] = useState<'TODOS' | 'NAO_LIDOS' | 'FIXADOS'>('TODOS');
+  const [filtro, setFiltro] = useState<'TODOS' | 'ADMINISTRADOR' | 'ENCOMENDA' | 'NAO_LIDOS'>('TODOS');
 
   const carregar = () => {
     setCarregando(true);
@@ -47,9 +48,14 @@ export default function Mural() {
     }
   }
 
+  const countAdmin = avisos.filter(a => a.categoria === 'ADMINISTRADOR').length;
+  const countEncomenda = avisos.filter(a => a.categoria === 'ENCOMENDA').length;
+  const countNaoLidos = avisos.filter(a => !a.lido).length;
+
   const avisosFiltrados = avisos.filter(a => {
     if (filtro === 'NAO_LIDOS') return !a.lido;
-    if (filtro === 'FIXADOS') return a.fixado;
+    if (filtro === 'ADMINISTRADOR') return a.categoria === 'ADMINISTRADOR';
+    if (filtro === 'ENCOMENDA') return a.categoria === 'ENCOMENDA';
     return true;
   });
 
@@ -62,22 +68,57 @@ export default function Mural() {
         Mural de Avisos
       </Titulo>
 
-      {/* Filtros rápidos */}
-      <div className="flex gap-2">
-        {(['TODOS', 'NAO_LIDOS', 'FIXADOS'] as const).map(f => (
-          <button
-            key={f}
-            type="button"
-            onClick={() => setFiltro(f)}
-            className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer ${
-              filtro === f
-                ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800'
-            }`}
-          >
-            {f === 'TODOS' ? 'Todos' : f === 'NAO_LIDOS' ? 'Não Lidos' : 'Fixados'}
-          </button>
-        ))}
+      {/* Abas e Filtros rápidos */}
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => setFiltro('TODOS')}
+          className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+            filtro === 'TODOS'
+              ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
+              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800'
+          }`}
+        >
+          Todos ({avisos.length})
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setFiltro('ADMINISTRADOR')}
+          className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+            filtro === 'ADMINISTRADOR'
+              ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
+              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800'
+          }`}
+        >
+          <Icone nome="megaphone" className="h-3.5 w-3.5" />
+          Administração ({countAdmin})
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setFiltro('ENCOMENDA')}
+          className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+            filtro === 'ENCOMENDA'
+              ? 'bg-amber-600 text-white shadow-xs dark:bg-amber-600'
+              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800'
+          }`}
+        >
+          <Icone nome="package" className="h-3.5 w-3.5" />
+          Encomendas ({countEncomenda})
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setFiltro('NAO_LIDOS')}
+          className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+            filtro === 'NAO_LIDOS'
+              ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
+              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800'
+          }`}
+        >
+          Não Lidos ({countNaoLidos})
+        </button>
       </div>
 
       {carregando ? (
@@ -88,11 +129,21 @@ export default function Mural() {
       ) : avisosFiltrados.length === 0 ? (
         <Cartao>
           <EmptyState
-            icone="megaphone"
-            titulo="Nenhum comunicado encontrado"
+            icone={filtro === 'ENCOMENDA' ? 'package' : 'megaphone'}
+            titulo={
+              filtro === 'ENCOMENDA'
+                ? 'Nenhum aviso de encomenda'
+                : filtro === 'ADMINISTRADOR'
+                ? 'Nenhum comunicado da administração'
+                : filtro === 'NAO_LIDOS'
+                ? 'Nenhum aviso não lido'
+                : 'Nenhum comunicado encontrado'
+            }
             descricao={
               filtro === 'NAO_LIDOS'
                 ? 'Você já leu todos os comunicados recentes.'
+                : filtro === 'ENCOMENDA'
+                ? 'Você não possui avisos de encomenda pendentes na portaria.'
                 : 'Não há avisos cadastrados no mural no momento.'
             }
           />
@@ -101,11 +152,16 @@ export default function Mural() {
         <div className="space-y-3.5">
           {avisosFiltrados.map(a => {
             const eAberto = aberto === a.id_aviso;
+            const isEncomenda = a.categoria === 'ENCOMENDA';
             return (
               <Cartao
                 key={a.id_aviso}
                 className={`cursor-pointer transition-all duration-200 hover:shadow-card-hover ${
-                  a.fixado ? 'border-amber-200/90 bg-amber-50/20 dark:border-amber-900/60 dark:bg-amber-950/20' : ''
+                  isEncomenda
+                    ? 'border-amber-200/80 bg-amber-50/10 dark:border-amber-900/40 dark:bg-amber-950/10'
+                    : a.fixado
+                    ? 'border-amber-200/90 bg-amber-50/20 dark:border-amber-900/60 dark:bg-amber-950/20'
+                    : ''
                 } ${!a.lido ? 'ring-1 ring-navy/15 dark:ring-sky-500/30' : ''}`}
               >
                 <div onClick={() => abrir(a)}>
@@ -113,18 +169,29 @@ export default function Mural() {
                     <div className="flex items-start gap-3">
                       <div
                         className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-bold ${
-                          a.fixado
+                          isEncomenda
+                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                            : a.fixado
                             ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
                             : !a.lido
                             ? 'bg-navy-50 text-navy dark:bg-slate-800 dark:text-sky-400'
                             : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
                         }`}
                       >
-                        <Icone nome={a.fixado ? 'pin' : 'megaphone'} className="h-5 w-5" />
+                        <Icone
+                          nome={isEncomenda ? 'package' : a.fixado ? 'pin' : 'megaphone'}
+                          className="h-5 w-5"
+                        />
                       </div>
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
-                          {a.fixado && (
+                          {isEncomenda && (
+                            <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 dark:bg-amber-950/60 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:text-amber-300">
+                              <Icone nome="package" className="h-3 w-3" />
+                              ENCOMENDA NA PORTARIA
+                            </span>
+                          )}
+                          {a.fixado && !isEncomenda && (
                             <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 dark:bg-amber-950/60 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:text-amber-300">
                               <Icone nome="pin" className="h-3 w-3" />
                               FIXADO
@@ -140,7 +207,7 @@ export default function Mural() {
                           </h3>
                         </div>
                         <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
-                          Publicado por <b>{a.autor}</b> em{' '}
+                          {isEncomenda ? 'Recebido por ' : 'Publicado por '}<b>{a.autor}</b> em{' '}
                           {new Date(a.data_hora_publicacao).toLocaleDateString('pt-BR', {
                             day: '2-digit',
                             month: 'long',

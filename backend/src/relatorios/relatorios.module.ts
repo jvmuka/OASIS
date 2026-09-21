@@ -97,20 +97,22 @@ export class RelatoriosController {
       total: Number(row.total || 0),
     }));
 
-    // Status das reservas no mês de referência
-    let statusReservas = await this.db.query(`
+    // Status das reservas estritamente no mês de referência
+    const statusReservasRaw = await this.db.query(`
       SELECT status, COUNT(*)::int AS total
         FROM reserva
        WHERE date_trunc('month', data_hora_inicio) = date_trunc('month', $1::date)
        GROUP BY status`, [dataRef]);
 
-    // Se o mês selecionado não tiver reservas, traz contagem global para manter o gráfico informativo
-    if (statusReservas.length === 0) {
-      statusReservas = await this.db.query(`
-        SELECT status, COUNT(*)::int AS total
-          FROM reserva
-         GROUP BY status`);
+    const mapaStatus: Record<string, number> = { ATIVA: 0, CONCLUIDA: 0, CANCELADA: 0 };
+    for (const r of statusReservasRaw) {
+      mapaStatus[r.status] = Number(r.total || 0);
     }
+    const statusReservas = [
+      { status: 'ATIVA', total: mapaStatus.ATIVA },
+      { status: 'CONCLUIDA', total: mapaStatus.CONCLUIDA },
+      { status: 'CANCELADA', total: mapaStatus.CANCELADA },
+    ];
 
     // Áreas mais utilizadas no mês selecionado
     const areas = await this.db.query(`
@@ -125,8 +127,8 @@ export class RelatoriosController {
        GROUP BY a.id_area_comum, a.nome
        ORDER BY reservas DESC, a.nome ASC`, [dataRef]);
 
-    // Agendamentos detalhados do mês (ou os mais recentes se não houver agendamentos no mês selecionado)
-    let recentes = await this.db.query(`
+    // Agendamentos detalhados estritamente do mês selecionado
+    const recentes = await this.db.query(`
       SELECT r.id_reserva,
              p.nome,
              a.nome AS area,
@@ -146,30 +148,7 @@ export class RelatoriosController {
         JOIN pessoa p ON p.id_pessoa = pf.id_pessoa
        WHERE date_trunc('month', r.data_hora_inicio) = date_trunc('month', $1::date)
        ORDER BY r.data_hora_inicio DESC
-       LIMIT 40`, [dataRef]);
-
-    if (recentes.length === 0) {
-      recentes = await this.db.query(`
-        SELECT r.id_reserva,
-               p.nome,
-               a.nome AS area,
-               r.data_hora_inicio,
-               r.data_hora_fim,
-               r.status,
-               (
-                 SELECT string_agg(DISTINCT u.numero_apartamento || ' (' || b.nome || ')', ', ')
-                   FROM pessoa_unidade pu
-                   JOIN unidade u ON u.id_unidade = pu.id_unidade
-                   JOIN bloco b ON b.id_bloco = u.id_bloco
-                  WHERE pu.id_pessoa = p.id_pessoa AND pu.reside = TRUE
-               ) AS unidade
-          FROM reserva r
-          JOIN area_comum a ON a.id_area_comum = r.id_area_comum
-          JOIN perfil pf ON pf.id_perfil = r.id_perfil
-          JOIN pessoa p ON p.id_pessoa = pf.id_pessoa
-         ORDER BY r.data_hora_inicio DESC
-         LIMIT 20`);
-    }
+       LIMIT 50`, [dataRef]);
 
     return {
       mes_selecionado: mesAno,
