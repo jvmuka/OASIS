@@ -272,14 +272,16 @@ export class AreasController {
         INSERT INTO area_comum
           (nome, descricao, capacidade, tipo_acesso, tipo_uso, duracao_slot_min,
            antecedencia_minima_dias, antecedencia_maxima_dias,
-           prazo_cancelamento_horas, limite_reservas_semana, exige_chave, valor, imagem_url, antecedencia_minima_horas, idade_minima, reserva_por_dia, requer_reserva)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING *`,
+           prazo_cancelamento_horas, limite_reservas_semana, exige_chave, valor, imagem_url, antecedencia_minima_horas, idade_minima, reserva_por_dia, requer_reserva, tipo_limite_reserva, max_unidades_simultaneas)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING *`,
         [a.nome, a.descricao || null, a.capacidade, a.tipo_acesso || 'LIVRE', a.tipo_uso || 'RESERVAVEL',
          a.duracao_slot_min ?? 60, antMinDias,
          a.antecedencia_maxima_dias ?? 30, a.prazo_cancelamento_horas ?? 24,
          a.limite_reservas_semana ?? 2, a.exige_chave ?? false, a.valor !== undefined ? Number(a.valor) : 0,
          a.imagem_url || null, antMinHoras, a.idade_minima ?? 0, Boolean(a.reserva_por_dia),
-         a.requer_reserva !== undefined ? Boolean(a.requer_reserva) : true]);
+         a.requer_reserva !== undefined ? Boolean(a.requer_reserva) : true,
+         a.tipo_limite_reserva || 'SEMANAL',
+         a.max_unidades_simultaneas ? Number(a.max_unidades_simultaneas) : 1]);
       const novaArea = res.rows[0];
 
       if (Boolean(a.exige_chave)) {
@@ -335,7 +337,9 @@ export class AreasController {
           reserva_por_dia = COALESCE($14,reserva_por_dia),
           valor = COALESCE($16,valor),
           requer_reserva = COALESCE($17,requer_reserva),
-          exige_chave = COALESCE($18,exige_chave)
+          exige_chave = COALESCE($18,exige_chave),
+          tipo_limite_reserva = COALESCE($19,tipo_limite_reserva),
+          max_unidades_simultaneas = COALESCE($20,max_unidades_simultaneas)
         WHERE id_area_comum = $1 RETURNING *`,
         [id, a.nome, a.descricao !== undefined ? (a.descricao ? a.descricao.trim() : null) : null, a.capacidade, a.duracao_slot_min,
          antMinDias, a.antecedencia_maxima_dias,
@@ -345,7 +349,9 @@ export class AreasController {
          a.descricao !== undefined,
          a.valor !== undefined ? Number(a.valor) : null,
          a.requer_reserva !== undefined ? Boolean(a.requer_reserva) : null,
-         a.exige_chave !== undefined ? Boolean(a.exige_chave) : null]);
+         a.exige_chave !== undefined ? Boolean(a.exige_chave) : null,
+         a.tipo_limite_reserva || null,
+         a.max_unidades_simultaneas !== undefined ? Number(a.max_unidades_simultaneas) : null]);
       const areaAtualizada = res.rows[0];
       if (!areaAtualizada) throw new BadRequestException('Área comum inexistente.');
 

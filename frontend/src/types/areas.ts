@@ -53,6 +53,8 @@ export type Area = {
   antecedencia_maxima_dias: number;
   prazo_cancelamento_horas: number;
   limite_reservas_semana: number;
+  tipo_limite_reserva?: 'DIARIO' | 'SEMANAL' | 'MENSAL';
+  max_unidades_simultaneas?: number;
   reserva_por_dia?: boolean;
   requer_reserva?: boolean;
   valor?: number | string;
@@ -143,8 +145,14 @@ export const HORARIOS_DIA = [
 export type SlotReserva = {
   inicio: string;
   fim: string;
-  status: 'LIVRE' | 'OCUPADO' | 'BLOQUEADO' | 'PASSADO' | 'ANTECEDENCIA_MINIMA';
+  status: 'LIVRE' | 'OCUPADO' | 'BLOQUEADO' | 'PASSADO' | 'ANTECEDENCIA_MINIMA' | 'JA_RESERVADO_POR_VOCE';
   motivo?: string;
+  vagas_totais?: number;
+  vagas_ocupadas?: number;
+  vagas_restantes?: number;
+  capacidade_total?: number;
+  pessoas_agendadas?: number;
+  pessoas_restantes?: number;
 };
 
 export type GradeHorarios = {

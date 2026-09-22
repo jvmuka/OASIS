@@ -154,6 +154,7 @@ export default function Layout() {
                   {item('/morador/reservas', 'Minhas Reservas', 'clock')}
                   {item('/morador/encomendas', 'Minhas Encomendas', 'package')}
                   {item('/morador/familia', 'Minha Família', 'users')}
+                  {item('/mural', 'Mural de Avisos', 'pin')}
                 </div>
               </div>
             )}
@@ -189,14 +190,16 @@ export default function Layout() {
               </div>
             )}
 
-            <div>
-              <p className="px-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                Comunicação
-              </p>
-              <div className="space-y-1">
-                {item('/mural', 'Mural de Avisos', 'pin')}
+            {!tipos.includes('MORADOR') && (
+              <div>
+                <p className="px-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  Comunicação
+                </p>
+                <div className="space-y-1">
+                  {item('/mural', 'Mural de Avisos', 'pin')}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </aside>
 

@@ -73,9 +73,12 @@ export class ReservasController {
       [area, diaSemana]);
 
     const reservas = await this.db.query(
-      `SELECT data_hora_inicio, data_hora_fim FROM reserva
-        WHERE id_area_comum = $1 AND status <> 'CANCELADA'
-          AND data_hora_inicio::date = $2::date`, [area, data]);
+      `SELECT r.id_reserva, r.data_hora_inicio, r.data_hora_fim, r.numero_pessoas, pu.id_unidade
+         FROM reserva r
+         JOIN perfil pf ON pf.id_perfil = r.id_perfil
+         LEFT JOIN pessoa_unidade pu ON pu.id_pessoa = pf.id_pessoa AND pu.data_fim_ocupacao IS NULL
+        WHERE r.id_area_comum = $1 AND r.status <> 'CANCELADA'
+          AND r.data_hora_inicio::date = $2::date`, [area, data]);
 
     const bloqueios = await this.db.query(
       `SELECT data_hora_inicio, data_hora_fim FROM bloqueio_area
@@ -84,6 +87,13 @@ export class ReservasController {
       [area, data]);
 
     const idPessoa = req.user?.sub;
+    const [minhaUnidadeRow] = await this.db.query(`
+      SELECT pu.id_unidade
+        FROM pessoa_unidade pu
+       WHERE pu.id_pessoa = $1 AND pu.data_fim_ocupacao IS NULL
+       LIMIT 1`, [idPessoa]);
+    const idMinhaUnidade = minhaUnidadeRow?.id_unidade;
+
     const [penalidadeUsuario] = await this.db.query(`
       SELECT bp.id_bloqueio_perfil, bp.motivo, bp.descricao, bp.data_hora_inicio, bp.data_hora_fim
         FROM bloqueio_perfil bp
@@ -125,13 +135,58 @@ export class ReservasController {
         return { status: 'BLOQUEADO', motivo: 'Horário bloqueado pela administração' };
       }
 
-      const ocupado = reservas.some(r => {
+      const reservasSlot = reservas.filter(r => {
         const rIni = new Date(r.data_hora_inicio).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
         const rFim = new Date(r.data_hora_fim).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
         return slotIniStr < rFim && slotFimStr > rIni;
       });
-      if (ocupado) {
-        return { status: 'OCUPADO', motivo: 'Horário já reservado por outro morador' };
+
+      const usuarioJaReservou = Boolean(idMinhaUnidade && reservasSlot.some(r => r.id_unidade === idMinhaUnidade));
+      const maxSimultaneas = Number(info.max_unidades_simultaneas || 1);
+      const totalReservadas = reservasSlot.length;
+      const unidadesRestantes = Math.max(0, maxSimultaneas - totalReservadas);
+
+      const totalPessoasAgendadas = reservasSlot.reduce((acc: number, r: any) => acc + (Number(r.numero_pessoas) || 1), 0);
+      const capacidadeTotal = Number(info.capacidade || 1);
+      const pessoasRestantes = Math.max(0, capacidadeTotal - totalPessoasAgendadas);
+
+      if (usuarioJaReservou) {
+        return {
+          status: 'JA_RESERVADO_POR_VOCE',
+          motivo: 'Sua unidade já possui uma reserva ativa para este horário',
+          vagas_totais: maxSimultaneas,
+          vagas_ocupadas: totalReservadas,
+          vagas_restantes: unidadesRestantes,
+          capacidade_total: capacidadeTotal,
+          pessoas_agendadas: totalPessoasAgendadas,
+          pessoas_restantes: pessoasRestantes,
+        };
+      }
+
+      if (pessoasRestantes === 0 && totalReservadas > 0) {
+        return {
+          status: 'OCUPADO',
+          motivo: `Lotação máxima atingida (${totalPessoasAgendadas}/${capacidadeTotal} pessoas)`,
+          vagas_totais: maxSimultaneas,
+          vagas_ocupadas: totalReservadas,
+          vagas_restantes: 0,
+          capacidade_total: capacidadeTotal,
+          pessoas_agendadas: totalPessoasAgendadas,
+          pessoas_restantes: 0,
+        };
+      }
+
+      if (unidadesRestantes === 0) {
+        return {
+          status: 'OCUPADO',
+          motivo: `Limite de unidades simultâneas atingido (${totalReservadas}/${maxSimultaneas})`,
+          vagas_totais: maxSimultaneas,
+          vagas_ocupadas: totalReservadas,
+          vagas_restantes: 0,
+          capacidade_total: capacidadeTotal,
+          pessoas_agendadas: totalPessoasAgendadas,
+          pessoas_restantes: pessoasRestantes,
+        };
       }
 
       if (antMinHoras > 0) {
@@ -141,11 +196,25 @@ export class ReservasController {
           return {
             status: 'ANTECEDENCIA_MINIMA',
             motivo: `Exige antecedência mínima de ${tempoTexto}`,
+            vagas_totais: maxSimultaneas,
+            vagas_ocupadas: totalReservadas,
+            vagas_restantes: unidadesRestantes,
+            capacidade_total: capacidadeTotal,
+            pessoas_agendadas: totalPessoasAgendadas,
+            pessoas_restantes: pessoasRestantes,
           };
         }
       }
 
-      return { status: 'LIVRE' };
+      return {
+        status: 'LIVRE',
+        vagas_totais: maxSimultaneas,
+        vagas_ocupadas: totalReservadas,
+        vagas_restantes: unidadesRestantes,
+        capacidade_total: capacidadeTotal,
+        pessoas_agendadas: totalPessoasAgendadas,
+        pessoas_restantes: pessoasRestantes,
+      };
     };
 
     if (info.reserva_por_dia) {
@@ -154,8 +223,8 @@ export class ReservasController {
         const hFim = String(j.hora_fim).slice(0, 5);
         const slotIniStr = `${data}T${hIni}:00`;
         const slotFimStr = `${data}T${(hFim === '24:00' || hFim === '23:59') ? '23:59:59' : hFim + ':00'}`;
-        const { status, motivo } = calcularStatusSlot(slotIniStr, slotFimStr);
-        slots.push({ inicio: hIni, fim: hFim, status, ...(motivo ? { motivo } : {}) });
+        const resSlot = calcularStatusSlot(slotIniStr, slotFimStr);
+        slots.push({ inicio: hIni, fim: hFim, ...resSlot });
       }
     } else {
       const passo = info.duracao_slot_min;
@@ -171,8 +240,8 @@ export class ReservasController {
           const hFim = `${String(Math.floor(fimSlot / 60)).padStart(2, '0')}:${String(fimSlot % 60).padStart(2, '0')}`;
           const slotIniStr = `${data}T${hIni}:00`;
           const slotFimStr = `${data}T${hFim}:00`;
-          const { status, motivo } = calcularStatusSlot(slotIniStr, slotFimStr);
-          slots.push({ inicio: hIni, fim: hFim, status, ...(motivo ? { motivo } : {}) });
+          const resSlot = calcularStatusSlot(slotIniStr, slotFimStr);
+          slots.push({ inicio: hIni, fim: hFim, ...resSlot });
           ini = fimSlot;
           gerouSlotJanela = true;
         }
@@ -184,8 +253,8 @@ export class ReservasController {
           const hFim = String(j.hora_fim).slice(0, 5);
           const slotIniStr = `${data}T${hIni}:00`;
           const slotFimStr = `${data}T${(hFim === '24:00' || hFim === '23:59') ? '23:59:59' : hFim + ':00'}`;
-          const { status, motivo } = calcularStatusSlot(slotIniStr, slotFimStr);
-          slots.push({ inicio: hIni, fim: hFim, status, ...(motivo ? { motivo } : {}) });
+          const resSlot = calcularStatusSlot(slotIniStr, slotFimStr);
+          slots.push({ inicio: hIni, fim: hFim, ...resSlot });
         }
       }
     }
@@ -205,6 +274,8 @@ export class ReservasController {
         antecedencia_maxima_dias: info.antecedencia_maxima_dias,
         prazo_cancelamento_horas: info.prazo_cancelamento_horas,
         limite_reservas_semana: info.limite_reservas_semana,
+        tipo_limite_reserva: info.tipo_limite_reserva || 'SEMANAL',
+        max_unidades_simultaneas: Number(info.max_unidades_simultaneas || 1),
         duracao_slot_min: info.duracao_slot_min,
         reserva_por_dia: Boolean(info.reserva_por_dia),
       },

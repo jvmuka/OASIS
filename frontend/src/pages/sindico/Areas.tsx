@@ -483,6 +483,8 @@ export default function Areas() {
     antecedencia_maxima_dias: 30,
     prazo_cancelamento_horas: 24,
     limite_reservas_semana: 2,
+    tipo_limite_reserva: 'SEMANAL' as 'DIARIO' | 'SEMANAL' | 'MENSAL',
+    max_unidades_simultaneas: 1,
     modalidade: 'HORARIOS' as 'HORARIOS' | 'DIA_INTEIRO',
     reserva_por_dia: false,
     requer_reserva: true,
@@ -661,6 +663,8 @@ export default function Areas() {
         antecedencia_maxima_dias: 30,
         prazo_cancelamento_horas: 24,
         limite_reservas_semana: 2,
+        tipo_limite_reserva: 'SEMANAL',
+        max_unidades_simultaneas: 1,
         modalidade: 'HORARIOS',
         reserva_por_dia: false,
         requer_reserva: true,
@@ -920,6 +924,8 @@ export default function Areas() {
 
     setEditando({
       ...a,
+      tipo_limite_reserva: a.tipo_limite_reserva || 'SEMANAL',
+      max_unidades_simultaneas: a.max_unidades_simultaneas ? Number(a.max_unidades_simultaneas) : 1,
       descricao: a.descricao ?? '',
       valor: a.valor !== undefined ? Number(a.valor) : 0,
       requer_reserva: a.requer_reserva !== undefined ? Boolean(a.requer_reserva) : true,
@@ -995,6 +1001,8 @@ export default function Areas() {
         antecedencia_maxima_dias: editando.antecedencia_maxima_dias,
         prazo_cancelamento_horas: editando.prazo_cancelamento_horas,
         limite_reservas_semana: editando.limite_reservas_semana,
+        tipo_limite_reserva: editando.tipo_limite_reserva || 'SEMANAL',
+        max_unidades_simultaneas: editando.max_unidades_simultaneas !== undefined ? Number(editando.max_unidades_simultaneas) : 1,
         reserva_por_dia: Boolean(editando.reserva_por_dia),
         horarios: diasAtivos.flatMap(d => {
           const turnosAUsar = ehDiaInteiro ? [d.turnos[0]] : d.turnos;
@@ -1091,7 +1099,18 @@ export default function Areas() {
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1 max-w-xs">{a.descricao}</p>
               )}
               <p className="text-[10px] text-slate-400 dark:text-slate-500">
-                {a.requer_reserva === false ? 'Acesso livre e rotativo' : `Máx. ${a.limite_reservas_semana}x/semana por unidade`}
+                {a.requer_reserva === false ? (
+                  'Acesso livre e rotativo'
+                ) : (
+                  <span>
+                    Máx. {a.limite_reservas_semana}x/{a.tipo_limite_reserva === 'DIARIO' ? 'dia' : a.tipo_limite_reserva === 'MENSAL' ? 'mês' : 'semana'} por unid.
+                    {(a.max_unidades_simultaneas ?? 1) > 1 && (
+                      <span className="ml-1.5 font-semibold text-sky-600 dark:text-sky-400">
+                        • Até {a.max_unidades_simultaneas} unid./horário
+                      </span>
+                    )}
+                  </span>
+                )}
               </p>
             </div>
           </div>
@@ -1234,6 +1253,8 @@ export default function Areas() {
                   antecedencia_maxima_dias: 30,
                   prazo_cancelamento_horas: 24,
                   limite_reservas_semana: 2,
+                  tipo_limite_reserva: 'SEMANAL',
+                  max_unidades_simultaneas: 1,
                   modalidade: 'HORARIOS',
                   reserva_por_dia: false,
                   requer_reserva: true,
@@ -2159,30 +2180,83 @@ export default function Areas() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <Campo rotulo="Capacidade (Pessoas)" obrigatorio>
-              <input
-                type="number"
-                min={1}
-                className={inputCls}
-                placeholder="1"
-                value={form.capacidade === 0 ? '' : form.capacidade}
-                onChange={e => setForm({ ...form, capacidade: parseNum(e.target.value, 1) })}
-              />
-            </Campo>
+          {form.requer_reserva ? (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <Campo rotulo="Capacidade (Pessoas)" dica="Lotação máxima do espaço" obrigatorio>
+                  <input
+                    type="number"
+                    min={1}
+                    className={inputCls}
+                    placeholder="10"
+                    value={form.capacidade === 0 ? '' : form.capacidade}
+                    onChange={e => setForm({ ...form, capacidade: parseNum(e.target.value, 1) })}
+                  />
+                </Campo>
 
-            {form.requer_reserva ? (
-              <Campo rotulo="Limite Semanal / Unid." obrigatorio>
+                <Campo rotulo="Unidades Simultâneas / Horário" dica="1 = exclusivo; 2+ = compartilhado" obrigatorio>
+                  <input
+                    type="number"
+                    min={1}
+                    className={inputCls}
+                    placeholder="1"
+                    value={form.max_unidades_simultaneas === 0 ? '' : (form.max_unidades_simultaneas || 1)}
+                    onChange={e => setForm({ ...form, max_unidades_simultaneas: parseNum(e.target.value, 1) })}
+                  />
+                </Campo>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Campo rotulo="Período do Limite" dica="Janela de controle da cota" obrigatorio>
+                  <select
+                    className={inputCls}
+                    value={form.tipo_limite_reserva || 'SEMANAL'}
+                    onChange={e => setForm({ ...form, tipo_limite_reserva: e.target.value as any })}
+                  >
+                    <option value="DIARIO">Diário (por dia)</option>
+                    <option value="SEMANAL">Semanal (por semana)</option>
+                    <option value="MENSAL">Mensal (por mês)</option>
+                  </select>
+                </Campo>
+
+                <Campo
+                  rotulo={`Limite ${form.tipo_limite_reserva === 'DIARIO' ? 'Diário' : form.tipo_limite_reserva === 'MENSAL' ? 'Mensal' : 'Semanal'} / Unid.`}
+                  dica="Qtd. máxima de agendamentos por unidade"
+                  obrigatorio
+                >
+                  <input
+                    type="number"
+                    min={1}
+                    className={inputCls}
+                    placeholder="1"
+                    value={form.limite_reservas_semana === 0 ? '' : form.limite_reservas_semana}
+                    onChange={e => setForm({ ...form, limite_reservas_semana: parseNum(e.target.value, 1) })}
+                  />
+                </Campo>
+              </div>
+
+              {(form.max_unidades_simultaneas || 1) > 1 && (
+                <div className="rounded-lg bg-sky-50 dark:bg-sky-950/50 border border-sky-200 dark:border-sky-800 p-2.5 text-[11px] text-sky-800 dark:text-sky-300 flex items-start gap-2">
+                  <span className="text-base leading-none">👥</span>
+                  <div>
+                    <b>Reserva Compartilhada ({form.max_unidades_simultaneas} unidades):</b> Quando 1 unidade reservar, o horário continuará disponível para outra unidade com indicação de vagas restantes. Se a soma de pessoas atingir a capacidade de {form.capacidade} pessoas, o horário será bloqueado automaticamente.
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <Campo rotulo="Capacidade (Pessoas)" obrigatorio>
                 <input
                   type="number"
                   min={1}
                   className={inputCls}
-                  placeholder="1"
-                  value={form.limite_reservas_semana === 0 ? '' : form.limite_reservas_semana}
-                  onChange={e => setForm({ ...form, limite_reservas_semana: parseNum(e.target.value, 1) })}
+                  placeholder="10"
+                  value={form.capacidade === 0 ? '' : form.capacidade}
+                  onChange={e => setForm({ ...form, capacidade: parseNum(e.target.value, 1) })}
                 />
               </Campo>
-            ) : (
+
               <Campo rotulo="Taxa de Reserva" dica="Uso livre não possui taxa">
                 <input
                   type="text"
@@ -2191,8 +2265,8 @@ export default function Areas() {
                   value="Gratuita (Uso Livre)"
                 />
               </Campo>
-            )}
-          </div>
+            </div>
+          )}
 
           {form.requer_reserva ? (
             <div className="rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-50/60 dark:bg-slate-850 p-3.5 space-y-3.5">
@@ -2607,28 +2681,78 @@ export default function Areas() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <Campo rotulo="Capacidade (Pessoas)">
-                <input
-                  type="number"
-                  min={1}
-                  className={inputCls}
-                  value={editando.capacidade === 0 ? '' : editando.capacidade}
-                  onChange={e => setEditando({ ...editando, capacidade: parseNum(e.target.value, 1) })}
-                />
-              </Campo>
+            {editando.requer_reserva !== false ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <Campo rotulo="Capacidade (Pessoas)" dica="Lotação máxima do espaço">
+                    <input
+                      type="number"
+                      min={1}
+                      className={inputCls}
+                      value={editando.capacidade === 0 ? '' : editando.capacidade}
+                      onChange={e => setEditando({ ...editando, capacidade: parseNum(e.target.value, 1) })}
+                    />
+                  </Campo>
 
-              {editando.requer_reserva !== false ? (
-                <Campo rotulo="Limite Semanal / Unid.">
+                  <Campo rotulo="Unidades Simultâneas / Horário" dica="1 = exclusivo; 2+ = compartilhado">
+                    <input
+                      type="number"
+                      min={1}
+                      className={inputCls}
+                      value={editando.max_unidades_simultaneas === 0 ? '' : (editando.max_unidades_simultaneas || 1)}
+                      onChange={e => setEditando({ ...editando, max_unidades_simultaneas: parseNum(e.target.value, 1) })}
+                    />
+                  </Campo>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <Campo rotulo="Período do Limite" dica="Janela de controle da cota">
+                    <select
+                      className={inputCls}
+                      value={editando.tipo_limite_reserva || 'SEMANAL'}
+                      onChange={e => setEditando({ ...editando, tipo_limite_reserva: e.target.value as any })}
+                    >
+                      <option value="DIARIO">Diário (por dia)</option>
+                      <option value="SEMANAL">Semanal (por semana)</option>
+                      <option value="MENSAL">Mensal (por mês)</option>
+                    </select>
+                  </Campo>
+
+                  <Campo
+                    rotulo={`Limite ${editando.tipo_limite_reserva === 'DIARIO' ? 'Diário' : editando.tipo_limite_reserva === 'MENSAL' ? 'Mensal' : 'Semanal'} / Unid.`}
+                    dica="Qtd. máxima de agendamentos por unidade"
+                  >
+                    <input
+                      type="number"
+                      min={1}
+                      className={inputCls}
+                      value={editando.limite_reservas_semana === 0 ? '' : editando.limite_reservas_semana}
+                      onChange={e => setEditando({ ...editando, limite_reservas_semana: parseNum(e.target.value, 1) })}
+                    />
+                  </Campo>
+                </div>
+
+                {(editando.max_unidades_simultaneas || 1) > 1 && (
+                  <div className="rounded-lg bg-sky-50 dark:bg-sky-950/50 border border-sky-200 dark:border-sky-800 p-2.5 text-[11px] text-sky-800 dark:text-sky-300 flex items-start gap-2">
+                    <span className="text-base leading-none">👥</span>
+                    <div>
+                      <b>Reserva Compartilhada ({editando.max_unidades_simultaneas} unidades):</b> Quando 1 unidade reservar, o horário continuará disponível para outra unidade com indicação de vagas restantes. Se a soma de pessoas atingir a capacidade de {editando.capacidade} pessoas, o horário será bloqueado automaticamente.
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                <Campo rotulo="Capacidade (Pessoas)">
                   <input
                     type="number"
                     min={1}
                     className={inputCls}
-                    value={editando.limite_reservas_semana === 0 ? '' : editando.limite_reservas_semana}
-                    onChange={e => setEditando({ ...editando, limite_reservas_semana: parseNum(e.target.value, 1) })}
+                    value={editando.capacidade === 0 ? '' : editando.capacidade}
+                    onChange={e => setEditando({ ...editando, capacidade: parseNum(e.target.value, 1) })}
                   />
                 </Campo>
-              ) : (
+
                 <Campo rotulo="Taxa de Reserva" dica="Uso livre não possui taxa">
                   <input
                     type="text"
@@ -2637,8 +2761,8 @@ export default function Areas() {
                     value="Gratuita (Uso Livre)"
                   />
                 </Campo>
-              )}
-            </div>
+              </div>
+            )}
 
             {editando.requer_reserva !== false ? (
               <div className="rounded-xl border border-slate-200 dark:border-slate-700/80 bg-slate-50/60 dark:bg-slate-850 p-3.5 space-y-3.5">

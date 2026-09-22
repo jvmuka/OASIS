@@ -454,8 +454,13 @@ export default function NovaReserva() {
                             Antecedência: {a.antecedencia_minima_dias} a {a.antecedencia_maxima_dias}d
                           </span>
                           <span className="rounded-md bg-slate-100 dark:bg-slate-800 dark:text-slate-300 px-2 py-0.5 font-medium">
-                            Máx. {a.limite_reservas_semana}x/sem
+                            Máx. {a.limite_reservas_semana}x/{a.tipo_limite_reserva === 'DIARIO' ? 'dia' : a.tipo_limite_reserva === 'MENSAL' ? 'mês' : 'sem'}
                           </span>
+                          {(a.max_unidades_simultaneas ?? 1) > 1 && (
+                            <span className="rounded-md bg-sky-50 text-sky-800 border border-sky-200/80 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-800/80 px-2 py-0.5 font-bold">
+                              👥 Até {a.max_unidades_simultaneas} unid./horário
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -568,16 +573,28 @@ export default function NovaReserva() {
                   />
                 </div>
 
-                <Campo rotulo="Número de Pessoas Presentes" obrigatorio>
-                  <input
-                    type="number"
-                    min={1}
-                    max={area.capacidade}
-                    className={inputCls}
-                    value={pessoas}
-                    onChange={e => setPessoas(Math.max(1, Math.min(area.capacidade, Number(e.target.value) || 1)))}
-                  />
-                </Campo>
+                {(() => {
+                  const maxPessoasPermitido = (slot && slot.pessoas_restantes !== undefined) ? slot.pessoas_restantes : area.capacidade;
+                  return (
+                    <Campo
+                      rotulo="Número de Pessoas Presentes"
+                      dica={slot && slot.pessoas_restantes !== undefined && slot.pessoas_restantes < area.capacidade
+                        ? `Atenção: Máximo de ${maxPessoasPermitido} pessoa(s) para este horário (já há ${slot.pessoas_agendadas} pessoa(s) agendada(s) por outra unidade).`
+                        : `Máximo permitido: ${area.capacidade} pessoas.`
+                      }
+                      obrigatorio
+                    >
+                      <input
+                        type="number"
+                        min={1}
+                        max={maxPessoasPermitido}
+                        className={inputCls}
+                        value={pessoas}
+                        onChange={e => setPessoas(Math.max(1, Math.min(maxPessoasPermitido, Number(e.target.value) || 1)))}
+                      />
+                    </Campo>
+                  );
+                })()}
 
                 {area.descricao && (
                   <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 dark:border-slate-800 dark:bg-slate-800/50 p-3.5 text-xs text-slate-600 dark:text-slate-300 space-y-1">
@@ -601,7 +618,16 @@ export default function NovaReserva() {
                     )}
                     <li>Antecedência: {area.antecedencia_minima_dias} a {area.antecedencia_maxima_dias} dias.</li>
                     <li>Cancelamento permitido até {area.prazo_cancelamento_horas} horas antes do início.</li>
-                    <li>Limite de {area.limite_reservas_semana} reserva(s) semanais por unidade.</li>
+                    <li>
+                      Limite de {area.limite_reservas_semana} reserva(s) {
+                        area.tipo_limite_reserva === 'DIARIO' ? 'diária(s)' : area.tipo_limite_reserva === 'MENSAL' ? 'mensal(is)' : 'semanal(is)'
+                      } por unidade.
+                    </li>
+                    {(area.max_unidades_simultaneas ?? 1) > 1 && (
+                      <li>
+                        Uso compartilhado: até <b className="text-sky-600 dark:text-sky-400">{area.max_unidades_simultaneas} unidades</b> por horário (capacidade máxima somada: {area.capacidade} pessoas).
+                      </li>
+                    )}
                   </ul>
                 </div>
               </div>
@@ -644,13 +670,23 @@ export default function NovaReserva() {
                           <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
                           Livre
                         </span>
+                        {(area.max_unidades_simultaneas ?? 1) > 1 && (
+                          <span className="flex items-center gap-1.5 font-medium">
+                            <span className="h-2.5 w-2.5 rounded-full bg-sky-500" />
+                            Vaga Parcial Disp.
+                          </span>
+                        )}
+                        <span className="flex items-center gap-1.5 font-medium">
+                          <span className="h-2.5 w-2.5 rounded-full bg-indigo-500" />
+                          Sua Reserva
+                        </span>
                         <span className="flex items-center gap-1.5 font-medium">
                           <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
                           Antecedência Mínima
                         </span>
                         <span className="flex items-center gap-1.5 font-medium">
                           <span className="h-2.5 w-2.5 rounded-full bg-slate-400" />
-                          Ocupado / Indisponível
+                          Ocupado / Lotado
                         </span>
                       </div>
 
@@ -663,22 +699,30 @@ export default function NovaReserva() {
                           const diffHoras = (dataHoraSlot.getTime() - agora.getTime()) / (1000 * 60 * 60);
 
                           const noPassado = dataHoraSlot <= agora || sl.status === 'PASSADO';
-                          const antecedenciaMinima = !noPassado && (sl.status === 'ANTECEDENCIA_MINIMA' || (antMinHoras > 0 && diffHoras < antMinHoras && sl.status !== 'BLOQUEADO' && sl.status !== 'OCUPADO'));
-                          const bloqueado = !noPassado && !antecedenciaMinima && sl.status === 'BLOQUEADO';
-                          const ocupado = !noPassado && !antecedenciaMinima && sl.status === 'OCUPADO';
-                          const livre = !noPassado && !antecedenciaMinima && !bloqueado && !ocupado && sl.status === 'LIVRE';
+                          const jaReservadoPorVoce = !noPassado && sl.status === 'JA_RESERVADO_POR_VOCE';
+                          const antecedenciaMinima = !noPassado && !jaReservadoPorVoce && (sl.status === 'ANTECEDENCIA_MINIMA' || (antMinHoras > 0 && diffHoras < antMinHoras && sl.status !== 'BLOQUEADO' && sl.status !== 'OCUPADO'));
+                          const bloqueado = !noPassado && !jaReservadoPorVoce && !antecedenciaMinima && sl.status === 'BLOQUEADO';
+                          const ocupado = !noPassado && !jaReservadoPorVoce && !antecedenciaMinima && sl.status === 'OCUPADO';
+                          const livre = !noPassado && !jaReservadoPorVoce && !antecedenciaMinima && !bloqueado && !ocupado && sl.status === 'LIVRE';
 
                           const motivoAntecedencia = sl.motivo || (antMinHoras < 24 ? `Exige antecedência mínima de ${antMinHoras}h` : `Exige antecedência mínima de ${Math.floor(antMinHoras / 24)}d`);
 
-                          const rotuloStatus = livre
-                            ? 'LIVRE'
-                            : antecedenciaMinima
-                              ? 'ANTECEDÊNCIA MÍNIMA'
-                              : bloqueado
-                                ? 'MANUTENÇÃO'
-                                : ocupado
-                                  ? 'OCUPADO'
-                                  : 'INDISPONÍVEL';
+                          // Verificação se é uma vaga parcial disponível (quando 1 unidade já reservou, mas ainda resta vaga para outra)
+                          const temReservaParcial = livre && (sl.vagas_ocupadas ?? 0) > 0 && (sl.vagas_restantes ?? 0) > 0;
+
+                          const rotuloStatus = jaReservadoPorVoce
+                            ? 'SUA RESERVA'
+                            : livre
+                              ? temReservaParcial
+                                ? `${sl.vagas_restantes} VAGA${(sl.vagas_restantes ?? 0) > 1 ? 'S' : ''} DISP.`
+                                : 'LIVRE'
+                              : antecedenciaMinima
+                                ? 'ANTECEDÊNCIA MÍNIMA'
+                                : bloqueado
+                                  ? 'MANUTENÇÃO'
+                                  : ocupado
+                                    ? (sl.motivo?.includes('pessoas') ? 'LOTADO' : 'OCUPADO')
+                                    : 'INDISPONÍVEL';
 
                           const isDiaria = area.reserva_por_dia || grade.regras?.reserva_por_dia;
 
@@ -687,20 +731,30 @@ export default function NovaReserva() {
                               key={sl.inicio}
                               type="button"
                               disabled={!livre}
-                              onClick={() => setSlot(sl)}
+                              onClick={() => {
+                                setSlot(sl);
+                                const maxP = sl.pessoas_restantes !== undefined ? sl.pessoas_restantes : area.capacidade;
+                                if (pessoas > maxP) {
+                                  setPessoas(Math.max(1, maxP));
+                                }
+                              }}
                               className={
                                 `flex items-center justify-between rounded-xl border ${isDiaria ? 'p-3.5 w-full' : 'p-2.5'} text-xs font-semibold transition-all ` +
                                 (sel
                                   ? 'border-navy bg-navy text-white shadow-sm ring-2 ring-navy/20 dark:bg-sky-600 dark:border-sky-500 cursor-pointer'
-                                  : livre
-                                    ? 'border-slate-200 bg-white text-slate-700 hover:border-navy hover:bg-navy-50/40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:bg-slate-700 cursor-pointer'
-                                    : antecedenciaMinima
-                                      ? 'cursor-not-allowed border-amber-400/90 bg-amber-50/90 text-amber-950 dark:border-amber-700/80 dark:bg-amber-950/40 dark:text-amber-200 shadow-xs'
-                                      : bloqueado
-                                        ? 'cursor-not-allowed border-amber-300/90 bg-amber-50/80 text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-300'
-                                        : ocupado
-                                          ? 'cursor-not-allowed border-slate-200/90 bg-slate-100/80 text-slate-700 dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-400'
-                                          : 'cursor-not-allowed border-red-200/90 bg-red-50/80 text-red-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300')
+                                  : jaReservadoPorVoce
+                                    ? 'cursor-not-allowed border-indigo-200 bg-indigo-50/80 text-indigo-900 dark:border-indigo-800/60 dark:bg-indigo-950/40 dark:text-indigo-300'
+                                    : livre
+                                      ? temReservaParcial
+                                        ? 'border-sky-300 bg-sky-50/50 text-sky-900 hover:border-sky-500 hover:bg-sky-100/60 dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-200 dark:hover:border-sky-400 dark:hover:bg-sky-900/40 cursor-pointer'
+                                        : 'border-slate-200 bg-white text-slate-700 hover:border-navy hover:bg-navy-50/40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:bg-slate-700 cursor-pointer'
+                                      : antecedenciaMinima
+                                        ? 'cursor-not-allowed border-amber-400/90 bg-amber-50/90 text-amber-950 dark:border-amber-700/80 dark:bg-amber-950/40 dark:text-amber-200 shadow-xs'
+                                        : bloqueado
+                                          ? 'cursor-not-allowed border-amber-300/90 bg-amber-50/80 text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-300'
+                                          : ocupado
+                                            ? 'cursor-not-allowed border-slate-200/90 bg-slate-100/80 text-slate-700 dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-400'
+                                            : 'cursor-not-allowed border-red-200/90 bg-red-50/80 text-red-900 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300')
                               }
                             >
                               <div className="text-left">
@@ -712,6 +766,21 @@ export default function NovaReserva() {
                                 <span className={isDiaria ? 'text-sm font-bold' : ''}>
                                   {sl.inicio} – {sl.fim}
                                 </span>
+                                {temReservaParcial && (
+                                  <span className={`block text-[10px] font-bold mt-0.5 ${sel ? 'text-white/90' : 'text-sky-700 dark:text-sky-300'}`}>
+                                    Reservado (resta {sl.vagas_restantes} {sl.vagas_restantes === 1 ? 'vaga' : 'vagas'} • até {sl.pessoas_restantes} pessoas)
+                                  </span>
+                                )}
+                                {jaReservadoPorVoce && (
+                                  <span className="block text-[10px] font-medium text-indigo-700 dark:text-indigo-300 mt-0.5">
+                                    Sua unidade já reservou este horário
+                                  </span>
+                                )}
+                                {ocupado && sl.motivo && (
+                                  <span className="block text-[10px] font-medium text-slate-500 dark:text-slate-400 mt-0.5">
+                                    {sl.motivo}
+                                  </span>
+                                )}
                                 {antecedenciaMinima && (
                                   <span className="block text-[11px] font-medium text-amber-800 dark:text-amber-300 mt-0.5">
                                     ⚠️ {motivoAntecedencia}
@@ -721,15 +790,19 @@ export default function NovaReserva() {
                               <span
                                 className={`text-[10px] font-bold rounded-md px-2 py-1 ${sel
                                     ? 'bg-white/20 text-white'
-                                    : livre
-                                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/60'
-                                      : antecedenciaMinima
-                                        ? 'bg-amber-100 text-amber-900 border border-amber-400/80 dark:bg-amber-900/60 dark:text-amber-200 dark:border-amber-700/80'
-                                        : bloqueado
-                                          ? 'bg-amber-100 text-amber-800 border border-amber-300/80 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-700/60'
-                                          : ocupado
-                                            ? 'bg-slate-200 text-slate-700 border border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
-                                            : 'bg-red-100 text-red-700 border border-red-200/80 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800/60'
+                                    : jaReservadoPorVoce
+                                      ? 'bg-indigo-100 text-indigo-800 border border-indigo-300 dark:bg-indigo-900/60 dark:text-indigo-200 dark:border-indigo-700'
+                                      : livre
+                                        ? temReservaParcial
+                                          ? 'bg-sky-100 text-sky-800 border border-sky-300 dark:bg-sky-900/60 dark:text-sky-200 dark:border-sky-700'
+                                          : 'bg-emerald-50 text-emerald-700 border border-emerald-200/60 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/60'
+                                        : antecedenciaMinima
+                                          ? 'bg-amber-100 text-amber-900 border border-amber-400/80 dark:bg-amber-900/60 dark:text-amber-200 dark:border-amber-700/80'
+                                          : bloqueado
+                                            ? 'bg-amber-100 text-amber-800 border border-amber-300/80 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-700/60'
+                                            : ocupado
+                                              ? 'bg-slate-200 text-slate-700 border border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+                                              : 'bg-red-100 text-red-700 border border-red-200/80 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800/60'
                                   }`}
                               >
                                 {rotuloStatus}

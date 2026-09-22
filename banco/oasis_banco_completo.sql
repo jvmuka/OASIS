@@ -136,6 +136,8 @@ CREATE TABLE area_comum (
     antecedencia_maxima_dias  INTEGER           NOT NULL DEFAULT 30,
     prazo_cancelamento_horas  INTEGER           NOT NULL DEFAULT 24,
     limite_reservas_semana    INTEGER           NOT NULL DEFAULT 2,
+    tipo_limite_reserva       VARCHAR(20)       NOT NULL DEFAULT 'SEMANAL',
+    max_unidades_simultaneas  INTEGER           NOT NULL DEFAULT 1,
     exige_chave               BOOLEAN           NOT NULL DEFAULT FALSE,
     valor                     NUMERIC(10,2)     NOT NULL DEFAULT 0,
     ativo                     BOOLEAN           NOT NULL DEFAULT TRUE,
@@ -149,6 +151,8 @@ CREATE TABLE area_comum (
                                           AND antecedencia_minima_dias >= 0),
     CONSTRAINT ck_area_prazo       CHECK (prazo_cancelamento_horas >= 0),
     CONSTRAINT ck_area_limite      CHECK (limite_reservas_semana > 0),
+    CONSTRAINT ck_area_tipo_limite CHECK (tipo_limite_reserva IN ('DIARIO', 'SEMANAL', 'MENSAL')),
+    CONSTRAINT ck_area_max_simult  CHECK (max_unidades_simultaneas >= 1),
     CONSTRAINT ck_area_valor       CHECK (valor >= 0)
 );
 
@@ -459,11 +463,13 @@ INSERT INTO chave (id_area_comum, codigo) VALUES
 -- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION fn_valida_reserva() RETURNS TRIGGER AS $$
 DECLARE
-    v_area          area_comum%ROWTYPE;
-    v_dia           dia_semana_enum;
-    v_dias_antec    INTEGER;
-    v_qtd_semana    INTEGER;
-    v_nasc          DATE;
+    v_area                  area_comum%ROWTYPE;
+    v_dia                   dia_semana_enum;
+    v_dias_antec            INTEGER;
+    v_qtd_periodo           INTEGER;
+    v_qtd_simultaneas       INTEGER;
+    v_total_pessoas_horario INTEGER;
+    v_nasc                  DATE;
 BEGIN
     -- na alteracao de status (cancelamento) as validacoes nao se aplicam
     IF TG_OP = 'UPDATE' AND NEW.status <> 'ATIVA' THEN
@@ -476,16 +482,39 @@ BEGIN
         RAISE EXCEPTION 'Area comum inativa: reservas nao sao permitidas.';
     END IF;
 
-    -- RN01: sobreposicao de horario na mesma area comum
+    -- RN01-A: a mesma unidade nao pode reservar o mesmo horario mais de uma vez
     IF EXISTS (
-        SELECT 1 FROM reserva r
+        SELECT 1
+          FROM reserva r
+          JOIN perfil pf ON pf.id_perfil = r.id_perfil
+          JOIN pessoa_unidade pu ON pu.id_pessoa = pf.id_pessoa AND pu.data_fim_ocupacao IS NULL
          WHERE r.id_area_comum = NEW.id_area_comum
            AND r.status        IN ('ATIVA', 'CONCLUIDA')
            AND r.id_reserva   <> COALESCE(NEW.id_reserva, -1)
            AND (NEW.data_hora_inicio, NEW.data_hora_fim)
                OVERLAPS (r.data_hora_inicio, r.data_hora_fim)
+           AND pu.id_unidade IN (
+                 SELECT pu2.id_unidade
+                   FROM pessoa_unidade pu2
+                   JOIN perfil pf2 ON pf2.id_pessoa = pu2.id_pessoa
+                  WHERE pf2.id_perfil = NEW.id_perfil
+                    AND pu2.data_fim_ocupacao IS NULL)
     ) THEN
-        RAISE EXCEPTION 'RN01: ja existe reserva ativa para esta area no horario solicitado.';
+        RAISE EXCEPTION 'RN01: sua unidade ja possui uma reserva ativa para este mesmo horario.';
+    END IF;
+
+    -- RN01-B: limite de unidades/reservas simultaneas no mesmo horario
+    SELECT COUNT(*) INTO v_qtd_simultaneas
+      FROM reserva r
+     WHERE r.id_area_comum = NEW.id_area_comum
+       AND r.status        IN ('ATIVA', 'CONCLUIDA')
+       AND r.id_reserva   <> COALESCE(NEW.id_reserva, -1)
+       AND (NEW.data_hora_inicio, NEW.data_hora_fim)
+           OVERLAPS (r.data_hora_inicio, r.data_hora_fim);
+
+    IF v_qtd_simultaneas >= COALESCE(v_area.max_unidades_simultaneas, 1) THEN
+        RAISE EXCEPTION 'RN01: o limite de reservas simultaneas para este horario ja foi atingido (% vaga(s)).',
+                        COALESCE(v_area.max_unidades_simultaneas, 1);
     END IF;
 
     -- RN02: area interditada no periodo
@@ -511,10 +540,23 @@ BEGIN
         RAISE EXCEPTION 'RN03: morador com acesso bloqueado para esta area comum.';
     END IF;
 
-    -- RN04: capacidade da area comum
-    IF NEW.numero_pessoas > v_area.capacidade THEN
-        RAISE EXCEPTION 'RN04: numero de pessoas (%) excede a capacidade da area (%).',
-                        NEW.numero_pessoas, v_area.capacidade;
+    -- RN04: capacidade da area comum e soma total de pessoas no mesmo horario
+    SELECT COALESCE(SUM(r.numero_pessoas), 0) INTO v_total_pessoas_horario
+      FROM reserva r
+     WHERE r.id_area_comum = NEW.id_area_comum
+       AND r.status        IN ('ATIVA', 'CONCLUIDA')
+       AND r.id_reserva   <> COALESCE(NEW.id_reserva, -1)
+       AND (NEW.data_hora_inicio, NEW.data_hora_fim)
+           OVERLAPS (r.data_hora_inicio, r.data_hora_fim);
+
+    IF (v_total_pessoas_horario + NEW.numero_pessoas) > v_area.capacidade THEN
+        IF v_total_pessoas_horario > 0 THEN
+            RAISE EXCEPTION 'RN04: a capacidade maxima de pessoas (%) para este horario foi excedida (ja ha % pessoa(s) agendada(s), restando apenas % vaga(s)).',
+                            v_area.capacidade, v_total_pessoas_horario, GREATEST(0, v_area.capacidade - v_total_pessoas_horario);
+        ELSE
+            RAISE EXCEPTION 'RN04: numero de pessoas (%) excede a capacidade da area (%).',
+                            NEW.numero_pessoas, v_area.capacidade;
+        END IF;
     END IF;
 
     -- RN17: restricao de idade minima da area comum
@@ -564,8 +606,8 @@ BEGIN
                         v_area.antecedencia_maxima_dias;
     END IF;
 
-    -- RN07: limite semanal de reservas por unidade
-    SELECT COUNT(DISTINCT r.id_reserva) INTO v_qtd_semana
+    -- RN07: limite de reservas por unidade (DIARIO, SEMANAL ou MENSAL)
+    SELECT COUNT(DISTINCT r.id_reserva) INTO v_qtd_periodo
       FROM reserva r
       JOIN perfil          pf ON pf.id_perfil = r.id_perfil
       JOIN pessoa_unidade  pu ON pu.id_pessoa = pf.id_pessoa
@@ -573,7 +615,14 @@ BEGIN
      WHERE r.id_area_comum = NEW.id_area_comum
        AND r.status        IN ('ATIVA', 'CONCLUIDA')
        AND r.id_reserva   <> COALESCE(NEW.id_reserva, -1)
-       AND date_trunc('week', r.data_hora_inicio) = date_trunc('week', NEW.data_hora_inicio)
+       AND (
+           (COALESCE(v_area.tipo_limite_reserva, 'SEMANAL') = 'DIARIO'
+            AND r.data_hora_inicio::date = NEW.data_hora_inicio::date)
+        OR (COALESCE(v_area.tipo_limite_reserva, 'SEMANAL') = 'SEMANAL'
+            AND date_trunc('week', r.data_hora_inicio) = date_trunc('week', NEW.data_hora_inicio))
+        OR (COALESCE(v_area.tipo_limite_reserva, 'SEMANAL') = 'MENSAL'
+            AND date_trunc('month', r.data_hora_inicio) = date_trunc('month', NEW.data_hora_inicio))
+       )
        AND pu.id_unidade IN (
              SELECT pu2.id_unidade
                FROM pessoa_unidade pu2
@@ -581,9 +630,17 @@ BEGIN
               WHERE pf2.id_perfil = NEW.id_perfil
                 AND pu2.data_fim_ocupacao IS NULL);
 
-    IF v_qtd_semana >= v_area.limite_reservas_semana THEN
-        RAISE EXCEPTION 'RN07: a unidade atingiu o limite de % reserva(s) semanal(is) nesta area.',
-                        v_area.limite_reservas_semana;
+    IF v_qtd_periodo >= v_area.limite_reservas_semana THEN
+        IF COALESCE(v_area.tipo_limite_reserva, 'SEMANAL') = 'DIARIO' THEN
+            RAISE EXCEPTION 'RN07: a unidade atingiu o limite de % reserva(s) diaria(s) nesta area.',
+                            v_area.limite_reservas_semana;
+        ELSIF COALESCE(v_area.tipo_limite_reserva, 'SEMANAL') = 'MENSAL' THEN
+            RAISE EXCEPTION 'RN07: a unidade atingiu o limite de % reserva(s) mensais nesta area.',
+                            v_area.limite_reservas_semana;
+        ELSE
+            RAISE EXCEPTION 'RN07: a unidade atingiu o limite de % reserva(s) semanal(is) nesta area.',
+                            v_area.limite_reservas_semana;
+        END IF;
     END IF;
 
     RETURN NEW;

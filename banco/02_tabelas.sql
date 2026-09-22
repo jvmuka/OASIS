@@ -108,6 +108,8 @@ CREATE TABLE area_comum (
     antecedencia_maxima_dias  INTEGER           NOT NULL DEFAULT 30,
     prazo_cancelamento_horas  INTEGER           NOT NULL DEFAULT 24,
     limite_reservas_semana    INTEGER           NOT NULL DEFAULT 2,
+    tipo_limite_reserva       VARCHAR(20)       NOT NULL DEFAULT 'SEMANAL',
+    max_unidades_simultaneas  INTEGER           NOT NULL DEFAULT 1,
     exige_chave               BOOLEAN           NOT NULL DEFAULT FALSE,
     valor                     NUMERIC(10,2)     NOT NULL DEFAULT 0,
     ativo                     BOOLEAN           NOT NULL DEFAULT TRUE,
@@ -121,6 +123,8 @@ CREATE TABLE area_comum (
                                           AND antecedencia_minima_dias >= 0),
     CONSTRAINT ck_area_prazo       CHECK (prazo_cancelamento_horas >= 0),
     CONSTRAINT ck_area_limite      CHECK (limite_reservas_semana > 0),
+    CONSTRAINT ck_area_tipo_limite CHECK (tipo_limite_reserva IN ('DIARIO', 'SEMANAL', 'MENSAL')),
+    CONSTRAINT ck_area_max_simult  CHECK (max_unidades_simultaneas >= 1),
     CONSTRAINT ck_area_valor       CHECK (valor >= 0)
 );
 
