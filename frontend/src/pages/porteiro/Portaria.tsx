@@ -5,6 +5,7 @@ import {
 } from '../../components/ui';
 import { hojeSP, formatarHora, formatarDataHora, gerarOpcoesMeses, minutosTexto } from '../../utils/data';
 import Pessoas from '../sindico/Pessoas';
+import BuscaAtividadePessoa from '../../components/BuscaAtividadePessoa';
 
 type OcupacaoItem = {
   id_reserva: number;
@@ -99,6 +100,7 @@ export default function Portaria() {
   const opcoesMeses = useRef(gerarOpcoesMeses()).current;
 
   const [versaoPessoas, setVersaoPessoas] = useState(0);
+  const [cadastroAberto, setCadastroAberto] = useState(false);
 
   // Estados para cadastro rápido de Visitante e Prestador de Serviço
   const [modalVisitanteAberto, setModalVisitanteAberto] = useState(false);
@@ -594,14 +596,53 @@ export default function Portaria() {
         )}
       </Cartao>
 
-      {/* Bloco C: Buscar Morador com tabela e filtros de pessoas da administração */}
-      <Pessoas
-        key={versaoPessoas}
-        apenasConsulta
-        embutido
-        titulo="Buscar Morador"
-        subtitulo="Nome, CPF, bloco ou apartamento"
-      />
+      {/* Bloco C: Atividade do morador (busca com reservas em andamento, próximas e histórico) */}
+      <BuscaAtividadePessoa versao={versaoPessoas} />
+
+      {/* Bloco D: Cadastro completo, montado apenas sob demanda para não carregar a lista inteira no painel */}
+      {cadastroAberto ? (
+        <div className="space-y-2">
+          <div className="flex justify-end">
+            <Botao
+              variante="fantasma"
+              tamanho="sm"
+              icone={<Icone nome="chevronDown" className="h-3.5 w-3.5 rotate-180" />}
+              onClick={() => setCadastroAberto(false)}
+            >
+              Ocultar cadastro completo
+            </Botao>
+          </div>
+          <Pessoas
+            key={versaoPessoas}
+            apenasConsulta
+            embutido
+            titulo="Cadastro de moradores"
+            subtitulo="Nome, CPF, bloco ou apartamento"
+          />
+        </div>
+      ) : (
+        <Cartao>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <Icone nome="users" className="h-4 w-4 text-navy dark:text-sky-400" />
+                Cadastro de moradores
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Lista completa com filtros por função e situação, incluindo cadastros inativos.
+              </p>
+            </div>
+            <Botao
+              variante="claro"
+              tamanho="sm"
+              icone={<Icone nome="chevronDown" className="h-3.5 w-3.5" />}
+              onClick={() => setCadastroAberto(true)}
+            >
+              Ver cadastro completo
+            </Botao>
+          </div>
+        </Cartao>
+      )}
 
       {/* Modal: Cadastro de Visitante / Prestador de Serviço */}
       <Modal
