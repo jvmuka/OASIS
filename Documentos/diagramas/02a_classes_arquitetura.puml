@@ -1,0 +1,258 @@
+@startuml 02a_classes_arquitetura
+!pragma layout elk
+
+skinparam dpi 200
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam defaultFontSize 14
+skinparam shadowing false
+skinparam linetype ortho
+skinparam nodesep 40
+skinparam ranksep 60
+skinparam packageStyle folder
+skinparam classAttributeIconSize 0
+
+skinparam package {
+  BackgroundColor #FFFFFF
+  BorderColor #2C3E50
+  FontColor #1A1A1A
+  FontSize 16
+  FontStyle bold
+}
+
+skinparam class {
+  BorderColor #2C3E50
+  FontColor #1A1A1A
+  FontSize 14
+  StereotypeFontSize 14
+  AttributeFontSize 14
+  ArrowColor #2C3E50
+  ArrowFontColor #2C3E50
+  ArrowFontSize 14
+  BackgroundColor<<boundary>> #EAF2FB
+  BackgroundColor<<control>> #FDF6E3
+}
+
+skinparam folder {
+  BackgroundColor #FFFFFF
+  BorderColor #000000
+  BorderThickness 1.5
+  FontColor #1A1A1A
+  FontSize 16
+  FontStyle bold
+}
+
+allowmixing
+hide circle
+hide empty fields
+hide empty methods
+
+
+' Observação de layout: o motor ELK dispõe cada fileira na ordem inversa da
+' declaração; por isso as classes de cada fileira estão declaradas da direita
+' para a esquerda.
+
+
+' Observação de layout: o motor ELK dispõe cada fileira na ordem inversa da
+' declaração; por isso as classes de cada fileira estão declaradas da direita
+' para a esquerda.
+
+
+' Observação de layout: o motor ELK dispõe cada fileira na ordem inversa da
+' declaração; por isso as classes de cada fileira estão declaradas da direita
+' para a esquerda.
+
+package "Fronteira" as Fronteira {
+  ' Telas comuns aos três perfis
+  class TelaLogin <<boundary>> {
+    +entrar()
+    +realizarPrimeiroAcesso()
+    +recuperarSenha()
+  }
+  class TelaInicio <<boundary>> {
+    +exibirResumo()
+  }
+  class TelaMural <<boundary>> {
+    +listarAvisos()
+    +marcarComoLido()
+  }
+  ' Telas do morador
+  class TelaMinhasReservas <<boundary>> {
+    +listarReservas()
+    +cancelarReserva()
+  }
+  class TelaReserva <<boundary>> {
+    +consultarDisponibilidade()
+    +confirmarReserva()
+  }
+  class TelaMinhasEncomendas <<boundary>> {
+    +listarEncomendas()
+    +filtrarEncomendas()
+  }
+  class TelaFamilia <<boundary>> {
+    +listarDependentes()
+    +cadastrarDependente()
+  }
+  ' Telas do porteiro
+  class TelaAreasLivres <<boundary>> {
+    +alterarStatusLivre()
+    +editarObservacao()
+  }
+  class TelaChaves <<boundary>> {
+    +emprestarChave()
+    +devolverChave()
+    +gerenciarChaves()
+  }
+  class TelaPainelPortaria <<boundary>> {
+    +exibirOcupacao()
+    +exibirAgenda()
+    +cadastrarVisitante()
+  }
+  class TelaEncomendasPortaria <<boundary>> {
+    +registrarEncomenda()
+    +registrarRetirada()
+  }
+  ' Telas do síndico
+  class TelaPainelAdmin <<boundary>> {
+    +exibirIndicadores()
+    +filtrarPorArea()
+  }
+  class TelaAreasComuns <<boundary>> {
+    +salvarArea()
+    +bloquearArea()
+    +gerenciarChaves()
+  }
+  class TelaPessoas <<boundary>> {
+    +salvarPessoa()
+    +avaliarAprovacao()
+    +bloquearPessoa()
+  }
+  class TelaPublicarAviso <<boundary>> {
+    +publicarAviso()
+    +excluirAviso()
+  }
+}
+
+package "Controle" as Controle {
+  class ControleReservas <<control>> {
+    +consultarDatasOcupadas()
+    +consultarDisponibilidade()
+    +criarReserva()
+    +listarMinhasReservas()
+    +cancelarReserva()
+  }
+  class ControleAutenticacao <<control>> {
+    +login()
+    +validarCodigo()
+    +realizarPrimeiroAcesso()
+    +solicitarRecuperacao()
+    +redefinirSenha()
+  }
+  class ControlePortaria <<control>> {
+    +listarEncomendas()
+    +registrarEncomenda()
+    +registrarRetirada()
+    +listarMinhasEncomendas()
+    +listarChaves()
+    +emprestarChave()
+    +devolverChave()
+    +consultarOcupacao()
+    +consultarAgenda()
+    {method} ...
+  }
+  class ControleAvisos <<control>> {
+    +listarAvisos()
+    +listarMeusAvisos()
+    +marcarComoLido()
+    +publicarAviso()
+    +excluirAviso()
+  }
+  class ControleRelatorios <<control>> {
+    +gerarPainel()
+  }
+  class ControleAreas <<control>> {
+    +listarAreas()
+    +criarArea()
+    +editarArea()
+    +excluirArea()
+    +enviarImagem()
+    +bloquearArea()
+    +atualizarStatusLivre()
+    {method} ...
+  }
+  class ControleCadastros <<control>> {
+    +listarPessoas()
+    +cadastrarPessoa()
+    +editarPessoa()
+    +inativarPessoa()
+    +avaliarAprovacao()
+    +listarUnidades()
+    +listarDependentes()
+    +cadastrarDependente()
+    +bloquearPessoa()
+    {method} ...
+  }
+}
+
+' Pacote recolhido: as 18 classes de entidade são detalhadas no diagrama 02b.
+' Sem membros exibidos, a UML 2.5 (12.3.5) põe o nome no retângulo maior.
+' Os espaços eme em volta do nome alargam a pasta para a seta «use» chegar ao corpo, não à aba.
+folder "<U+2003>Entidade<U+2003>" as Entidade
+
+' ---------- Arranjo das fileiras (ligações ocultas) ----------
+TelaMural -[hidden]down- TelaFamilia
+TelaInicio -[hidden]down- TelaMinhasEncomendas
+TelaLogin -[hidden]down- TelaReserva
+TelaLogin -[hidden]down- TelaMinhasReservas
+TelaFamilia -[hidden]down- TelaEncomendasPortaria
+TelaMinhasEncomendas -[hidden]down- TelaPainelPortaria
+TelaReserva -[hidden]down- TelaChaves
+TelaMinhasReservas -[hidden]down- TelaAreasLivres
+TelaEncomendasPortaria -[hidden]down- TelaPublicarAviso
+TelaPainelPortaria -[hidden]down- TelaPessoas
+TelaChaves -[hidden]down- TelaAreasComuns
+TelaAreasLivres -[hidden]down- TelaPainelAdmin
+ControleAvisos -[hidden]down- ControleCadastros
+ControlePortaria -[hidden]down- ControleAreas
+ControleAutenticacao -[hidden]down- ControleRelatorios
+TelaPublicarAviso -[hidden]down- ControleAvisos
+TelaPessoas -[hidden]down- ControlePortaria
+TelaAreasComuns -[hidden]down- ControleAutenticacao
+TelaPainelAdmin -[hidden]down- ControleReservas
+
+' ---------- Dependências Fronteira -> Controle (26) ----------
+TelaMural ..> ControleAvisos
+TelaInicio ..> ControleAvisos
+TelaInicio ..> ControlePortaria
+TelaInicio ..> ControleReservas
+TelaLogin ..> ControleAutenticacao
+TelaFamilia ..> ControleCadastros
+TelaMinhasEncomendas ..> ControlePortaria
+TelaReserva ..> ControleReservas
+TelaReserva ..> ControleAreas
+TelaMinhasReservas ..> ControleReservas
+TelaEncomendasPortaria ..> ControlePortaria
+TelaEncomendasPortaria ..> ControleCadastros
+TelaPainelPortaria ..> ControlePortaria
+TelaPainelPortaria ..> ControleCadastros
+TelaPainelPortaria ..> ControleAreas
+TelaChaves ..> ControlePortaria
+TelaChaves ..> ControleCadastros
+TelaChaves ..> ControleAreas
+TelaAreasLivres ..> ControleAreas
+TelaPublicarAviso ..> ControleAvisos
+TelaPessoas ..> ControleCadastros
+TelaPessoas ..> ControleAreas
+TelaAreasComuns ..> ControlePortaria
+TelaAreasComuns ..> ControleAreas
+TelaPainelAdmin ..> ControleAreas
+TelaPainelAdmin ..> ControleRelatorios
+
+' ---------- Dependência Fronteira -> Fronteira (1) ----------
+TelaPainelPortaria ..> TelaPessoas
+
+' ---------- Dependência Controle -> Entidade ----------
+' O espaço eme após «use» afasta o rótulo da linha da dependência.
+Controle ..> Entidade : <<use>><U+2003>
+
+@enduml

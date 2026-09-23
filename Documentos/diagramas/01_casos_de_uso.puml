@@ -1,0 +1,103 @@
+@startuml 01_casos_de_uso
+
+skinparam dpi 200
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam defaultFontSize 19
+skinparam shadowing false
+skinparam monochrome false
+skinparam nodesep 50
+skinparam ranksep 90
+
+skinparam actor {
+  BackgroundColor #EAF2FB
+  BorderColor #2C3E50
+  FontColor #1A1A1A
+  FontSize 19
+}
+
+skinparam usecase {
+  BackgroundColor #FDF6E3
+  BorderColor #7D6608
+  FontColor #1A1A1A
+  FontSize 18
+  ArrowColor #2C3E50
+  ArrowFontColor #2C3E50
+  ArrowFontSize 17
+}
+
+skinparam rectangle {
+  BackgroundColor #FFFFFF
+  BorderColor #2C3E50
+  FontColor #1A1A1A
+  FontSize 21
+  FontStyle bold
+}
+
+left to right direction
+
+actor "Morador\n(Residente)" as Morador
+actor "//Usuário//" as Usuario
+actor "Porteiro" as Porteiro
+
+rectangle "Sistema OASIS" as Sistema {
+  usecase "UC09\nGerenciar Áreas Comuns e Recursos" as UC09
+  usecase "UC10\nPublicar Aviso" as UC10
+  usecase "UC11\nGerenciar Pessoas e Unidades" as UC11
+  usecase "UC12\nBloquear / Desbloquear Acesso" as UC12
+  usecase "UC13\nEmitir Relatórios" as UC13
+
+  usecase "UC03\nRealizar Reserva" as UC03
+  usecase "UC02\nConsultar Disponibilidade" as UC02
+  usecase "UC04\nCancelar Reserva" as UC04
+  usecase "UC16\nGerenciar Dependentes" as UC16
+
+  usecase "UC01\nAutenticar no Sistema" as UC01
+  usecase "UC15\nRecuperar Senha" as UC15
+  usecase "UC14\nRealizar Primeiro Acesso" as UC14
+  usecase "UC05\nVisualizar Avisos e Encomendas" as UC05
+  usecase "UC06\nSolicitar / Devolver Chave" as UC06
+
+  usecase "UC17\nConsultar Painel da Portaria" as UC17
+  usecase "UC18\nControlar Áreas de Uso Livre" as UC18
+
+  usecase "UC07\nRegistrar Encomenda" as UC07
+  usecase "UC08\nConfirmar Retirada de Encomenda" as UC08
+}
+
+actor "Síndico/\nAdministração" as Sindico
+Usuario <|-- Sindico
+
+UC17 -[hidden]d- UC18
+
+Morador --|> Usuario
+Morador -- UC02
+Morador -- UC03
+Morador -- UC04
+Morador -- UC16
+
+UC03 ..> UC02 : <<include>>
+
+Usuario -- UC01
+Usuario -- UC05
+Usuario -- UC06
+Usuario -- UC14
+Usuario -- UC15
+
+UC15 ..> UC01 : <<extend>>
+
+Porteiro --|> Usuario
+Porteiro -- UC07
+Porteiro -- UC08
+Porteiro -- UC17
+Porteiro -- UC18
+
+UC09 -- Sindico
+UC10 -- Sindico
+UC11 -- Sindico
+UC12 -- Sindico
+UC13 -- Sindico
+UC17 -- Sindico
+UC18 -- Sindico
+
+@enduml
