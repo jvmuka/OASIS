@@ -444,3 +444,10 @@ CREATE TRIGGER tg_bloqueio_perfil_cancela_reservas
     AFTER INSERT ON bloqueio_perfil
     FOR EACH ROW EXECUTE FUNCTION fn_bloqueio_perfil_cancela_reservas();
 
+-- ---------------------------------------------------------------------
+-- Carga inicial de avisos no mural (com trigger ativo para distribuicao)
+-- ---------------------------------------------------------------------
+INSERT INTO aviso (id_perfil_autor, escopo, titulo, conteudo, fixado, data_hora_publicacao) VALUES
+    (4, 'MURAL', 'Boas-vindas ao Sistema OASIS', 'Seja bem-vindo ao OASIS, o sistema integrado de gestao de reservas, comunicados e portaria do nosso condominio. Em caso de duvidas, procure a administracao.', TRUE, CURRENT_TIMESTAMP - INTERVAL '2 days'),
+    (4, 'MURAL', 'Manutencao Preventiva dos Elevadores', 'Informamos que na proxima terca-feira, entre 09:00 e 12:00, os elevadores do Bloco A passarao por manutencao preventiva de rotina. Contamos com a compreensao de todos.', FALSE, CURRENT_TIMESTAMP - INTERVAL '1 day'),
+    (4, 'MURAL', 'Regras de Uso da Piscina e Academia', 'Lembramos a todos os moradores que a realizacao de reservas e obrigatoria para a Academia e que a Piscina opera conforme os horarios cadastrados no aplicativo.', FALSE, CURRENT_TIMESTAMP);

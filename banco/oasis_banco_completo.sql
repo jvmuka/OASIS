@@ -7,7 +7,7 @@
 -- Tipos enumerados (dominios fechados)
 -- ---------------------------------------------------------------------
 CREATE TYPE tipo_perfil_enum            AS ENUM ('MORADOR','ADMINISTRADOR','SINDICO','PORTEIRO');
-CREATE TYPE tipo_vinculo_enum           AS ENUM ('PROPRIETARIO','INQUILINO','DEPENDENTE');
+CREATE TYPE tipo_vinculo_enum           AS ENUM ('PROPRIETARIO','INQUILINO','DEPENDENTE','VISITANTE','PRESTADOR_SERVICO');
 CREATE TYPE pavimento_enum              AS ENUM ('TERREO','SUBSOLO_1','SUBSOLO_2');
 CREATE TYPE tipo_vaga_enum              AS ENUM ('SIMPLES','DUPLA');
 CREATE TYPE tipo_acesso_enum            AS ENUM ('LIVRE','BIOMETRIA','FACIAL','CHAVE');
@@ -67,6 +67,7 @@ CREATE TABLE pessoa (
     celular          VARCHAR(30),
     senha_hash       VARCHAR(255),
     status_conta     VARCHAR(30)   NOT NULL DEFAULT 'ATIVO',
+    papel_controle   VARCHAR(50)   NOT NULL DEFAULT 'MORADOR',
     tipo_servico     VARCHAR(100),
     ativo            BOOLEAN       NOT NULL DEFAULT TRUE,
     CONSTRAINT ck_pessoa_cpf        CHECK (cpf ~ '^[0-9]{11}$'),
@@ -215,7 +216,8 @@ CREATE TABLE reserva (
 CREATE TABLE entrega_chave (
     id_entrega_chave       SERIAL     PRIMARY KEY,
     id_chave               INTEGER    NOT NULL,
-    id_perfil_solicitante  INTEGER    NOT NULL,
+    id_perfil_solicitante  INTEGER,
+    id_pessoa_solicitante  INTEGER,
     id_perfil_entrega      INTEGER    NOT NULL,
     id_perfil_recebimento  INTEGER,
     id_reserva             INTEGER,
@@ -224,6 +226,7 @@ CREATE TABLE entrega_chave (
     observacao             VARCHAR(255),
     CONSTRAINT fk_ec_chave     FOREIGN KEY (id_chave)              REFERENCES chave (id_chave) ON DELETE CASCADE,
     CONSTRAINT fk_ec_solic     FOREIGN KEY (id_perfil_solicitante) REFERENCES perfil (id_perfil),
+    CONSTRAINT fk_ec_pessoa    FOREIGN KEY (id_pessoa_solicitante) REFERENCES pessoa (id_pessoa),
     CONSTRAINT fk_ec_entrega   FOREIGN KEY (id_perfil_entrega)     REFERENCES perfil (id_perfil),
     CONSTRAINT fk_ec_receb     FOREIGN KEY (id_perfil_recebimento) REFERENCES perfil (id_perfil),
     CONSTRAINT fk_ec_reserva   FOREIGN KEY (id_reserva)            REFERENCES reserva (id_reserva),
@@ -908,5 +911,3 @@ INSERT INTO aviso (id_perfil_autor, escopo, titulo, conteudo, fixado, data_hora_
     (4, 'MURAL', 'Boas-vindas ao Sistema OASIS', 'Seja bem-vindo ao OASIS, o sistema integrado de gestao de reservas, comunicados e portaria do nosso condominio. Em caso de duvidas, procure a administracao.', TRUE, CURRENT_TIMESTAMP - INTERVAL '2 days'),
     (4, 'MURAL', 'Manutencao Preventiva dos Elevadores', 'Informamos que na proxima terca-feira, entre 09:00 e 12:00, os elevadores do Bloco A passarao por manutencao preventiva de rotina. Contamos com a compreensao de todos.', FALSE, CURRENT_TIMESTAMP - INTERVAL '1 day'),
     (4, 'MURAL', 'Regras de Uso da Piscina e Academia', 'Lembramos a todos os moradores que a realizacao de reservas e obrigatoria para a Academia e que a Piscina opera conforme os horarios cadastrados no aplicativo.', FALSE, CURRENT_TIMESTAMP);
-
-
