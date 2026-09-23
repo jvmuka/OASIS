@@ -107,6 +107,8 @@ package "Fronteira" as Fronteira {
     +exibirOcupacao()
     +exibirAgenda()
     +cadastrarVisitante()
+    +buscarMorador()
+    +exibirAtividade()
   }
   class TelaEncomendasPortaria <<boundary>> {
     +registrarEncomenda()
@@ -148,6 +150,16 @@ package "Controle" as Controle {
     +solicitarRecuperacao()
     +redefinirSenha()
   }
+  class ControleRelatorios <<control>> {
+    +gerarPainel()
+  }
+  class ControleAvisos <<control>> {
+    +listarAvisos()
+    +listarMeusAvisos()
+    +marcarComoLido()
+    +publicarAviso()
+    +excluirAviso()
+  }
   class ControlePortaria <<control>> {
     +listarEncomendas()
     +registrarEncomenda()
@@ -158,17 +170,9 @@ package "Controle" as Controle {
     +devolverChave()
     +consultarOcupacao()
     +consultarAgenda()
+    +buscarPessoas()
+    +consultarAtividade()
     {method} ...
-  }
-  class ControleAvisos <<control>> {
-    +listarAvisos()
-    +listarMeusAvisos()
-    +marcarComoLido()
-    +publicarAviso()
-    +excluirAviso()
-  }
-  class ControleRelatorios <<control>> {
-    +gerarPainel()
   }
   class ControleAreas <<control>> {
     +listarAreas()
@@ -212,13 +216,13 @@ TelaEncomendasPortaria -[hidden]down- TelaPublicarAviso
 TelaPainelPortaria -[hidden]down- TelaPessoas
 TelaChaves -[hidden]down- TelaAreasComuns
 TelaAreasLivres -[hidden]down- TelaPainelAdmin
-ControleAvisos -[hidden]down- ControleCadastros
-ControlePortaria -[hidden]down- ControleAreas
-ControleAutenticacao -[hidden]down- ControleRelatorios
-TelaPublicarAviso -[hidden]down- ControleAvisos
-TelaPessoas -[hidden]down- ControlePortaria
-TelaAreasComuns -[hidden]down- ControleAutenticacao
+ControleRelatorios -[hidden]down- ControleCadastros
+ControleAutenticacao -[hidden]down- ControlePortaria
+ControleReservas -[hidden]down- ControleAreas
 TelaPainelAdmin -[hidden]down- ControleReservas
+TelaAreasComuns -[hidden]down- ControleAutenticacao
+TelaPessoas -[hidden]down- ControleRelatorios
+TelaPublicarAviso -[hidden]down- ControleAvisos
 
 ' ---------- Dependências Fronteira -> Controle (26) ----------
 TelaMural ..> ControleAvisos
