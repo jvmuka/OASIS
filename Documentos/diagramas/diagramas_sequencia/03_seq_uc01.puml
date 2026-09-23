@@ -1,0 +1,72 @@
+@startuml 03_seq_uc01
+skinparam dpi 200
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam defaultFontSize 14
+skinparam shadowing false
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ArrowColor #2C3E50
+skinparam ArrowFontColor #1A1A1A
+skinparam sequence {
+  LifeLineBorderColor #2C3E50
+  ParticipantBorderColor #2C3E50
+  ParticipantBackgroundColor #FFFFFF
+  ActorBorderColor #2C3E50
+  ActorBackgroundColor #FFFFFF
+  BoxBorderColor #2C3E50
+  GroupBorderColor #2C3E50
+  GroupHeaderFontStyle bold
+  DividerBorderColor #2C3E50
+}
+skinparam boundary {
+  BackgroundColor #EAF2FB
+  BorderColor #2C3E50
+}
+skinparam control {
+  BackgroundColor #FDF6E3
+  BorderColor #2C3E50
+}
+skinparam database {
+  BackgroundColor #FFFFFF
+  BorderColor #2C3E50
+}
+skinparam note {
+  BackgroundColor #FFFFFF
+  BorderColor #2C3E50
+}
+hide footbox
+skinparam maxMessageSize 150
+skinparam ParticipantPadding 4
+skinparam BoxPadding 4
+
+actor "Usuário" as U
+boundary "TelaLogin" as T
+participant "Guarda de limite\nde tentativas" as G
+control "ControleAutenticacao" as C
+database "Banco de Dados" as BD
+
+U -> T : entrar(e-mail, senha)
+T -> G : POST /auth/login
+alt limite de tentativas excedido (IP + e-mail)
+  G --> T : recusa temporária
+  T --> U : exibe aviso de excesso de tentativas
+else dentro do limite
+  G -> C : login(email, senha)
+  C -> BD : buscar pessoa por e-mail
+  BD --> C : pessoa (senha_hash, status_conta)
+  alt pessoa inexistente ou senha incorreta
+    C --> T : credenciais inválidas
+    T --> U : exibe mensagem genérica
+  else status AGUARDANDO_PRIMEIRO_ACESSO
+    C --> T : conta não ativada
+    T --> U : orienta a ativar a conta (UC14)
+  else conta ATIVO e senha confere (PBKDF2)
+    C -> BD : buscar perfis vigentes e unidades
+    BD --> C : perfis e unidades
+    C -> C : emitir token JWT (validade de 8 horas)
+    C --> T : token e dados da sessão
+    T --> U : redireciona à tela de início
+  end
+end
+@enduml

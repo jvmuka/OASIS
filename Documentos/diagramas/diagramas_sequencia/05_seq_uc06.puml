@@ -1,0 +1,81 @@
+@startuml 05_seq_uc06
+skinparam dpi 200
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam defaultFontSize 14
+skinparam shadowing false
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ArrowColor #2C3E50
+skinparam ArrowFontColor #1A1A1A
+skinparam sequence {
+  LifeLineBorderColor #2C3E50
+  ParticipantBorderColor #2C3E50
+  ParticipantBackgroundColor #FFFFFF
+  ActorBorderColor #2C3E50
+  ActorBackgroundColor #FFFFFF
+  BoxBorderColor #2C3E50
+  GroupBorderColor #2C3E50
+  GroupHeaderFontStyle bold
+  DividerBorderColor #2C3E50
+}
+skinparam boundary {
+  BackgroundColor #EAF2FB
+  BorderColor #2C3E50
+}
+skinparam control {
+  BackgroundColor #FDF6E3
+  BorderColor #2C3E50
+}
+skinparam database {
+  BackgroundColor #FFFFFF
+  BorderColor #2C3E50
+}
+skinparam note {
+  BackgroundColor #FFFFFF
+  BorderColor #2C3E50
+}
+hide footbox
+skinparam maxMessageSize 130
+skinparam ParticipantPadding 4
+skinparam BoxPadding 4
+
+actor "Solicitante" as M
+actor "Porteiro" as P
+boundary "TelaChaves" as T
+control "ControlePortaria" as C
+database "Banco de Dados" as BD
+
+M -> P : solicita a chave da área
+P -> T : localiza a chave e a pessoa
+T -> C : emprestarChave(chave, solicitante)
+C -> BD : INSERT INTO entrega_chave
+note right of BD
+  RN09: só empresta chave DISPONIVEL
+  e altera o status para EMPRESTADA.
+  Solicitante: perfil do morador ou,
+  para visitante e prestador, a pessoa.
+end note
+alt chave disponível
+  BD --> C : empréstimo registrado
+  C --> T : confirmação
+  T --> P : exibe a retirada registrada
+else chave já emprestada
+  BD --> C : RAISE EXCEPTION 'RN09: ...'
+  C --> T : chave indisponível
+  T --> P : exibe o responsável atual
+end
+== Devolução ==
+M -> P : devolve a chave
+P -> T : registra a devolução
+T -> C : devolverChave(entrega)
+C -> BD : UPDATE entrega_chave (data e funcionário)
+note right of BD
+  RN10: devolução posterior à retirada,
+  funcionário obrigatório; a chave
+  volta a DISPONIVEL.
+end note
+BD --> C : devolução registrada
+C --> T : confirmação
+T --> P : chave disponível novamente
+@enduml

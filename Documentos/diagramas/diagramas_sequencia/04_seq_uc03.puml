@@ -1,0 +1,80 @@
+@startuml 04_seq_uc03
+skinparam dpi 200
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam defaultFontSize 14
+skinparam shadowing false
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ArrowColor #2C3E50
+skinparam ArrowFontColor #1A1A1A
+skinparam sequence {
+  LifeLineBorderColor #2C3E50
+  ParticipantBorderColor #2C3E50
+  ParticipantBackgroundColor #FFFFFF
+  ActorBorderColor #2C3E50
+  ActorBackgroundColor #FFFFFF
+  BoxBorderColor #2C3E50
+  GroupBorderColor #2C3E50
+  GroupHeaderFontStyle bold
+  DividerBorderColor #2C3E50
+}
+skinparam boundary {
+  BackgroundColor #EAF2FB
+  BorderColor #2C3E50
+}
+skinparam control {
+  BackgroundColor #FDF6E3
+  BorderColor #2C3E50
+}
+skinparam database {
+  BackgroundColor #FFFFFF
+  BorderColor #2C3E50
+}
+skinparam note {
+  BackgroundColor #FFFFFF
+  BorderColor #2C3E50
+}
+hide footbox
+skinparam maxMessageSize 150
+skinparam ParticipantPadding 4
+skinparam BoxPadding 4
+
+actor "Morador" as M
+boundary "TelaReserva" as T
+control "ControleReservas" as C
+database "Banco de Dados" as BD
+
+M -> T : seleciona área e data no calendário
+T -> C : consultarDisponibilidade(área, data)
+C -> BD : horários do dia da semana, reservas ativas e bloqueios
+BD --> C : janelas, ocupação e bloqueios
+C --> T : intervalos livres, parciais, lotados e bloqueados
+T --> M : exibe a grade e as regras da área
+M -> T : confirmarReserva(intervalo, nº de pessoas)
+T -> C : criarReserva(área, início, fim, pessoas)
+C -> BD : INSERT INTO reserva
+note right of BD
+  Gatilho tg_valida_reserva:
+  RN01 conflito de horário e simultâneas
+  RN02 bloqueio da área
+  RN03 penalidade do morador
+  RN04 capacidade acumulada
+  RN05 janela de funcionamento
+  RN06 antecedência e horário passado
+  RN07 limite por período da unidade
+  RN16 idade mínima
+end note
+alt todas as regras atendidas
+  BD --> C : reserva ATIVA
+  opt área com valor de uso
+    C --> T : taxa será lançada no boleto
+  end
+  C --> T : reserva confirmada
+  T --> M : exibe a confirmação
+else alguma regra violada
+  BD --> C : RAISE EXCEPTION 'RNxx: ...'
+  C --> T : mensagem da regra violada
+  T --> M : exibe o motivo da recusa
+end
+@enduml
