@@ -15,6 +15,7 @@ import {
   mascararCPF,
   mascararCelular,
 } from '../../components/ui';
+import { ModalAtividadePessoa } from '../../components/BuscaAtividadePessoa';
 
 type Dependente = {
   id_pessoa: number;
@@ -298,14 +299,24 @@ export default function Pessoas({
   const [erroCadastro, setErroCadastro] = useState<string | null>(null);
   const [erroEdicao, setErroEdicao] = useState<string | null>(null);
 
-  // Modais de Inspeção, Inativação, Reativação e Exclusão
+  // Modais de Inspeção, Atividade, Inativação, Reativação e Exclusão
   const [modalPerfilAberto, setModalPerfilAberto] = useState(false);
   const [perfilSelecionado, setPerfilSelecionado] = useState<Pessoa | null>(null);
+  const [pessoaAtividadeModal, setPessoaAtividadeModal] = useState<Pessoa | null>(null);
+  const [menuAcoesAbertoId, setMenuAcoesAbertoId] = useState<number | null>(null);
   const [inativando, setInativando] = useState<Pessoa | null>(null);
   const [reativando, setReativando] = useState<Pessoa | null>(null);
   const [excluindo, setExcluindo] = useState<Pessoa | null>(null);
   const [salvandoReativacao, setSalvandoReativacao] = useState(false);
   const [salvandoExclusao, setSalvandoExclusao] = useState(false);
+
+  // Fecha o menu de ações ao clicar em qualquer lugar da tela
+  useEffect(() => {
+    if (menuAcoesAbertoId === null) return;
+    const fecharMenu = () => setMenuAcoesAbertoId(null);
+    window.addEventListener('click', fecharMenu);
+    return () => window.removeEventListener('click', fecharMenu);
+  }, [menuAcoesAbertoId]);
 
   // Pop-up específico de conflito / erro de negócio
   const [popupErro, setPopupErro] = useState<string | null>(null);
@@ -1399,7 +1410,7 @@ export default function Pessoas({
               }
             />
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto min-h-[300px] pb-16">
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-slate-200/80 dark:border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400">
@@ -1635,71 +1646,146 @@ export default function Pessoas({
 
                         <td className="py-3 px-3 text-right" onClick={e => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => abrirPerfil(p)}
-                              className="text-xs font-semibold text-navy dark:text-sky-400 hover:underline cursor-pointer"
-                            >
-                              Ver
-                            </button>
-
-                            {!somenteLeitura && (
-                              <>
-                                {/* Botão de Edição sempre disponível para corrigir cadastros errôneos */}
+                            {somenteLeitura ? (
+                              <button
+                                onClick={() => abrirPerfil(p)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-navy bg-navy-50/60 hover:bg-navy-100/80 dark:text-sky-400 dark:bg-sky-950/40 dark:hover:bg-sky-900/50 transition-colors cursor-pointer"
+                              >
+                                <Icone nome="eye" className="h-3.5 w-3.5" />
+                                Ver Perfil
+                              </button>
+                            ) : (
+                              <div className="relative inline-block text-left">
                                 <button
-                                  onClick={() => abrirModalEdicao(p)}
-                                  className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
-                                  title="Editar dados cadastrais, perfil e unidade"
+                                  type="button"
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    setMenuAcoesAbertoId(menuAcoesAbertoId === p.id_pessoa ? null : p.id_pessoa);
+                                  }}
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/80 transition-colors shadow-xs cursor-pointer"
+                                  title="Opções do usuário"
                                 >
-                                  Editar
+                                  <span>Opções</span>
+                                  <Icone nome="chevronDown" className="h-3 w-3 opacity-60" />
                                 </button>
 
-                                {p.ativo ? (
-                                  <>
+                                {menuAcoesAbertoId === p.id_pessoa && (
+                                  <div
+                                    onClick={e => e.stopPropagation()}
+                                    className="absolute right-0 mt-1.5 w-48 rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-100 dark:border-slate-700 py-1.5 z-40 animate-scale-in"
+                                  >
                                     <button
-                                      onClick={() => abrirModalBloqueio(p)}
-                                      className={`text-xs font-semibold hover:underline cursor-pointer ${
-                                        p.total_bloqueios_ativos && p.total_bloqueios_ativos > 0
-                                          ? 'text-red-600 dark:text-rose-400 font-bold'
-                                          : 'text-amber-600 dark:text-amber-400'
-                                      }`}
-                                      title="Aplicar penalidade ou afastamento de áreas comuns"
+                                      type="button"
+                                      onClick={() => {
+                                        setMenuAcoesAbertoId(null);
+                                        abrirPerfil(p);
+                                      }}
+                                      className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-left cursor-pointer"
                                     >
-                                      Penalidades{p.total_bloqueios_ativos && p.total_bloqueios_ativos > 0 ? ` (${p.total_bloqueios_ativos})` : ''}
+                                      <Icone nome="eye" className="h-3.5 w-3.5 text-navy dark:text-sky-400 shrink-0" />
+                                      Ver Perfil
                                     </button>
+
                                     <button
-                                      onClick={() => setInativando(p)}
-                                      className="text-xs font-semibold text-slate-400 hover:text-red-600 dark:text-slate-500 dark:hover:text-rose-400 transition-colors cursor-pointer"
-                                      title="Inativar usuário"
+                                      type="button"
+                                      onClick={() => {
+                                        setMenuAcoesAbertoId(null);
+                                        abrirModalEdicao(p);
+                                      }}
+                                      className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:bg-blue-50/60 dark:hover:bg-blue-950/40 text-left cursor-pointer"
                                     >
-                                      Inativar
+                                      <Icone nome="edit" className="h-3.5 w-3.5 shrink-0" />
+                                      Editar Cadastro
                                     </button>
+
                                     <button
-                                      onClick={() => setExcluindo(p)}
-                                      className="text-xs font-semibold text-slate-400 hover:text-red-600 dark:text-slate-500 dark:hover:text-rose-400 transition-colors cursor-pointer"
-                                      title="Excluir cadastro permanentemente"
+                                      type="button"
+                                      onClick={() => {
+                                        setMenuAcoesAbertoId(null);
+                                        setPessoaAtividadeModal(p);
+                                      }}
+                                      className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-teal-600 dark:text-teal-400 hover:bg-teal-50/60 dark:hover:bg-teal-950/40 text-left cursor-pointer"
                                     >
-                                      Excluir
+                                      <Icone nome="calendar" className="h-3.5 w-3.5 shrink-0" />
+                                      Atividades & Reservas
                                     </button>
-                                  </>
-                                ) : (
-                                  <>
-                                    <button
-                                      onClick={() => setReativando(p)}
-                                      className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
-                                      title="Reativar usuário e restabelecer acessos"
-                                    >
-                                      Reativar
-                                    </button>
-                                    <button
-                                      onClick={() => setExcluindo(p)}
-                                      className="text-xs font-semibold text-red-500 dark:text-rose-400 hover:underline cursor-pointer"
-                                      title="Excluir cadastro permanentemente caso criado por erro"
-                                    >
-                                      Excluir
-                                    </button>
-                                  </>
+
+                                    {p.ativo ? (
+                                      <>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setMenuAcoesAbertoId(null);
+                                            abrirModalBloqueio(p);
+                                          }}
+                                          className={`w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-left cursor-pointer ${
+                                            p.total_bloqueios_ativos && p.total_bloqueios_ativos > 0
+                                              ? 'text-red-600 dark:text-rose-400 bg-red-50/40 dark:bg-rose-950/20'
+                                              : 'text-amber-600 dark:text-amber-400 hover:bg-amber-50/60 dark:hover:bg-amber-950/40'
+                                          }`}
+                                        >
+                                          <Icone nome="alert" className="h-3.5 w-3.5 shrink-0" />
+                                          Penalidades {p.total_bloqueios_ativos ? `(${p.total_bloqueios_ativos})` : ''}
+                                        </button>
+
+                                        <div className="my-1 border-t border-slate-100 dark:border-slate-700/80" />
+
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setMenuAcoesAbertoId(null);
+                                            setInativando(p);
+                                          }}
+                                          className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-left cursor-pointer"
+                                        >
+                                          <Icone nome="eyeOff" className="h-3.5 w-3.5 shrink-0" />
+                                          Inativar Usuário
+                                        </button>
+
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setMenuAcoesAbertoId(null);
+                                            setExcluindo(p);
+                                          }}
+                                          className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50/60 dark:hover:bg-rose-950/40 text-left cursor-pointer"
+                                        >
+                                          <Icone nome="trash" className="h-3.5 w-3.5 shrink-0" />
+                                          Excluir Definitivamente
+                                        </button>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <div className="my-1 border-t border-slate-100 dark:border-slate-700/80" />
+
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setMenuAcoesAbertoId(null);
+                                            setReativando(p);
+                                          }}
+                                          className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50/60 dark:hover:bg-emerald-950/40 text-left cursor-pointer"
+                                        >
+                                          <Icone nome="check" className="h-3.5 w-3.5 shrink-0" />
+                                          Reativar Perfil
+                                        </button>
+
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setMenuAcoesAbertoId(null);
+                                            setExcluindo(p);
+                                          }}
+                                          className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50/60 dark:hover:bg-rose-950/40 text-left cursor-pointer"
+                                        >
+                                          <Icone nome="trash" className="h-3.5 w-3.5 shrink-0" />
+                                          Excluir Definitivamente
+                                        </button>
+                                      </>
+                                    )}
+                                  </div>
                                 )}
-                              </>
+                              </div>
                             )}
                           </div>
                         </td>
@@ -1783,18 +1869,19 @@ export default function Pessoas({
       <Modal
         aberto={modalPerfilAberto}
         fechar={() => setModalPerfilAberto(false)}
-        titulo="Perfil & Relações Familiares"
+        titulo="Perfil do Usuário"
+        largura="max-w-xl"
       >
         {perfilSelecionado && (
           <div className="space-y-4">
             {/* Header com dados pessoais e badge do papel */}
-            <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-navy text-white font-bold text-lg">
+            <div className="flex items-center gap-3.5 border-b border-slate-100 dark:border-slate-800 pb-3.5">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-navy text-white font-bold text-lg shadow-xs">
                 {perfilSelecionado.nome.charAt(0)}
               </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base leading-tight">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base leading-tight truncate">
                     {perfilSelecionado.nome}
                   </h3>
                   <span
@@ -1808,7 +1895,7 @@ export default function Pessoas({
                     {perfilSelecionado.ativo ? 'Ativo' : 'Inativo'}
                   </Badge>
                 </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
                   {perfilSelecionado.email} • {perfilSelecionado.celular || 'Sem celular cadastrado'}
                 </p>
                 <div className="flex items-center gap-2 mt-1">
@@ -1974,21 +2061,45 @@ export default function Pessoas({
               </div>
             ) : null}
 
-            {/* Ações do Perfil */}
-            <div className="flex flex-wrap items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-              {somenteLeitura ? (
+            {/* Seção Integrada: Atividade & Ações do Cadastro */}
+            <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 dark:border-slate-800 dark:bg-slate-800/40 p-3.5 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                    <Icone nome="calendar" className="h-3.5 w-3.5 text-navy dark:text-sky-400" />
+                    Atividade no Condomínio
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Histórico de reservas, uso de áreas comuns e agendamentos.
+                  </p>
+                </div>
                 <Botao
-                  variante="claro"
+                  variante="primario"
                   tamanho="sm"
-                  onClick={() => setModalPerfilAberto(false)}
+                  icone={<Icone nome="calendar" className="h-3.5 w-3.5" />}
+                  onClick={() => setPessoaAtividadeModal(perfilSelecionado)}
                 >
-                  Fechar
+                  Ver Atividades & Reservas
                 </Botao>
-              ) : (
-                <>
+              </div>
+            </div>
+
+            {/* Barra Inferior Padronizada de Ações do Modal */}
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+              <Botao
+                variante="claro"
+                tamanho="sm"
+                onClick={() => setModalPerfilAberto(false)}
+              >
+                Fechar
+              </Botao>
+
+              {!somenteLeitura && (
+                <div className="flex items-center gap-2">
                   <Botao
                     variante="claro"
                     tamanho="sm"
+                    icone={<Icone nome="edit" className="h-3.5 w-3.5" />}
                     onClick={() => {
                       setModalPerfilAberto(false);
                       abrirModalEdicao(perfilSelecionado);
@@ -1997,57 +2108,118 @@ export default function Pessoas({
                     Editar Cadastro
                   </Botao>
 
-                  {perfilSelecionado.ativo ? (
-                    <>
-                      <Botao
-                        variante="claro"
-                        tamanho="sm"
-                        onClick={() => {
-                          setModalPerfilAberto(false);
-                          abrirModalBloqueio(perfilSelecionado);
-                        }}
+                  {/* Menu Compacto de Gerenciamento Avançado no Perfil */}
+                  <div className="relative inline-block text-left">
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        setMenuAcoesAbertoId(menuAcoesAbertoId === -1 ? null : -1);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/80 transition-colors shadow-xs cursor-pointer"
+                    >
+                      <span>Mais Ações</span>
+                      <Icone nome="chevronDown" className="h-3 w-3 opacity-60" />
+                    </button>
+
+                    {menuAcoesAbertoId === -1 && (
+                      <div
+                        onClick={e => e.stopPropagation()}
+                        className="absolute right-0 bottom-full mb-1.5 w-48 rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-100 dark:border-slate-700 py-1.5 z-50 animate-scale-in"
                       >
-                        Penalidades
-                      </Botao>
-                      <Botao
-                        variante="secundario"
-                        tamanho="sm"
-                        onClick={() => setInativando(perfilSelecionado)}
-                      >
-                        Inativar Usuário
-                      </Botao>
-                      <Botao
-                        variante="perigo"
-                        tamanho="sm"
-                        onClick={() => setExcluindo(perfilSelecionado)}
-                      >
-                        Excluir Definitivamente
-                      </Botao>
-                    </>
-                  ) : (
-                    <>
-                      <Botao
-                        variante="sucesso"
-                        tamanho="sm"
-                        onClick={() => setReativando(perfilSelecionado)}
-                      >
-                        Reativar Perfil
-                      </Botao>
-                      <Botao
-                        variante="perigo"
-                        tamanho="sm"
-                        onClick={() => setExcluindo(perfilSelecionado)}
-                      >
-                        Excluir Definitivamente
-                      </Botao>
-                    </>
-                  )}
-                </>
+                        {perfilSelecionado.ativo ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setMenuAcoesAbertoId(null);
+                                setModalPerfilAberto(false);
+                                abrirModalBloqueio(perfilSelecionado);
+                              }}
+                              className={`w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-left cursor-pointer ${
+                                perfilSelecionado.total_bloqueios_ativos && perfilSelecionado.total_bloqueios_ativos > 0
+                                  ? 'text-red-600 dark:text-rose-400 bg-red-50/40 dark:bg-rose-950/20'
+                                  : 'text-amber-600 dark:text-amber-400 hover:bg-amber-50/60 dark:hover:bg-amber-950/40'
+                              }`}
+                            >
+                              <Icone nome="alert" className="h-3.5 w-3.5 shrink-0" />
+                              Penalidades {perfilSelecionado.total_bloqueios_ativos ? `(${perfilSelecionado.total_bloqueios_ativos})` : ''}
+                            </button>
+
+                            <div className="my-1 border-t border-slate-100 dark:border-slate-700/80" />
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setMenuAcoesAbertoId(null);
+                                setModalPerfilAberto(false);
+                                setInativando(perfilSelecionado);
+                              }}
+                              className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-left cursor-pointer"
+                            >
+                              <Icone nome="eyeOff" className="h-3.5 w-3.5 shrink-0" />
+                              Inativar Usuário
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setMenuAcoesAbertoId(null);
+                                setModalPerfilAberto(false);
+                                setExcluindo(perfilSelecionado);
+                              }}
+                              className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50/60 dark:hover:bg-rose-950/40 text-left cursor-pointer"
+                            >
+                              <Icone nome="trash" className="h-3.5 w-3.5 shrink-0" />
+                              Excluir Definitivamente
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setMenuAcoesAbertoId(null);
+                                setModalPerfilAberto(false);
+                                setReativando(perfilSelecionado);
+                              }}
+                              className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50/60 dark:hover:bg-emerald-950/40 text-left cursor-pointer"
+                            >
+                              <Icone nome="check" className="h-3.5 w-3.5 shrink-0" />
+                              Reativar Perfil
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setMenuAcoesAbertoId(null);
+                                setModalPerfilAberto(false);
+                                setExcluindo(perfilSelecionado);
+                              }}
+                              className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50/60 dark:hover:bg-rose-950/40 text-left cursor-pointer"
+                            >
+                              <Icone nome="trash" className="h-3.5 w-3.5 shrink-0" />
+                              Excluir Definitivamente
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
               )}
             </div>
           </div>
         )}
       </Modal>
+
+      {/* MODAL: ATIVIDADE & RESERVAS EM TEMPO REAL */}
+      {pessoaAtividadeModal && (
+        <ModalAtividadePessoa
+          pessoa={pessoaAtividadeModal}
+          fechar={() => setPessoaAtividadeModal(null)}
+        />
+      )}
 
       {/* Modais de ação restritos à administração */}
       {!somenteLeitura && (

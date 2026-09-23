@@ -5,7 +5,6 @@ import {
 } from '../../components/ui';
 import { hojeSP, formatarHora, formatarDataHora, gerarOpcoesMeses, minutosTexto } from '../../utils/data';
 import Pessoas from '../sindico/Pessoas';
-import BuscaAtividadePessoa from '../../components/BuscaAtividadePessoa';
 
 type OcupacaoItem = {
   id_reserva: number;
@@ -100,7 +99,7 @@ export default function Portaria() {
   const opcoesMeses = useRef(gerarOpcoesMeses()).current;
 
   const [versaoPessoas, setVersaoPessoas] = useState(0);
-  const [cadastroAberto, setCadastroAberto] = useState(false);
+  const [cadastroAberto, setCadastroAberto] = useState(true);
 
   // Estados para cadastro rápido de Visitante e Prestador de Serviço
   const [modalVisitanteAberto, setModalVisitanteAberto] = useState(false);
@@ -596,10 +595,7 @@ export default function Portaria() {
         )}
       </Cartao>
 
-      {/* Bloco C: Atividade do morador (busca com reservas em andamento, próximas e histórico) */}
-      <BuscaAtividadePessoa versao={versaoPessoas} />
-
-      {/* Bloco D: Cadastro completo, montado apenas sob demanda para não carregar a lista inteira no painel */}
+      {/* Bloco C: Busca unificada de pessoas, contatos, unidades e atividades */}
       {cadastroAberto ? (
         <div className="space-y-2">
           <div className="flex justify-end">
@@ -609,15 +605,15 @@ export default function Portaria() {
               icone={<Icone nome="chevronDown" className="h-3.5 w-3.5 rotate-180" />}
               onClick={() => setCadastroAberto(false)}
             >
-              Ocultar cadastro completo
+              Recolher busca de pessoas
             </Botao>
           </div>
           <Pessoas
             key={versaoPessoas}
             apenasConsulta
             embutido
-            titulo="Cadastro de moradores"
-            subtitulo="Nome, CPF, bloco ou apartamento"
+            titulo="Buscar Pessoa"
+            subtitulo="Consulte moradores, dependentes, prestadores, unidades e histórico de atividades."
           />
         </div>
       ) : (
@@ -625,11 +621,11 @@ export default function Portaria() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                <Icone nome="users" className="h-4 w-4 text-navy dark:text-sky-400" />
-                Cadastro de moradores
+                <Icone nome="search" className="h-4 w-4 text-navy dark:text-sky-400" />
+                Buscar Pessoa
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Lista completa com filtros por função e situação, incluindo cadastros inativos.
+                Consulte moradores, prestadores, visitantes, dados de contato e histórico de atividades e reservas.
               </p>
             </div>
             <Botao
@@ -638,7 +634,7 @@ export default function Portaria() {
               icone={<Icone nome="chevronDown" className="h-3.5 w-3.5" />}
               onClick={() => setCadastroAberto(true)}
             >
-              Ver cadastro completo
+              Abrir busca de pessoas
             </Botao>
           </div>
         </Cartao>

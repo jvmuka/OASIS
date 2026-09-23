@@ -136,8 +136,16 @@ function TextoVazio({ children }: { children: React.ReactNode }) {
   );
 }
 
+export type PessoaEntradaAtividade = {
+  id_pessoa: number;
+  nome: string;
+  cpf?: string | null;
+  celular?: string | null;
+  unidades?: { bloco?: string | null; apartamento?: string | null; tipo_vinculo?: string | null; vinculo?: string | null }[];
+};
+
 /** Modal somente leitura com contato, vínculos e atividade (agora, próximas e últimos 90 dias) de uma pessoa. */
-export function ModalAtividadePessoa({ pessoa, fechar }: { pessoa: PessoaAgrupada | null; fechar: () => void }) {
+export function ModalAtividadePessoa({ pessoa, fechar }: { pessoa: PessoaEntradaAtividade | null; fechar: () => void }) {
   const [dados, setDados] = useState<AtividadeResposta | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState('');
@@ -178,14 +186,20 @@ export function ModalAtividadePessoa({ pessoa, fechar }: { pessoa: PessoaAgrupad
             </div>
             <div className="sm:col-span-2">
               <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
-                {pessoa.unidades.length > 1 ? 'Unidades e vínculos' : 'Unidade e vínculo'}
+                {(pessoa.unidades?.length ?? 0) > 1 ? 'Unidades e vínculos' : 'Unidade e vínculo'}
               </p>
-              {pessoa.unidades.length === 0 ? (
+              {!pessoa.unidades || pessoa.unidades.length === 0 ? (
                 <p className="text-sm text-slate-800 dark:text-slate-200">Unidade não vinculada</p>
               ) : (
                 <ul className="space-y-0.5">
                   {pessoa.unidades.map((u, i) => (
-                    <li key={i} className="text-sm text-slate-800 dark:text-slate-200">{textoUnidade(u)}</li>
+                    <li key={i} className="text-sm text-slate-800 dark:text-slate-200">
+                      {textoUnidade({
+                        bloco: u.bloco ?? null,
+                        apartamento: u.apartamento ?? null,
+                        tipo_vinculo: u.tipo_vinculo ?? u.vinculo ?? null,
+                      })}
+                    </li>
                   ))}
                 </ul>
               )}
