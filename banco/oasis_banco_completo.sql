@@ -67,6 +67,7 @@ CREATE TABLE pessoa (
     celular          VARCHAR(30),
     senha_hash       VARCHAR(255),
     status_conta     VARCHAR(30)   NOT NULL DEFAULT 'ATIVO',
+    tipo_servico     VARCHAR(100),
     ativo            BOOLEAN       NOT NULL DEFAULT TRUE,
     CONSTRAINT ck_pessoa_cpf        CHECK (cpf ~ '^[0-9]{11}$'),
     CONSTRAINT ck_pessoa_email      CHECK (email LIKE '%_@_%._%'),

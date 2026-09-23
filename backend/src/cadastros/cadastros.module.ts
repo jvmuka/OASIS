@@ -76,12 +76,93 @@ export class CadastrosController {
   }
 
   // ------------------------- pessoas e pesquisa abrangente -------------------------
+  // ------------------------- pessoas e pesquisa abrangente -------------------------
   @Get('pessoas')
-  async pessoas(@Query('busca') busca?: string) {
-    const filtro = busca ? `%${busca.toLowerCase()}%` : '%';
+  async pessoas(
+    @Query('busca') busca?: string,
+    @Query('nome') nome?: string,
+    @Query('cpf') cpf?: string,
+    @Query('apartamento') apartamento?: string,
+    @Query('papel') papel?: string,
+    @Query('funcao') funcao?: string,
+    @Query('status') status?: string,
+  ) {
+    const conditions: string[] = [];
+    const params: any[] = [];
+
+    if (status) {
+      const s = status.trim().toUpperCase();
+      if (s === 'ATIVOS') {
+        conditions.push(`p.ativo = TRUE`);
+      } else if (s === 'INATIVOS') {
+        conditions.push(`p.ativo = FALSE`);
+      }
+    }
+
+    if (busca && busca.trim()) {
+      params.push(`%${busca.trim().toLowerCase()}%`);
+      const idx = params.length;
+      conditions.push(`(
+        LOWER(p.nome) LIKE $${idx}
+        OR p.cpf LIKE $${idx}
+        OR LOWER(p.email) LIKE $${idx}
+        OR u.numero_apartamento LIKE $${idx}
+        OR LOWER(b.nome) LIKE $${idx}
+        OR LOWER(CONCAT(b.nome, ' ', u.numero_apartamento)) LIKE $${idx}
+      )`);
+    }
+
+    if (nome && nome.trim()) {
+      params.push(`%${nome.trim().toLowerCase()}%`);
+      const idx = params.length;
+      conditions.push(`(LOWER(p.nome) LIKE $${idx} OR LOWER(p.email) LIKE $${idx})`);
+    }
+
+    if (cpf && cpf.trim()) {
+      const cpfLimpo = cpf.replace(/\D/g, '');
+      params.push(`%${cpfLimpo || cpf.trim()}%`);
+      const idx = params.length;
+      conditions.push(`REPLACE(REPLACE(p.cpf, '.', ''), '-', '') LIKE $${idx}`);
+    }
+
+    if (apartamento && apartamento.trim()) {
+      params.push(`%${apartamento.trim().toLowerCase()}%`);
+      const idx = params.length;
+      conditions.push(`(
+        LOWER(u.numero_apartamento) LIKE $${idx}
+        OR LOWER(b.nome) LIKE $${idx}
+        OR LOWER(CONCAT(b.nome, ' ', u.numero_apartamento)) LIKE $${idx}
+      )`);
+    }
+
+    const papelFiltro = (papel || funcao || '').trim().toUpperCase();
+    if (papelFiltro && papelFiltro !== 'TODAS') {
+      if (['PROPRIETARIO', 'INQUILINO', 'DEPENDENTE'].includes(papelFiltro)) {
+        params.push(papelFiltro);
+        const idx = params.length;
+        conditions.push(`pu.tipo_vinculo = $${idx}`);
+      } else if (papelFiltro === 'VISITANTE') {
+        params.push(papelFiltro);
+        const idx = params.length;
+        conditions.push(`(p.papel_controle = $${idx} OR pu.tipo_vinculo = $${idx})`);
+      } else if (papelFiltro === 'PRESTADOR_SERVICO') {
+        params.push(papelFiltro);
+        const idx = params.length;
+        conditions.push(`(p.papel_controle = $${idx} OR pu.tipo_vinculo = $${idx})`);
+      } else if (['MORADOR', 'PORTEIRO'].includes(papelFiltro)) {
+        params.push(papelFiltro);
+        const idx = params.length;
+        conditions.push(`pf.tipo_perfil = $${idx}`);
+      } else if (['ADMINISTRADOR', 'SINDICO'].includes(papelFiltro)) {
+        conditions.push(`(pf.tipo_perfil = 'SINDICO')`);
+      }
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
     const pessoas = await this.db.query(`
       SELECT p.id_pessoa, p.nome, p.email, p.cpf, p.celular, p.data_nascimento,
-             p.status_conta, p.ativo,
+             p.status_conta, p.ativo, p.papel_controle, p.tipo_servico,
              COALESCE(json_agg(DISTINCT jsonb_build_object(
                'tipo', pf.tipo_perfil, 'id_perfil', pf.id_perfil))
                FILTER (WHERE pf.id_perfil IS NOT NULL), '[]') AS perfis,
@@ -126,14 +207,9 @@ export class CadastrosController {
         LEFT JOIN pessoa_unidade pu ON pu.id_pessoa = p.id_pessoa AND pu.data_fim_ocupacao IS NULL
         LEFT JOIN unidade u ON u.id_unidade = pu.id_unidade
         LEFT JOIN bloco   b ON b.id_bloco   = u.id_bloco
-       WHERE LOWER(p.nome) LIKE $1
-          OR p.cpf LIKE $1
-          OR LOWER(p.email) LIKE $1
-          OR u.numero_apartamento LIKE $1
-          OR LOWER(b.nome) LIKE $1
-          OR LOWER(CONCAT(b.nome, ' ', u.numero_apartamento)) LIKE $1
+       ${whereClause}
        GROUP BY p.id_pessoa
-       ORDER BY p.nome`, [filtro]);
+       ORDER BY p.nome`, params);
 
     return pessoas;
   }
@@ -142,7 +218,7 @@ export class CadastrosController {
   async detalhesPessoa(@Param('id', ParseIntPipe) id: number) {
     const lista = await this.db.query(`
       SELECT p.id_pessoa, p.nome, p.email, p.cpf, p.celular, p.data_nascimento,
-             p.status_conta, p.ativo,
+             p.status_conta, p.ativo, p.papel_controle, p.tipo_servico,
              pu.id_pessoa_unidade, pu.id_unidade, u.numero_apartamento, b.nome AS bloco,
              pu.tipo_vinculo, pu.grau_parentesco, pu.reside, pu.status_aprovacao,
              pu.id_responsavel, resp.nome AS nome_responsavel, resp.email AS email_responsavel, resp.celular AS celular_responsavel,
@@ -181,20 +257,74 @@ export class CadastrosController {
   }
 
   /**
-   * Cadastro completo com unicidade de titular e geração de código de primeiro acesso.
+   * Cadastro de pessoas (Síndico e Porteiro) com suporte a Moradores, Funcionários,
+   * Visitantes e Prestadores de Serviço (sem login, apenas controle).
    */
-  @Post('pessoas') @Perfis('SINDICO')
+  @Post('pessoas') @Perfis('SINDICO', 'PORTEIRO')
   async criarPessoa(
     @Req() req: any,
     @Body() b: {
-      nome: string; email: string; cpf: string; data_nascimento: string; celular?: string;
+      nome: string; email?: string; cpf: string; data_nascimento: string; celular?: string;
       id_unidade?: number; tipo_vinculo?: string; tipo_perfil?: string; perfis?: string[];
-      id_responsavel?: number; grau_parentesco?: string;
+      id_responsavel?: number; grau_parentesco?: string; reside?: boolean;
+      tipo_servico?: string;
     }
   ) {
-    const idPerfilGerador = perfilDoUsuario(req.user, 'SINDICO');
+    const tiposUsuario = (req.user?.perfis || []).map((pf: any) => pf.tipo);
+    const ehSindico = tiposUsuario.includes('SINDICO') || tiposUsuario.includes('ADMINISTRADOR');
+    const idPerfilGerador = ehSindico
+      ? perfilDoUsuario(req.user, 'SINDICO')
+      : perfilDoUsuario(req.user, 'PORTEIRO');
 
     return this.db.transacao(async c => {
+      // Identifica papéis solicitados
+      let rawPerfis: string[] = [];
+      if (Array.isArray(b.perfis) && b.perfis.length > 0) {
+        rawPerfis = b.perfis.map(pf => (pf === 'ADMINISTRADOR' ? 'SINDICO' : pf.trim().toUpperCase()));
+      } else if (b.tipo_perfil) {
+        if (b.tipo_perfil === 'SINDICO_MORADOR') {
+          rawPerfis = ['SINDICO', 'MORADOR'];
+        } else if (b.tipo_perfil === 'SINDICO' || b.tipo_perfil === 'ADMINISTRADOR') {
+          rawPerfis = ['SINDICO'];
+        } else if (b.tipo_perfil === 'PORTEIRO') {
+          rawPerfis = ['PORTEIRO'];
+        } else if (b.tipo_perfil === 'MORADOR') {
+          rawPerfis = ['MORADOR'];
+        } else if (b.tipo_perfil === 'VISITANTE') {
+          rawPerfis = ['VISITANTE'];
+        } else if (b.tipo_perfil === 'PRESTADOR_SERVICO') {
+          rawPerfis = ['PRESTADOR_SERVICO'];
+        }
+      }
+      if (rawPerfis.length === 0) {
+        rawPerfis = ['MORADOR'];
+      }
+
+      // Restrição de segurança: Porteiro só pode cadastrar Visitante ou Prestador de Serviço
+      if (!ehSindico) {
+        const perfisNaoPermitidos = rawPerfis.filter(p => !['VISITANTE', 'PRESTADOR_SERVICO'].includes(p));
+        if (perfisNaoPermitidos.length > 0) {
+          throw new BadRequestException('Porteiros têm permissão para cadastrar apenas Visitantes e Prestadores de Serviço.');
+        }
+      }
+
+      // Validação de exclusividade: Visitante e Prestador de Serviço não podem ser combinados com nenhum outro papel
+      if (rawPerfis.includes('VISITANTE') && rawPerfis.length > 1) {
+        throw new BadRequestException('O papel de Visitante é exclusivo e não pode ser combinado com nenhum outro papel.');
+      }
+      if (rawPerfis.includes('PRESTADOR_SERVICO') && rawPerfis.length > 1) {
+        throw new BadRequestException('O papel de Prestador de Serviço é exclusivo e não pode ser combinado com nenhum outro papel.');
+      }
+
+      // Validação obrigatória de Morador: exige unidade vinculada
+      if (rawPerfis.includes('MORADOR') && (!b.id_unidade || Number(b.id_unidade) <= 0)) {
+        throw new BadRequestException('Para o papel de Morador, é obrigatório selecionar uma unidade vinculada (bloco e apartamento).');
+      }
+
+      const perfisInternos = rawPerfis.filter(p => ['MORADOR', 'PORTEIRO', 'SINDICO'].includes(p));
+      const perfisExternos = rawPerfis.filter(p => ['VISITANTE', 'PRESTADOR_SERVICO'].includes(p));
+      const ehApenasExterno = perfisExternos.length > 0 && perfisInternos.length === 0;
+
       // 1. Validação de unicidade estrita de proprietário e inquilino por apartamento
       if (b.id_unidade && (b.tipo_vinculo === 'PROPRIETARIO' || b.tipo_vinculo === 'INQUILINO')) {
         const existente = await c.query(
@@ -214,84 +344,87 @@ export class CadastrosController {
         }
       }
 
-      // 2. Criação da pessoa com status inicial de primeiro acesso
+      // 2. Validação do CPF
       const cpfLimpo = (b.cpf || '').replace(/\D/g, '');
       if (cpfLimpo.length !== 11) {
         throw new BadRequestException('Erro de cadastro: O CPF deve conter exatamente 11 dígitos numéricos.');
       }
 
+      // E-mail: obrigatório para contas de sistema, opcional para visitantes/prestadores
+      let emailEfetivo = (b.email || '').trim().toLowerCase();
+      if (!emailEfetivo) {
+        if (ehApenasExterno) {
+          emailEfetivo = `${perfisExternos[0].toLowerCase()}_${cpfLimpo}@oasis.local`;
+        } else {
+          throw new BadRequestException('O e-mail é obrigatório para cadastros com acesso ao sistema.');
+        }
+      }
+
       // Validação amigável de duplicidade antes da inserção
       const pessoaDuplicada = await c.query(
         `SELECT id_pessoa, nome, cpf, email, ativo FROM pessoa WHERE cpf = $1 OR LOWER(email) = LOWER($2) LIMIT 1`,
-        [cpfLimpo, b.email]
+        [cpfLimpo, emailEfetivo]
       );
       if (pessoaDuplicada.rows.length > 0) {
         const dup = pessoaDuplicada.rows[0];
         if (dup.cpf === cpfLimpo) {
           throw new BadRequestException(
-            `Erro de cadastro: O CPF informado (${b.cpf}) já está cadastrado no sistema para "${dup.nome}". Cada morador ou dependente deve possuir um CPF próprio e exclusivo.`
+            `Erro de cadastro: O CPF informado (${b.cpf}) já está cadastrado no sistema para "${dup.nome}". Cada pessoa deve possuir um CPF próprio e exclusivo.`
           );
         }
-        if (dup.email?.toLowerCase() === b.email?.toLowerCase()) {
+        if (dup.email?.toLowerCase() === emailEfetivo) {
           throw new BadRequestException(
-            `Erro de cadastro: O e-mail de login (${b.email}) já está cadastrado para "${dup.nome}". Cada usuário deve possuir um e-mail individual.`
+            `Erro de cadastro: O e-mail (${emailEfetivo}) já está cadastrado para "${dup.nome}". Cada usuário deve possuir um e-mail individual.`
           );
         }
       }
 
+      const papelControle = ehApenasExterno ? perfisExternos[0] : (perfisInternos[0] || 'MORADOR');
+      const statusConta = ehApenasExterno ? 'ATIVO' : 'AGUARDANDO_PRIMEIRO_ACESSO';
+
       const p = (await c.query(
-        `INSERT INTO pessoa (uid_firebase, nome, email, cpf, data_nascimento, celular, status_conta)
-         VALUES ($1,$2,$3,$4,$5,$6,'AGUARDANDO_PRIMEIRO_ACESSO')
-         RETURNING id_pessoa, nome, email, cpf`,
-        ['dev_' + cpfLimpo, b.nome, b.email, cpfLimpo, b.data_nascimento, b.celular || null])).rows[0];
+        `INSERT INTO pessoa (uid_firebase, nome, email, cpf, data_nascimento, celular, status_conta, papel_controle, tipo_servico)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+         RETURNING id_pessoa, nome, email, cpf, papel_controle, tipo_servico`,
+        ['dev_' + cpfLimpo, b.nome, emailEfetivo, cpfLimpo, b.data_nascimento, b.celular || null, statusConta, papelControle, b.tipo_servico || null])).rows[0];
 
       // 3. Vínculo com a unidade
       if (b.id_unidade) {
-        const vinculo = b.tipo_vinculo || 'INQUILINO';
+        let vinculo = b.tipo_vinculo || 'INQUILINO';
+        let reside = b.reside !== undefined ? Boolean(b.reside) : true;
+        if (ehApenasExterno) {
+          vinculo = perfisExternos[0];
+          reside = false;
+        }
         const idResp = vinculo === 'DEPENDENTE' ? (b.id_responsavel || null) : null;
         const parentesco = vinculo === 'DEPENDENTE' ? (b.grau_parentesco || 'OUTRO') : null;
 
         await c.query(
-          `INSERT INTO pessoa_unidade (id_pessoa, id_unidade, tipo_vinculo, id_responsavel, grau_parentesco, status_aprovacao)
-           VALUES ($1,$2,$3,$4,$5,'APROVADO')`,
-          [p.id_pessoa, b.id_unidade, vinculo, idResp, parentesco]);
+          `INSERT INTO pessoa_unidade (id_pessoa, id_unidade, tipo_vinculo, id_responsavel, grau_parentesco, status_aprovacao, reside)
+           VALUES ($1,$2,$3,$4,$5,'APROVADO',$6)`,
+          [p.id_pessoa, b.id_unidade, vinculo, idResp, parentesco, reside]);
       }
 
-      // 4. Perfil de acesso (suporte a múltiplos papéis simultâneos)
-      let listaPerfis: string[] = [];
-      if (Array.isArray(b.perfis) && b.perfis.length > 0) {
-        listaPerfis = b.perfis.map(pf => (pf === 'ADMINISTRADOR' ? 'SINDICO' : pf.trim().toUpperCase()));
-      } else if (b.tipo_perfil) {
-        if (b.tipo_perfil === 'SINDICO_MORADOR') {
-          listaPerfis = ['SINDICO', 'MORADOR'];
-        } else if (b.tipo_perfil === 'SINDICO' || b.tipo_perfil === 'ADMINISTRADOR') {
-          listaPerfis = ['SINDICO'];
-        } else if (b.tipo_perfil === 'PORTEIRO') {
-          listaPerfis = ['PORTEIRO'];
-        } else if (b.tipo_perfil === 'MORADOR') {
-          listaPerfis = ['MORADOR'];
-        }
-      }
-      listaPerfis = Array.from(new Set(listaPerfis)).filter(pf => ['MORADOR', 'PORTEIRO', 'SINDICO'].includes(pf));
-      if (listaPerfis.length === 0) {
-        listaPerfis = ['MORADOR'];
-      }
-
+      // 4. Perfil de acesso (apenas para perfis internos que utilizam o sistema)
       let perfil: any = null;
-      for (const tp of listaPerfis) {
-        const row = (await c.query(
-          `INSERT INTO perfil (id_pessoa, tipo_perfil) VALUES ($1, $2) RETURNING id_perfil, tipo_perfil`,
-          [p.id_pessoa, tp]
-        )).rows[0];
-        if (!perfil) perfil = row;
-      }
+      let codigoGerado: string | null = null;
 
-      // 5. Geração do código legível de ativação / primeiro acesso
-      const codigoGerado = gerarCodigoAtivacao();
-      await c.query(
-        `INSERT INTO codigo_primeiro_acesso (codigo, id_pessoa, id_perfil_gerador, status)
-         VALUES ($1,$2,$3,'DISPONIVEL')`,
-        [codigoGerado, p.id_pessoa, idPerfilGerador || null]);
+      if (!ehApenasExterno && perfisInternos.length > 0) {
+        for (const tp of perfisInternos) {
+          const row = (await c.query(
+            `INSERT INTO perfil (id_pessoa, tipo_perfil) VALUES ($1, $2) RETURNING id_perfil, tipo_perfil`,
+            [p.id_pessoa, tp]
+          )).rows[0];
+          if (!perfil) perfil = row;
+        }
+
+        // 5. Geração do código legível de ativação / primeiro acesso
+        codigoGerado = gerarCodigoAtivacao();
+        await c.query(
+          `INSERT INTO codigo_primeiro_acesso (codigo, id_pessoa, id_perfil_gerador, status)
+           VALUES ($1,$2,$3,'DISPONIVEL')`,
+          [codigoGerado, p.id_pessoa, idPerfilGerador || null]);
+      }
 
       return {
         ...p,
@@ -487,6 +620,9 @@ export class CadastrosController {
       grau_parentesco?: string;
       tipo_perfil?: string;
       perfis?: string[];
+      reside?: boolean;
+      papel_controle?: string;
+      tipo_servico?: string;
     }
   ) {
     return this.db.transacao(async c => {
@@ -510,6 +646,33 @@ export class CadastrosController {
         }
       }
 
+      // Validação de Morador: não permitir perfil Morador sem unidade vinculada
+      const listaPerfisRaw = b.perfis || (b.tipo_perfil ? [b.tipo_perfil] : []);
+      const listaPerfisUpper = listaPerfisRaw.map(p => p.toUpperCase());
+
+      // Validação de exclusividade: Visitante e Prestador de Serviço não podem ser combinados com outros papéis
+      if (listaPerfisUpper.includes('VISITANTE') && listaPerfisUpper.length > 1) {
+        throw new BadRequestException('O papel de Visitante é exclusivo e não pode ser combinado com nenhum outro papel.');
+      }
+      if (listaPerfisUpper.includes('PRESTADOR_SERVICO') && listaPerfisUpper.length > 1) {
+        throw new BadRequestException('O papel de Prestador de Serviço é exclusivo e não pode ser combinado com nenhum outro papel.');
+      }
+
+      const temPerfilMorador = listaPerfisUpper.includes('MORADOR');
+      if (temPerfilMorador) {
+        const temUnidadeInformada = b.id_unidade && Number(b.id_unidade) > 0;
+        if (!temUnidadeInformada) {
+          // Se não foi informada uma nova unidade, verifica se já tem uma unidade ativa
+          const unExistente = await c.query(
+            `SELECT id_pessoa_unidade FROM pessoa_unidade WHERE id_pessoa = $1 AND data_fim_ocupacao IS NULL LIMIT 1`,
+            [id]
+          );
+          if (b.id_unidade === null || b.id_unidade === 0 || unExistente.rows.length === 0) {
+            throw new BadRequestException('Para o papel de Morador, é obrigatório selecionar uma unidade vinculada (bloco e apartamento).');
+          }
+        }
+      }
+
       // 2. Atualiza dados cadastrais em pessoa
       const cpfLimpo = b.cpf ? b.cpf.replace(/\D/g, '') : null;
       if (b.cpf && cpfLimpo && cpfLimpo.length !== 11) {
@@ -522,19 +685,43 @@ export class CadastrosController {
                 email = COALESCE($3, email),
                 celular = COALESCE($4, celular),
                 cpf = COALESCE($5, cpf),
-                data_nascimento = COALESCE($6, data_nascimento)
+                data_nascimento = COALESCE($6, data_nascimento),
+                papel_controle = COALESCE($7, papel_controle),
+                tipo_servico = CASE WHEN $8::boolean THEN $9 ELSE tipo_servico END
           WHERE id_pessoa = $1
-          RETURNING id_pessoa, nome, email, cpf, celular, data_nascimento, ativo`,
-        [id, b.nome, b.email, b.celular, cpfLimpo, b.data_nascimento])).rows[0];
+          RETURNING id_pessoa, nome, email, cpf, celular, data_nascimento, ativo, papel_controle, tipo_servico`,
+        [
+          id,
+          b.nome,
+          b.email,
+          b.celular,
+          cpfLimpo,
+          b.data_nascimento,
+          b.papel_controle || null,
+          b.tipo_servico !== undefined,
+          b.tipo_servico || null,
+        ])).rows[0];
 
       if (!p) throw new BadRequestException('Pessoa não encontrada.');
 
       // 3. Atualiza ou cria vínculo com unidade
       if (b.id_unidade !== undefined) {
         if (b.id_unidade && Number(b.id_unidade) > 0) {
-          const vinculo = b.tipo_vinculo || 'INQUILINO';
+          const perfisInternos = listaPerfisUpper.filter(p => ['MORADOR', 'PORTEIRO', 'SINDICO'].includes(p));
+          const perfisExternos = listaPerfisUpper.filter(p => ['VISITANTE', 'PRESTADOR_SERVICO'].includes(p));
+          const ehApenasExterno = perfisExternos.length > 0 && perfisInternos.length === 0;
+
+          let vinculo = b.tipo_vinculo || 'INQUILINO';
+          let resideVal = b.reside !== undefined ? Boolean(b.reside) : null;
+          if (ehApenasExterno) {
+            vinculo = perfisExternos[0];
+            resideVal = false;
+          }
           const idResp = vinculo === 'DEPENDENTE' ? (b.id_responsavel || null) : null;
           const parentesco = vinculo === 'DEPENDENTE' ? (b.grau_parentesco || 'OUTRO') : null;
+          if (ehApenasExterno) {
+            resideVal = false;
+          }
 
           const vinculoAtivo = await c.query(
             `SELECT id_pessoa_unidade FROM pessoa_unidade WHERE id_pessoa = $1 AND data_fim_ocupacao IS NULL LIMIT 1`,
@@ -546,14 +733,15 @@ export class CadastrosController {
                   SET id_unidade = $2,
                       tipo_vinculo = $3,
                       id_responsavel = $4,
-                      grau_parentesco = $5
+                      grau_parentesco = $5,
+                      reside = COALESCE($6, reside)
                 WHERE id_pessoa_unidade = $1`,
-              [vinculoAtivo.rows[0].id_pessoa_unidade, b.id_unidade, vinculo, idResp, parentesco]);
+              [vinculoAtivo.rows[0].id_pessoa_unidade, b.id_unidade, vinculo, idResp, parentesco, resideVal]);
           } else {
             await c.query(
-              `INSERT INTO pessoa_unidade (id_pessoa, id_unidade, tipo_vinculo, id_responsavel, grau_parentesco, status_aprovacao)
-               VALUES ($1, $2, $3, $4, $5, 'APROVADO')`,
-              [id, b.id_unidade, vinculo, idResp, parentesco]);
+              `INSERT INTO pessoa_unidade (id_pessoa, id_unidade, tipo_vinculo, id_responsavel, grau_parentesco, status_aprovacao, reside)
+               VALUES ($1, $2, $3, $4, $5, 'APROVADO', COALESCE($6, TRUE))`,
+              [id, b.id_unidade, vinculo, idResp, parentesco, resideVal]);
           }
         } else {
           // Desvincula morador de qualquer unidade ativa caso passe sem unidade

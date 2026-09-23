@@ -415,7 +415,7 @@ export function Campo({
 
 /** Classe padrão moderna para inputs de formulário */
 export const inputCls =
-  'w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-800 placeholder-slate-400 transition-all duration-150 outline-none focus:border-navy focus:ring-2 focus:ring-navy/15 hover:border-slate-300 disabled:bg-slate-50 disabled:text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500 dark:hover:border-slate-600 dark:focus:border-sky-500 dark:focus:ring-sky-500/20 dark:disabled:bg-slate-800/40 dark:disabled:text-slate-500';
+  'w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-800 placeholder-slate-400 transition-all duration-150 outline-none focus:border-navy focus:ring-2 focus:ring-navy/15 hover:border-slate-300 disabled:bg-slate-50 disabled:text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400 dark:hover:border-slate-600 dark:focus:border-sky-500 dark:focus:ring-sky-500/20 dark:disabled:bg-slate-800/40 dark:disabled:text-slate-500';
 
 /** Badge / Pílula de status semântica com indicador colorido */
 export function Badge({
@@ -500,7 +500,7 @@ export function Modal({
   if (!aberto) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-3 sm:p-4">
       {/* Backdrop */}
       <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs transition-opacity animate-fade-in" onClick={fechar} />
 
@@ -509,8 +509,8 @@ export function Modal({
         className={`relative z-10 flex w-full ${largura} modal-altura-max flex-col rounded-2xl bg-white dark:bg-slate-900 dark:text-slate-100 shadow-modal border border-slate-100 dark:border-slate-800 animate-scale-in`}
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex shrink-0 items-center justify-between border-b border-slate-100 dark:border-slate-800 p-6 pb-3">
-          <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{titulo}</h3>
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-100 dark:border-slate-800 px-5 py-4 sm:p-6 sm:pb-3">
+          <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100">{titulo}</h3>
           <button
             onClick={fechar}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
@@ -518,9 +518,9 @@ export function Modal({
             <Icone nome="x" className="h-4 w-4" />
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto p-6 pt-4">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:p-6 sm:pt-4">{children}</div>
         {rodape && (
-          <div className="flex shrink-0 justify-end gap-2.5 border-t border-slate-100 dark:border-slate-800 p-6 pt-4">
+          <div className="flex shrink-0 justify-end gap-2.5 border-t border-slate-100 dark:border-slate-800 px-5 py-3.5 sm:p-6 sm:pt-4">
             {rodape}
           </div>
         )}

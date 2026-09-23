@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api } from '../../api';
+import { api, sessaoAtual } from '../../api';
 import { Cartao, Titulo, Icone, Badge, EmptyState } from '../../components/ui';
 
 type Aviso = {
@@ -22,11 +22,21 @@ export default function Mural() {
   const [carregando, setCarregando] = useState(true);
   const [filtro, setFiltro] = useState<'TODOS' | 'ADMINISTRADOR' | 'ENCOMENDA' | 'NAO_LIDOS'>('TODOS');
 
+  const sessao = sessaoAtual();
+  const tiposPerfis = (sessao?.perfis || []).map(p => p.tipo);
+  const temMorador = tiposPerfis.includes('MORADOR');
+  const temUnidade = Boolean(sessao?.unidades && sessao.unidades.length > 0);
+  const ehApenasAdmin = !temMorador && !temUnidade && (tiposPerfis.includes('SINDICO') || tiposPerfis.includes('ADMINISTRADOR'));
+
   const carregar = () => {
     setCarregando(true);
     api
       .get<Aviso[]>('/avisos/meus')
-      .then(setAvisos)
+      .then(res => {
+        // Se for exclusivamente administrador, desconsidera qualquer aviso de encomenda
+        const dados = ehApenasAdmin ? res.filter(a => a.categoria !== 'ENCOMENDA') : res;
+        setAvisos(dados);
+      })
       .finally(() => setCarregando(false));
   };
 
@@ -53,6 +63,7 @@ export default function Mural() {
   const countNaoLidos = avisos.filter(a => !a.lido).length;
 
   const avisosFiltrados = avisos.filter(a => {
+    if (ehApenasAdmin && a.categoria === 'ENCOMENDA') return false;
     if (filtro === 'NAO_LIDOS') return !a.lido;
     if (filtro === 'ADMINISTRADOR') return a.categoria === 'ADMINISTRADOR';
     if (filtro === 'ENCOMENDA') return a.categoria === 'ENCOMENDA';
@@ -95,18 +106,20 @@ export default function Mural() {
           Administração ({countAdmin})
         </button>
 
-        <button
-          type="button"
-          onClick={() => setFiltro('ENCOMENDA')}
-          className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer ${
-            filtro === 'ENCOMENDA'
-              ? 'bg-amber-600 text-white shadow-xs dark:bg-amber-600'
-              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800'
-          }`}
-        >
-          <Icone nome="package" className="h-3.5 w-3.5" />
-          Encomendas ({countEncomenda})
-        </button>
+        {!ehApenasAdmin && (
+          <button
+            type="button"
+            onClick={() => setFiltro('ENCOMENDA')}
+            className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+              filtro === 'ENCOMENDA'
+                ? 'bg-amber-600 text-white shadow-xs dark:bg-amber-600'
+                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800'
+            }`}
+          >
+            <Icone nome="package" className="h-3.5 w-3.5" />
+            Encomendas ({countEncomenda})
+          </button>
+        )}
 
         <button
           type="button"

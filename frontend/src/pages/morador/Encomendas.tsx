@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { Badge, Botao, Cartao, EmptyState, Icone, Titulo } from '../../components/ui';
+import { formatarDataHora } from '../../utils/data';
 
 export type EncomendaMorador = {
   id_encomenda: number;
@@ -20,17 +21,6 @@ export type EncomendaMorador = {
   grau_parentesco: string | null;
   para_mim: boolean;
 };
-
-function formatarDataHora(iso: string | null) {
-  if (!iso) return '-';
-  return new Date(iso).toLocaleString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
 
 const ROTULO_TAMANHO: Record<string, { rotulo: string; icone: string; cor: string }> = {
   PEQUENO: { rotulo: 'Pequeno (Envelope/Saco)', icone: '✉️', cor: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300' },

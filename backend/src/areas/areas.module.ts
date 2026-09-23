@@ -48,9 +48,9 @@ export class AreasController {
                  'data_hora_retirada', ec.data_hora_retirada
                ) ORDER BY c.codigo)
                  FROM chave c
-                 LEFT JOIN entrega_chave ec ON ec.id_chave = c.id_chave AND ec.data_hora_devolucao IS NULL
-                 LEFT JOIN perfil pf ON pf.id_perfil = ec.id_perfil_solicitante
-                 LEFT JOIN pessoa p ON p.id_pessoa = pf.id_pessoa
+                  LEFT JOIN entrega_chave ec ON ec.id_chave = c.id_chave AND ec.data_hora_devolucao IS NULL
+                  LEFT JOIN perfil pf ON pf.id_perfil = ec.id_perfil_solicitante
+                  LEFT JOIN pessoa p ON p.id_pessoa = COALESCE(ec.id_pessoa_solicitante, pf.id_pessoa)
                 WHERE c.id_area_comum = a.id_area_comum
              ), '[]'::json) AS chaves,
              EXISTS (

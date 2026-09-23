@@ -58,7 +58,7 @@ export default function App() {
         {/* Administrador */}
         <Route path="/sindico/painel" element={<Protegida perfil={['ADMINISTRADOR', 'SINDICO']}><Painel /></Protegida>} />
         <Route path="/sindico/areas" element={<Protegida perfil={['ADMINISTRADOR', 'SINDICO']}><Areas /></Protegida>} />
-        <Route path="/sindico/pessoas" element={<Protegida perfil={['ADMINISTRADOR', 'SINDICO']}><Pessoas /></Protegida>} />
+        <Route path="/sindico/pessoas" element={<Protegida perfil={['ADMINISTRADOR', 'SINDICO', 'PORTEIRO']}><Pessoas /></Protegida>} />
         <Route path="/sindico/avisos" element={<Protegida perfil={['ADMINISTRADOR', 'SINDICO']}><PublicarAviso /></Protegida>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

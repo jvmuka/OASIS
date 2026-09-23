@@ -18,7 +18,7 @@ COMMENT ON DATABASE oasis IS 'Base de dados do sistema OASIS - UEPG 2026';
 -- Tipos enumerados (dominios fechados)
 -- ---------------------------------------------------------------------
 CREATE TYPE tipo_perfil_enum            AS ENUM ('MORADOR','ADMINISTRADOR','SINDICO','PORTEIRO');
-CREATE TYPE tipo_vinculo_enum           AS ENUM ('PROPRIETARIO','INQUILINO','DEPENDENTE');
+CREATE TYPE tipo_vinculo_enum           AS ENUM ('PROPRIETARIO','INQUILINO','DEPENDENTE','VISITANTE','PRESTADOR_SERVICO');
 CREATE TYPE pavimento_enum              AS ENUM ('TERREO','SUBSOLO_1','SUBSOLO_2');
 CREATE TYPE tipo_vaga_enum              AS ENUM ('SIMPLES','DUPLA');
 CREATE TYPE tipo_acesso_enum            AS ENUM ('LIVRE','BIOMETRIA','FACIAL','CHAVE');

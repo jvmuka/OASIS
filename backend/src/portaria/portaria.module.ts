@@ -110,8 +110,8 @@ export class PortariaController {
         FROM entrega_chave ec
         JOIN chave c ON c.id_chave = ec.id_chave
         JOIN area_comum a ON a.id_area_comum = c.id_area_comum
-        JOIN perfil pf ON pf.id_perfil = ec.id_perfil_solicitante
-        JOIN pessoa p ON p.id_pessoa = pf.id_pessoa
+        LEFT JOIN perfil pf ON pf.id_perfil = ec.id_perfil_solicitante
+        JOIN pessoa p ON p.id_pessoa = COALESCE(ec.id_pessoa_solicitante, pf.id_pessoa)
         LEFT JOIN pessoa_unidade pu ON pu.id_pessoa = p.id_pessoa AND pu.data_fim_ocupacao IS NULL
         LEFT JOIN unidade u ON u.id_unidade = pu.id_unidade
         LEFT JOIN bloco b ON b.id_bloco = u.id_bloco
@@ -134,12 +134,13 @@ export class PortariaController {
     return this.db.query(`
       SELECT c.id_chave, c.codigo, c.status, c.id_area_comum, a.nome AS area,
              ec.id_entrega_chave, p.nome AS responsavel, ec.data_hora_retirada,
-             u.numero_apartamento AS apartamento, b.nome AS bloco, p.celular AS contato_responsavel
+             u.numero_apartamento AS apartamento, b.nome AS bloco, p.celular AS contato_responsavel,
+             p.papel_controle
         FROM chave c
         JOIN area_comum a ON a.id_area_comum = c.id_area_comum
         LEFT JOIN entrega_chave ec ON ec.id_chave = c.id_chave AND ec.data_hora_devolucao IS NULL
         LEFT JOIN perfil pf ON pf.id_perfil = ec.id_perfil_solicitante
-        LEFT JOIN pessoa p ON p.id_pessoa = pf.id_pessoa
+        LEFT JOIN pessoa p ON p.id_pessoa = COALESCE(ec.id_pessoa_solicitante, pf.id_pessoa)
         LEFT JOIN pessoa_unidade pu ON pu.id_pessoa = p.id_pessoa AND pu.data_fim_ocupacao IS NULL
         LEFT JOIN unidade u ON u.id_unidade = pu.id_unidade
         LEFT JOIN bloco b ON b.id_bloco = u.id_bloco
@@ -149,15 +150,34 @@ export class PortariaController {
 
   /** UC06 emprestimo: gatilho RN09 valida disponibilidade e muda o status. Permitido a PORTEIRO e SINDICO. */
   @Post('chaves/:id/emprestimo') @Perfis('PORTEIRO', 'SINDICO')
-  emprestar(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body() b: {
-    id_perfil_solicitante: number; id_reserva?: number; observacao?: string;
+  async emprestar(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body() b: {
+    id_perfil_solicitante?: number; id_pessoa_solicitante?: number; id_reserva?: number; observacao?: string;
   }) {
     const idOperador = req.user.perfis?.find((p: any) => p.tipo === 'PORTEIRO' || p.tipo === 'SINDICO')?.id_perfil
       || perfilDoUsuario(req.user);
+
+    let idPessoa = b.id_pessoa_solicitante ? Number(b.id_pessoa_solicitante) : null;
+    let idPerfil = b.id_perfil_solicitante ? Number(b.id_perfil_solicitante) : null;
+
+    if (!idPessoa && idPerfil) {
+      const row = await this.db.query(`SELECT id_pessoa FROM perfil WHERE id_perfil = $1`, [idPerfil]);
+      if (row.length) idPessoa = row[0].id_pessoa;
+    } else if (idPessoa && !idPerfil) {
+      const row = await this.db.query(
+        `SELECT id_perfil FROM perfil WHERE id_pessoa = $1 AND (data_fim IS NULL OR data_fim > CURRENT_DATE) LIMIT 1`,
+        [idPessoa]
+      );
+      if (row.length) idPerfil = row[0].id_perfil;
+    }
+
+    if (!idPessoa && !idPerfil) {
+      throw new BadRequestException('Informe o morador ou prestador de serviço solicitante da chave.');
+    }
+
     return this.db.query(`
-      INSERT INTO entrega_chave (id_chave, id_perfil_solicitante, id_perfil_entrega, id_reserva, observacao)
-      VALUES ($1,$2,$3,$4,$5) RETURNING id_entrega_chave, data_hora_retirada`,
-      [id, b.id_perfil_solicitante, idOperador, b.id_reserva || null, b.observacao || null])
+      INSERT INTO entrega_chave (id_chave, id_perfil_solicitante, id_pessoa_solicitante, id_perfil_entrega, id_reserva, observacao)
+      VALUES ($1,$2,$3,$4,$5,$6) RETURNING id_entrega_chave, data_hora_retirada`,
+      [id, idPerfil, idPessoa, idOperador, b.id_reserva || null, b.observacao || null])
       .then(r => r[0]);
   }
 

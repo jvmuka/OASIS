@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../../api';
 import {
-  Botao, Cartao, Titulo, Icone, Badge, EmptyState, Modal, inputCls, mascararCPF,
+  Botao, Cartao, Titulo, Icone, Badge, EmptyState, Modal, Campo, Mensagem, inputCls, mascararCPF, mascararCelular,
 } from '../../components/ui';
+import { hojeSP, formatarHora, formatarDataHora, gerarOpcoesMeses, minutosTexto } from '../../utils/data';
+import Pessoas from '../sindico/Pessoas';
 
 type OcupacaoItem = {
   id_reserva: number;
@@ -31,84 +33,12 @@ type AgendaItem = {
   situacao: 'AGENDADA' | 'EM_ANDAMENTO' | 'ENCERRADA' | 'CANCELADA';
 };
 
-type PessoaBusca = {
-  id_pessoa: number;
-  nome: string;
-  cpf: string;
-  celular: string | null;
-  bloco: string | null;
-  apartamento: string | null;
-  tipo_vinculo: string | null;
-  em_atividade: boolean;
-  atividade_area: string | null;
-  atividade_inicio: string | null;
-  atividade_fim: string | null;
-};
-
-type AtividadeReserva = {
-  id_reserva: number;
-  area: string;
-  data_hora_inicio: string;
-  data_hora_fim: string;
-  numero_pessoas: number;
-  status?: string;
-};
-
-type AtividadePessoa = {
-  pessoa: { id_pessoa: number; nome: string; cpf: string; celular: string | null; bloco: string | null; apartamento: string | null };
-  atividade_agora: AtividadeReserva | null;
-  proximas_reservas: AtividadeReserva[];
-  historico_90_dias: AtividadeReserva[];
-};
-
 const SITUACAO_BADGE: Record<string, { tipo: 'info' | 'sucesso' | 'neutro' | 'perigo'; rotulo: string }> = {
   AGENDADA: { tipo: 'info', rotulo: 'Agendada' },
   EM_ANDAMENTO: { tipo: 'sucesso', rotulo: 'Em andamento' },
   ENCERRADA: { tipo: 'neutro', rotulo: 'Encerrada' },
   CANCELADA: { tipo: 'perigo', rotulo: 'Cancelada' },
 };
-
-function hojeSP() {
-  return new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).slice(0, 10);
-}
-
-function formatarHora(iso: string) {
-  return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-}
-
-function formatarDataHora(iso: string) {
-  return new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-}
-
-const MESES_ROTULOS: Record<string, string> = {
-  '01': 'Janeiro', '02': 'Fevereiro', '03': 'Março', '04': 'Abril',
-  '05': 'Maio', '06': 'Junho', '07': 'Julho', '08': 'Agosto',
-  '09': 'Setembro', '10': 'Outubro', '11': 'Novembro', '12': 'Dezembro',
-};
-
-function gerarOpcoesMeses() {
-  const agora = new Date();
-  const anoAtual = agora.getFullYear();
-  const mesAtualNum = agora.getMonth() + 1;
-  const meses: { valor: string; rotulo: string }[] = [];
-
-  for (let offset = 2; offset >= -6; offset--) {
-    const d = new Date(anoAtual, mesAtualNum - 1 + offset, 1);
-    const ano = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const chave = `${ano}-${mm}`;
-    const rotulo = `${MESES_ROTULOS[mm] || mm}/${ano}`;
-    meses.push({ valor: chave, rotulo });
-  }
-  return meses;
-}
-
-function minutosTexto(min: number) {
-  if (min < 60) return `${min} min`;
-  const h = Math.floor(min / 60);
-  const m = min % 60;
-  return m ? `${h}h ${m}min` : `${h}h`;
-}
 
 function unidadeTexto(bloco: string | null, apartamento: string | null) {
   return bloco ? `Bloco ${bloco}, Apto ${apartamento}` : 'Unidade não vinculada';
@@ -168,16 +98,23 @@ export default function Portaria() {
   const [todasAreas, setTodasAreas] = useState<string[]>([]);
   const opcoesMeses = useRef(gerarOpcoesMeses()).current;
 
-  const [busca, setBusca] = useState('');
-  const [resultados, setResultados] = useState<PessoaBusca[]>([]);
-  const [buscando, setBuscando] = useState(false);
-  const [erroBusca, setErroBusca] = useState('');
-  const buscaTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [versaoPessoas, setVersaoPessoas] = useState(0);
 
-  const [pessoaSelecionada, setPessoaSelecionada] = useState<PessoaBusca | null>(null);
-  const [atividade, setAtividade] = useState<AtividadePessoa | null>(null);
-  const [carregandoAtividade, setCarregandoAtividade] = useState(false);
-  const [erroAtividade, setErroAtividade] = useState('');
+  // Estados para cadastro rápido de Visitante e Prestador de Serviço
+  const [modalVisitanteAberto, setModalVisitanteAberto] = useState(false);
+  const [unidadesCondominio, setUnidadesCondominio] = useState<{ id_unidade: number; bloco: string; numero_apartamento: string }[]>([]);
+  const [salvandoVisitante, setSalvandoVisitante] = useState(false);
+  const [erroVisitante, setErroVisitante] = useState<string | null>(null);
+  const [msgPortaria, setMsgPortaria] = useState<{ t: string; tipo: 'erro' | 'ok' }>({ t: '', tipo: 'ok' });
+  const [formVisitante, setFormVisitante] = useState({
+    nome: '',
+    cpf: '',
+    data_nascimento: '',
+    celular: '',
+    tipo: 'VISITANTE' as 'VISITANTE' | 'PRESTADOR_SERVICO',
+    id_unidade: '',
+    tipo_servico: '',
+  });
 
   // Carrega todas as áreas comuns registradas no condomínio para alimentar o filtro
   useEffect(() => {
@@ -187,7 +124,69 @@ export default function Portaria() {
         setTodasAreas(nomes);
       })
       .catch(() => {});
+
+    api.get<{ id_unidade: number; bloco: string; numero_apartamento: string }[]>('/cadastros/unidades')
+      .then(setUnidadesCondominio)
+      .catch(() => {});
   }, []);
+
+  async function salvarVisitante(e: React.FormEvent) {
+    e.preventDefault();
+    setErroVisitante(null);
+
+    const cpfLimpo = formVisitante.cpf.replace(/\D/g, '');
+    if (cpfLimpo.length !== 11) {
+      setErroVisitante('CPF deve conter 11 dígitos.');
+      return;
+    }
+    if (!formVisitante.nome.trim()) {
+      setErroVisitante('Nome é obrigatório.');
+      return;
+    }
+    if (formVisitante.tipo === 'PRESTADOR_SERVICO' && !formVisitante.tipo_servico.trim()) {
+      setErroVisitante('Por favor, informe a descrição do tipo de serviço (ex: Eletricista, Encanador, etc.).');
+      return;
+    }
+    if (!formVisitante.data_nascimento) {
+      setErroVisitante('Data de nascimento é obrigatória.');
+      return;
+    }
+
+    setSalvandoVisitante(true);
+    try {
+      await api.post('/cadastros/pessoas', {
+        nome: formVisitante.nome.trim(),
+        cpf: cpfLimpo,
+        data_nascimento: formVisitante.data_nascimento,
+        celular: formVisitante.celular ? formVisitante.celular.replace(/\D/g, '') : undefined,
+        perfis: [formVisitante.tipo],
+        id_unidade: formVisitante.id_unidade ? Number(formVisitante.id_unidade) : undefined,
+        tipo_vinculo: formVisitante.tipo,
+        reside: false,
+        tipo_servico: formVisitante.tipo === 'PRESTADOR_SERVICO' ? formVisitante.tipo_servico.trim() : undefined,
+      });
+
+      setModalVisitanteAberto(false);
+      setVersaoPessoas(v => v + 1);
+      setFormVisitante({
+        nome: '',
+        cpf: '',
+        data_nascimento: '',
+        celular: '',
+        tipo: 'VISITANTE',
+        id_unidade: '',
+        tipo_servico: '',
+      });
+      setMsgPortaria({
+        t: `${formVisitante.tipo === 'VISITANTE' ? 'Visitante' : 'Prestador de Serviço'} cadastrado(a) com sucesso!`,
+        tipo: 'ok',
+      });
+    } catch (err: any) {
+      setErroVisitante(err.message || 'Erro ao cadastrar pessoa.');
+    } finally {
+      setSalvandoVisitante(false);
+    }
+  }
 
   const carregarOcupacao = () => {
     setCarregandoOcupacao(true);
@@ -222,37 +221,6 @@ export default function Portaria() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataAgenda]);
 
-  useEffect(() => {
-    if (buscaTimer.current) clearTimeout(buscaTimer.current);
-    const termo = busca.trim();
-    if (!termo) {
-      setResultados([]);
-      setErroBusca('');
-      setBuscando(false);
-      return;
-    }
-    setBuscando(true);
-    buscaTimer.current = setTimeout(() => {
-      api.get<PessoaBusca[]>(`/portaria/pessoas/busca?q=${encodeURIComponent(termo)}`)
-        .then(setResultados)
-        .catch(err => setErroBusca(err.message || 'Erro ao buscar moradores.'))
-        .finally(() => setBuscando(false));
-    }, 350);
-    return () => {
-      if (buscaTimer.current) clearTimeout(buscaTimer.current);
-    };
-  }, [busca]);
-
-  function abrirPessoa(p: PessoaBusca) {
-    setPessoaSelecionada(p);
-    setAtividade(null);
-    setErroAtividade('');
-    setCarregandoAtividade(true);
-    api.get<AtividadePessoa>(`/portaria/pessoas/${p.id_pessoa}/atividade`)
-      .then(setAtividade)
-      .catch(err => setErroAtividade(err.message || 'Erro ao carregar a atividade da pessoa.'))
-      .finally(() => setCarregandoAtividade(false));
-  }
 
   // Exibe apenas reservas atualmente em andamento (desaparece assim que o horário de término chega)
   const ocupacaoAtiva = ocupacao.filter(o => !o.em_atraso && new Date(o.data_hora_fim) > new Date());
@@ -262,9 +230,25 @@ export default function Portaria() {
       <Titulo
         sub="Ocupação das áreas comuns, agenda do dia e consulta de moradores para controle de acesso."
         icone={<Icone nome="building" className="h-5 w-5" />}
+        acao={
+          <Botao
+            variante="primario"
+            icone={<Icone nome="plus" className="h-4 w-4" />}
+            onClick={() => {
+              setErroVisitante(null);
+              setModalVisitanteAberto(true);
+            }}
+          >
+            Cadastrar Visitante / Prestador
+          </Botao>
+        }
       >
         Painel da Portaria
       </Titulo>
+
+      {msgPortaria.t && (
+        <Mensagem tipo={msgPortaria.tipo} texto={msgPortaria.t} aoFechar={() => setMsgPortaria({ t: '', tipo: 'ok' })} />
+      )}
 
       {/* Bloco A: Agora no condomínio */}
       <Cartao>
@@ -591,7 +575,7 @@ export default function Portaria() {
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                           {dataAgenda === 'TODAS' || dataAgenda.length === 7 || filtroMesAgenda !== 'TODOS'
-                            ? `${formatarDataHora(r.data_hora_inicio)} – ${formatarHora(r.data_hora_fim)} · ${r.area}`
+                            ? `${formatarDataHora(r.data_hora_inicio, false)} – ${formatarHora(r.data_hora_fim)} · ${r.area}`
                             : `${formatarHora(r.data_hora_inicio)} – ${formatarHora(r.data_hora_fim)} · ${r.area}`}
                         </p>
                         <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -610,133 +594,153 @@ export default function Portaria() {
         )}
       </Cartao>
 
-      {/* Bloco C: Buscar morador */}
-      <Cartao>
-        <div className="mb-4 border-b border-slate-100 dark:border-slate-800 pb-3">
-          <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-            <Icone nome="search" className="h-4 w-4 text-navy dark:text-sky-400" />
-            Buscar Morador
-          </h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Nome, CPF, bloco ou apartamento</p>
-        </div>
+      {/* Bloco C: Buscar Morador com tabela e filtros de pessoas da administração */}
+      <Pessoas
+        key={versaoPessoas}
+        apenasConsulta
+        embutido
+        titulo="Buscar Morador"
+        subtitulo="Nome, CPF, bloco ou apartamento"
+      />
 
-        <div className="relative mb-4">
-          <input
-            className={inputCls + ' pl-9'}
-            value={busca}
-            onChange={e => setBusca(e.target.value)}
-            placeholder="Digite para buscar..."
-          />
-          <span className="absolute left-3 top-2.5 text-slate-400 dark:text-slate-500">
-            <Icone nome="search" className="h-4 w-4" />
-          </span>
-        </div>
-
-        {erroBusca ? (
-          <EmptyState icone="alert" titulo="Erro na busca" descricao={erroBusca} />
-        ) : !busca.trim() ? (
-          <EmptyState icone="user" titulo="Digite um nome, CPF, bloco ou apartamento" descricao="Os resultados aparecerão aqui." />
-        ) : buscando ? (
-          <div className="flex h-20 items-center justify-center text-sm text-slate-500 dark:text-slate-400">Buscando...</div>
-        ) : resultados.length === 0 ? (
-          <EmptyState icone="user" titulo="Nenhum morador encontrado" descricao="Tente outro termo de busca." />
-        ) : (
-          <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-[420px] overflow-y-auto pr-1">
-            {resultados.map(p => (
-              <button
-                key={p.id_pessoa}
-                type="button"
-                onClick={() => abrirPessoa(p)}
-                className="flex w-full items-center justify-between gap-3 py-3 text-left hover:bg-slate-50/60 dark:hover:bg-slate-800/60 rounded-xl px-2 transition-colors cursor-pointer"
-              >
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{p.nome}</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {unidadeTexto(p.bloco, p.apartamento)} · CPF {mascararCPF(p.cpf)}
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  {p.em_atividade && <Badge tipo="sucesso">Em atividade</Badge>}
-                  <Icone nome="chevronRight" className="h-4 w-4 text-slate-300 dark:text-slate-600" />
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-      </Cartao>
-
-      {/* Modal: atividade da pessoa selecionada */}
+      {/* Modal: Cadastro de Visitante / Prestador de Serviço */}
       <Modal
-        aberto={!!pessoaSelecionada}
-        fechar={() => setPessoaSelecionada(null)}
-        titulo={pessoaSelecionada ? pessoaSelecionada.nome : 'Atividade'}
-        rodape={<Botao variante="claro" onClick={() => setPessoaSelecionada(null)}>Fechar</Botao>}
+        aberto={modalVisitanteAberto}
+        fechar={() => { if (!salvandoVisitante) setModalVisitanteAberto(false); }}
+        titulo="Cadastrar Visitante / Prestador de Serviço"
       >
-        {carregandoAtividade ? (
-          <div className="flex h-32 items-center justify-center text-sm text-slate-500 dark:text-slate-400">
-            Carregando atividade...
+        <p className="text-xs text-slate-500 mb-4 -mt-2">
+          Cadastro simplificado para controle de acesso na portaria. Não gera usuário nem login no sistema.
+        </p>
+        <form onSubmit={salvarVisitante} className="space-y-4">
+          {erroVisitante && <Mensagem tipo="erro" texto={erroVisitante} />}
+
+          <Campo rotulo="Tipo de Acesso / Papel">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setFormVisitante(f => ({ ...f, tipo: 'VISITANTE' }))}
+                className={`py-2 px-3 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
+                  formVisitante.tipo === 'VISITANTE'
+                    ? 'border-indigo-600 bg-indigo-50 text-indigo-700 dark:border-indigo-500 dark:bg-indigo-950/40 dark:text-indigo-300'
+                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400'
+                }`}
+              >
+                Visitante
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormVisitante(f => ({ ...f, tipo: 'PRESTADOR_SERVICO' }))}
+                className={`py-2 px-3 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
+                  formVisitante.tipo === 'PRESTADOR_SERVICO'
+                    ? 'border-amber-600 bg-amber-50 text-amber-700 dark:border-amber-500 dark:bg-amber-950/40 dark:text-amber-300'
+                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400'
+                }`}
+              >
+                Prestador de Serviço
+              </button>
+            </div>
+          </Campo>
+
+          {formVisitante.tipo === 'PRESTADOR_SERVICO' && (
+            <Campo
+              rotulo="Descrição do Tipo de Prestador de Serviço"
+              obrigatorio
+              ajuda="Informe a profissão, especialidade ou tipo de trabalho (ex: Eletricista, Encanador, Pintor, Técnico de Internet, etc.)"
+            >
+              <input
+                type="text"
+                required
+                maxLength={100}
+                placeholder="Ex: Eletricista, Encanador, Pintor, Técnico de Internet..."
+                value={formVisitante.tipo_servico}
+                onChange={e => setFormVisitante(f => ({ ...f, tipo_servico: e.target.value }))}
+                className={inputCls}
+              />
+            </Campo>
+          )}
+
+          <Campo rotulo="Nome Completo" obrigatorio>
+            <input
+              type="text"
+              required
+              placeholder="Ex: João da Silva"
+              value={formVisitante.nome}
+              onChange={e => setFormVisitante(f => ({ ...f, nome: e.target.value }))}
+              className={inputCls}
+            />
+          </Campo>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Campo rotulo="CPF" obrigatorio>
+              <input
+                type="text"
+                required
+                maxLength={14}
+                placeholder="000.000.000-00"
+                value={formVisitante.cpf}
+                onChange={e => setFormVisitante(f => ({ ...f, cpf: mascararCPF(e.target.value) }))}
+                className={inputCls}
+              />
+            </Campo>
+
+            <Campo rotulo="Data de Nascimento" obrigatorio>
+              <input
+                type="date"
+                required
+                value={formVisitante.data_nascimento}
+                onChange={e => setFormVisitante(f => ({ ...f, data_nascimento: e.target.value }))}
+                className={inputCls}
+              />
+            </Campo>
           </div>
-        ) : erroAtividade ? (
-          <EmptyState icone="alert" titulo="Não foi possível carregar" descricao={erroAtividade} />
-        ) : atividade ? (
-          <div className="space-y-5">
-            <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-3 text-xs text-slate-600 dark:text-slate-300 space-y-1 border border-slate-100 dark:border-slate-700">
-              <p>Unidade: <b>{unidadeTexto(atividade.pessoa.bloco, atividade.pessoa.apartamento)}</b></p>
-              <p>CPF: <b>{mascararCPF(atividade.pessoa.cpf)}</b></p>
-              {atividade.pessoa.celular && <p>Celular: <b>{atividade.pessoa.celular}</b></p>}
-            </div>
 
-            <div>
-              <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                Atividade Agora
-              </h4>
-              {atividade.atividade_agora ? (
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 dark:border-emerald-900/50 dark:bg-emerald-950/30 p-3 text-sm">
-                  <p className="font-semibold text-slate-900 dark:text-slate-100">{atividade.atividade_agora.area}</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {formatarHora(atividade.atividade_agora.data_hora_inicio)} – {formatarHora(atividade.atividade_agora.data_hora_fim)}
-                  </p>
-                </div>
-              ) : (
-                <p className="text-xs text-slate-500 dark:text-slate-400">Sem atividade em andamento.</p>
-              )}
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Campo rotulo="Celular (opcional)">
+              <input
+                type="text"
+                maxLength={15}
+                placeholder="(00) 00000-0000"
+                value={formVisitante.celular}
+                onChange={e => setFormVisitante(f => ({ ...f, celular: mascararCelular(e.target.value) }))}
+                className={inputCls}
+              />
+            </Campo>
 
-            <div>
-              <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                Próximas Reservas
-              </h4>
-              {atividade.proximas_reservas.length === 0 ? (
-                <p className="text-xs text-slate-500 dark:text-slate-400">Nenhuma reserva futura.</p>
-              ) : (
-                <ul className="space-y-1.5">
-                  {atividade.proximas_reservas.map(r => (
-                    <li key={r.id_reserva} className="text-sm text-slate-700 dark:text-slate-300">
-                      <span className="font-medium">{r.area}</span> · {formatarDataHora(r.data_hora_inicio)}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            <div>
-              <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                Histórico (últimos 90 dias)
-              </h4>
-              {atividade.historico_90_dias.length === 0 ? (
-                <p className="text-xs text-slate-500 dark:text-slate-400">Nenhum uso registrado no período.</p>
-              ) : (
-                <ul className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                  {atividade.historico_90_dias.map(r => (
-                    <li key={r.id_reserva} className="text-sm text-slate-700 dark:text-slate-300">
-                      <span className="font-medium">{r.area}</span> · {formatarDataHora(r.data_hora_inicio)}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+            <Campo rotulo="Unidade Relacionada (opcional)">
+              <select
+                value={formVisitante.id_unidade}
+                onChange={e => setFormVisitante(f => ({ ...f, id_unidade: e.target.value }))}
+                className={inputCls}
+              >
+                <option value="">Nenhuma unidade vinculada</option>
+                {unidadesCondominio.map(u => (
+                  <option key={u.id_unidade} value={u.id_unidade}>
+                    Bloco {u.bloco} - Apto {u.numero_apartamento}
+                  </option>
+                ))}
+              </select>
+            </Campo>
           </div>
-        ) : null}
+
+          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <Botao
+              type="button"
+              variante="claro"
+              disabled={salvandoVisitante}
+              onClick={() => setModalVisitanteAberto(false)}
+            >
+              Cancelar
+            </Botao>
+            <Botao
+              type="submit"
+              variante="primario"
+              carregando={salvandoVisitante}
+            >
+              Salvar Cadastro
+            </Botao>
+          </div>
+        </form>
       </Modal>
     </div>
   );

@@ -65,6 +65,9 @@ export class AvisosController {
   meus(@Req() req: any) {
     const idsPerfis: number[] = (req.user?.perfis || []).map((p: any) => p.id_perfil);
     if (!idsPerfis.length) return [];
+    const tipos: string[] = (req.user?.perfis || []).map((p: any) => p.tipo);
+    const temMorador = tipos.includes('MORADOR');
+
     return this.db.query(`
       SELECT DISTINCT ON (a.id_aviso)
              COALESCE(ap.id_aviso_perfil, 0) AS id_aviso_perfil,
@@ -86,9 +89,12 @@ export class AvisosController {
           OR ap.id_perfil = ANY($1::int[])
           OR a.id_perfil_autor = ANY($1::int[])
        )
+         AND (
+           $2 = TRUE OR (a.escopo <> 'INDIVIDUAL' AND a.titulo NOT ILIKE '%encomenda%')
+         )
          AND a.data_hora_publicacao <= CURRENT_TIMESTAMP
          AND (a.data_hora_expiracao IS NULL OR a.data_hora_expiracao > CURRENT_TIMESTAMP)
-       ORDER BY a.id_aviso, a.fixado DESC, a.data_hora_publicacao DESC`, [idsPerfis])
+       ORDER BY a.id_aviso, a.fixado DESC, a.data_hora_publicacao DESC`, [idsPerfis, temMorador])
       .then(rows => rows.sort((x, y) => {
         if (x.fixado !== y.fixado) return x.fixado ? -1 : 1;
         return new Date(y.data_hora_publicacao).getTime() - new Date(x.data_hora_publicacao).getTime();

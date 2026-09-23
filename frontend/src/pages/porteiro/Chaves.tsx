@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, sessaoAtual } from '../../api';
 import { Botao, Campo, Cartao, inputCls, Mensagem, Titulo, Icone, Badge, EmptyState, Modal, ModalConfirmacao } from '../../components/ui';
+import { formatarDataHora } from '../../utils/data';
 import SeletorMorador from '../../components/SeletorMorador';
 
 type Chave = {
@@ -20,8 +21,10 @@ type Chave = {
 type Pessoa = {
   id_pessoa: number;
   nome: string;
+  papel_controle?: string;
+  tipo_servico?: string | null;
   perfis: { tipo: string; id_perfil: number }[];
-  unidades?: { bloco: string; apartamento: string }[];
+  unidades?: { bloco: string; apartamento: string; vinculo?: string }[];
 };
 
 type AreaItem = {
@@ -70,20 +73,36 @@ export default function Chaves() {
     carregar();
   }, []);
 
-  const moradores = pessoas
-    .map(p => ({
-      nome: p.nome,
-      perfil: p.perfis?.find(x => x.tipo === 'MORADOR'),
-      unidades: p.unidades,
-    }))
-    .filter(p => p.perfil);
+  const solicitantesChave = pessoas
+    .filter(p => {
+      const temMorador = (p.perfis || []).some(pf => pf.tipo === 'MORADOR');
+      const ehPrestador =
+        p.papel_controle === 'PRESTADOR_SERVICO' ||
+        (p.perfis || []).some(pf => pf.tipo === 'PRESTADOR_SERVICO') ||
+        (p.unidades || []).some(u => u.vinculo === 'PRESTADOR_SERVICO');
+      return temMorador || ehPrestador;
+    })
+    .map(p => {
+      const ehPrestador =
+        p.papel_controle === 'PRESTADOR_SERVICO' ||
+        (p.perfis || []).some(pf => pf.tipo === 'PRESTADOR_SERVICO') ||
+        (p.unidades || []).some(u => u.vinculo === 'PRESTADOR_SERVICO');
+      const rotuloPrestador = p.tipo_servico
+        ? `(Prestador: ${p.tipo_servico})`
+        : `(Prestador de Serviço)`;
+      return {
+        id: p.id_pessoa,
+        nome: ehPrestador ? `${p.nome} ${rotuloPrestador}` : p.nome,
+        unidades: p.unidades,
+      };
+    });
 
   async function confirmarEmprestimo() {
     if (!emprestando || !solicitante) return;
     setSalvando(true);
     try {
       await api.post(`/portaria/chaves/${emprestando.id_chave}/emprestimo`, {
-        id_perfil_solicitante: Number(solicitante),
+        id_pessoa_solicitante: Number(solicitante),
       });
       setMsg({ t: `Empréstimo da chave "${emprestando.codigo}" registrado com sucesso.`, tipo: 'ok' });
       setEmprestando(null);
@@ -370,7 +389,7 @@ export default function Chaves() {
 
                   {/* Informações de quem está com a chave */}
                   {!disponivel && c.responsavel && (
-                    <div className="mt-3.5 rounded-xl border border-amber-200/80 bg-white dark:border-amber-900/50 dark:bg-slate-850 p-3 text-xs text-slate-700 dark:text-slate-300 space-y-1">
+                    <div className="mt-3.5 rounded-xl border border-amber-200/80 bg-white dark:border-amber-900/60 dark:bg-slate-850 p-3 text-xs text-slate-700 dark:text-slate-300 space-y-1">
                       <p className="text-[11px] font-semibold text-amber-800 dark:text-amber-400 uppercase tracking-wider">
                         Com quem está a chave:
                       </p>
@@ -383,18 +402,13 @@ export default function Chaves() {
                         )}
                       </div>
                       {c.contato_responsavel && (
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                          Tel: <b>{c.contato_responsavel}</b>
+                        <p className="text-[11px] text-slate-600 dark:text-slate-300">
+                          Tel: <b className="text-slate-800 dark:text-slate-100">{c.contato_responsavel}</b>
                         </p>
                       )}
                       {c.data_hora_retirada && (
-                        <p className="text-[10px] text-slate-400 dark:text-slate-500 pt-1 border-t border-slate-100 dark:border-slate-800">
-                          Retirada em: {new Date(c.data_hora_retirada).toLocaleString('pt-BR', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
+                        <p className="text-[10px] text-slate-400 dark:text-slate-400 pt-1 border-t border-slate-100 dark:border-slate-800">
+                          Retirada em: {formatarDataHora(c.data_hora_retirada, false)}
                         </p>
                       )}
                     </div>
@@ -419,9 +433,9 @@ export default function Chaves() {
                   ) : (
                     c.id_entrega_chave && (
                       <Botao
-                        variante="primario"
+                        variante="sucesso"
                         tamanho="sm"
-                        className="w-full justify-center bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600"
+                        className="w-full justify-center"
                         icone={<Icone nome="check" className="h-3.5 w-3.5" />}
                         onClick={() => devolver(c.id_entrega_chave!, c.codigo)}
                       >
@@ -441,6 +455,7 @@ export default function Chaves() {
         aberto={!!emprestando}
         fechar={() => setEmprestando(null)}
         titulo={`Empréstimo da Chave ${emprestando?.codigo || ''}`}
+        largura="max-w-lg sm:max-w-xl"
         rodape={
           emprestando && (
             <>
@@ -461,22 +476,25 @@ export default function Chaves() {
       >
         {emprestando && (
           <div className="space-y-4">
-            <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-3 text-xs text-slate-600 dark:text-slate-300 border border-slate-100 dark:border-slate-700 space-y-1">
-              <p>Código da Chave: <b className="text-slate-900 dark:text-slate-100">{emprestando.codigo}</b></p>
-              <p>Área Comum: <b className="text-slate-900 dark:text-slate-100">{emprestando.area}</b></p>
+            <div className="rounded-xl bg-slate-50 dark:bg-slate-800/80 p-3.5 text-xs text-slate-600 dark:text-slate-300 border border-slate-100 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div>
+                <p className="text-[11px] font-medium text-slate-400 dark:text-slate-400">Código da Chave</p>
+                <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{emprestando.codigo}</p>
+              </div>
+              <div className="sm:text-right">
+                <p className="text-[11px] font-medium text-slate-400 dark:text-slate-400">Área Comum</p>
+                <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{emprestando.area}</p>
+              </div>
             </div>
 
-            <Campo rotulo="Morador Solicitante (Responsável pela Chave)" obrigatorio>
+            <Campo rotulo="Solicitante Responsável pela Chave (Morador ou Prestador de Serviço)" obrigatorio>
               <SeletorMorador
-                moradores={moradores.map(m => ({
-                  id: m.perfil!.id_perfil,
-                  nome: m.nome,
-                  unidades: m.unidades,
-                }))}
+                moradores={solicitantesChave}
                 valor={solicitante}
                 onChange={setSolicitante}
-                placeholder="Pesquisar por nome ou número do apto..."
+                placeholder="Pesquisar por morador, apto ou prestador..."
                 obrigatorio
+                menuEstatico
               />
             </Campo>
           </div>
@@ -497,9 +515,9 @@ export default function Chaves() {
               onChange={e => setNovaChaveArea(Number(e.target.value) || '')}
               required
             >
-              <option value="">Selecione a área comum...</option>
+              <option value="" className="dark:bg-slate-800 dark:text-slate-100">Selecione a área comum...</option>
               {areas.map(a => (
-                <option key={a.id_area_comum} value={a.id_area_comum}>
+                <option key={a.id_area_comum} value={a.id_area_comum} className="dark:bg-slate-800 dark:text-slate-100">
                   {a.nome}
                 </option>
               ))}

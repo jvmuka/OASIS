@@ -5,6 +5,7 @@ import { IMAGEM_MAX_BYTES, IMAGEM_MAX_MB, IMAGEM_TIPOS_ACEITOS, IMAGEM_EXTENSOES
 import type { Area, BloqueioArea, DependenciasArea, DiaSemana, JanelaHorario, HorarioForm, ConflitoTurnoInfo } from '../../types/areas';
 import { DIAS_SEMANA_CONFIG, HORARIOS_DIA } from '../../types/areas';
 import { criarHorariosPadrao, formatarDiasSemana, analisarConflitosDia } from '../../utils/horarios';
+import { formatarDuracao, formatarHoras } from '../../utils/data';
 
 // Re-exportar tipo renomeado para compatibilidade interna
 type Dependencias = DependenciasArea;
@@ -375,24 +376,6 @@ function parseNum(val: string, min = 0, max?: number): number {
   if (n < min) n = min;
   if (max !== undefined && n > max) n = max;
   return n;
-}
-
-/** Formata minutos para exibição amigável em horas e minutos. */
-function formatarDuracao(minutos: number): string {
-  const h = Math.floor(minutos / 60);
-  const m = minutos % 60;
-  if (h > 0 && m > 0) return `${h}h ${m}min`;
-  if (h > 0) return `${h}h`;
-  return `${m}min`;
-}
-
-/** Formata horas para exibição amigável em dias e horas. */
-function formatarHoras(horasTotal: number): string {
-  const d = Math.floor(horasTotal / 24);
-  const h = horasTotal % 24;
-  if (d > 0 && h > 0) return `${d}d ${h}h`;
-  if (d > 0) return `${d}d`;
-  return `${h}h`;
 }
 
 /** Valida tamanho e formato da imagem antes do envio; retorna a mensagem de erro ou null se valida. */

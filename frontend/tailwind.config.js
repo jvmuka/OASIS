@@ -10,6 +10,9 @@ export default {
         display: ['"Plus Jakarta Sans"', 'Inter', 'sans-serif'],
       },
       colors: {
+        slate: {
+          850: '#151f32',
+        },
         navy: {
           50: '#f0f4f9',
           100: '#dde6f1',

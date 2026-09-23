@@ -169,6 +169,7 @@ export default function Layout() {
                   {item('/portaria/areas-livres', 'Áreas de Uso Livre', 'clock')}
                   {item('/portaria/encomendas', 'Encomendas', 'package')}
                   {item('/portaria/chaves', 'Controle de Chaves', 'key')}
+                  {item('/sindico/pessoas', 'Pessoas & Cadastros', 'users')}
                 </div>
               </div>
             )}

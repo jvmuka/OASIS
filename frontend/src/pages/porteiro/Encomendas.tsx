@@ -119,11 +119,13 @@ export default function Encomendas() {
             <form onSubmit={registrar} className="space-y-4">
               <Campo rotulo="Morador Destinatário" obrigatorio>
                 <SeletorMorador
-                  moradores={pessoas.map(p => ({
-                    id: p.id_pessoa,
-                    nome: p.nome,
-                    unidades: p.unidades,
-                  }))}
+                  moradores={pessoas
+                    .filter(p => p.unidades && p.unidades.length > 0)
+                    .map(p => ({
+                      id: p.id_pessoa,
+                      nome: p.nome,
+                      unidades: p.unidades,
+                    }))}
                   valor={destinatario}
                   onChange={setDestinatario}
                   placeholder="Pesquisar por nome ou número do apto..."

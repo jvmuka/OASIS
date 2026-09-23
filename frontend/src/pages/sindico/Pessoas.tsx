@@ -37,7 +37,7 @@ type UnidadeVinculada = {
   id_unidade: number;
   bloco: string;
   apartamento: string;
-  vinculo: 'PROPRIETARIO' | 'INQUILINO' | 'DEPENDENTE';
+  vinculo: 'PROPRIETARIO' | 'INQUILINO' | 'DEPENDENTE' | 'VISITANTE' | 'PRESTADOR_SERVICO';
   parentesco?: string;
   id_responsavel?: number;
   status_aprovacao?: string;
@@ -52,6 +52,8 @@ type Pessoa = {
   celular?: string;
   data_nascimento?: string;
   status_conta?: string;
+  papel_controle?: string;
+  tipo_servico?: string;
   ativo: boolean;
   perfis: { tipo: string; id_perfil: number }[];
   unidades: UnidadeVinculada[];
@@ -143,18 +145,53 @@ const OPCOES_PAPEIS = [
       'border-indigo-500 bg-indigo-50/80 text-indigo-900 dark:bg-indigo-950/40 dark:border-indigo-500 dark:text-indigo-200 shadow-xs',
     iconeCor: 'text-indigo-600 dark:text-indigo-400',
   },
+  {
+    tipo: 'VISITANTE',
+    titulo: 'Visitante',
+    descricao: 'Controle de visitantes do condomínio (sem login no sistema)',
+    icone: 'user' as const,
+    corAtiva:
+      'border-cyan-500 bg-cyan-50/80 text-cyan-900 dark:bg-cyan-950/40 dark:border-cyan-500 dark:text-cyan-200 shadow-xs',
+    iconeCor: 'text-cyan-600 dark:text-cyan-400',
+  },
+  {
+    tipo: 'PRESTADOR_SERVICO',
+    titulo: 'Prestador de Serviço',
+    descricao: 'Obras, reparos e empréstimo de chaves (sem login no sistema)',
+    icone: 'wrench' as const,
+    corAtiva:
+      'border-orange-500 bg-orange-50/80 text-orange-900 dark:bg-orange-950/40 dark:border-orange-500 dark:text-orange-200 shadow-xs',
+    iconeCor: 'text-orange-600 dark:text-orange-400',
+  },
 ];
 
 /** Determina explicitamente o que o usuário é no condomínio considerando qualquer combinação */
 function obterPapelUsuario(p: Pessoa): {
   papel: string;
   badgeCls: string;
-  icone: 'shield' | 'home' | 'key' | 'user';
+  icone: 'shield' | 'home' | 'key' | 'user' | 'wrench';
 } {
   const tipos = (p.perfis || []).map(pf => pf.tipo);
   const temSindico = tipos.includes('SINDICO') || tipos.includes('ADMINISTRADOR');
   const temMorador = tipos.includes('MORADOR');
   const temPorteiro = tipos.includes('PORTEIRO');
+
+  if (p.papel_controle === 'PRESTADOR_SERVICO' || (!temSindico && !temMorador && !temPorteiro && p.unidades?.some(u => u.vinculo === 'PRESTADOR_SERVICO'))) {
+    return {
+      papel: p.tipo_servico ? `Prestador: ${p.tipo_servico}` : 'Prestador de Serviço',
+      badgeCls:
+        'bg-orange-50 text-orange-700 dark:bg-orange-950/60 dark:text-orange-300 border border-orange-200/80 dark:border-orange-800/60',
+      icone: 'wrench',
+    };
+  }
+  if (p.papel_controle === 'VISITANTE' || (!temSindico && !temMorador && !temPorteiro && p.unidades?.some(u => u.vinculo === 'VISITANTE'))) {
+    return {
+      papel: 'Visitante',
+      badgeCls:
+        'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/60 dark:text-cyan-300 border border-cyan-200/80 dark:border-cyan-800/60',
+      icone: 'user',
+    };
+  }
 
   if (temSindico && temMorador && temPorteiro) {
     return {
@@ -212,13 +249,45 @@ function obterPapelUsuario(p: Pessoa): {
   };
 }
 
+export interface PessoasProps {
+  apenasConsulta?: boolean;
+  embutido?: boolean;
+  titulo?: string;
+  subtitulo?: string;
+}
+
 /** UC11 - Gestão de Pessoas, Unidades, Vínculos Familiares e Aprovações */
-export default function Pessoas() {
+export default function Pessoas({
+  apenasConsulta = false,
+  embutido = false,
+  titulo,
+  subtitulo,
+}: PessoasProps = {}) {
   const [pessoas, setPessoas] = useState<Pessoa[]>([]);
   const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [aprovacoes, setAprovacoes] = useState<AprovacaoPendente[]>([]);
-  const [abaAtiva, setAbaAtiva] = useState<'ativos' | 'inativos' | 'aprovacoes'>('ativos');
-  const [busca, setBusca] = useState('');
+  const [abaAtiva, setAbaAtiva] = useState<'pessoas' | 'aprovacoes'>('pessoas');
+
+  // Filtros Segmentados
+  const [filtroStatus, setFiltroStatus] = useState<'TODOS' | 'ATIVOS' | 'INATIVOS'>('TODOS');
+  const [buscaNome, setBuscaNome] = useState('');
+  const [buscaCpf, setBuscaCpf] = useState('');
+  const [buscaApto, setBuscaApto] = useState('');
+  const [filtroFuncao, setFiltroFuncao] = useState<string>('TODAS');
+
+  // Ordenação de Colunas
+  type ColunaOrdenavel = 'nome' | 'apartamento' | 'papel' | 'dependentes' | 'status';
+  const [colunaOrdenada, setColunaOrdenada] = useState<ColunaOrdenavel>('nome');
+  const [direcaoOrdenacao, setDirecaoOrdenacao] = useState<'asc' | 'desc'>('asc');
+
+  function alternarOrdenacao(coluna: ColunaOrdenavel) {
+    if (colunaOrdenada === coluna) {
+      setDirecaoOrdenacao(d => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setColunaOrdenada(coluna);
+      setDirecaoOrdenacao('asc');
+    }
+  }
 
   // Modais de Criação & Edição
   const [modalAberto, setModalAberto] = useState(false);
@@ -244,6 +313,9 @@ export default function Pessoas() {
   const [msg, setMsg] = useState<{ t: string; tipo: 'erro' | 'ok' }>({ t: '', tipo: 'ok' });
 
   const sessao = sessaoAtual();
+  const perfisUsuario = (sessao?.perfis || []).map(p => p.tipo);
+  const ehApenasPorteiro = perfisUsuario.includes('PORTEIRO') && !perfisUsuario.includes('SINDICO') && !perfisUsuario.includes('ADMINISTRADOR');
+  const somenteLeitura = apenasConsulta || ehApenasPorteiro;
 
   // Formulário de Cadastro
   const [form, setForm] = useState<{
@@ -257,6 +329,8 @@ export default function Pessoas() {
     perfis: string[];
     id_responsavel: string;
     grau_parentesco: string;
+    reside: boolean;
+    tipo_servico: string;
   }>({
     nome: '',
     email: '',
@@ -268,6 +342,8 @@ export default function Pessoas() {
     perfis: ['MORADOR'],
     id_responsavel: '',
     grau_parentesco: 'FILHO',
+    reside: true,
+    tipo_servico: '',
   });
 
   // Formulário de Edição
@@ -282,6 +358,8 @@ export default function Pessoas() {
     perfis: string[];
     id_responsavel: string;
     grau_parentesco: string;
+    reside: boolean;
+    tipo_servico: string;
   }>({
     nome: '',
     email: '',
@@ -293,6 +371,8 @@ export default function Pessoas() {
     perfis: ['MORADOR'],
     id_responsavel: '',
     grau_parentesco: 'FILHO',
+    reside: true,
+    tipo_servico: '',
   });
 
   // Contagem de administradores ativos para proteção do administrador único
@@ -307,33 +387,86 @@ export default function Pessoas() {
 
   function togglePerfilEdicao(tipo: string) {
     if (ehUnicoAdmin && tipo === 'SINDICO') return;
+    if (ehUnicoAdmin && (tipo === 'VISITANTE' || tipo === 'PRESTADOR_SERVICO')) {
+      setErroEdicao('O único administrador ativo do condomínio não pode ter o papel alterado para Visitante ou Prestador de Serviço.');
+      return;
+    }
+
     const atuais = formEdicao.perfis || [];
+    setErroEdicao(null);
+
+    // Se está desmarcando o tipo que já estava selecionado
     if (atuais.includes(tipo)) {
+      if (tipo === 'VISITANTE' || tipo === 'PRESTADOR_SERVICO') {
+        // Ao desmarcar o papel exclusivo, volta para Morador e reseta vínculo
+        setFormEdicao({ ...formEdicao, perfis: ['MORADOR'], tipo_vinculo: 'PROPRIETARIO' });
+        return;
+      }
       if (atuais.length === 1) {
         setErroEdicao('A pessoa deve ter pelo menos um papel ativo no condomínio.');
         return;
       }
-      setErroEdicao(null);
       setFormEdicao({ ...formEdicao, perfis: atuais.filter(t => t !== tipo) });
-    } else {
-      setErroEdicao(null);
-      setFormEdicao({ ...formEdicao, perfis: [...atuais, tipo] });
+      return;
     }
+
+    // Se está selecionando VISITANTE ou PRESTADOR_SERVICO, nenhum outro papel pode ser marcado
+    if (tipo === 'VISITANTE' || tipo === 'PRESTADOR_SERVICO') {
+      setFormEdicao({ ...formEdicao, perfis: [tipo], tipo_vinculo: tipo });
+      return;
+    }
+
+    // Se está selecionando outro papel (ex: Morador, Porteiro, Síndico) e Visitante/Prestador estava selecionado,
+    // substitui pelo novo papel e reseta vínculo para PROPRIETARIO
+    if (atuais.includes('VISITANTE') || atuais.includes('PRESTADOR_SERVICO')) {
+      setFormEdicao({
+        ...formEdicao,
+        perfis: [tipo],
+        tipo_vinculo: 'PROPRIETARIO',
+      });
+      return;
+    }
+
+    setFormEdicao({ ...formEdicao, perfis: [...atuais, tipo] });
   }
 
   function togglePerfilCadastro(tipo: string) {
     const atuais = form.perfis || [];
+    setErroCadastro(null);
+
+    // Se está desmarcando o tipo que já estava selecionado
     if (atuais.includes(tipo)) {
+      if (tipo === 'VISITANTE' || tipo === 'PRESTADOR_SERVICO') {
+        // Ao desmarcar o papel exclusivo, volta para Morador e reseta vínculo
+        setForm({ ...form, perfis: ['MORADOR'], tipo_vinculo: 'PROPRIETARIO' });
+        return;
+      }
       if (atuais.length === 1) {
         setErroCadastro('A pessoa deve ter pelo menos um papel ativo no condomínio.');
         return;
       }
-      setErroCadastro(null);
       setForm({ ...form, perfis: atuais.filter(t => t !== tipo) });
-    } else {
-      setErroCadastro(null);
-      setForm({ ...form, perfis: [...atuais, tipo] });
+      return;
     }
+
+    // Se está selecionando VISITANTE ou PRESTADOR_SERVICO, nenhum outro papel pode ser marcado
+    if (tipo === 'VISITANTE' || tipo === 'PRESTADOR_SERVICO') {
+      setForm({ ...form, perfis: [tipo], tipo_vinculo: tipo });
+      return;
+    }
+
+    // Se está selecionando outro papel (ex: Morador, Porteiro, Síndico) e Visitante/Prestador estava selecionado,
+    // substitui pelo novo papel e reseta vínculo para PROPRIETARIO
+    if (atuais.includes('VISITANTE') || atuais.includes('PRESTADOR_SERVICO')) {
+      setForm({
+        ...form,
+        perfis: [tipo],
+        tipo_vinculo: 'PROPRIETARIO',
+      });
+      return;
+    }
+
+    setForm({ ...form, perfis: [...atuais, tipo] });
   }
 
   // Penalidades e Restrições de Áreas Comuns (RN03)
@@ -350,10 +483,9 @@ export default function Pessoas() {
     data_hora_fim: '',
   });
 
-  const carregarPessoas = (termoBusca?: string) => {
-    const q = termoBusca !== undefined ? termoBusca : busca;
+  const carregarPessoas = () => {
     return api
-      .get<Pessoa[]>('/cadastros/pessoas' + (q ? `?busca=${encodeURIComponent(q)}` : ''))
+      .get<Pessoa[]>('/cadastros/pessoas')
       .then(setPessoas)
       .catch(() => setPessoas([]));
   };
@@ -365,20 +497,149 @@ export default function Pessoas() {
     api.get<AprovacaoPendente[]>('/cadastros/aprovacoes-pendentes').then(setAprovacoes);
 
   useEffect(() => {
+    carregarPessoas();
     carregarUnidades();
-    carregarAprovacoes();
-  }, []);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      carregarPessoas(busca);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [busca]);
+    if (!somenteLeitura) {
+      carregarAprovacoes();
+    }
+  }, [somenteLeitura]);
 
   const pessoasAtivas = pessoas.filter(p => p.ativo);
   const pessoasInativas = pessoas.filter(p => !p.ativo);
-  const listaExibida = abaAtiva === 'ativos' ? pessoasAtivas : pessoasInativas;
+
+  const temBuscaTexto = Boolean(buscaNome.trim() || buscaCpf.trim() || buscaApto.trim());
+  const temFiltroAtivo = Boolean(
+    temBuscaTexto || (filtroFuncao && filtroFuncao !== 'TODAS') || filtroStatus !== 'TODOS'
+  );
+
+  function limparFiltros() {
+    setBuscaNome('');
+    setBuscaCpf('');
+    setBuscaApto('');
+    setFiltroFuncao('TODAS');
+    setFiltroStatus('TODOS');
+  }
+
+  // Filtragem combinada
+  const pessoasFiltradas = pessoas.filter(p => {
+    // 0. Filtro Status
+    // Quando pesquisa por nome ou dados, inclui perfis inativos para facilitar a localização
+    if (filtroStatus === 'ATIVOS' && !p.ativo) {
+      if (!buscaNome.trim()) return false;
+    }
+    if (filtroStatus === 'INATIVOS' && p.ativo) {
+      return false;
+    }
+
+    // 1. Filtro Nome / E-mail
+    if (buscaNome.trim()) {
+      const termo = buscaNome.toLowerCase().trim();
+      const matchNome = p.nome.toLowerCase().includes(termo);
+      const matchEmail = (p.email || '').toLowerCase().includes(termo);
+      const matchServico = (p.tipo_servico || '').toLowerCase().includes(termo);
+      if (!matchNome && !matchEmail && !matchServico) return false;
+    }
+
+    // 2. Filtro CPF
+    if (buscaCpf.trim()) {
+      const termoCpfLimpo = buscaCpf.replace(/\D/g, '');
+      const pCpfLimpo = (p.cpf || '').replace(/\D/g, '');
+      if (termoCpfLimpo) {
+        if (!pCpfLimpo.includes(termoCpfLimpo)) return false;
+      } else {
+        if (!(p.cpf || '').toLowerCase().includes(buscaCpf.toLowerCase().trim())) return false;
+      }
+    }
+
+    // 3. Filtro Apartamento / Bloco
+    if (buscaApto.trim()) {
+      const termoApto = buscaApto.toLowerCase().trim();
+      const temUnidade = (p.unidades || []).some(u => {
+        const apto = (u.apartamento || '').toLowerCase();
+        const bloco = (u.bloco || '').toLowerCase();
+        return (
+          apto.includes(termoApto) ||
+          bloco.includes(termoApto) ||
+          `bl. ${bloco} - apto ${apto}`.toLowerCase().includes(termoApto) ||
+          `bloco ${bloco} apartamento ${apto}`.toLowerCase().includes(termoApto) ||
+          `${bloco}${apto}`.includes(termoApto)
+        );
+      });
+      if (!temUnidade) return false;
+    }
+
+    // 4. Filtro Função / Papel no Condomínio
+    if (filtroFuncao && filtroFuncao !== 'TODAS') {
+      const tiposPerfis = (p.perfis || []).map(pf => pf.tipo);
+      const uAtiva = p.unidades && p.unidades[0];
+      const vinculo = uAtiva?.vinculo;
+
+      if (filtroFuncao === 'PROPRIETARIO') {
+        if (vinculo !== 'PROPRIETARIO') return false;
+      } else if (filtroFuncao === 'INQUILINO') {
+        if (vinculo !== 'INQUILINO') return false;
+      } else if (filtroFuncao === 'DEPENDENTE') {
+        if (vinculo !== 'DEPENDENTE') return false;
+      } else if (filtroFuncao === 'MORADOR') {
+        if (!tiposPerfis.includes('MORADOR')) return false;
+      } else if (filtroFuncao === 'PORTEIRO') {
+        if (!tiposPerfis.includes('PORTEIRO')) return false;
+      } else if (filtroFuncao === 'ADMINISTRADOR') {
+        if (!tiposPerfis.includes('SINDICO') && !tiposPerfis.includes('ADMINISTRADOR')) return false;
+      } else if (filtroFuncao === 'VISITANTE') {
+        if (p.papel_controle !== 'VISITANTE' && vinculo !== 'VISITANTE') return false;
+      } else if (filtroFuncao === 'PRESTADOR_SERVICO') {
+        if (p.papel_controle !== 'PRESTADOR_SERVICO' && vinculo !== 'PRESTADOR_SERVICO') return false;
+      }
+    }
+
+    return true;
+  });
+
+  // Ordenação por coluna clicável
+  const listaExibida = [...pessoasFiltradas].sort((a, b) => {
+    let comp = 0;
+
+    if (colunaOrdenada === 'nome') {
+      comp = a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' });
+    } else if (colunaOrdenada === 'apartamento') {
+      const uA = a.unidades?.[0];
+      const uB = b.unidades?.[0];
+      if (!uA && !uB) comp = 0;
+      else if (!uA) comp = 1;
+      else if (!uB) comp = -1;
+      else {
+        const compBloco = (uA.bloco || '').localeCompare(uB.bloco || '', 'pt-BR');
+        if (compBloco !== 0) {
+          comp = compBloco;
+        } else {
+          const numA = parseInt(uA.apartamento, 10) || 0;
+          const numB = parseInt(uB.apartamento, 10) || 0;
+          comp = numA !== numB ? numA - numB : uA.apartamento.localeCompare(uB.apartamento);
+        }
+      }
+    } else if (colunaOrdenada === 'papel') {
+      const papelA = `${obterPapelUsuario(a).papel} ${a.unidades?.[0]?.vinculo || ''}`;
+      const papelB = `${obterPapelUsuario(b).papel} ${b.unidades?.[0]?.vinculo || ''}`;
+      comp = papelA.localeCompare(papelB, 'pt-BR');
+    } else if (colunaOrdenada === 'dependentes') {
+      const depA = a.dependentes?.length || 0;
+      const depB = b.dependentes?.length || 0;
+      comp = depA - depB;
+    } else if (colunaOrdenada === 'status') {
+      const statusWeightA = a.ativo ? 2 : 0;
+      const statusWeightB = b.ativo ? 2 : 0;
+      const bloqA = a.total_bloqueios_ativos || 0;
+      const bloqB = b.total_bloqueios_ativos || 0;
+      if (statusWeightA !== statusWeightB) {
+        comp = statusWeightA - statusWeightB;
+      } else {
+        comp = bloqA - bloqB;
+      }
+    }
+
+    return direcaoOrdenacao === 'asc' ? comp : -comp;
+  });
 
   async function cadastrar(e: React.FormEvent) {
     e.preventDefault();
@@ -395,6 +656,34 @@ export default function Pessoas() {
       return;
     }
 
+    const ehApenasExterno = form.perfis.every(pf => pf === 'VISITANTE' || pf === 'PRESTADOR_SERVICO');
+    const ehPrestador = form.perfis.includes('PRESTADOR_SERVICO');
+    const ehVisitante = form.perfis.includes('VISITANTE');
+    const tipoVinculoEfetivo = ehPrestador
+      ? 'PRESTADOR_SERVICO'
+      : ehVisitante
+      ? 'VISITANTE'
+      : form.tipo_vinculo;
+
+    if (ehPrestador && !form.tipo_servico.trim()) {
+      setErroCadastro('Por favor, informe a descrição do tipo de prestador de serviço (ex: Eletricista, Encanador, Pintor, etc.).');
+      setMsg({ t: 'Informe a descrição do tipo de prestador de serviço.', tipo: 'erro' });
+      return;
+    }
+
+    // Validação obrigatória de Morador: exige unidade vinculada
+    if (form.perfis.includes('MORADOR') && (!form.id_unidade || Number(form.id_unidade) <= 0)) {
+      setErroCadastro('Para o papel de Morador, é obrigatório selecionar uma unidade vinculada (bloco e apartamento).');
+      setMsg({ t: 'Para o papel de Morador, é obrigatório selecionar uma unidade vinculada.', tipo: 'erro' });
+      return;
+    }
+
+    if (!ehApenasExterno && !form.email.trim()) {
+      setErroCadastro('O e-mail é obrigatório para cadastros com acesso ao sistema.');
+      setMsg({ t: 'Informe o e-mail para acesso ao sistema.', tipo: 'erro' });
+      return;
+    }
+
     setSalvando(true);
     setErroCadastro(null);
     setMsg({ t: '', tipo: 'ok' });
@@ -403,9 +692,12 @@ export default function Pessoas() {
         ...form,
         cpf: cpfLimpo,
         perfis: form.perfis,
+        tipo_vinculo: tipoVinculoEfetivo,
         id_unidade: form.id_unidade ? Number(form.id_unidade) : undefined,
-        id_responsavel: form.id_responsavel ? Number(form.id_responsavel) : undefined,
-        grau_parentesco: form.tipo_vinculo === 'DEPENDENTE' ? form.grau_parentesco : undefined,
+        id_responsavel: tipoVinculoEfetivo === 'DEPENDENTE' && form.id_responsavel ? Number(form.id_responsavel) : undefined,
+        grau_parentesco: tipoVinculoEfetivo === 'DEPENDENTE' ? form.grau_parentesco : undefined,
+        reside: ehApenasExterno ? false : form.reside,
+        tipo_servico: ehPrestador ? form.tipo_servico.trim() : undefined,
       });
 
       setMsg({ t: `Pessoa "${form.nome}" cadastrada com sucesso!`, tipo: 'ok' });
@@ -442,8 +734,19 @@ export default function Pessoas() {
     if (tipos.includes('MORADOR')) perfisAtivos.push('MORADOR');
     if (tipos.includes('PORTEIRO')) perfisAtivos.push('PORTEIRO');
     if (tipos.includes('SINDICO') || tipos.includes('ADMINISTRADOR')) perfisAtivos.push('SINDICO');
+    if (p.papel_controle === 'VISITANTE' || u?.vinculo === 'VISITANTE') perfisAtivos.push('VISITANTE');
+    if (p.papel_controle === 'PRESTADOR_SERVICO' || u?.vinculo === 'PRESTADOR_SERVICO') perfisAtivos.push('PRESTADOR_SERVICO');
 
     if (perfisAtivos.length === 0) perfisAtivos.push('MORADOR');
+
+    let vinculoInicial = u?.vinculo || 'PROPRIETARIO';
+    if (perfisAtivos.includes('PRESTADOR_SERVICO')) {
+      vinculoInicial = 'PRESTADOR_SERVICO';
+    } else if (perfisAtivos.includes('VISITANTE')) {
+      vinculoInicial = 'VISITANTE';
+    } else if (vinculoInicial === 'PRESTADOR_SERVICO' || vinculoInicial === 'VISITANTE') {
+      vinculoInicial = 'PROPRIETARIO';
+    }
 
     setFormEdicao({
       nome: p.nome || '',
@@ -452,10 +755,12 @@ export default function Pessoas() {
       data_nascimento: p.data_nascimento ? p.data_nascimento.substring(0, 10) : '',
       celular: mascararCelular(p.celular || ''),
       id_unidade: u ? String(u.id_unidade) : '',
-      tipo_vinculo: u?.vinculo || 'PROPRIETARIO',
+      tipo_vinculo: vinculoInicial,
       perfis: perfisAtivos,
       id_responsavel: u?.id_responsavel ? String(u.id_responsavel) : '',
       grau_parentesco: u?.parentesco || 'FILHO',
+      reside: u?.reside !== undefined ? u.reside : true,
+      tipo_servico: p.tipo_servico || '',
     });
     setErroEdicao(null);
     setModalEdicaoAberto(true);
@@ -472,14 +777,35 @@ export default function Pessoas() {
     }
 
     if (!formEdicao.perfis || formEdicao.perfis.length === 0) {
-      setErroEdicao('A pessoa deve ter ao menos um papel ativo no condomínio.');
+      setErroEdicao('Selecione ao menos um papel ativo para o usuário.');
       setMsg({ t: 'Selecione ao menos um papel ativo para o usuário.', tipo: 'erro' });
+      return;
+    }
+
+    const ehPrestadorEdicao = formEdicao.perfis.includes('PRESTADOR_SERVICO');
+    const ehVisitanteEdicao = formEdicao.perfis.includes('VISITANTE');
+    const tipoVinculoEfetivoEdicao = ehPrestadorEdicao
+      ? 'PRESTADOR_SERVICO'
+      : ehVisitanteEdicao
+      ? 'VISITANTE'
+      : formEdicao.tipo_vinculo;
+
+    if (ehPrestadorEdicao && !formEdicao.tipo_servico.trim()) {
+      setErroEdicao('Por favor, informe a descrição do tipo de prestador de serviço (ex: Eletricista, Encanador, Pintor, etc.).');
+      setMsg({ t: 'Informe a descrição do tipo de prestador de serviço.', tipo: 'erro' });
       return;
     }
 
     if (ehUnicoAdmin && !formEdicao.perfis.includes('SINDICO')) {
       setErroEdicao('Não é permitido remover o seu próprio perfil de administrador quando você é o único administrador ativo do condomínio.');
       setMsg({ t: 'Você é o único administrador ativo e não pode remover este perfil de si mesmo.', tipo: 'erro' });
+      return;
+    }
+
+    // Validação obrigatória de Morador: exige unidade vinculada
+    if (formEdicao.perfis.includes('MORADOR') && (!formEdicao.id_unidade || Number(formEdicao.id_unidade) <= 0)) {
+      setErroEdicao('Para o papel de Morador, é obrigatório selecionar uma unidade vinculada (bloco e apartamento).');
+      setMsg({ t: 'Para o papel de Morador, é obrigatório selecionar uma unidade vinculada.', tipo: 'erro' });
       return;
     }
 
@@ -494,13 +820,20 @@ export default function Pessoas() {
         celular: formEdicao.celular,
         data_nascimento: formEdicao.data_nascimento,
         id_unidade: formEdicao.id_unidade ? Number(formEdicao.id_unidade) : null,
-        tipo_vinculo: formEdicao.tipo_vinculo,
+        tipo_vinculo: tipoVinculoEfetivoEdicao,
         id_responsavel:
-          formEdicao.tipo_vinculo === 'DEPENDENTE' && formEdicao.id_responsavel
+          tipoVinculoEfetivoEdicao === 'DEPENDENTE' && formEdicao.id_responsavel
             ? Number(formEdicao.id_responsavel)
             : null,
-        grau_parentesco: formEdicao.tipo_vinculo === 'DEPENDENTE' ? formEdicao.grau_parentesco : null,
+        grau_parentesco: tipoVinculoEfetivoEdicao === 'DEPENDENTE' ? formEdicao.grau_parentesco : null,
         perfis: formEdicao.perfis,
+        reside: (ehPrestadorEdicao || ehVisitanteEdicao) ? false : formEdicao.reside,
+        tipo_servico: ehPrestadorEdicao ? formEdicao.tipo_servico.trim() : null,
+        papel_controle: ehVisitanteEdicao
+          ? 'VISITANTE'
+          : ehPrestadorEdicao
+          ? 'PRESTADOR_SERVICO'
+          : (formEdicao.perfis[0] || 'MORADOR'),
       });
 
       // Se editou o próprio usuário logado, atualiza a sessão local imediatamente
@@ -731,6 +1064,8 @@ export default function Pessoas() {
       perfis: ['MORADOR'],
       id_responsavel: String(titular.id_pessoa),
       grau_parentesco: 'FILHO',
+      reside: true,
+      tipo_servico: '',
     });
     setErroCadastro(null);
     setModalPerfilAberto(false);
@@ -763,160 +1098,295 @@ export default function Pessoas() {
   );
 
   return (
-    <div className="space-y-6">
-      <Titulo
-        sub="Controle de moradores, relações familiares, gestão de inquilinos, síndicos e portaria."
-        icone={<Icone nome="users" className="h-5 w-5" />}
-        acao={
-          <Botao
-            variante="primario"
-            icone={<Icone nome="plus" className="h-4 w-4" />}
-            onClick={() => {
-              setForm({
-                nome: '',
-                email: '',
-                cpf: '',
-                data_nascimento: '',
-                celular: '',
-                id_unidade: '',
-                tipo_vinculo: 'PROPRIETARIO',
-                perfis: ['MORADOR'],
-                id_responsavel: '',
-                grau_parentesco: 'FILHO',
-              });
-              setErroCadastro(null);
-              setModalAberto(true);
-            }}
+    <div className={embutido ? 'space-y-4' : 'space-y-6'}>
+      {!embutido && (
+        <>
+          <Titulo
+            sub="Controle de moradores, relações familiares, gestão de inquilinos, síndicos e portaria."
+            icone={<Icone nome="users" className="h-5 w-5" />}
+            acao={
+              !somenteLeitura ? (
+                <Botao
+                  variante="primario"
+                  icone={<Icone nome="plus" className="h-4 w-4" />}
+                  onClick={() => {
+                    setForm({
+                      nome: '',
+                      email: '',
+                      cpf: '',
+                      data_nascimento: '',
+                      celular: '',
+                      id_unidade: '',
+                      tipo_vinculo: 'PROPRIETARIO',
+                      perfis: ['MORADOR'],
+                      id_responsavel: '',
+                      grau_parentesco: 'FILHO',
+                      reside: true,
+                      tipo_servico: '',
+                    });
+                    setErroCadastro(null);
+                    setModalAberto(true);
+                  }}
+                >
+                  Cadastrar Pessoa
+                </Botao>
+              ) : undefined
+            }
           >
-            Cadastrar Pessoa
-          </Botao>
-        }
-      >
-        Pessoas & Unidades
-      </Titulo>
+            Pessoas & Unidades
+          </Titulo>
 
-      {/* Seletor de Abas: Cadastros Ativos vs Usuários Inativos vs Aprovações Pendentes */}
-      <div className="flex flex-wrap gap-2 border-b border-slate-200 dark:border-slate-800">
-        <button
-          onClick={() => setAbaAtiva('ativos')}
-          className={`pb-2.5 px-3.5 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
-            abaAtiva === 'ativos'
-              ? 'border-navy text-navy dark:border-sky-400 dark:text-sky-400'
-              : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
-          }`}
-        >
-          <Icone nome="users" className="h-3.5 w-3.5" />
-          Cadastros Ativos ({pessoasAtivas.length})
-        </button>
+          {/* Seletor de Abas: Cadastros Gerais vs Aprovações Pendentes */}
+          <div className="flex flex-wrap gap-2 border-b border-slate-200 dark:border-slate-800">
+            <button
+              onClick={() => setAbaAtiva('pessoas')}
+              className={`pb-2.5 px-3.5 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
+                abaAtiva === 'pessoas'
+                  ? 'border-navy text-navy dark:border-sky-400 dark:text-sky-400'
+                  : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+              }`}
+            >
+              <Icone nome="users" className="h-3.5 w-3.5" />
+              Pessoas & Cadastros ({pessoas.length})
+            </button>
 
-        <button
-          onClick={() => setAbaAtiva('inativos')}
-          className={`pb-2.5 px-3.5 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
-            abaAtiva === 'inativos'
-              ? 'border-rose-500 text-rose-600 dark:border-rose-400 dark:text-rose-400'
-              : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
-          }`}
-        >
-          <Icone nome="trash" className="h-3.5 w-3.5" />
-          Usuários Inativos ({pessoasInativas.length})
-        </button>
-
-        <button
-          onClick={() => setAbaAtiva('aprovacoes')}
-          className={`pb-2.5 px-3.5 text-xs font-bold border-b-2 flex items-center gap-1.5 transition-all cursor-pointer ${
-            abaAtiva === 'aprovacoes'
-              ? 'border-amber-500 text-amber-600 dark:border-amber-400 dark:text-amber-400'
-              : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
-          }`}
-        >
-          <Icone nome="check" className="h-3.5 w-3.5" />
-          Aprovações de Dependentes
-          {aprovacoes.length > 0 && (
-            <span className="rounded-full bg-amber-500 px-1.5 py-0.2 text-[10px] font-bold text-white">
-              {aprovacoes.length}
-            </span>
-          )}
-        </button>
-      </div>
-
-      {/* ABA 1 & ABA 2: TABELA DE PESSOAS (ATIVOS OU INATIVOS) */}
-      {(abaAtiva === 'ativos' || abaAtiva === 'inativos') && (
-        <Cartao>
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-            <div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                {abaAtiva === 'ativos' ? (
-                  <>
-                    <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                    Pessoas Ativas ({pessoasAtivas.length})
-                  </>
-                ) : (
-                  <>
-                    <span className="h-2 w-2 rounded-full bg-rose-500" />
-                    Usuários Inativos & Arquivados ({pessoasInativas.length})
-                  </>
+            {!somenteLeitura && (
+              <button
+                onClick={() => setAbaAtiva('aprovacoes')}
+                className={`pb-2.5 px-3.5 text-xs font-bold border-b-2 flex items-center gap-1.5 transition-all cursor-pointer ${
+                  abaAtiva === 'aprovacoes'
+                    ? 'border-amber-500 text-amber-600 dark:border-amber-400 dark:text-amber-400'
+                    : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                }`}
+              >
+                <Icone nome="check" className="h-3.5 w-3.5" />
+                Aprovações de Dependentes
+                {aprovacoes.length > 0 && (
+                  <span className="rounded-full bg-amber-500 px-1.5 py-0.2 text-[10px] font-bold text-white">
+                    {aprovacoes.length}
+                  </span>
                 )}
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                {abaAtiva === 'ativos'
-                  ? 'Moradores vigentes, proprietários, inquilinos, dependentes e funcionários com acesso liberado.'
-                  : 'Perfis desativados pelo administrador. Você pode editar para corrigir dados, reativar ou excluir em definitivo.'}
-              </p>
+              </button>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* ABA 1: TABELA DE PESSOAS (COM FILTRO INTEGRADO DE STATUS E BUSCA ABRANGENTE) */}
+      {(abaAtiva === 'pessoas' || embutido) && (
+        <Cartao>
+          <div className="mb-4 flex flex-col gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    <Icone nome={titulo ? 'search' : 'users'} className="h-4 w-4 text-navy dark:text-sky-400" />
+                    {titulo || 'Pessoas & Cadastros'} ({pessoas.length})
+                  </h3>
+
+                  {/* Pills de Filtragem Rápida por Status */}
+                  <div className="inline-flex rounded-lg p-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] font-bold">
+                    <button
+                      type="button"
+                      onClick={() => setFiltroStatus('TODOS')}
+                      className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                        filtroStatus === 'TODOS'
+                          ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-xs'
+                          : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+                      }`}
+                    >
+                      Todos ({pessoas.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFiltroStatus('ATIVOS')}
+                      className={`px-2.5 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1 ${
+                        filtroStatus === 'ATIVOS'
+                          ? 'bg-emerald-500 text-white shadow-xs'
+                          : 'text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50/50'
+                      }`}
+                    >
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                      Ativos ({pessoasAtivas.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFiltroStatus('INATIVOS')}
+                      className={`px-2.5 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1 ${
+                        filtroStatus === 'INATIVOS'
+                          ? 'bg-rose-500 text-white shadow-xs'
+                          : 'text-rose-600 dark:text-rose-400 hover:bg-rose-50/50'
+                      }`}
+                    >
+                      <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
+                      Inativos ({pessoasInativas.length})
+                    </button>
+                  </div>
+
+                  {temFiltroAtivo && (
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
+                      Filtrado: {listaExibida.length} de {pessoas.length}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  {subtitulo || 'Gerencie moradores, dependentes, porteiros, administradores, visitantes e prestadores de serviço do condomínio.'}
+                </p>
+              </div>
+
+              {!somenteLeitura && (
+                <div className="shrink-0">
+                  <Botao
+                    variante="primario"
+                    tamanho="sm"
+                    icone={<Icone nome="plus" className="h-3.5 w-3.5" />}
+                    onClick={() => setModalAberto(true)}
+                  >
+                    Cadastrar Pessoa
+                  </Botao>
+                </div>
+              )}
             </div>
 
-            {/* Barra de Busca Abrangente por Nome, CPF, E-mail ou Apartamento */}
-            <div className="flex gap-2 w-full sm:w-auto">
-              <div className="relative flex-1 sm:w-80">
-                <input
-                  className={inputCls + ' pl-8 pr-8 text-xs py-1.5'}
-                  placeholder="Buscar por nome, CPF, e-mail ou apartamento..."
-                  value={busca}
-                  onChange={e => setBusca(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && carregarPessoas()}
-                />
-                <span className="absolute left-2.5 top-2 text-slate-400 dark:text-slate-500">
-                  <Icone nome="search" className="h-3.5 w-3.5" />
-                </span>
-                {busca && (
+            {/* Painel de Filtros Segmentados */}
+            <div className="mt-1 rounded-xl bg-slate-50/70 dark:bg-slate-850 border border-slate-200/80 dark:border-slate-800 p-3 space-y-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
+                {/* 1. Nome ou E-mail */}
+                <div className="relative">
+                  <span className="absolute left-2.5 top-2 text-slate-400 dark:text-slate-400">
+                    <Icone nome="search" className="h-3.5 w-3.5" />
+                  </span>
+                  <input
+                    className={`${inputCls} pl-8 pr-7 text-xs py-1.5`}
+                    placeholder="Filtrar por nome ou e-mail..."
+                    value={buscaNome}
+                    onChange={e => setBuscaNome(e.target.value)}
+                  />
+                  {buscaNome && (
+                    <button
+                      type="button"
+                      onClick={() => setBuscaNome('')}
+                      className="absolute right-2 top-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                      title="Limpar nome"
+                    >
+                      <Icone nome="x" className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+
+                {/* 2. CPF */}
+                <div className="relative">
+                  <span className="absolute left-2.5 top-2 text-slate-400 dark:text-slate-400">
+                    <Icone nome="shield" className="h-3.5 w-3.5" />
+                  </span>
+                  <input
+                    className={`${inputCls} pl-8 pr-7 text-xs py-1.5`}
+                    placeholder="Filtrar por CPF..."
+                    value={buscaCpf}
+                    onChange={e => setBuscaCpf(e.target.value)}
+                  />
+                  {buscaCpf && (
+                    <button
+                      type="button"
+                      onClick={() => setBuscaCpf('')}
+                      className="absolute right-2 top-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                      title="Limpar CPF"
+                    >
+                      <Icone nome="x" className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+
+                {/* 3. Apartamento / Bloco */}
+                <div className="relative">
+                  <span className="absolute left-2.5 top-2 text-slate-400 dark:text-slate-400">
+                    <Icone nome="building" className="h-3.5 w-3.5" />
+                  </span>
+                  <input
+                    className={`${inputCls} pl-8 pr-7 text-xs py-1.5`}
+                    placeholder="Apto ou Bloco (ex: 61, A)..."
+                    value={buscaApto}
+                    onChange={e => setBuscaApto(e.target.value)}
+                  />
+                  {buscaApto && (
+                    <button
+                      type="button"
+                      onClick={() => setBuscaApto('')}
+                      className="absolute right-2 top-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                      title="Limpar apartamento"
+                    >
+                      <Icone nome="x" className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+
+                {/* 4. Função / Papel */}
+                <div className="relative">
+                  <select
+                    className={`${inputCls} text-xs py-1.5 font-medium`}
+                    value={filtroFuncao}
+                    onChange={e => setFiltroFuncao(e.target.value)}
+                  >
+                    <option value="TODAS" className="dark:bg-slate-800 dark:text-slate-100">Todos os papéis e funções</option>
+                    <option value="MORADOR" className="dark:bg-slate-800 dark:text-slate-100">Moradores em geral</option>
+                    <option value="PROPRIETARIO" className="dark:bg-slate-800 dark:text-slate-100">Proprietários (Titulares)</option>
+                    <option value="INQUILINO" className="dark:bg-slate-800 dark:text-slate-100">Inquilinos (Titulares)</option>
+                    <option value="DEPENDENTE" className="dark:bg-slate-800 dark:text-slate-100">Dependentes da Família</option>
+                    <option value="PORTEIRO" className="dark:bg-slate-800 dark:text-slate-100">Porteiros / Funcionários</option>
+                    <option value="ADMINISTRADOR" className="dark:bg-slate-800 dark:text-slate-100">Administradores / Síndicos</option>
+                    <option value="VISITANTE" className="dark:bg-slate-800 dark:text-slate-100">Visitantes</option>
+                    <option value="PRESTADOR_SERVICO" className="dark:bg-slate-800 dark:text-slate-100">Prestadores de Serviço</option>
+                  </select>
+                </div>
+
+                {/* 5. Status */}
+                <div className="relative">
+                  <select
+                    className={`${inputCls} text-xs py-1.5 font-medium`}
+                    value={filtroStatus}
+                    onChange={e => setFiltroStatus(e.target.value as any)}
+                  >
+                    <option value="TODOS" className="dark:bg-slate-800 dark:text-slate-100">Status: Todos</option>
+                    <option value="ATIVOS" className="dark:bg-slate-800 dark:text-slate-100">Status: Apenas Ativos</option>
+                    <option value="INATIVOS" className="dark:bg-slate-800 dark:text-slate-100">Status: Apenas Inativos</option>
+                  </select>
+                </div>
+              </div>
+
+              {temFiltroAtivo && (
+                <div className="flex items-center justify-between pt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                  <span>
+                    Mostrando <b>{listaExibida.length}</b> de <b>{pessoas.length}</b> usuários encontrados
+                  </span>
                   <button
                     type="button"
-                    onClick={() => setBusca('')}
-                    className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
-                    title="Limpar busca"
+                    onClick={limparFiltros}
+                    className="inline-flex items-center gap-1 font-semibold text-rose-600 dark:text-rose-400 hover:underline cursor-pointer"
+                    title="Limpar todos os filtros"
                   >
-                    <Icone nome="x" className="h-3.5 w-3.5" />
+                    <Icone nome="x" className="h-3 w-3" />
+                    Limpar todos os filtros
                   </button>
-                )}
-              </div>
-              <Botao variante="claro" tamanho="sm" onClick={() => carregarPessoas()}>
-                Buscar
-              </Botao>
+                </div>
+              )}
             </div>
           </div>
 
           {listaExibida.length === 0 ? (
             <EmptyState
-              icone={abaAtiva === 'ativos' ? 'users' : 'trash'}
-              titulo={
-                busca
-                  ? `Nenhum usuário encontrado para "${busca}"`
-                  : abaAtiva === 'ativos'
-                  ? 'Nenhum morador ativo cadastrado'
-                  : 'Nenhum usuário inativo no momento'
-              }
+              icone="users"
+              titulo="Nenhum usuário encontrado"
               descricao={
-                busca
-                  ? 'Verifique se o nome, CPF, e-mail ou número do apartamento foram digitados corretamente.'
-                  : abaAtiva === 'ativos'
-                  ? 'Comece adicionando moradores, titulares ou inquilinos ao condomínio.'
-                  : 'Quando um usuário for inativado pelo síndico, ele aparecerá nesta aba separada.'
+                temFiltroAtivo
+                  ? 'Tente remover ou ajustar os filtros de nome, CPF, apartamento, status ou papel para expandir a busca.'
+                  : 'Comece adicionando moradores, titulares, visitantes ou funcionários ao condomínio.'
               }
               acao={
-                busca ? (
-                  <Botao variante="claro" tamanho="sm" onClick={() => setBusca('')}>
-                    Limpar Filtro
+                temFiltroAtivo ? (
+                  <Botao variante="claro" tamanho="sm" onClick={limparFiltros}>
+                    Limpar Filtros
                   </Botao>
-                ) : abaAtiva === 'ativos' ? (
+                ) : !somenteLeitura ? (
                   <Botao
                     variante="primario"
                     tamanho="sm"
@@ -932,12 +1402,82 @@ export default function Pessoas() {
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead>
-                  <tr className="border-b border-slate-200/80 dark:border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                    <th className="py-2.5 px-3">Nome / Contato</th>
-                    <th className="py-2.5 px-3">Apartamento / Bloco</th>
-                    <th className="py-2.5 px-3">Vínculo & Papel</th>
-                    <th className="py-2.5 px-3">Dependentes</th>
-                    <th className="py-2.5 px-3">Status</th>
+                  <tr className="border-b border-slate-200/80 dark:border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400">
+                    <th
+                      onClick={() => alternarOrdenacao('nome')}
+                      className={`py-2.5 px-3 select-none cursor-pointer transition-colors group hover:text-navy dark:hover:text-sky-400 ${
+                        colunaOrdenada === 'nome' ? 'text-navy dark:text-sky-400 font-extrabold' : ''
+                      }`}
+                      title={`Clique para ordenar por Nome (${colunaOrdenada === 'nome' && direcaoOrdenacao === 'asc' ? 'Decrescente' : 'Crescente'})`}
+                    >
+                      <div className="inline-flex items-center gap-1.5">
+                        <span>Nome / Contato</span>
+                        <span className={`text-[10px] ${colunaOrdenada === 'nome' ? 'opacity-100 font-black text-navy dark:text-sky-400' : 'opacity-30 group-hover:opacity-80'}`}>
+                          {colunaOrdenada === 'nome' ? (direcaoOrdenacao === 'asc' ? '▲' : '▼') : '⇅'}
+                        </span>
+                      </div>
+                    </th>
+
+                    <th
+                      onClick={() => alternarOrdenacao('apartamento')}
+                      className={`py-2.5 px-3 select-none cursor-pointer transition-colors group hover:text-navy dark:hover:text-sky-400 ${
+                        colunaOrdenada === 'apartamento' ? 'text-navy dark:text-sky-400 font-extrabold' : ''
+                      }`}
+                      title={`Clique para ordenar por Apartamento (${colunaOrdenada === 'apartamento' && direcaoOrdenacao === 'asc' ? 'Decrescente' : 'Crescente'})`}
+                    >
+                      <div className="inline-flex items-center gap-1.5">
+                        <span>Apartamento / Bloco</span>
+                        <span className={`text-[10px] ${colunaOrdenada === 'apartamento' ? 'opacity-100 font-black text-navy dark:text-sky-400' : 'opacity-30 group-hover:opacity-80'}`}>
+                          {colunaOrdenada === 'apartamento' ? (direcaoOrdenacao === 'asc' ? '▲' : '▼') : '⇅'}
+                        </span>
+                      </div>
+                    </th>
+
+                    <th
+                      onClick={() => alternarOrdenacao('papel')}
+                      className={`py-2.5 px-3 select-none cursor-pointer transition-colors group hover:text-navy dark:hover:text-sky-400 ${
+                        colunaOrdenada === 'papel' ? 'text-navy dark:text-sky-400 font-extrabold' : ''
+                      }`}
+                      title={`Clique para ordenar por Vínculo e Papel (${colunaOrdenada === 'papel' && direcaoOrdenacao === 'asc' ? 'Decrescente' : 'Crescente'})`}
+                    >
+                      <div className="inline-flex items-center gap-1.5">
+                        <span>Vínculo & Papel</span>
+                        <span className={`text-[10px] ${colunaOrdenada === 'papel' ? 'opacity-100 font-black text-navy dark:text-sky-400' : 'opacity-30 group-hover:opacity-80'}`}>
+                          {colunaOrdenada === 'papel' ? (direcaoOrdenacao === 'asc' ? '▲' : '▼') : '⇅'}
+                        </span>
+                      </div>
+                    </th>
+
+                    <th
+                      onClick={() => alternarOrdenacao('dependentes')}
+                      className={`py-2.5 px-3 select-none cursor-pointer transition-colors group hover:text-navy dark:hover:text-sky-400 ${
+                        colunaOrdenada === 'dependentes' ? 'text-navy dark:text-sky-400 font-extrabold' : ''
+                      }`}
+                      title={`Clique para ordenar por Dependentes (${colunaOrdenada === 'dependentes' && direcaoOrdenacao === 'asc' ? 'Decrescente' : 'Crescente'})`}
+                    >
+                      <div className="inline-flex items-center gap-1.5">
+                        <span>Dependentes</span>
+                        <span className={`text-[10px] ${colunaOrdenada === 'dependentes' ? 'opacity-100 font-black text-navy dark:text-sky-400' : 'opacity-30 group-hover:opacity-80'}`}>
+                          {colunaOrdenada === 'dependentes' ? (direcaoOrdenacao === 'asc' ? '▲' : '▼') : '⇅'}
+                        </span>
+                      </div>
+                    </th>
+
+                    <th
+                      onClick={() => alternarOrdenacao('status')}
+                      className={`py-2.5 px-3 select-none cursor-pointer transition-colors group hover:text-navy dark:hover:text-sky-400 ${
+                        colunaOrdenada === 'status' ? 'text-navy dark:text-sky-400 font-extrabold' : ''
+                      }`}
+                      title={`Clique para ordenar por Status (${colunaOrdenada === 'status' && direcaoOrdenacao === 'asc' ? 'Decrescente' : 'Crescente'})`}
+                    >
+                      <div className="inline-flex items-center gap-1.5">
+                        <span>Status</span>
+                        <span className={`text-[10px] ${colunaOrdenada === 'status' ? 'opacity-100 font-black text-navy dark:text-sky-400' : 'opacity-30 group-hover:opacity-80'}`}>
+                          {colunaOrdenada === 'status' ? (direcaoOrdenacao === 'asc' ? '▲' : '▼') : '⇅'}
+                        </span>
+                      </div>
+                    </th>
+
                     <th className="py-2.5 px-3 text-right">Ações</th>
                   </tr>
                 </thead>
@@ -952,7 +1492,11 @@ export default function Pessoas() {
                       <tr
                         key={p.id_pessoa}
                         onClick={() => abrirPerfil(p)}
-                        className="hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
+                        className={`transition-colors cursor-pointer ${
+                          !p.ativo
+                            ? 'bg-rose-50/20 hover:bg-rose-50/40 dark:bg-rose-950/10 dark:hover:bg-rose-950/20 opacity-80'
+                            : 'hover:bg-slate-50/80 dark:hover:bg-slate-800/60'
+                        }`}
                       >
                         <td className="py-3 px-3">
                           <div className="flex items-center gap-2.5">
@@ -960,10 +1504,17 @@ export default function Pessoas() {
                               {p.nome.charAt(0)}
                             </div>
                             <div>
-                              <p className="font-bold text-slate-900 dark:text-slate-100 leading-tight">
-                                {p.nome}
-                              </p>
-                              <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-bold text-slate-900 dark:text-slate-100 leading-tight">
+                                  {p.nome}
+                                </span>
+                                {p.tipo_servico && (
+                                  <span className="rounded-md bg-amber-50 dark:bg-amber-950/60 border border-amber-200/80 dark:border-amber-800/60 px-1.5 py-0.2 text-[10px] font-bold text-amber-700 dark:text-amber-300">
+                                    {p.tipo_servico}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-slate-400 dark:text-slate-400">
                                 {p.email} • CPF: {p.cpf}
                               </p>
                             </div>
@@ -1000,18 +1551,38 @@ export default function Pessoas() {
                             {/* Vínculo com apartamento */}
                             {uAtiva ? (
                               <div>
-                                <span
-                                  className={`rounded-md px-2 py-0.5 text-[10px] font-bold ${
-                                    uAtiva.vinculo === 'PROPRIETARIO'
-                                      ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
-                                      : uAtiva.vinculo === 'INQUILINO'
-                                      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
-                                      : 'bg-purple-50 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
-                                  }`}
-                                >
-                                  {uAtiva.vinculo}
-                                  {uAtiva.parentesco ? ` (${formatarParentesco(uAtiva.parentesco)})` : ''}
-                                </span>
+                                <div className="flex flex-wrap items-center gap-1">
+                                  <span
+                                    className={`rounded-md px-2 py-0.5 text-[10px] font-bold ${
+                                      uAtiva.vinculo === 'PROPRIETARIO'
+                                        ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                                        : uAtiva.vinculo === 'INQUILINO'
+                                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                                        : uAtiva.vinculo === 'VISITANTE'
+                                        ? 'bg-cyan-50 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300'
+                                        : uAtiva.vinculo === 'PRESTADOR_SERVICO'
+                                        ? 'bg-orange-50 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'
+                                        : 'bg-purple-50 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
+                                    }`}
+                                  >
+                                    {uAtiva.vinculo}
+                                    {uAtiva.parentesco ? ` (${formatarParentesco(uAtiva.parentesco)})` : ''}
+                                  </span>
+
+                                  {/* Badge de Residência (Sim / Não) para moradores e proprietários */}
+                                  {uAtiva.vinculo !== 'VISITANTE' && uAtiva.vinculo !== 'PRESTADOR_SERVICO' && (
+                                    <span
+                                      className={`rounded-md px-1.5 py-0.5 text-[9px] font-bold ${
+                                        uAtiva.reside !== false
+                                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                                          : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                                      }`}
+                                      title={uAtiva.reside !== false ? 'Reside no imóvel' : 'Não reside no imóvel (titular externo)'}
+                                    >
+                                      {uAtiva.reside !== false ? 'Residente' : 'Não Residente'}
+                                    </span>
+                                  )}
+                                </div>
                                 {isDependente && p.responsavel && (
                                   <p className="text-[10px] text-slate-400 mt-0.5">
                                     Resp.: <b className="text-slate-600 dark:text-slate-300">{p.responsavel.nome}</b>
@@ -1071,59 +1642,63 @@ export default function Pessoas() {
                               Ver
                             </button>
 
-                            {/* Botão de Edição sempre disponível para corrigir cadastros errôneos */}
-                            <button
-                              onClick={() => abrirModalEdicao(p)}
-                              className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
-                              title="Editar dados cadastrais, perfil e unidade"
-                            >
-                              Editar
-                            </button>
+                            {!somenteLeitura && (
+                              <>
+                                {/* Botão de Edição sempre disponível para corrigir cadastros errôneos */}
+                                <button
+                                  onClick={() => abrirModalEdicao(p)}
+                                  className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                                  title="Editar dados cadastrais, perfil e unidade"
+                                >
+                                  Editar
+                                </button>
 
-                            {p.ativo ? (
-                              <>
-                                <button
-                                  onClick={() => abrirModalBloqueio(p)}
-                                  className={`text-xs font-semibold hover:underline cursor-pointer ${
-                                    p.total_bloqueios_ativos && p.total_bloqueios_ativos > 0
-                                      ? 'text-red-600 dark:text-rose-400 font-bold'
-                                      : 'text-amber-600 dark:text-amber-400'
-                                  }`}
-                                  title="Aplicar penalidade ou afastamento de áreas comuns"
-                                >
-                                  Penalidades{p.total_bloqueios_ativos && p.total_bloqueios_ativos > 0 ? ` (${p.total_bloqueios_ativos})` : ''}
-                                </button>
-                                <button
-                                  onClick={() => setInativando(p)}
-                                  className="text-xs font-semibold text-slate-400 hover:text-red-600 dark:text-slate-500 dark:hover:text-rose-400 transition-colors cursor-pointer"
-                                  title="Inativar usuário"
-                                >
-                                  Inativar
-                                </button>
-                                <button
-                                  onClick={() => setExcluindo(p)}
-                                  className="text-xs font-semibold text-slate-400 hover:text-red-600 dark:text-slate-500 dark:hover:text-rose-400 transition-colors cursor-pointer"
-                                  title="Excluir cadastro permanentemente"
-                                >
-                                  Excluir
-                                </button>
-                              </>
-                            ) : (
-                              <>
-                                <button
-                                  onClick={() => setReativando(p)}
-                                  className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
-                                  title="Reativar usuário e restabelecer acessos"
-                                >
-                                  Reativar
-                                </button>
-                                <button
-                                  onClick={() => setExcluindo(p)}
-                                  className="text-xs font-semibold text-red-500 dark:text-rose-400 hover:underline cursor-pointer"
-                                  title="Excluir cadastro permanentemente caso criado por erro"
-                                >
-                                  Excluir
-                                </button>
+                                {p.ativo ? (
+                                  <>
+                                    <button
+                                      onClick={() => abrirModalBloqueio(p)}
+                                      className={`text-xs font-semibold hover:underline cursor-pointer ${
+                                        p.total_bloqueios_ativos && p.total_bloqueios_ativos > 0
+                                          ? 'text-red-600 dark:text-rose-400 font-bold'
+                                          : 'text-amber-600 dark:text-amber-400'
+                                      }`}
+                                      title="Aplicar penalidade ou afastamento de áreas comuns"
+                                    >
+                                      Penalidades{p.total_bloqueios_ativos && p.total_bloqueios_ativos > 0 ? ` (${p.total_bloqueios_ativos})` : ''}
+                                    </button>
+                                    <button
+                                      onClick={() => setInativando(p)}
+                                      className="text-xs font-semibold text-slate-400 hover:text-red-600 dark:text-slate-500 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                                      title="Inativar usuário"
+                                    >
+                                      Inativar
+                                    </button>
+                                    <button
+                                      onClick={() => setExcluindo(p)}
+                                      className="text-xs font-semibold text-slate-400 hover:text-red-600 dark:text-slate-500 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                                      title="Excluir cadastro permanentemente"
+                                    >
+                                      Excluir
+                                    </button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button
+                                      onClick={() => setReativando(p)}
+                                      className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+                                      title="Reativar usuário e restabelecer acessos"
+                                    >
+                                      Reativar
+                                    </button>
+                                    <button
+                                      onClick={() => setExcluindo(p)}
+                                      className="text-xs font-semibold text-red-500 dark:text-rose-400 hover:underline cursor-pointer"
+                                      title="Excluir cadastro permanentemente caso criado por erro"
+                                    >
+                                      Excluir
+                                    </button>
+                                  </>
+                                )}
                               </>
                             )}
                           </div>
@@ -1249,6 +1824,23 @@ export default function Pessoas() {
               </div>
             </div>
 
+            {/* Especialidade / Descrição do Prestador de Serviço */}
+            {perfilSelecionado.tipo_servico && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50/50 dark:border-amber-900/50 dark:bg-amber-950/30 p-3 flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">
+                    Tipo / Especialidade do Prestador de Serviço
+                  </p>
+                  <p className="text-xs font-bold text-slate-800 dark:text-slate-100 mt-0.5">
+                    {perfilSelecionado.tipo_servico}
+                  </p>
+                </div>
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200">
+                  <Icone nome="wrench" className="h-4 w-4" />
+                </div>
+              </div>
+            )}
+
             {/* Dados da Unidade */}
             {perfilSelecionado.unidades && perfilSelecionado.unidades.length > 0 && (
               <div className="rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3">
@@ -1301,7 +1893,7 @@ export default function Pessoas() {
                   <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     Dependentes da Família ({perfilSelecionado.dependentes?.length || 0})
                   </p>
-                  {perfilSelecionado.unidades?.[0] && (
+                  {!somenteLeitura && perfilSelecionado.unidades?.[0] && (
                     <button
                       type="button"
                       onClick={() =>
@@ -1374,62 +1966,82 @@ export default function Pessoas() {
               </div>
             )}
 
+            {/* Penalidades ativas caso existam */}
+            {perfilSelecionado.total_bloqueios_ativos && perfilSelecionado.total_bloqueios_ativos > 0 ? (
+              <div className="rounded-xl border border-red-200 bg-red-50/70 dark:border-rose-900/50 dark:bg-rose-950/30 p-3 text-xs text-red-700 dark:text-rose-300 flex items-center gap-2">
+                <Icone nome="alert" className="h-4 w-4 text-red-600 dark:text-rose-400 shrink-0" />
+                <span>Usuário possui <b>{perfilSelecionado.total_bloqueios_ativos}</b> penalidade(s) / restrição(ões) ativa(s) para áreas comuns.</span>
+              </div>
+            ) : null}
+
             {/* Ações do Perfil */}
             <div className="flex flex-wrap items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-              <Botao
-                variante="claro"
-                tamanho="sm"
-                onClick={() => {
-                  setModalPerfilAberto(false);
-                  abrirModalEdicao(perfilSelecionado);
-                }}
-              >
-                Editar Cadastro
-              </Botao>
-
-              {perfilSelecionado.ativo ? (
+              {somenteLeitura ? (
+                <Botao
+                  variante="claro"
+                  tamanho="sm"
+                  onClick={() => setModalPerfilAberto(false)}
+                >
+                  Fechar
+                </Botao>
+              ) : (
                 <>
                   <Botao
                     variante="claro"
                     tamanho="sm"
                     onClick={() => {
                       setModalPerfilAberto(false);
-                      abrirModalBloqueio(perfilSelecionado);
+                      abrirModalEdicao(perfilSelecionado);
                     }}
                   >
-                    Penalidades
+                    Editar Cadastro
                   </Botao>
-                  <Botao
-                    variante="secundario"
-                    tamanho="sm"
-                    onClick={() => setInativando(perfilSelecionado)}
-                  >
-                    Inativar Usuário
-                  </Botao>
-                  <Botao
-                    variante="perigo"
-                    tamanho="sm"
-                    onClick={() => setExcluindo(perfilSelecionado)}
-                  >
-                    Excluir Definitivamente
-                  </Botao>
-                </>
-              ) : (
-                <>
-                  <Botao
-                    variante="sucesso"
-                    tamanho="sm"
-                    onClick={() => setReativando(perfilSelecionado)}
-                  >
-                    Reativar Perfil
-                  </Botao>
-                  <Botao
-                    variante="perigo"
-                    tamanho="sm"
-                    onClick={() => setExcluindo(perfilSelecionado)}
-                  >
-                    Excluir Definitivamente
-                  </Botao>
+
+                  {perfilSelecionado.ativo ? (
+                    <>
+                      <Botao
+                        variante="claro"
+                        tamanho="sm"
+                        onClick={() => {
+                          setModalPerfilAberto(false);
+                          abrirModalBloqueio(perfilSelecionado);
+                        }}
+                      >
+                        Penalidades
+                      </Botao>
+                      <Botao
+                        variante="secundario"
+                        tamanho="sm"
+                        onClick={() => setInativando(perfilSelecionado)}
+                      >
+                        Inativar Usuário
+                      </Botao>
+                      <Botao
+                        variante="perigo"
+                        tamanho="sm"
+                        onClick={() => setExcluindo(perfilSelecionado)}
+                      >
+                        Excluir Definitivamente
+                      </Botao>
+                    </>
+                  ) : (
+                    <>
+                      <Botao
+                        variante="sucesso"
+                        tamanho="sm"
+                        onClick={() => setReativando(perfilSelecionado)}
+                      >
+                        Reativar Perfil
+                      </Botao>
+                      <Botao
+                        variante="perigo"
+                        tamanho="sm"
+                        onClick={() => setExcluindo(perfilSelecionado)}
+                      >
+                        Excluir Definitivamente
+                      </Botao>
+                    </>
+                  )}
                 </>
               )}
             </div>
@@ -1437,8 +2049,11 @@ export default function Pessoas() {
         )}
       </Modal>
 
-      {/* MODAL: CADASTRO DE PESSOA & VÍNCULO */}
-      <Modal
+      {/* Modais de ação restritos à administração */}
+      {!somenteLeitura && (
+        <>
+          {/* MODAL: CADASTRO DE PESSOA & VÍNCULO */}
+          <Modal
         aberto={modalAberto}
         fechar={() => setModalAberto(false)}
         titulo="Cadastrar Nova Pessoa & Vínculo"
@@ -1505,13 +2120,16 @@ export default function Pessoas() {
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Campo rotulo="E-mail de Login" obrigatorio>
+            <Campo
+              rotulo={form.perfis.every(pf => pf === 'VISITANTE' || pf === 'PRESTADOR_SERVICO') ? 'E-mail (Opcional)' : 'E-mail de Login'}
+              obrigatorio={!form.perfis.every(pf => pf === 'VISITANTE' || pf === 'PRESTADOR_SERVICO')}
+            >
               <input
                 type="email"
                 className={inputCls}
                 value={form.email}
                 onChange={c('email')}
-                required
+                required={!form.perfis.every(pf => pf === 'VISITANTE' || pf === 'PRESTADOR_SERVICO')}
                 maxLength={120}
                 placeholder="maria@email.com"
               />
@@ -1536,9 +2154,14 @@ export default function Pessoas() {
             </p>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Campo rotulo="Unidade">
-                <select className={inputCls} value={form.id_unidade} onChange={c('id_unidade')}>
-                  <option value="">Nenhuma (visitante/porteiro)</option>
+              <Campo rotulo="Unidade" obrigatorio={form.perfis.includes('MORADOR')}>
+                <select
+                  className={inputCls}
+                  value={form.id_unidade}
+                  onChange={c('id_unidade')}
+                  required={form.perfis.includes('MORADOR')}
+                >
+                  <option value="">Nenhuma (visitante/prestador/porteiro)</option>
                   {unidades.map(u => (
                     <option key={u.id_unidade} value={u.id_unidade}>
                       Bl. {u.bloco} - Apto {u.numero_apartamento}
@@ -1547,14 +2170,113 @@ export default function Pessoas() {
                 </select>
               </Campo>
 
-              <Campo rotulo="Tipo de Vínculo">
-                <select className={inputCls} value={form.tipo_vinculo} onChange={c('tipo_vinculo')}>
-                  <option value="PROPRIETARIO">Proprietário (Titular)</option>
-                  <option value="INQUILINO">Inquilino (Titular Locação)</option>
-                  <option value="DEPENDENTE">Dependente Familiar</option>
+              <Campo
+                rotulo={
+                  form.perfis.includes('PRESTADOR_SERVICO')
+                    ? 'Tipo de Vínculo (Prestador de Serviço)'
+                    : form.perfis.includes('VISITANTE')
+                    ? 'Tipo de Vínculo (Visitante)'
+                    : 'Tipo de Vínculo'
+                }
+                ajuda={
+                  form.perfis.includes('PRESTADOR_SERVICO')
+                    ? 'Vínculo bloqueado e padronizado para Prestador de Serviço.'
+                    : form.perfis.includes('VISITANTE')
+                    ? 'Vínculo bloqueado e padronizado para Visitante.'
+                    : undefined
+                }
+              >
+                <select
+                  className={`${inputCls} ${
+                    form.perfis.includes('PRESTADOR_SERVICO') || form.perfis.includes('VISITANTE')
+                      ? 'cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 opacity-90'
+                      : ''
+                  }`}
+                  value={
+                    form.perfis.includes('PRESTADOR_SERVICO')
+                      ? 'PRESTADOR_SERVICO'
+                      : form.perfis.includes('VISITANTE')
+                      ? 'VISITANTE'
+                      : form.tipo_vinculo
+                  }
+                  onChange={c('tipo_vinculo')}
+                  disabled={form.perfis.includes('PRESTADOR_SERVICO') || form.perfis.includes('VISITANTE')}
+                >
+                  {form.perfis.includes('PRESTADOR_SERVICO') ? (
+                    <option value="PRESTADOR_SERVICO">Prestador de Serviço (Bloqueado)</option>
+                  ) : form.perfis.includes('VISITANTE') ? (
+                    <option value="VISITANTE">Visitante (Bloqueado)</option>
+                  ) : (
+                    <>
+                      <option value="PROPRIETARIO">Proprietário (Titular)</option>
+                      <option value="INQUILINO">Inquilino (Titular Locação)</option>
+                      <option value="DEPENDENTE">Dependente Familiar</option>
+                    </>
+                  )}
                 </select>
               </Campo>
             </div>
+
+            {/* TIPO DE PRESTADOR DE SERVIÇO (DESCRIÇÃO / ESPECIALIDADE) */}
+            {(form.perfis.includes('PRESTADOR_SERVICO') || form.tipo_vinculo === 'PRESTADOR_SERVICO') && (
+              <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
+                <Campo
+                  rotulo="Descrição do Tipo de Prestador de Serviço"
+                  obrigatorio
+                  ajuda="Informe a profissão, especialidade ou tipo de trabalho (ex: Eletricista, Encanador, Pintor, Técnico de Internet, Marceneiro, etc.)"
+                >
+                  <input
+                    className={inputCls}
+                    value={form.tipo_servico}
+                    onChange={c('tipo_servico')}
+                    required
+                    maxLength={100}
+                    placeholder="Ex: Eletricista, Encanador, Pintor, Técnico de Internet, Marceneiro..."
+                  />
+                </Campo>
+              </div>
+            )}
+
+            {/* SE FOR MORADOR: RESIDE NA UNIDADE (SIM / NÃO) */}
+            {form.perfis.includes('MORADOR') && (
+              <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Reside no Apartamento? <span className="text-red-500">*</span>
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, reside: true })}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                      form.reside
+                        ? 'border-emerald-500 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200 dark:border-emerald-600 shadow-xs'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400'
+                    }`}
+                  >
+                    <Icone nome="check" className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                    <span>Sim (Residente no Imóvel)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, reside: false })}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                      !form.reside
+                        ? 'border-amber-500 bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-200 dark:border-amber-600 shadow-xs'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400'
+                    }`}
+                  >
+                    <Icone nome="x" className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                    <span>Não (Proprietário Não Residente)</span>
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                  {form.reside
+                    ? 'O morador reside no imóvel e usufrui normalmente das áreas e encomendas.'
+                    : 'Proprietário não residente com moradia externa.'}
+                </p>
+              </div>
+            )}
 
             {/* SELEÇÃO MÚLTIPLA DE PAPÉIS NO CADASTRO */}
             <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 space-y-2">
@@ -1563,13 +2285,23 @@ export default function Pessoas() {
                   Papéis no Condomínio <span className="text-red-500">*</span>
                 </label>
                 <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Selecione um ou mais papéis simultâneos
+                  {form.perfis.includes('VISITANTE')
+                    ? 'Visitante é exclusivo (nenhuma outra opção pode ser marcada simultaneamente)'
+                    : form.perfis.includes('PRESTADOR_SERVICO')
+                    ? 'Prestador de Serviço é exclusivo (nenhuma outra opção pode ser marcada simultaneamente)'
+                    : 'Selecione um ou mais papéis simultâneos'}
                 </span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 items-stretch">
                 {OPCOES_PAPEIS.map(op => {
                   const selecionado = form.perfis.includes(op.tipo);
+                  const exclusivoAtivo = form.perfis.includes('VISITANTE')
+                    ? 'VISITANTE'
+                    : form.perfis.includes('PRESTADOR_SERVICO')
+                    ? 'PRESTADOR_SERVICO'
+                    : null;
+                  const bloqueadoPorExclusivo = exclusivoAtivo !== null && exclusivoAtivo !== op.tipo;
 
                   return (
                     <div
@@ -1578,6 +2310,8 @@ export default function Pessoas() {
                       className={`relative flex flex-col justify-between rounded-xl border p-3 transition-all select-none cursor-pointer hover:shadow-xs ${
                         selecionado
                           ? op.corAtiva
+                          : bloqueadoPorExclusivo
+                          ? 'opacity-40 border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40 text-slate-400 hover:border-slate-300'
                           : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600'
                       }`}
                     >
@@ -1598,6 +2332,8 @@ export default function Pessoas() {
                             className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
                               selecionado
                                 ? 'border-transparent bg-navy text-white dark:bg-sky-500 shadow-2xs'
+                                : bloqueadoPorExclusivo
+                                ? 'border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800/40'
                                 : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800'
                             }`}
                           >
@@ -1613,15 +2349,29 @@ export default function Pessoas() {
                           </div>
                         </div>
 
-                        {/* Título */}
-                        <p className="text-xs font-bold text-slate-900 dark:text-slate-100 mt-2.5 leading-tight">
-                          {op.titulo}
-                        </p>
+                        {/* Título & Badge de Exclusividade */}
+                        <div className="flex items-center gap-1.5 flex-wrap mt-2.5">
+                          <span className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-tight">
+                            {op.titulo}
+                          </span>
+                          {(op.tipo === 'VISITANTE' || op.tipo === 'PRESTADOR_SERVICO') && (
+                            <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-100/70 dark:bg-amber-950/60 px-1.5 py-0.5 rounded-md">
+                              Exclusivo
+                            </span>
+                          )}
+                        </div>
 
                         {/* Descrição */}
                         <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-snug">
                           {op.descricao}
                         </p>
+
+                        {bloqueadoPorExclusivo && (
+                          <p className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 mt-1.5 flex items-center gap-1">
+                            <Icone nome="alert" className="h-3 w-3 shrink-0" />
+                            Bloqueado (clique para alternar)
+                          </p>
+                        )}
                       </div>
                     </div>
                   );
@@ -1751,13 +2501,16 @@ export default function Pessoas() {
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Campo rotulo="E-mail de Login" obrigatorio>
+            <Campo
+              rotulo={formEdicao.perfis.every(pf => pf === 'VISITANTE' || pf === 'PRESTADOR_SERVICO') ? 'E-mail (Opcional)' : 'E-mail de Login'}
+              obrigatorio={!formEdicao.perfis.every(pf => pf === 'VISITANTE' || pf === 'PRESTADOR_SERVICO')}
+            >
               <input
                 type="email"
                 className={inputCls}
                 value={formEdicao.email}
                 onChange={cEdicao('email')}
-                required
+                required={!formEdicao.perfis.every(pf => pf === 'VISITANTE' || pf === 'PRESTADOR_SERVICO')}
                 maxLength={120}
               />
             </Campo>
@@ -1781,9 +2534,14 @@ export default function Pessoas() {
             </p>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Campo rotulo="Unidade">
-                <select className={inputCls} value={formEdicao.id_unidade} onChange={cEdicao('id_unidade')}>
-                  <option value="">Nenhuma (visitante/porteiro)</option>
+              <Campo rotulo="Unidade" obrigatorio={formEdicao.perfis.includes('MORADOR')}>
+                <select
+                  className={inputCls}
+                  value={formEdicao.id_unidade}
+                  onChange={cEdicao('id_unidade')}
+                  required={formEdicao.perfis.includes('MORADOR')}
+                >
+                  <option value="">Nenhuma (visitante/prestador/porteiro)</option>
                   {unidades.map(u => (
                     <option key={u.id_unidade} value={u.id_unidade}>
                       Bl. {u.bloco} - Apto {u.numero_apartamento}
@@ -1792,14 +2550,113 @@ export default function Pessoas() {
                 </select>
               </Campo>
 
-              <Campo rotulo="Tipo de Vínculo">
-                <select className={inputCls} value={formEdicao.tipo_vinculo} onChange={cEdicao('tipo_vinculo')}>
-                  <option value="PROPRIETARIO">Proprietário (Titular)</option>
-                  <option value="INQUILINO">Inquilino (Titular Locação)</option>
-                  <option value="DEPENDENTE">Dependente Familiar</option>
+              <Campo
+                rotulo={
+                  formEdicao.perfis.includes('PRESTADOR_SERVICO')
+                    ? 'Tipo de Vínculo (Prestador de Serviço)'
+                    : formEdicao.perfis.includes('VISITANTE')
+                    ? 'Tipo de Vínculo (Visitante)'
+                    : 'Tipo de Vínculo'
+                }
+                ajuda={
+                  formEdicao.perfis.includes('PRESTADOR_SERVICO')
+                    ? 'Vínculo bloqueado e padronizado para Prestador de Serviço.'
+                    : formEdicao.perfis.includes('VISITANTE')
+                    ? 'Vínculo bloqueado e padronizado para Visitante.'
+                    : undefined
+                }
+              >
+                <select
+                  className={`${inputCls} ${
+                    formEdicao.perfis.includes('PRESTADOR_SERVICO') || formEdicao.perfis.includes('VISITANTE')
+                      ? 'cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 opacity-90'
+                      : ''
+                  }`}
+                  value={
+                    formEdicao.perfis.includes('PRESTADOR_SERVICO')
+                      ? 'PRESTADOR_SERVICO'
+                      : formEdicao.perfis.includes('VISITANTE')
+                      ? 'VISITANTE'
+                      : formEdicao.tipo_vinculo
+                  }
+                  onChange={cEdicao('tipo_vinculo')}
+                  disabled={formEdicao.perfis.includes('PRESTADOR_SERVICO') || formEdicao.perfis.includes('VISITANTE')}
+                >
+                  {formEdicao.perfis.includes('PRESTADOR_SERVICO') ? (
+                    <option value="PRESTADOR_SERVICO">Prestador de Serviço (Bloqueado)</option>
+                  ) : formEdicao.perfis.includes('VISITANTE') ? (
+                    <option value="VISITANTE">Visitante (Bloqueado)</option>
+                  ) : (
+                    <>
+                      <option value="PROPRIETARIO">Proprietário (Titular)</option>
+                      <option value="INQUILINO">Inquilino (Titular Locação)</option>
+                      <option value="DEPENDENTE">Dependente Familiar</option>
+                    </>
+                  )}
                 </select>
               </Campo>
             </div>
+
+            {/* TIPO DE PRESTADOR DE SERVIÇO (DESCRIÇÃO / ESPECIALIDADE) */}
+            {(formEdicao.perfis.includes('PRESTADOR_SERVICO') || formEdicao.tipo_vinculo === 'PRESTADOR_SERVICO') && (
+              <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
+                <Campo
+                  rotulo="Descrição do Tipo de Prestador de Serviço"
+                  obrigatorio
+                  ajuda="Informe a profissão, especialidade ou tipo de trabalho (ex: Eletricista, Encanador, Pintor, Técnico de Internet, Marceneiro, etc.)"
+                >
+                  <input
+                    className={inputCls}
+                    value={formEdicao.tipo_servico}
+                    onChange={cEdicao('tipo_servico')}
+                    required
+                    maxLength={100}
+                    placeholder="Ex: Eletricista, Encanador, Pintor, Técnico de Internet, Marceneiro..."
+                  />
+                </Campo>
+              </div>
+            )}
+
+            {/* SE FOR MORADOR: RESIDE NA UNIDADE (SIM / NÃO) */}
+            {formEdicao.perfis.includes('MORADOR') && (
+              <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Reside no Apartamento? <span className="text-red-500">*</span>
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFormEdicao({ ...formEdicao, reside: true })}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                      formEdicao.reside
+                        ? 'border-emerald-500 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200 dark:border-emerald-600 shadow-xs'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400'
+                    }`}
+                  >
+                    <Icone nome="check" className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                    <span>Sim (Residente no Imóvel)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFormEdicao({ ...formEdicao, reside: false })}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                      !formEdicao.reside
+                        ? 'border-amber-500 bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-200 dark:border-amber-600 shadow-xs'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400'
+                    }`}
+                  >
+                    <Icone nome="x" className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                    <span>Não (Proprietário Não Residente)</span>
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                  {formEdicao.reside
+                    ? 'O morador reside no imóvel e usufrui normalmente das áreas e encomendas.'
+                    : 'Proprietário não residente com moradia externa.'}
+                </p>
+              </div>
+            )}
 
             {/* SELEÇÃO MÚLTIPLA DE PAPÉIS NA EDIÇÃO */}
             <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 space-y-2">
@@ -1808,7 +2665,11 @@ export default function Pessoas() {
                   Papéis no Condomínio <span className="text-red-500">*</span>
                 </label>
                 <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Marque todos os papéis que esta pessoa exercerá simultaneamente
+                  {formEdicao.perfis.includes('VISITANTE')
+                    ? 'Visitante é exclusivo (nenhuma outra opção pode ser marcada simultaneamente)'
+                    : formEdicao.perfis.includes('PRESTADOR_SERVICO')
+                    ? 'Prestador de Serviço é exclusivo (nenhuma outra opção pode ser marcada simultaneamente)'
+                    : 'Marque os papéis que esta pessoa exercerá no condomínio'}
                 </span>
               </div>
 
@@ -1816,6 +2677,12 @@ export default function Pessoas() {
                 {OPCOES_PAPEIS.map(op => {
                   const selecionado = formEdicao.perfis.includes(op.tipo);
                   const bloqueado = ehUnicoAdmin && op.tipo === 'SINDICO';
+                  const exclusivoAtivo = formEdicao.perfis.includes('VISITANTE')
+                    ? 'VISITANTE'
+                    : formEdicao.perfis.includes('PRESTADOR_SERVICO')
+                    ? 'PRESTADOR_SERVICO'
+                    : null;
+                  const bloqueadoPorExclusivo = exclusivoAtivo !== null && exclusivoAtivo !== op.tipo;
 
                   return (
                     <div
@@ -1826,11 +2693,15 @@ export default function Pessoas() {
                       className={`relative flex flex-col justify-between rounded-xl border p-3 transition-all select-none ${
                         bloqueado
                           ? 'cursor-not-allowed border-indigo-400 bg-indigo-50/80 dark:bg-indigo-950/50 dark:border-indigo-600 opacity-95'
+                          : bloqueadoPorExclusivo
+                          ? 'opacity-40 border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40 text-slate-400 hover:border-slate-300 cursor-pointer'
                           : 'cursor-pointer hover:shadow-xs'
                       } ${
                         selecionado
                           ? op.corAtiva
-                          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600'
+                          : !bloqueadoPorExclusivo
+                          ? 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600'
+                          : ''
                       }`}
                     >
                       <div>
@@ -1850,6 +2721,8 @@ export default function Pessoas() {
                             className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
                               selecionado
                                 ? 'border-transparent bg-navy text-white dark:bg-sky-500 shadow-2xs'
+                                : bloqueadoPorExclusivo
+                                ? 'border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800/40'
                                 : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800'
                             }`}
                           >
@@ -1875,12 +2748,24 @@ export default function Pessoas() {
                               🔒 Obrigatório
                             </span>
                           )}
+                          {(op.tipo === 'VISITANTE' || op.tipo === 'PRESTADOR_SERVICO') && (
+                            <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-100/70 dark:bg-amber-950/60 px-1.5 py-0.5 rounded-md">
+                              Exclusivo
+                            </span>
+                          )}
                         </div>
 
                         {/* Descrição */}
                         <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-snug">
                           {op.descricao}
                         </p>
+
+                        {bloqueadoPorExclusivo && (
+                          <p className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 mt-1.5 flex items-center gap-1">
+                            <Icone nome="alert" className="h-3 w-3 shrink-0" />
+                            Bloqueado (clique para alternar)
+                          </p>
+                        )}
                       </div>
                     </div>
                   );
@@ -2253,6 +3138,8 @@ export default function Pessoas() {
         variante="perigo"
         icone="trash"
       />
+        </>
+      )}
 
       <Mensagem texto={msg.t} tipo={msg.tipo} aoFechar={() => setMsg({ t: '', tipo: 'ok' })} />
     </div>

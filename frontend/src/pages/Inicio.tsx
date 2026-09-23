@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, sessaoAtual } from '../api';
 import { Cartao, Titulo, Icone, EmptyState, Botao } from '../components/ui';
+import { formatarDataHora } from '../utils/data';
 
 type IconeNome = React.ComponentProps<typeof Icone>['nome'];
 
@@ -47,15 +48,6 @@ function saudacaoPorHorario() {
   if (h < 12) return 'Bom dia';
   if (h < 18) return 'Boa tarde';
   return 'Boa noite';
-}
-
-function formatarDataHora(iso: string) {
-  return new Date(iso).toLocaleString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
 }
 
 /** Cartao numerico (ou textual) de resumo: sempre mostra um valor, nunca fica em branco. */
@@ -368,7 +360,7 @@ export default function Inicio() {
           proxima
             ? {
                 principal: proxima.area,
-                secundario: formatarDataHora(proxima.data_hora_inicio),
+                secundario: formatarDataHora(proxima.data_hora_inicio, false),
               }
             : {
                 principal: 'Nenhuma reserva agendada',
@@ -654,9 +646,9 @@ export default function Inicio() {
                         </div>
                         <p className="mt-1 text-slate-600 dark:text-slate-300 text-xs">
                           {ch.com_voce ? (
-                            <>Retirada por <b>você</b> em {formatarDataHora(ch.data_hora_retirada)}.</>
+                            <>Retirada por <b>você</b> em {formatarDataHora(ch.data_hora_retirada, false)}.</>
                           ) : (
-                            <>Retirada pelo familiar <b>{ch.responsavel}</b> em {formatarDataHora(ch.data_hora_retirada)}.</>
+                            <>Retirada pelo familiar <b>{ch.responsavel}</b> em {formatarDataHora(ch.data_hora_retirada, false)}.</>
                           )}
                         </p>
                       </div>
