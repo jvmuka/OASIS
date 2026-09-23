@@ -754,68 +754,86 @@ export class CadastrosController {
 
       // 4. Atualiza tipos de perfil (suporte a múltiplos papéis e proteção do único administrador)
       if (b.perfis !== undefined || b.tipo_perfil !== undefined) {
-        let novosPerfis: string[] = [];
+        let rawPerfis: string[] = [];
         if (Array.isArray(b.perfis)) {
-          novosPerfis = b.perfis.map(pf => (pf === 'ADMINISTRADOR' ? 'SINDICO' : pf.trim().toUpperCase()));
+          rawPerfis = b.perfis.map(pf => (pf === 'ADMINISTRADOR' ? 'SINDICO' : pf.trim().toUpperCase()));
         } else if (b.tipo_perfil) {
           if (b.tipo_perfil === 'SINDICO_MORADOR') {
-            novosPerfis = ['SINDICO', 'MORADOR'];
+            rawPerfis = ['SINDICO', 'MORADOR'];
           } else if (b.tipo_perfil === 'SINDICO' || b.tipo_perfil === 'ADMINISTRADOR') {
-            novosPerfis = ['SINDICO'];
+            rawPerfis = ['SINDICO'];
           } else if (b.tipo_perfil === 'PORTEIRO') {
-            novosPerfis = ['PORTEIRO'];
+            rawPerfis = ['PORTEIRO'];
           } else if (b.tipo_perfil === 'MORADOR') {
-            novosPerfis = ['MORADOR'];
+            rawPerfis = ['MORADOR'];
+          } else if (b.tipo_perfil === 'VISITANTE') {
+            rawPerfis = ['VISITANTE'];
+          } else if (b.tipo_perfil === 'PRESTADOR_SERVICO') {
+            rawPerfis = ['PRESTADOR_SERVICO'];
           }
         }
-        novosPerfis = Array.from(new Set(novosPerfis)).filter(pf => ['MORADOR', 'PORTEIRO', 'SINDICO'].includes(pf));
 
-        if (novosPerfis.length === 0) {
+        const perfisInternos = Array.from(new Set(rawPerfis)).filter(pf => ['MORADOR', 'PORTEIRO', 'SINDICO'].includes(pf));
+        const perfisExternos = Array.from(new Set(rawPerfis)).filter(pf => ['VISITANTE', 'PRESTADOR_SERVICO'].includes(pf));
+        const ehApenasExternoAtual = perfisExternos.length > 0 && perfisInternos.length === 0;
+
+        if (perfisInternos.length === 0 && perfisExternos.length === 0) {
           throw new BadRequestException('A pessoa deve possuir pelo menos um papel ativo no condomínio.');
         }
 
-        // RN: Não permitir que o próprio administrador tire seu perfil de administrador quando houver apenas 1 administrador ativo
-        const editandoASiMesmo = (id === req.user?.sub);
-        const contemAdmin = novosPerfis.includes('SINDICO');
-
-        if (editandoASiMesmo && !contemAdmin) {
-          const contagem = await c.query(
-            `SELECT COUNT(DISTINCT pf.id_pessoa)::INTEGER AS total
-               FROM perfil pf
-              WHERE pf.tipo_perfil = 'SINDICO'
-                AND (pf.data_fim IS NULL OR pf.data_fim > CURRENT_DATE)`
+        if (ehApenasExternoAtual) {
+          // Se passou a ser apenas visitante ou prestador de serviço, encerra quaisquer perfis de login
+          await c.query(
+            `UPDATE perfil
+                SET data_fim = CURRENT_DATE
+              WHERE id_pessoa = $1
+                AND (data_fim IS NULL OR data_fim > CURRENT_DATE)`,
+            [id]
           );
-          const totalAdmins = Number(contagem.rows[0]?.total || 0);
-          if (totalAdmins <= 1) {
-            throw new BadRequestException(
-              'Não é permitido remover o seu próprio perfil de administrador quando você é o único administrador ativo do condomínio.'
+        } else {
+          // RN: Não permitir que o próprio administrador tire seu perfil de administrador quando houver apenas 1 administrador ativo
+          const editandoASiMesmo = (id === req.user?.sub);
+          const contemAdmin = perfisInternos.includes('SINDICO');
+
+          if (editandoASiMesmo && !contemAdmin) {
+            const contagem = await c.query(
+              `SELECT COUNT(DISTINCT pf.id_pessoa)::INTEGER AS total
+                 FROM perfil pf
+                WHERE pf.tipo_perfil = 'SINDICO'
+                  AND (pf.data_fim IS NULL OR pf.data_fim > CURRENT_DATE)`
             );
+            const totalAdmins = Number(contagem.rows[0]?.total || 0);
+            if (totalAdmins <= 1) {
+              throw new BadRequestException(
+                'Não é permitido remover o seu próprio perfil de administrador quando você é o único administrador ativo do condomínio.'
+              );
+            }
           }
-        }
 
-        // Ativa ou insere cada perfil solicitado
-        for (const tp of novosPerfis) {
-          const has = await c.query(
-            `SELECT id_perfil, data_fim FROM perfil WHERE id_pessoa = $1 AND tipo_perfil = $2`,
-            [id, tp]
+          // Ativa ou insere cada perfil solicitado
+          for (const tp of perfisInternos) {
+            const has = await c.query(
+              `SELECT id_perfil, data_fim FROM perfil WHERE id_pessoa = $1 AND tipo_perfil = $2`,
+              [id, tp]
+            );
+            if (has.rows.length === 0) {
+              await c.query(`INSERT INTO perfil (id_pessoa, tipo_perfil) VALUES ($1, $2)`, [id, tp]);
+            } else if (has.rows[0].data_fim !== null) {
+              await c.query(`UPDATE perfil SET data_fim = NULL WHERE id_perfil = $1`, [has.rows[0].id_perfil]);
+            }
+          }
+
+          // Desativa quaisquer outros perfis da pessoa que não foram selecionados
+          const tiposPermitidos = [...perfisInternos];
+          await c.query(
+            `UPDATE perfil
+                SET data_fim = CURRENT_DATE
+              WHERE id_pessoa = $1
+                AND tipo_perfil <> ALL($2::tipo_perfil_enum[])
+                AND (data_fim IS NULL OR data_fim > CURRENT_DATE)`,
+            [id, tiposPermitidos]
           );
-          if (has.rows.length === 0) {
-            await c.query(`INSERT INTO perfil (id_pessoa, tipo_perfil) VALUES ($1, $2)`, [id, tp]);
-          } else if (has.rows[0].data_fim !== null) {
-            await c.query(`UPDATE perfil SET data_fim = NULL WHERE id_perfil = $1`, [has.rows[0].id_perfil]);
-          }
         }
-
-        // Desativa quaisquer outros perfis da pessoa que não foram selecionados
-        const tiposPermitidos = [...novosPerfis];
-        await c.query(
-          `UPDATE perfil
-              SET data_fim = CURRENT_DATE
-            WHERE id_pessoa = $1
-              AND tipo_perfil <> ALL($2::tipo_perfil_enum[])
-              AND (data_fim IS NULL OR data_fim > CURRENT_DATE)`,
-          [id, tiposPermitidos]
-        );
       }
 
       return p;
