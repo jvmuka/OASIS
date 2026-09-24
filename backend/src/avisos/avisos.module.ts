@@ -133,6 +133,36 @@ export class AvisosController {
     data_hora_expiracao?: string;
   }) {
     const idPerfil = perfilDoUsuario(req.user, 'SINDICO');
+    const agora = new Date();
+    // Tolerância de 2 minutos para compensar atraso de requisição / relógio do cliente
+    const limitePassado = new Date(agora.getTime() - 2 * 60 * 1000);
+
+    let dtPub: Date | null = null;
+    if (b.data_hora_publicacao) {
+      dtPub = new Date(b.data_hora_publicacao);
+      if (isNaN(dtPub.getTime())) {
+        throw new BadRequestException('Data de publicação inválida.');
+      }
+      if (dtPub < limitePassado) {
+        throw new BadRequestException('A data de publicação não pode ser no passado.');
+      }
+    }
+
+    let dtExp: Date | null = null;
+    if (b.data_hora_expiracao) {
+      dtExp = new Date(b.data_hora_expiracao);
+      if (isNaN(dtExp.getTime())) {
+        throw new BadRequestException('Data de expiração inválida.');
+      }
+      if (dtExp < agora) {
+        throw new BadRequestException('A data de expiração não pode ser no passado.');
+      }
+      const dtBase = dtPub ?? agora;
+      if (dtExp <= dtBase) {
+        throw new BadRequestException('A data de expiração deve ser posterior à data de publicação.');
+      }
+    }
+
     return this.db.query(`
       INSERT INTO aviso (id_perfil_autor, titulo, conteudo, fixado, data_hora_publicacao, data_hora_expiracao)
       VALUES ($1, $2, $3, $4, COALESCE($5, CURRENT_TIMESTAMP), $6)
@@ -142,8 +172,8 @@ export class AvisosController {
         b.titulo,
         b.conteudo,
         b.fixado ?? false,
-        b.data_hora_publicacao ? new Date(b.data_hora_publicacao) : null,
-        b.data_hora_expiracao ? new Date(b.data_hora_expiracao) : null,
+        dtPub,
+        dtExp,
       ]).then(r => r[0]);
   }
 

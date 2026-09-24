@@ -8,6 +8,11 @@ export function hojeSP(): string {
   return new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).slice(0, 10);
 }
 
+/** Retorna data e hora atual no fuso de São Paulo no formato para input datetime-local (YYYY-MM-DDTHH:mm). */
+export function agoraInputDateTime(): string {
+  return new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).slice(0, 16).replace(' ', 'T');
+}
+
 /** Formata data e hora no padrão pt-BR (ex: 22/09/2026 14:30 ou 22/09 14:30). */
 export function formatarDataHora(iso: string | Date | null | undefined, incluirAno = true): string {
   if (!iso) return '-';
