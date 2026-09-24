@@ -345,7 +345,7 @@ export default function Login() {
                     onClick={() => preencherRapido('ana.souza@teste.com')}
                     className="rounded-lg border border-slate-200 bg-slate-50/70 p-2 text-center font-medium text-slate-700 hover:bg-slate-100 hover:text-navy dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-sky-400 transition-colors cursor-pointer"
                   >
-                    <span className="block font-bold text-navy dark:text-sky-400">Administrador</span>
+                    <span className="block font-bold text-navy dark:text-sky-400">Síndica</span>
                     <span className="text-[10px] text-slate-400 dark:text-slate-500">Ana</span>
                   </button>
                   <button
@@ -412,7 +412,7 @@ export default function Login() {
                       onClick={preencherCodigoTeste}
                       className="text-[11px] font-semibold text-sky-600 hover:text-sky-700 dark:text-sky-400 cursor-pointer"
                     >
-                      🧪 Testar com Código de Exemplo (Carlos Silva)
+                      Testar com Código de Exemplo (Carlos Silva)
                     </button>
                   </div>
                 </form>

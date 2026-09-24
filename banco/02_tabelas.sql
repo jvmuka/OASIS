@@ -1,5 +1,5 @@
 -- =====================================================================
--- Parte 2 de 3: criacao das tabelas
+-- Parte 2 de 4: criacao das tabelas
 -- As tabelas sao criadas na ordem de dependencia das chaves estrangeiras
 -- =====================================================================
 
@@ -118,6 +118,11 @@ CREATE TABLE area_comum (
     imagem_url                VARCHAR(500),
     observacoes               VARCHAR(255),
     reserva_por_dia           BOOLEAN           NOT NULL DEFAULT FALSE,
+    requer_reserva            BOOLEAN           NOT NULL DEFAULT TRUE,
+    status_livre              VARCHAR(20)       NOT NULL DEFAULT 'LIVRE',
+    status_livre_atualizado_em TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    status_livre_observacao   VARCHAR(255),
+    status_livre_porteiro     VARCHAR(100),
     CONSTRAINT ck_area_capacidade  CHECK (capacidade > 0),
     CONSTRAINT ck_area_idade       CHECK (idade_minima >= 0),
     CONSTRAINT ck_area_slot        CHECK (duracao_slot_min BETWEEN 1 AND 1440),

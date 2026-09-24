@@ -1,7 +1,7 @@
 -- =====================================================================
 -- OASIS - Sistema de gestao de reservas e controle de acesso
 -- Script de criacao do banco de dados - PostgreSQL 16
--- Parte 1 de 3: criacao do banco e dos tipos enumerados
+-- Parte 1 de 4: criacao do banco e dos tipos enumerados
 -- =====================================================================
 
 DROP DATABASE IF EXISTS oasis;

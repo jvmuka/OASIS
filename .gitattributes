@@ -1,0 +1,5 @@
+# Finais de linha fixos para os scripts de inicializacao, independentemente
+# de core.autocrlf: o bash exige LF e o cmd.exe exige CRLF (rotulos/goto).
+*.sh  text eol=lf
+*.bat text eol=crlf
+*.pdf binary

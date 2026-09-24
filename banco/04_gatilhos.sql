@@ -1,5 +1,6 @@
 -- =====================================================================
 -- OASIS - Gatilhos (triggers) em PL/pgSQL - PostgreSQL 16
+-- Parte 4 de 4: gatilhos das regras de negocio RN01 a RN17
 -- =====================================================================
 
 -- ---------------------------------------------------------------------
@@ -103,7 +104,7 @@ BEGIN
         END IF;
     END IF;
 
-    -- RN17: restricao de idade minima da area comum
+    -- RN16: restricao de idade minima da area comum
     IF COALESCE(v_area.idade_minima, 0) > 0 THEN
         SELECT p.data_nascimento INTO v_nasc
           FROM perfil pf
@@ -111,7 +112,7 @@ BEGIN
          WHERE pf.id_perfil = NEW.id_perfil;
 
         IF v_nasc IS NOT NULL AND EXTRACT(YEAR FROM age(NEW.data_hora_inicio::date, v_nasc)) < v_area.idade_minima THEN
-            RAISE EXCEPTION 'RN17: a area exige idade minima de % anos para realizacao de reservas.',
+            RAISE EXCEPTION 'RN16: a area exige idade minima de % anos para realizacao de reservas.',
                             v_area.idade_minima;
         END IF;
     END IF;
@@ -138,9 +139,9 @@ BEGIN
         RAISE EXCEPTION 'RN06: nao e permitido realizar reserva para horario no passado.';
     END IF;
 
-    IF NEW.data_hora_inicio < (CURRENT_TIMESTAMP + (COALESCE(v_area.antecedencia_minima_horas, v_area.antecedencia_minima_dias * 24) || ' hours')::INTERVAL) THEN
+    IF NEW.data_hora_inicio < (CURRENT_TIMESTAMP + (GREATEST(v_area.antecedencia_minima_horas, v_area.antecedencia_minima_dias * 24) || ' hours')::INTERVAL) THEN
         RAISE EXCEPTION 'RN06: a reserva exige antecedencia minima de % hora(s).',
-                        COALESCE(v_area.antecedencia_minima_horas, v_area.antecedencia_minima_dias * 24);
+                        GREATEST(v_area.antecedencia_minima_horas, v_area.antecedencia_minima_dias * 24);
     END IF;
 
     v_dias_antec := NEW.data_hora_inicio::date - CURRENT_DATE;
@@ -420,7 +421,7 @@ CREATE TRIGGER tg_valida_dependente
     FOR EACH ROW EXECUTE FUNCTION fn_valida_dependente();
 
 -- ---------------------------------------------------------------------
--- RN18: cancelamento automatico de reservas ativas ao aplicar penalidade
+-- RN17: cancelamento automatico de reservas ativas ao aplicar penalidade
 -- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION fn_bloqueio_perfil_cancela_reservas() RETURNS TRIGGER AS $$
 BEGIN

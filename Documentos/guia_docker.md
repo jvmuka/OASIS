@@ -63,7 +63,7 @@ docker compose down -v
 
 - **Aplicação Web (Frontend)**: [http://localhost:5173](http://localhost:5173)
 - **API REST (Backend)**: [http://localhost:3000/api](http://localhost:3000/api)
-- **Banco de Dados PostgreSQL**: `localhost:5433` (Usuário: `postgres`, Senha: `Oasis@2026`, Database: `oasis`).
+- **Banco de Dados PostgreSQL**: `localhost:5433` (Usuário: `postgres`, Senha: `OasisDemo2026`, Database: `oasis`). As credenciais vêm do arquivo `.env`; os valores indicados são os do `.env` de demonstração incluído no pacote de entrega.
 
 ---
 
