@@ -1,0 +1,198 @@
+@startuml 09b_logico_areas
+!pragma layout elk
+skinparam dpi 200
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam defaultFontSize 16
+skinparam shadowing false
+skinparam linetype ortho
+skinparam classAttributeIconSize 0
+skinparam class {
+  BorderColor #2C3E50
+  FontColor #1A1A1A
+  FontSize 16
+  FontStyle bold
+  AttributeFontSize 16
+  ArrowColor #2C3E50
+}
+skinparam legend {
+  BackgroundColor #FFFFFF
+  BorderColor #2C3E50
+  FontSize 14
+}
+hide circle
+hide empty methods
+skinparam note {
+  BackgroundColor #FFFFFF
+  BorderColor #2C3E50
+  FontSize 16
+}
+
+' Diagrama lógico (modelo relacional) do OASIS - parte 2 de 2 (áreas comuns e seu uso).
+' Notação pé de galinha (Information Engineering).
+' Fonte: Documentos/diagramas/sql_consolidado (01_banco_e_tipos.sql e 02_tabelas.sql).
+' Todas as colunas na ordem do SQL, com o tipo declarado; «PK»/«FK» marcam as chaves e
+' NULL marca as colunas que aceitam nulo (as demais são NOT NULL).
+' PERFIL e PESSOA aparecem só como referência (nome e PK); colunas na parte 1 (09a_logico_cadastro).
+' Uma linha por chave estrangeira (FKs 7-22): lado referenciado || se a FK é NOT NULL
+' e |o se aceita nulo; lado da tabela com a FK o{.
+' As FKs 11, 20 e 22 estão escritas na forma invertida (TABELA }o--|| PERFIL), com as
+' mesmas pontas, apenas para o ELK posicionar PERFIL abaixo de RESERVA e BLOQUEIO_PERFIL.
+' Ligações [hidden] servem apenas para ordenar as fileiras do layout ELK.
+note as LEGENDA
+  <b>Grupos</b>
+  <back:#FFF3E0>        </back> Pessoas, perfis e acesso
+  <back:#E3F2FD>        </back> Áreas comuns e recursos
+  <back:#FDECEA>        </back> Uso das áreas
+  <b>Marcações</b>
+  «PK» chave primária
+  «FK» chave estrangeira
+  NULL coluna aceita nulo
+  (demais: NOT NULL)
+end note
+entity AREA_COMUM #E3F2FD {
+  id_area_comum : SERIAL <<PK>>
+  --
+  nome : VARCHAR(60)
+  descricao : TEXT NULL
+  capacidade : INTEGER
+  idade_minima : INTEGER
+  tipo_acesso : tipo_acesso_enum
+  tipo_uso : tipo_uso_enum
+  duracao_slot_min : INTEGER
+  antecedencia_minima_dias : INTEGER
+  antecedencia_minima_horas : INTEGER
+  antecedencia_maxima_dias : INTEGER
+  prazo_cancelamento_horas : INTEGER
+  limite_reservas_semana : INTEGER
+  tipo_limite_reserva : tipo_limite_reserva_enum
+  max_unidades_simultaneas : INTEGER
+  exige_chave : BOOLEAN
+  valor : NUMERIC(10,2)
+  ativo : BOOLEAN
+  imagem_url : VARCHAR(500) NULL
+  observacoes : VARCHAR(255) NULL
+  reserva_por_dia : BOOLEAN
+  requer_reserva : BOOLEAN
+  status_livre : status_livre_enum
+  status_livre_atualizado_em : TIMESTAMPTZ NULL
+  status_livre_observacao : VARCHAR(255) NULL
+  status_livre_porteiro : VARCHAR(100) NULL
+}
+entity AREA_HORARIO #E3F2FD {
+  id_horario : SERIAL <<PK>>
+  --
+  id_area_comum : INTEGER <<FK>>
+  dia_semana : dia_semana_enum
+  hora_inicio : TIME
+  hora_fim : TIME
+}
+entity AREA_UTENSILIO #E3F2FD {
+  id_utensilio : SERIAL <<PK>>
+  --
+  id_area_comum : INTEGER <<FK>>
+  nome : VARCHAR(60)
+  quantidade : INTEGER
+  observacao : VARCHAR(255) NULL
+}
+entity CHAVE #E3F2FD {
+  id_chave : SERIAL <<PK>>
+  --
+  id_area_comum : INTEGER <<FK>>
+  codigo : VARCHAR(100)
+  status : status_chave_enum
+  observacao : VARCHAR(255) NULL
+}
+entity BLOQUEIO_AREA #FDECEA {
+  id_bloqueio_area : SERIAL <<PK>>
+  --
+  id_area_comum : INTEGER <<FK>>
+  id_perfil_registro : INTEGER <<FK>>
+  data_hora_inicio : TIMESTAMP
+  data_hora_fim : TIMESTAMP
+  motivo : motivo_bloqueio_area_enum
+  descricao : VARCHAR(255) NULL
+}
+entity RESERVA #FDECEA {
+  id_reserva : SERIAL <<PK>>
+  --
+  id_area_comum : INTEGER <<FK>>
+  id_perfil : INTEGER <<FK>>
+  data_hora_inicio : TIMESTAMP
+  data_hora_fim : TIMESTAMP
+  numero_pessoas : INTEGER
+  status : status_reserva_enum
+  data_hora_criacao : TIMESTAMP
+  data_hora_cancelamento : TIMESTAMP NULL
+  motivo_cancelamento : VARCHAR(255) NULL
+  observacao : VARCHAR(255) NULL
+}
+entity BLOQUEIO_PERFIL #FDECEA {
+  id_bloqueio_perfil : SERIAL <<PK>>
+  --
+  id_perfil : INTEGER <<FK>>
+  id_area_comum : INTEGER NULL <<FK>>
+  id_perfil_registro : INTEGER <<FK>>
+  data_hora_inicio : TIMESTAMP
+  data_hora_fim : TIMESTAMP NULL
+  motivo : motivo_bloqueio_perfil_enum
+  descricao : VARCHAR(255) NULL
+}
+entity PERFIL #FFF3E0 {
+  id_perfil : SERIAL <<PK>>
+  --
+  <i>Colunas na Figura 11</i>
+}
+entity PESSOA #FFF3E0 {
+  id_pessoa : SERIAL <<PK>>
+  --
+  <i>Colunas na Figura 11</i>
+}
+entity ENTREGA_CHAVE #FDECEA {
+  id_entrega_chave : SERIAL <<PK>>
+  --
+  id_chave : INTEGER <<FK>>
+  id_perfil_solicitante : INTEGER NULL <<FK>>
+  id_pessoa_solicitante : INTEGER NULL <<FK>>
+  id_perfil_entrega : INTEGER <<FK>>
+  id_perfil_recebimento : INTEGER NULL <<FK>>
+  id_reserva : INTEGER NULL <<FK>>
+  data_hora_retirada : TIMESTAMP
+  data_hora_devolucao : TIMESTAMP NULL
+  observacao : VARCHAR(255) NULL
+}
+' FK 7: area_horario.id_area_comum -> area_comum
+AREA_COMUM ||--o{ AREA_HORARIO
+' FK 8: area_utensilio.id_area_comum -> area_comum
+AREA_COMUM ||--o{ AREA_UTENSILIO
+' FK 9: chave.id_area_comum -> area_comum
+AREA_COMUM ||--o{ CHAVE
+' FK 10: reserva.id_area_comum -> area_comum
+AREA_COMUM ||--o{ RESERVA
+' FK 11: reserva.id_perfil -> perfil
+RESERVA }o--|| PERFIL
+' FK 12: entrega_chave.id_chave -> chave
+CHAVE ||--o{ ENTREGA_CHAVE
+' FK 13: entrega_chave.id_perfil_solicitante -> perfil
+PERFIL |o--o{ ENTREGA_CHAVE
+' FK 14: entrega_chave.id_pessoa_solicitante -> pessoa
+PESSOA |o--o{ ENTREGA_CHAVE
+' FK 15: entrega_chave.id_perfil_entrega -> perfil
+PERFIL ||--o{ ENTREGA_CHAVE
+' FK 16: entrega_chave.id_perfil_recebimento -> perfil
+PERFIL |o--o{ ENTREGA_CHAVE
+' FK 17: entrega_chave.id_reserva -> reserva
+RESERVA |o--o{ ENTREGA_CHAVE
+' FK 18: bloqueio_area.id_area_comum -> area_comum
+AREA_COMUM ||--o{ BLOQUEIO_AREA
+' FK 19: bloqueio_area.id_perfil_registro -> perfil
+PERFIL ||--o{ BLOQUEIO_AREA
+' FK 20: bloqueio_perfil.id_perfil -> perfil
+BLOQUEIO_PERFIL }o--|| PERFIL
+' FK 21: bloqueio_perfil.id_area_comum -> area_comum
+AREA_COMUM |o--o{ BLOQUEIO_PERFIL
+' FK 22: bloqueio_perfil.id_perfil_registro -> perfil
+BLOQUEIO_PERFIL }o--|| PERFIL
+CHAVE -[hidden]-> RESERVA
+CHAVE -[hidden]-> BLOQUEIO_PERFIL
+@enduml

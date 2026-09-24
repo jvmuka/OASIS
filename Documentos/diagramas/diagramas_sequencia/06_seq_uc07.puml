@@ -1,0 +1,91 @@
+@startuml 06_seq_uc07
+skinparam dpi 200
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam defaultFontSize 14
+skinparam shadowing false
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ArrowColor #2C3E50
+skinparam ArrowFontColor #1A1A1A
+skinparam sequence {
+  LifeLineBorderColor #2C3E50
+  ParticipantBorderColor #2C3E50
+  ParticipantBackgroundColor #FFFFFF
+  ActorBorderColor #2C3E50
+  ActorBackgroundColor #FFFFFF
+  BoxBorderColor #2C3E50
+  GroupBorderColor #2C3E50
+  GroupHeaderFontStyle bold
+  DividerBorderColor #2C3E50
+}
+skinparam boundary {
+  BackgroundColor #EAF2FB
+  BorderColor #2C3E50
+}
+skinparam control {
+  BackgroundColor #FDF6E3
+  BorderColor #2C3E50
+}
+skinparam database {
+  BackgroundColor #FFFFFF
+  BorderColor #2C3E50
+}
+skinparam note {
+  BackgroundColor #FFFFFF
+  BorderColor #2C3E50
+}
+hide footbox
+skinparam maxMessageSize 130
+skinparam ParticipantPadding 4
+skinparam BoxPadding 4
+
+actor "Porteiro" as P
+boundary "TelaEncomendasPortaria" as T
+control "ControleCadastros" as CC
+control "ControlePortaria" as C
+database "Banco de Dados" as BD
+actor "Morador" as M
+
+P -> T : abre a tela de encomendas
+T -> CC : listarPessoas()
+CC -> BD : consultar pessoas e unidades
+BD --> CC : pessoas e unidades
+CC --> T : lista de pessoas
+P -> T : filtra o destinatário (nome, CPF, bloco ou apto)
+alt destinatário encontrado
+  P -> T : informa descrição e tamanho
+  T -> C : registrarEncomenda(pessoa, descrição, tamanho)
+  C -> BD : INSERT INTO encomenda (AGUARDANDO_RETIRADA)
+  note right of BD
+    RN11: gera AVISO individual e
+    AVISO_PERFIL para o destinatário,
+    exibido na aba de encomendas
+    do mural do morador (UC05)
+  end note
+  BD --> C : encomenda registrada
+  C --> T : confirmação
+  T --> P : exibe o registro
+else destinatário não encontrado
+  T --> P : nenhum resultado; permite nova busca
+end
+== Retirada (UC08) ==
+M -> P : apresenta-se para retirar
+P -> T : informa quem retirou
+T -> C : registrarRetirada(encomenda, retiradoPor)
+C -> BD : UPDATE encomenda
+note right of BD
+  RN12: exige quem retirou, o funcionário
+  e, se terceiro, o nome do retirante;
+  status passa a RETIRADA.
+end note
+alt dados completos
+  BD --> C : retirada registrada
+  C --> T : confirmação
+  T --> P : exibe a retirada
+else dado obrigatório ausente
+  BD --> C : RAISE EXCEPTION 'RN12: ...'
+  C --> T : mensagem da regra
+  T --> P : solicita o dado ausente
+end
+@enduml

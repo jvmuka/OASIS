@@ -1,0 +1,168 @@
+@startuml 02b1_classes_entidades_cadastro
+!pragma layout elk
+
+' Modelo de entidades do OASIS - parte 1 de 2 (cadastro e comunicação).
+' Fonte: Documentos/diagramas/sql_consolidado (01_banco_e_tipos.sql e 02_tabelas.sql).
+' Uma classe por tabela; chaves estrangeiras representadas como associações.
+' As associações de RESERVA, ENTREGA_CHAVE, BLOQUEIO_AREA e BLOQUEIO_PERFIL
+' com PESSOA e PERFIL estão desenhadas na parte 2 (02b2_classes_entidades_areas).
+
+skinparam dpi 200
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam defaultFontSize 16
+skinparam shadowing false
+skinparam linetype ortho
+skinparam packageStyle folder
+skinparam classAttributeIconSize 0
+
+skinparam package {
+  BorderColor #2C3E50
+  FontColor #1A1A1A
+  FontSize 18
+  FontStyle bold
+}
+
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #2C3E50
+  FontColor #1A1A1A
+  FontSize 16
+  StereotypeFontSize 16
+  AttributeFontSize 16
+  ArrowFontSize 16
+  ArrowColor #2C3E50
+  ArrowFontColor #2C3E50
+}
+
+hide circle
+hide empty methods
+
+' Observação de layout: o motor ELK dispõe cada fileira na ordem inversa da
+' declaração; por isso as classes de cada fileira estão declaradas da direita
+' para a esquerda.
+
+package "Pessoas, perfis e acesso" as Pessoas #FFF3E0 {
+  class CODIGO_PRIMEIRO_ACESSO <<entity>> {
+    -id_codigo : int
+    -codigo : string
+    -tipo : tipo_codigo_enum
+    -status : status_codigo_enum
+    -data_criacao : datetime
+    -data_expiracao : datetime
+    -data_utilizacao : datetime [0..1]
+    -ip_origem : string [0..1]
+  }
+  class "                    PERFIL                    " as PERFIL <<entity>> {
+    -id_perfil : int
+    -tipo_perfil : tipo_perfil_enum
+    -data_inicio : date
+    -data_fim : date [0..1]
+    -recebe_notificacao : boolean
+    -token_fcm : string [0..1]
+  }
+  class PESSOA_UNIDADE <<entity>> {
+    -id_pessoa_unidade : int
+    -tipo_vinculo : tipo_vinculo_enum
+    -grau_parentesco : grau_parentesco_enum [0..1]
+    -status_aprovacao : status_aprovacao_enum
+    -motivo_rejeicao : string [0..1]
+    -reside : boolean
+    -data_inicio_ocupacao : date
+    -data_fim_ocupacao : date [0..1]
+  }
+  class "                PESSOA                " as PESSOA <<entity>> {
+    -id_pessoa : int
+    -nome : string
+    -email : string
+    -cpf : string
+    -data_nascimento : date
+    -celular : string [0..1]
+    -senha_hash : string [0..1]
+    -status_conta : status_conta_enum
+    -papel_controle : papel_controle_enum
+    -tipo_servico : string [0..1]
+    -ativo : boolean
+  }
+}
+
+package "Comunicação e portaria" as Comunicacao #F3E5F5 {
+  class ENCOMENDA <<entity>> {
+    -id_encomenda : int
+    -descricao : string [0..1]
+    -tamanho : tamanho_encomenda_enum
+    -data_hora_recebimento : datetime
+    -data_hora_retirada : datetime [0..1]
+    -retirado_por : retirado_por_enum [0..1]
+    -nome_retirante : string [0..1]
+    -status : status_encomenda_enum
+  }
+  class AVISO_PERFIL <<entity>> {
+    -id_aviso_perfil : int
+    -lido : boolean
+    -data_hora_leitura : datetime [0..1]
+    -notificado : boolean
+  }
+  class AVISO <<entity>> {
+    -id_aviso : int
+    -escopo : escopo_aviso_enum
+    -titulo : string
+    -conteudo : string
+    -data_hora_publicacao : datetime
+    -data_hora_expiracao : datetime [0..1]
+    -fixado : boolean
+  }
+}
+
+package "Estrutura do condomínio" as Estrutura #E8F5E9 {
+  class BLOCO <<entity>> {
+    -id_bloco : int
+    -nome : string
+    -descricao : string [0..1]
+  }
+  class UNIDADE <<entity>> {
+    -id_unidade : int
+    -numero_apartamento : string
+    -numero_vagas : int
+  }
+  class VAGA_GARAGEM <<entity>> {
+    -id_vaga : int
+    -identificacao : string
+    -pavimento : pavimento_enum
+    -tipo_vaga : tipo_vaga_enum
+    -coberta : boolean
+  }
+}
+
+' ---------- Associações: uma por chave estrangeira (14) ----------
+' Formato: referenciada "papel\nmultiplicidade" -- "0..*" tabela que contém a FK.
+' FK 1: unidade.id_bloco -> bloco
+BLOCO "1" -- "0..*" UNIDADE
+' FK 26: aviso.id_perfil_autor -> perfil
+AVISO "0..*" -- "1" PERFIL
+' FK 6: perfil.id_pessoa -> pessoa
+PESSOA "1" -- "0..*" PERFIL
+' FK 27: aviso_perfil.id_aviso -> aviso
+AVISO "1" *-- "0..*" AVISO_PERFIL
+' FK 23: encomenda.id_pessoa_destinatario -> pessoa
+PESSOA "1" -- "0..*" ENCOMENDA
+' FK 4: pessoa_unidade.id_unidade -> unidade
+UNIDADE "1" -- "0..*" PESSOA_UNIDADE
+' FK 28: aviso_perfil.id_perfil -> perfil
+AVISO_PERFIL "0..*" -- "1" PERFIL
+' FK 5: pessoa_unidade.id_responsavel -> pessoa
+PESSOA_UNIDADE "0..*" -- "responsavel\n0..1" PESSOA
+' FK 30: codigo_primeiro_acesso.id_perfil_gerador -> perfil
+CODIGO_PRIMEIRO_ACESSO "0..*" -- "0..1" PERFIL
+' FK 2: vaga_garagem.id_unidade -> unidade
+VAGA_GARAGEM "0..*" -- "1" UNIDADE
+' FK 3: pessoa_unidade.id_pessoa -> pessoa
+PESSOA "ocupante\n1" -- "0..*" PESSOA_UNIDADE
+' FK 24: encomenda.id_perfil_recebimento -> perfil
+ENCOMENDA "0..*" -- "recebedor\n1" PERFIL
+' FK 25: encomenda.id_perfil_entrega -> perfil
+PERFIL "entregador\n0..1" -- "0..*" ENCOMENDA
+' FK 29: codigo_primeiro_acesso.id_pessoa -> pessoa
+PESSOA "1" *-- "0..*" CODIGO_PRIMEIRO_ACESSO
+
+@enduml

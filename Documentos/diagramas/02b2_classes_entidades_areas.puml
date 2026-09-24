@@ -1,0 +1,183 @@
+@startuml 02b2_classes_entidades_areas
+!pragma layout elk
+
+' Modelo de entidades do OASIS - parte 2 de 2 (áreas comuns e uso).
+' Fonte: Documentos/diagramas/sql_consolidado (01_banco_e_tipos.sql e 02_tabelas.sql).
+' Uma classe por tabela; chaves estrangeiras representadas como associações.
+' PESSOA e PERFIL aparecem aqui apenas como referência, com o compartimento de
+' atributos suprimido (UML 2.5); seus atributos estão na Figura 3.
+
+skinparam dpi 200
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam defaultFontSize 16
+skinparam shadowing false
+skinparam linetype ortho
+skinparam packageStyle folder
+skinparam classAttributeIconSize 0
+
+skinparam package {
+  BorderColor #2C3E50
+  FontColor #1A1A1A
+  FontSize 18
+  FontStyle bold
+}
+
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #2C3E50
+  FontColor #1A1A1A
+  FontSize 16
+  StereotypeFontSize 16
+  AttributeFontSize 16
+  ArrowFontSize 16
+  ArrowColor #2C3E50
+  ArrowFontColor #2C3E50
+}
+
+skinparam note {
+  BackgroundColor #FFFFFF
+  BorderColor #2C3E50
+  FontSize 16
+}
+
+hide circle
+hide empty methods
+' Suprime o compartimento de atributos das classes de referência (sem atributos declarados).
+hide empty fields
+
+' Observação de layout: o motor ELK dispõe cada fileira na ordem inversa da
+' declaração; por isso as classes de cada fileira estão declaradas da direita
+' para a esquerda.
+
+package "Áreas comuns e recursos" as Areas #E3F2FD {
+  class AREA_HORARIO <<entity>> {
+    -id_horario : int
+    -dia_semana : dia_semana_enum
+    -hora_inicio : time
+    -hora_fim : time
+  }
+  class CHAVE <<entity>> {
+    -id_chave : int
+    -codigo : string
+    -status : status_chave_enum
+    -observacao : string [0..1]
+  }
+  class AREA_COMUM <<entity>> {
+    -id_area_comum : int
+    -nome : string
+    -descricao : string [0..1]
+    -capacidade : int
+    -idade_minima : int
+    -tipo_acesso : tipo_acesso_enum
+    -tipo_uso : tipo_uso_enum
+    -duracao_slot_min : int
+    -antecedencia_minima_dias : int
+    -antecedencia_minima_horas : int
+    -antecedencia_maxima_dias : int
+    -prazo_cancelamento_horas : int
+    -limite_reservas_semana : int
+    -tipo_limite_reserva : tipo_limite_reserva_enum
+    -max_unidades_simultaneas : int
+    -exige_chave : boolean
+    -valor : decimal
+    -ativo : boolean
+    -imagem_url : string [0..1]
+    -observacoes : string [0..1]
+    -reserva_por_dia : boolean
+    -requer_reserva : boolean
+    -status_livre : status_livre_enum
+    -status_livre_atualizado_em : datetime [0..1]
+    -status_livre_observacao : string [0..1]
+    -status_livre_porteiro : string [0..1]
+  }
+  class AREA_UTENSILIO <<entity>> {
+    -id_utensilio : int
+    -nome : string
+    -quantidade : int
+    -observacao : string [0..1]
+  }
+}
+
+package "Uso das áreas" as Uso #FDECEA {
+  class BLOQUEIO_AREA <<entity>> {
+    -id_bloqueio_area : int
+    -data_hora_inicio : datetime
+    -data_hora_fim : datetime
+    -motivo : motivo_bloqueio_area_enum
+    -descricao : string [0..1]
+  }
+  class BLOQUEIO_PERFIL <<entity>> {
+    -id_bloqueio_perfil : int
+    -data_hora_inicio : datetime
+    -data_hora_fim : datetime [0..1]
+    -motivo : motivo_bloqueio_perfil_enum
+    -descricao : string [0..1]
+  }
+  class RESERVA <<entity>> {
+    -id_reserva : int
+    -data_hora_inicio : datetime
+    -data_hora_fim : datetime
+    -numero_pessoas : int
+    -status : status_reserva_enum
+    -data_hora_criacao : datetime
+    -data_hora_cancelamento : datetime [0..1]
+    -motivo_cancelamento : string [0..1]
+    -observacao : string [0..1]
+  }
+  class ENTREGA_CHAVE <<entity>> {
+    -id_entrega_chave : int
+    -data_hora_retirada : datetime
+    -data_hora_devolucao : datetime [0..1]
+    -observacao : string [0..1]
+  }
+}
+
+package "Pessoas, perfis e acesso" as Pessoas #FFF3E0 {
+  ' Os espaços eme em volta do nome alargam a caixa para acomodar as pontas das associações.
+  class "                     PERFIL                     " as PERFIL <<entity>>
+  class "  PESSOA  " as PESSOA <<entity>>
+  note "Atributos na Figura 3" as NotaPESSOA
+  note "Atributos na Figura 3" as NotaPERFIL
+}
+
+' ---------- Associações: uma por chave estrangeira (16) ----------
+' Formato: referenciada "papel\nmultiplicidade" -- "0..*" tabela que contém a FK.
+' FK 20: bloqueio_perfil.id_perfil -> perfil
+PERFIL "penalizado\n1" -- "0..*" BLOQUEIO_PERFIL
+' FK 18: bloqueio_area.id_area_comum -> area_comum
+BLOQUEIO_AREA "0..*" -- "1" AREA_COMUM
+' FK 15: entrega_chave.id_perfil_entrega -> perfil
+PERFIL "entregador\n1" -- "0..*" ENTREGA_CHAVE
+' FK 19: bloqueio_area.id_perfil_registro -> perfil
+PERFIL "1" -- "0..*" BLOQUEIO_AREA
+' FK 12: entrega_chave.id_chave -> chave
+CHAVE "1" -- "0..*" ENTREGA_CHAVE
+' FK 16: entrega_chave.id_perfil_recebimento -> perfil
+PERFIL "recebedor\n0..1" -- "0..*" ENTREGA_CHAVE
+' FK 21: bloqueio_perfil.id_area_comum -> area_comum
+BLOQUEIO_PERFIL "0..*" -- "0..1" AREA_COMUM
+' FK 17: entrega_chave.id_reserva -> reserva
+RESERVA "0..1" -- "0..*" ENTREGA_CHAVE
+' FK 14: entrega_chave.id_pessoa_solicitante -> pessoa
+PESSOA "solicitante\n0..1" -- "0..*" ENTREGA_CHAVE
+' FK 8: area_utensilio.id_area_comum -> area_comum
+AREA_UTENSILIO "0..*" --* "1" AREA_COMUM
+' FK 10: reserva.id_area_comum -> area_comum
+RESERVA "0..*" -- "1" AREA_COMUM
+' FK 22: bloqueio_perfil.id_perfil_registro -> perfil
+PERFIL "registrador\n1" -- "0..*" BLOQUEIO_PERFIL
+' FK 13: entrega_chave.id_perfil_solicitante -> perfil
+PERFIL "solicitante\n0..1" -- "0..*" ENTREGA_CHAVE
+' FK 11: reserva.id_perfil -> perfil
+PERFIL "1" -- "0..*" RESERVA
+' FK 9: chave.id_area_comum -> area_comum
+CHAVE "0..*" -- "1" AREA_COMUM
+' FK 7: area_horario.id_area_comum -> area_comum
+AREA_HORARIO "0..*" --* "1" AREA_COMUM
+
+' ---------- Notas das classes de referência ----------
+NotaPESSOA .. PESSOA
+NotaPERFIL .. PERFIL
+
+@enduml

@@ -1,0 +1,68 @@
+@startuml 07_seq_uc14
+skinparam dpi 200
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam defaultFontSize 14
+skinparam shadowing false
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam ArrowColor #2C3E50
+skinparam ArrowFontColor #1A1A1A
+skinparam sequence {
+  LifeLineBorderColor #2C3E50
+  ParticipantBorderColor #2C3E50
+  ParticipantBackgroundColor #FFFFFF
+  ActorBorderColor #2C3E50
+  ActorBackgroundColor #FFFFFF
+  BoxBorderColor #2C3E50
+  GroupBorderColor #2C3E50
+  GroupHeaderFontStyle bold
+  DividerBorderColor #2C3E50
+}
+skinparam boundary {
+  BackgroundColor #EAF2FB
+  BorderColor #2C3E50
+}
+skinparam control {
+  BackgroundColor #FDF6E3
+  BorderColor #2C3E50
+}
+skinparam database {
+  BackgroundColor #FFFFFF
+  BorderColor #2C3E50
+}
+skinparam note {
+  BackgroundColor #FFFFFF
+  BorderColor #2C3E50
+}
+hide footbox
+skinparam maxMessageSize 150
+skinparam ParticipantPadding 4
+skinparam BoxPadding 4
+
+actor "Usuário" as U
+boundary "TelaLogin\n(aba Primeiro Acesso)" as T
+control "ControleAutenticacao" as C
+database "Banco de Dados" as BD
+
+U -> T : informa o código e o e-mail
+T -> C : validarCodigo(código, email)
+C -> BD : buscar código da pessoa
+BD --> C : código, status e validade
+alt código inexistente, expirado, já utilizado ou de outra pessoa
+  C --> T : código inválido
+  T --> U : exibe a recusa
+else código DISPONIVEL e válido
+  C --> T : nome e unidade da pessoa
+  T --> U : pede confirmação e nova senha
+  U -> T : realizarPrimeiroAcesso(senha, confirmação)
+  T -> C : realizarPrimeiroAcesso(código, email, senha)
+  C -> BD : BEGIN
+  C -> BD : UPDATE pessoa (senha_hash PBKDF2, status ATIVO)
+  C -> BD : UPDATE codigo_primeiro_acesso (UTILIZADO, data, IP)
+  C -> BD : COMMIT
+  C -> C : emitir token JWT
+  C --> T : sessão iniciada
+  T --> U : redireciona à tela de início
+end
+@enduml
