@@ -1,0 +1,181 @@
+@startuml 09a_logico_cadastro
+!pragma layout elk
+skinparam dpi 200
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam defaultFontSize 16
+skinparam shadowing false
+skinparam linetype ortho
+skinparam classAttributeIconSize 0
+skinparam class {
+  BorderColor #2C3E50
+  FontColor #1A1A1A
+  FontSize 16
+  FontStyle bold
+  AttributeFontSize 16
+  ArrowColor #2C3E50
+}
+skinparam legend {
+  BackgroundColor #FFFFFF
+  BorderColor #2C3E50
+  FontSize 16
+}
+hide circle
+hide empty methods
+
+' Diagrama lógico (modelo relacional) do OASIS - parte 1 de 2 (cadastro e comunicação).
+' Notação pé de galinha (Information Engineering).
+' Fonte: Documentos/diagramas/sql_consolidado (01_banco_e_tipos.sql e 02_tabelas.sql).
+' Todas as colunas na ordem do SQL, com o tipo declarado; «PK»/«FK» marcam as chaves e
+' NULL marca as colunas que aceitam nulo (as demais são NOT NULL).
+' Uma linha por chave estrangeira (FKs 1-6 e 23-30): lado referenciado || se a FK é
+' NOT NULL e |o se aceita nulo; lado da tabela com a FK o{.
+' As FKs 7-22 (áreas comuns e seu uso) estão na parte 2 (09b_logico_areas).
+' Ligações [hidden] servem apenas para ordenar as fileiras do layout ELK.
+entity BLOCO #E8F5E9 {
+  id_bloco : SERIAL <<PK>>
+  --
+  nome : VARCHAR(20)
+  descricao : VARCHAR(120) NULL
+}
+entity PESSOA #FFF3E0 {
+  id_pessoa : SERIAL <<PK>>
+  --
+  nome : VARCHAR(100)
+  email : VARCHAR(150)
+  cpf : CHAR(11)
+  data_nascimento : DATE
+  celular : VARCHAR(30) NULL
+  senha_hash : VARCHAR(255) NULL
+  status_conta : status_conta_enum
+  papel_controle : papel_controle_enum
+  tipo_servico : VARCHAR(100) NULL
+  ativo : BOOLEAN
+}
+entity UNIDADE #E8F5E9 {
+  id_unidade : SERIAL <<PK>>
+  --
+  id_bloco : INTEGER <<FK>>
+  numero_apartamento : VARCHAR(10)
+  numero_vagas : INTEGER
+}
+entity PERFIL #FFF3E0 {
+  id_perfil : SERIAL <<PK>>
+  --
+  id_pessoa : INTEGER <<FK>>
+  tipo_perfil : tipo_perfil_enum
+  data_inicio : DATE
+  data_fim : DATE NULL
+  recebe_notificacao : BOOLEAN
+  token_fcm : VARCHAR(255) NULL
+}
+entity VAGA_GARAGEM #E8F5E9 {
+  id_vaga : SERIAL <<PK>>
+  --
+  id_unidade : INTEGER <<FK>>
+  identificacao : VARCHAR(10)
+  pavimento : pavimento_enum
+  tipo_vaga : tipo_vaga_enum
+  coberta : BOOLEAN
+}
+entity PESSOA_UNIDADE #FFF3E0 {
+  id_pessoa_unidade : SERIAL <<PK>>
+  --
+  id_pessoa : INTEGER <<FK>>
+  id_unidade : INTEGER <<FK>>
+  tipo_vinculo : tipo_vinculo_enum
+  id_responsavel : INTEGER NULL <<FK>>
+  grau_parentesco : grau_parentesco_enum NULL
+  status_aprovacao : status_aprovacao_enum
+  motivo_rejeicao : VARCHAR(255) NULL
+  reside : BOOLEAN
+  data_inicio_ocupacao : DATE
+  data_fim_ocupacao : DATE NULL
+}
+entity ENCOMENDA #F3E5F5 {
+  id_encomenda : SERIAL <<PK>>
+  --
+  id_pessoa_destinatario : INTEGER <<FK>>
+  id_perfil_recebimento : INTEGER <<FK>>
+  id_perfil_entrega : INTEGER NULL <<FK>>
+  descricao : VARCHAR(255) NULL
+  tamanho : tamanho_encomenda_enum
+  data_hora_recebimento : TIMESTAMP
+  data_hora_retirada : TIMESTAMP NULL
+  retirado_por : retirado_por_enum NULL
+  nome_retirante : VARCHAR(100) NULL
+  status : status_encomenda_enum
+}
+entity CODIGO_PRIMEIRO_ACESSO #FFF3E0 {
+  id_codigo : SERIAL <<PK>>
+  --
+  codigo : VARCHAR(30)
+  id_pessoa : INTEGER <<FK>>
+  id_perfil_gerador : INTEGER NULL <<FK>>
+  tipo : tipo_codigo_enum
+  status : status_codigo_enum
+  data_criacao : TIMESTAMP
+  data_expiracao : TIMESTAMP
+  data_utilizacao : TIMESTAMP NULL
+  ip_origem : VARCHAR(45) NULL
+}
+entity AVISO #F3E5F5 {
+  id_aviso : SERIAL <<PK>>
+  --
+  id_perfil_autor : INTEGER <<FK>>
+  escopo : escopo_aviso_enum
+  titulo : VARCHAR(120)
+  conteudo : VARCHAR(2000)
+  data_hora_publicacao : TIMESTAMP
+  data_hora_expiracao : TIMESTAMP NULL
+  fixado : BOOLEAN
+}
+entity AVISO_PERFIL #F3E5F5 {
+  id_aviso_perfil : SERIAL <<PK>>
+  --
+  id_aviso : INTEGER <<FK>>
+  id_perfil : INTEGER <<FK>>
+  lido : BOOLEAN
+  data_hora_leitura : TIMESTAMP NULL
+  notificado : BOOLEAN
+}
+legend top left
+  <b>Grupos</b>
+  <back:#E8F5E9>        </back> Estrutura do condomínio
+  <back:#FFF3E0>        </back> Pessoas, perfis e acesso
+  <back:#F3E5F5>        </back> Comunicação e portaria
+  <b>Marcações</b>
+  «PK» chave primária   «FK» chave estrangeira
+  NULL coluna aceita nulo (demais: NOT NULL)
+endlegend
+' FK 1: unidade.id_bloco -> bloco
+BLOCO ||--o{ UNIDADE
+' FK 2: vaga_garagem.id_unidade -> unidade
+UNIDADE ||--o{ VAGA_GARAGEM
+' FK 3: pessoa_unidade.id_pessoa -> pessoa
+PESSOA ||--o{ PESSOA_UNIDADE
+' FK 4: pessoa_unidade.id_unidade -> unidade
+UNIDADE ||--o{ PESSOA_UNIDADE
+' FK 5: pessoa_unidade.id_responsavel -> pessoa
+PESSOA |o--o{ PESSOA_UNIDADE
+' FK 6: perfil.id_pessoa -> pessoa
+PESSOA ||--o{ PERFIL
+' FK 23: encomenda.id_pessoa_destinatario -> pessoa
+PESSOA ||--o{ ENCOMENDA
+' FK 24: encomenda.id_perfil_recebimento -> perfil
+PERFIL ||--o{ ENCOMENDA
+' FK 25: encomenda.id_perfil_entrega -> perfil
+PERFIL |o--o{ ENCOMENDA
+' FK 26: aviso.id_perfil_autor -> perfil
+PERFIL ||--o{ AVISO
+' FK 27: aviso_perfil.id_aviso -> aviso
+AVISO ||--o{ AVISO_PERFIL
+' FK 28: aviso_perfil.id_perfil -> perfil
+PERFIL ||--o{ AVISO_PERFIL
+' FK 29: codigo_primeiro_acesso.id_pessoa -> pessoa
+PESSOA ||--o{ CODIGO_PRIMEIRO_ACESSO
+' FK 30: codigo_primeiro_acesso.id_perfil_gerador -> perfil
+PERFIL |o--o{ CODIGO_PRIMEIRO_ACESSO
+PESSOA_UNIDADE -[hidden]-> CODIGO_PRIMEIRO_ACESSO
+ENCOMENDA -[hidden]-> AVISO
+@enduml
