@@ -1,0 +1,87 @@
+@startdot
+digraph MapaNavegacao {
+  // Mapa de navegacao do OASIS (secao 4.6.1)
+  // Fonte: frontend/src/App.tsx (rotas e perfis), frontend/src/components/Layout.tsx (menu lateral por perfil),
+  // frontend/src/api.ts painelInicial() e frontend/src/pages/Login.tsx (redirecionamento apos o login).
+  // Um no por tela: classe de fronteira do 02a, rota e caso de uso atendido.
+  // Layout fixo (neato, posicoes em polegadas com "!") para evitar cruzamentos de arestas.
+  // Renderizacao: java -jar plantuml.jar -tpng 10_mapa_navegacao.puml
+  graph [layout=neato, splines=line, overlap=true, pad=0.08, dpi=200, fontname="Arial", fontsize=14];
+  node [shape=box, style="rounded,filled", fillcolor="#EAF2FB", color="#2C3E50", fontname="Arial", fontsize=14, penwidth=1.2, margin="0.08,0.04"];
+  edge [color="#2C3E50", fontname="Arial", fontsize=12, penwidth=1.0, arrowsize=0.7];
+  // Telas comuns aos perfis (fora dos grupos)
+  TelaLogin [label=<<b>TelaLogin</b><br/>/login<br/>UC01, UC14, UC15>, pos="0.4,2.2!"];
+  TelaInicio [label=<<b>TelaInicio</b><br/>/inicio<br/>—>, pos="4.6,0!"];
+  TelaMural [label=<<b>TelaMural</b><br/>/mural<br/>UC05>, pos="2.6,2.2!"];
+  subgraph cluster_morador {
+    label=""; style=rounded; color="#2C3E50"; penwidth=1.2;
+    TelaReserva [label=<<b>TelaReserva</b><br/>/morador/reservar<br/>UC02, UC03>, pos="0.5,-2.6!"];
+    TelaMinhasReservas [label=<<b>TelaMinhasReservas</b><br/>/morador/reservas<br/>UC04>, pos="3.1,-2.6!"];
+    TelaMinhasEncomendas [label=<<b>TelaMinhasEncomendas</b><br/>/morador/encomendas<br/>UC05>, pos="5.9,-2.6!"];
+    TelaFamilia [label=<<b>TelaFamilia</b><br/>/morador/familia<br/>UC16>, pos="8.6,-2.6!"];
+    canto_morador0 [label="", style=invis, shape=point, width=0.01, pos="-0.470,-3.072!"];
+    canto_morador1 [label="", style=invis, shape=point, width=0.01, pos="9.502,-1.928!"];
+  }
+  subgraph cluster_portaria {
+    label=""; style=rounded; color="#2C3E50"; penwidth=1.2;
+    TelaPainelPortaria [label=<<b>TelaPainelPortaria</b><br/>/portaria/painel<br/>UC17>, pos="4.6,4.4!"];
+    TelaAreasLivres [label=<<b>TelaAreasLivres</b><br/>/portaria/areas-livres<br/>UC18>, pos="7.3,2.2!"];
+    TelaEncomendasPortaria [label=<<b>TelaEncomendasPortaria</b><br/>/portaria/encomendas<br/>UC07, UC08>, pos="8.0,4.8!"];
+    TelaChaves [label=<<b>TelaChaves</b><br/>/portaria/chaves<br/>UC06>, pos="9.9,2.2!"];
+    canto_portaria0 [label="", style=invis, shape=point, width=0.01, pos="3.567,1.728!"];
+    canto_portaria1 [label="", style=invis, shape=point, width=0.01, pos="10.787,5.472!"];
+  }
+  subgraph cluster_admin {
+    label=""; style=rounded; color="#2C3E50"; penwidth=1.2;
+    TelaPessoas [label=<<b>TelaPessoas</b><br/>/sindico/pessoas<br/>UC11, UC12>, pos="13.6,2.2!"];
+    TelaPainelAdmin [label=<<b>TelaPainelAdmin</b><br/>/sindico/painel<br/>UC13>, pos="13.6,0.6!"];
+    TelaAreasComuns [label=<<b>TelaAreasComuns</b><br/>/sindico/areas<br/>UC09, UC12>, pos="13.6,-1.0!"];
+    TelaPublicarAviso [label=<<b>TelaPublicarAviso</b><br/>/sindico/avisos<br/>UC10>, pos="13.6,-2.6!"];
+    canto_admin0 [label="", style=invis, shape=point, width=0.01, pos="12.107,-3.072!"];
+    canto_admin1 [label="", style=invis, shape=point, width=0.01, pos="14.643,3.352!"];
+  }
+  Nota [shape=note, style=filled, fillcolor="#FFFFFF", color="#2C3E50", fontsize=12, margin="0.1,0.06", pos="1.2,4.75!", label="O menu lateral e o botão Sair ficam visíveis em todas as\ltelas internas: de qualquer tela é possível ir a qualquer\loutra do mesmo perfil. Setas cheias: itens do menu lateral.\lSetas tracejadas: saída do sistema e embutimento de tela.\l"];
+  titulo_morador [shape=plaintext, style="", margin=0, width=0, height=0, fontsize=15, label=<<b>Morador</b>>, pos="0.047,-2.113!"];
+  titulo_portaria [shape=plaintext, style="", margin=0, width=0, height=0, fontsize=15, label=<<b>Portaria</b>>, pos="4.063,5.287!"];
+  titulo_admin [shape=plaintext, style="", margin=0, width=0, height=0, fontsize=15, label=<<b>Administração<br align="left"/>(síndico/administrador)<br align="left"/></b>>, pos="13.374,3.083!"];
+  r_auth_p [shape=plaintext, style="", label="autenticação
+(porteiro)", fontsize=12, margin=0, width=0, height=0, pos="2.05,3.6!"];
+  r_auth_m [shape=plaintext, style="", label="autenticação
+(morador, síndico)", fontsize=12, margin=0, width=0, height=0, pos="1.85,1.0!"];
+  r_sair [shape=plaintext, style="", label="Sair / sessão expirada", fontsize=12, margin=0, width=0, height=0, pos="2.3,0.17!"];
+  r_s1 [shape=plaintext, style="", label="síndico", fontsize=12, margin=0, width=0, height=0, pos="4.3,2.2!"];
+  r_s2 [shape=plaintext, style="", label="síndico", fontsize=12, margin=0, width=0, height=0, pos="6.4,1.05!"];
+  r_s3 [shape=plaintext, style="", label="síndico", fontsize=12, margin=0, width=0, height=0, pos="7.6,1.5!"];
+  r_menu [shape=plaintext, style="", label="menu (somente leitura)", fontsize=12, margin=0, width=0, height=0, pos="7.6,4.17!"];
+  r_emb [shape=plaintext, style="", label="embute
+(consulta)", fontsize=12, margin=0, width=0, height=0, pos="11.44,2.02!"];
+  // Apos o login, "/" redireciona conforme painelInicial(sessao): porteiro -> /portaria/painel; demais -> /inicio
+  TelaLogin -> TelaInicio [tailport=e, headport=nw];
+  TelaLogin -> TelaPainelPortaria;
+  // Sair (cabecalho) ou sessao expirada (HTTP 401) -> /login; desvio por ponto intermediario
+  desvio_sair [shape=point, width=0.01, style=invis, label="", pos="0.4,0!"];
+  TelaInicio -> desvio_sair [tailport=w, style=dashed, arrowhead=none];
+  desvio_sair -> TelaLogin [headport=s, style=dashed];
+  // Menu lateral de morador e sindico (inicio: /inicio)
+  TelaInicio -> TelaMural;
+  TelaInicio -> TelaReserva;
+  TelaInicio -> TelaMinhasReservas;
+  TelaInicio -> TelaMinhasEncomendas;
+  TelaInicio -> TelaFamilia;
+  TelaInicio -> TelaPessoas;
+  TelaInicio -> TelaPainelAdmin;
+  TelaInicio -> TelaAreasComuns;
+  TelaInicio -> TelaPublicarAviso;
+  TelaInicio -> TelaPainelPortaria;
+  TelaInicio -> TelaAreasLivres;
+  TelaInicio -> TelaChaves;
+  // Menu lateral do porteiro (inicio: /portaria/painel)
+  TelaPainelPortaria -> TelaMural;
+  TelaPainelPortaria -> TelaAreasLivres;
+  TelaPainelPortaria -> TelaChaves;
+  TelaPainelPortaria -> TelaEncomendasPortaria;
+  TelaPainelPortaria -> TelaPessoas [tailport=e, headport=nw];
+  // Embutimento: "Ver cadastro completo" exibe TelaPessoas em modo somente leitura dentro do painel
+  TelaPainelPortaria -> TelaPessoas [tailport=se, headport=w, style=dashed];
+}
+@enddot
