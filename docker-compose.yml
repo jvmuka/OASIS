@@ -20,10 +20,14 @@ services:
     networks:
       - oasis-net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d oasis"]
+      # -h 127.0.0.1 forca a verificacao via TCP: durante a carga inicial o
+      # PostgreSQL temporario atende apenas pelo socket local, e o backend nao
+      # deve iniciar antes de o banco definitivo aceitar conexoes de rede.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d oasis"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 30s
 
   # ----------------------------------------------------
   # 2. Backend NestJS (API REST)

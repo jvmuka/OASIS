@@ -83,7 +83,7 @@ export class AuthService {
       throw new UnauthorizedException('Conta bloqueada pela administracao.');
 
     const devSenha = process.env.DEV_SENHA || 'Teste@2026';
-    const ehSenhaDev = senha === devSenha || senha === 'Teste@2026' || senha === 'senha123';
+    const ehSenhaDev = senha === devSenha || senha === 'Teste@2026';
 
     // Se possui senha personalizada salva, valida via hash; senao ou adicionalmente, permite senha DEV padrao
     if (pessoa.senha_hash) {

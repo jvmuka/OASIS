@@ -1,6 +1,8 @@
 -- =====================================================================
 -- OASIS - Sistema de gestao de reservas e controle de acesso
 -- Script de criacao do banco de dados - PostgreSQL 16
+-- Partes 1 a 4 reunidas; executar conectado ao banco oasis ja existente
+-- (a criacao do banco, feita na parte 1, fica a cargo de quem executa)
 -- =====================================================================
 
 -- ---------------------------------------------------------------------
@@ -27,7 +29,7 @@ CREATE TYPE status_aprovacao_enum       AS ENUM ('PENDENTE','APROVADO','REJEITAD
 CREATE TYPE status_codigo_enum          AS ENUM ('DISPONIVEL','USADO','EXPIRADO','CANCELADO');
 
 -- =====================================================================
--- Parte 2 de 3: criacao das tabelas
+-- Parte 2 de 4: criacao das tabelas
 -- As tabelas sao criadas na ordem de dependencia das chaves estrangeiras
 -- =====================================================================
 
@@ -146,6 +148,11 @@ CREATE TABLE area_comum (
     imagem_url                VARCHAR(500),
     observacoes               VARCHAR(255),
     reserva_por_dia           BOOLEAN           NOT NULL DEFAULT FALSE,
+    requer_reserva            BOOLEAN           NOT NULL DEFAULT TRUE,
+    status_livre              VARCHAR(20)       NOT NULL DEFAULT 'LIVRE',
+    status_livre_atualizado_em TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    status_livre_observacao   VARCHAR(255),
+    status_livre_porteiro     VARCHAR(100),
     CONSTRAINT ck_area_capacidade  CHECK (capacidade > 0),
     CONSTRAINT ck_area_idade       CHECK (idade_minima >= 0),
     CONSTRAINT ck_area_slot        CHECK (duracao_slot_min BETWEEN 1 AND 1440),
@@ -334,7 +341,7 @@ CREATE TABLE codigo_primeiro_acesso (
 CREATE INDEX idx_cpa_codigo ON codigo_primeiro_acesso (codigo) WHERE status = 'DISPONIVEL';
 
 -- =====================================================================
--- Parte 3 de 3: indices de apoio e carga inicial de dados
+-- Parte 3 de 4: indices de apoio e carga inicial de dados
 -- =====================================================================
 
 -- ---------------------------------------------------------------------
@@ -460,6 +467,7 @@ INSERT INTO chave (id_area_comum, codigo) VALUES
 
 -- =====================================================================
 -- OASIS - Gatilhos (triggers) em PL/pgSQL - PostgreSQL 16
+-- Parte 4 de 4: gatilhos das regras de negocio RN01 a RN17
 -- =====================================================================
 
 -- ---------------------------------------------------------------------
@@ -563,7 +571,7 @@ BEGIN
         END IF;
     END IF;
 
-    -- RN17: restricao de idade minima da area comum
+    -- RN16: restricao de idade minima da area comum
     IF COALESCE(v_area.idade_minima, 0) > 0 THEN
         SELECT p.data_nascimento INTO v_nasc
           FROM perfil pf
@@ -571,7 +579,7 @@ BEGIN
          WHERE pf.id_perfil = NEW.id_perfil;
 
         IF v_nasc IS NOT NULL AND EXTRACT(YEAR FROM age(NEW.data_hora_inicio::date, v_nasc)) < v_area.idade_minima THEN
-            RAISE EXCEPTION 'RN17: a area exige idade minima de % anos para realizacao de reservas.',
+            RAISE EXCEPTION 'RN16: a area exige idade minima de % anos para realizacao de reservas.',
                             v_area.idade_minima;
         END IF;
     END IF;
@@ -598,9 +606,9 @@ BEGIN
         RAISE EXCEPTION 'RN06: nao e permitido realizar reserva para horario no passado.';
     END IF;
 
-    IF NEW.data_hora_inicio < (CURRENT_TIMESTAMP + (COALESCE(v_area.antecedencia_minima_horas, v_area.antecedencia_minima_dias * 24) || ' hours')::INTERVAL) THEN
+    IF NEW.data_hora_inicio < (CURRENT_TIMESTAMP + (GREATEST(v_area.antecedencia_minima_horas, v_area.antecedencia_minima_dias * 24) || ' hours')::INTERVAL) THEN
         RAISE EXCEPTION 'RN06: a reserva exige antecedencia minima de % hora(s).',
-                        COALESCE(v_area.antecedencia_minima_horas, v_area.antecedencia_minima_dias * 24);
+                        GREATEST(v_area.antecedencia_minima_horas, v_area.antecedencia_minima_dias * 24);
     END IF;
 
     v_dias_antec := NEW.data_hora_inicio::date - CURRENT_DATE;
@@ -880,7 +888,7 @@ CREATE TRIGGER tg_valida_dependente
     FOR EACH ROW EXECUTE FUNCTION fn_valida_dependente();
 
 -- ---------------------------------------------------------------------
--- RN18: cancelamento automatico de reservas ativas ao aplicar penalidade
+-- RN17: cancelamento automatico de reservas ativas ao aplicar penalidade
 -- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION fn_bloqueio_perfil_cancela_reservas() RETURNS TRIGGER AS $$
 BEGIN

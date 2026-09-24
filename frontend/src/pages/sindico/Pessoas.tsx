@@ -1790,10 +1790,11 @@ export default function Pessoas({
                             ) : null}
                             {p.codigo_ativacao && (
                               <span
-                                className="font-mono text-[10px] font-bold text-sky-600 dark:text-sky-400"
+                                className="inline-flex items-center gap-1 font-mono text-[10px] font-bold text-sky-600 dark:text-sky-400"
                                 title="Código de 1º Acesso Disponível"
                               >
-                                🔑 {p.codigo_ativacao}
+                                <Icone nome="key" className="h-3 w-3" />
+                                {p.codigo_ativacao}
                               </span>
                             )}
                           </div>
