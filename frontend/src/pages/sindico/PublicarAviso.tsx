@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { Botao, Campo, Cartao, inputCls, Mensagem, Titulo, Icone, Badge, EmptyState, Modal, ModalConfirmacao } from '../../components/ui';
+import { agoraInputDateTime } from '../../utils/data';
 
 type AvisoAdmin = {
   id_aviso: number;
@@ -48,6 +49,29 @@ export default function PublicarAviso() {
   async function publicar(e: React.FormEvent) {
     e.preventDefault();
     setMsg({ t: '', tipo: 'ok' });
+
+    const agora = new Date();
+    // 1 minuto de margem para evitar falso positivo por pequenos delays de clique/envio
+    const limitePassado = new Date(agora.getTime() - 60 * 1000);
+
+    if (dataPublicacao && new Date(dataPublicacao) < limitePassado) {
+      setMsg({ t: 'A data de publicação não pode ser no passado.', tipo: 'erro' });
+      return;
+    }
+
+    if (dataExpiracao) {
+      const dtExp = new Date(dataExpiracao);
+      if (dtExp < agora) {
+        setMsg({ t: 'A data de expiração não pode ser no passado.', tipo: 'erro' });
+        return;
+      }
+      const dtBase = dataPublicacao ? new Date(dataPublicacao) : agora;
+      if (dtExp <= dtBase) {
+        setMsg({ t: 'A data de expiração deve ser posterior à data de publicação.', tipo: 'erro' });
+        return;
+      }
+    }
+
     setSalvando(true);
     try {
       await api.post('/avisos', {
@@ -438,15 +462,23 @@ export default function PublicarAviso() {
               <input
                 type="datetime-local"
                 className={inputCls}
+                min={agoraInputDateTime()}
                 value={dataPublicacao}
-                onChange={e => setDataPublicacao(e.target.value)}
+                onChange={e => {
+                  const val = e.target.value;
+                  setDataPublicacao(val);
+                  if (dataExpiracao && val && dataExpiracao <= val) {
+                    setDataExpiracao('');
+                  }
+                }}
               />
             </Campo>
 
-            <Campo rotulo="Expirar em (opcional)">
+            <Campo rotulo="Expirar em (opcional)" ajuda="Data limite de exibição">
               <input
                 type="datetime-local"
                 className={inputCls}
+                min={dataPublicacao || agoraInputDateTime()}
                 value={dataExpiracao}
                 onChange={e => setDataExpiracao(e.target.value)}
               />

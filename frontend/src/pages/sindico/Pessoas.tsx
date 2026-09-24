@@ -15,6 +15,7 @@ import {
   mascararCPF,
   mascararCelular,
 } from '../../components/ui';
+import { ModalAtividadePessoa } from '../../components/BuscaAtividadePessoa';
 
 type Dependente = {
   id_pessoa: number;
@@ -298,14 +299,24 @@ export default function Pessoas({
   const [erroCadastro, setErroCadastro] = useState<string | null>(null);
   const [erroEdicao, setErroEdicao] = useState<string | null>(null);
 
-  // Modais de Inspeção, Inativação, Reativação e Exclusão
+  // Modais de Inspeção, Atividade, Inativação, Reativação e Exclusão
   const [modalPerfilAberto, setModalPerfilAberto] = useState(false);
   const [perfilSelecionado, setPerfilSelecionado] = useState<Pessoa | null>(null);
+  const [pessoaAtividadeModal, setPessoaAtividadeModal] = useState<Pessoa | null>(null);
+  const [menuAcoesAbertoId, setMenuAcoesAbertoId] = useState<number | null>(null);
   const [inativando, setInativando] = useState<Pessoa | null>(null);
   const [reativando, setReativando] = useState<Pessoa | null>(null);
   const [excluindo, setExcluindo] = useState<Pessoa | null>(null);
   const [salvandoReativacao, setSalvandoReativacao] = useState(false);
   const [salvandoExclusao, setSalvandoExclusao] = useState(false);
+
+  // Fecha o menu de ações ao clicar em qualquer lugar da tela
+  useEffect(() => {
+    if (menuAcoesAbertoId === null) return;
+    const fecharMenu = () => setMenuAcoesAbertoId(null);
+    window.addEventListener('click', fecharMenu);
+    return () => window.removeEventListener('click', fecharMenu);
+  }, [menuAcoesAbertoId]);
 
   // Pop-up específico de conflito / erro de negócio
   const [popupErro, setPopupErro] = useState<string | null>(null);
@@ -338,8 +349,8 @@ export default function Pessoas({
     data_nascimento: '',
     celular: '',
     id_unidade: '',
-    tipo_vinculo: 'PROPRIETARIO',
-    perfis: ['MORADOR'],
+    tipo_vinculo: '',
+    perfis: ['PORTEIRO'],
     id_responsavel: '',
     grau_parentesco: 'FILHO',
     reside: true,
@@ -367,8 +378,8 @@ export default function Pessoas({
     data_nascimento: '',
     celular: '',
     id_unidade: '',
-    tipo_vinculo: 'PROPRIETARIO',
-    perfis: ['MORADOR'],
+    tipo_vinculo: '',
+    perfis: ['PORTEIRO'],
     id_responsavel: '',
     grau_parentesco: 'FILHO',
     reside: true,
@@ -397,9 +408,18 @@ export default function Pessoas({
 
     // Se está desmarcando o tipo que já estava selecionado
     if (atuais.includes(tipo)) {
+      if (tipo === 'MORADOR' && formEdicao.id_unidade) {
+        setErroEdicao('Este usuário possui uma unidade vinculada e deve obrigatoriamente manter o perfil de Morador. Para remover o perfil de Morador, desvincule a unidade primeiro (ou alterne para Visitante/Prestador).');
+        return;
+      }
       if (tipo === 'VISITANTE' || tipo === 'PRESTADOR_SERVICO') {
-        // Ao desmarcar o papel exclusivo, volta para Morador e reseta vínculo
-        setFormEdicao({ ...formEdicao, perfis: ['MORADOR'], tipo_vinculo: 'PROPRIETARIO' });
+        // Ao desmarcar o papel exclusivo, se tiver unidade volta como MORADOR; se não tiver unidade, volta como PORTEIRO
+        const perfilFallback = formEdicao.id_unidade ? ['MORADOR'] : ['PORTEIRO'];
+        setFormEdicao({
+          ...formEdicao,
+          perfis: perfilFallback,
+          tipo_vinculo: formEdicao.id_unidade ? 'PROPRIETARIO' : '',
+        });
         return;
       }
       if (atuais.length === 1) {
@@ -410,19 +430,33 @@ export default function Pessoas({
       return;
     }
 
+    // Se está tentando marcar MORADOR sem ter unidade vinculada
+    if (tipo === 'MORADOR' && !formEdicao.id_unidade) {
+      setErroEdicao('Não é possível selecionar o perfil de Morador sem antes vincular uma unidade (bloco e apartamento).');
+      return;
+    }
+
     // Se está selecionando VISITANTE ou PRESTADOR_SERVICO, nenhum outro papel pode ser marcado
     if (tipo === 'VISITANTE' || tipo === 'PRESTADOR_SERVICO') {
-      setFormEdicao({ ...formEdicao, perfis: [tipo], tipo_vinculo: tipo });
+      setFormEdicao({
+        ...formEdicao,
+        perfis: [tipo],
+        tipo_vinculo: formEdicao.id_unidade ? tipo : '',
+      });
       return;
     }
 
     // Se está selecionando outro papel (ex: Morador, Porteiro, Síndico) e Visitante/Prestador estava selecionado,
-    // substitui pelo novo papel e reseta vínculo para PROPRIETARIO
+    // substitui pelo novo papel e reseta vínculo
     if (atuais.includes('VISITANTE') || atuais.includes('PRESTADOR_SERVICO')) {
+      const perfisNovos = [tipo];
+      if (formEdicao.id_unidade && !perfisNovos.includes('MORADOR')) {
+        perfisNovos.push('MORADOR');
+      }
       setFormEdicao({
         ...formEdicao,
-        perfis: [tipo],
-        tipo_vinculo: 'PROPRIETARIO',
+        perfis: perfisNovos,
+        tipo_vinculo: formEdicao.id_unidade ? 'PROPRIETARIO' : '',
       });
       return;
     }
@@ -436,9 +470,18 @@ export default function Pessoas({
 
     // Se está desmarcando o tipo que já estava selecionado
     if (atuais.includes(tipo)) {
+      if (tipo === 'MORADOR' && form.id_unidade) {
+        setErroCadastro('Esta pessoa possui uma unidade vinculada e deve obrigatoriamente manter o perfil de Morador. Para remover o perfil de Morador, desvincule a unidade primeiro (ou alterne para Visitante/Prestador).');
+        return;
+      }
       if (tipo === 'VISITANTE' || tipo === 'PRESTADOR_SERVICO') {
-        // Ao desmarcar o papel exclusivo, volta para Morador e reseta vínculo
-        setForm({ ...form, perfis: ['MORADOR'], tipo_vinculo: 'PROPRIETARIO' });
+        // Ao desmarcar o papel exclusivo, se tiver unidade volta como MORADOR; se não tiver unidade, volta como PORTEIRO
+        const perfilFallback = form.id_unidade ? ['MORADOR'] : ['PORTEIRO'];
+        setForm({
+          ...form,
+          perfis: perfilFallback,
+          tipo_vinculo: form.id_unidade ? 'PROPRIETARIO' : '',
+        });
         return;
       }
       if (atuais.length === 1) {
@@ -449,19 +492,33 @@ export default function Pessoas({
       return;
     }
 
+    // Se está tentando marcar MORADOR sem ter unidade vinculada
+    if (tipo === 'MORADOR' && !form.id_unidade) {
+      setErroCadastro('Não é possível selecionar o perfil de Morador sem antes vincular uma unidade (bloco e apartamento).');
+      return;
+    }
+
     // Se está selecionando VISITANTE ou PRESTADOR_SERVICO, nenhum outro papel pode ser marcado
     if (tipo === 'VISITANTE' || tipo === 'PRESTADOR_SERVICO') {
-      setForm({ ...form, perfis: [tipo], tipo_vinculo: tipo });
+      setForm({
+        ...form,
+        perfis: [tipo],
+        tipo_vinculo: form.id_unidade ? tipo : '',
+      });
       return;
     }
 
     // Se está selecionando outro papel (ex: Morador, Porteiro, Síndico) e Visitante/Prestador estava selecionado,
-    // substitui pelo novo papel e reseta vínculo para PROPRIETARIO
+    // substitui pelo novo papel e reseta vínculo
     if (atuais.includes('VISITANTE') || atuais.includes('PRESTADOR_SERVICO')) {
+      const perfisNovos = [tipo];
+      if (form.id_unidade && !perfisNovos.includes('MORADOR')) {
+        perfisNovos.push('MORADOR');
+      }
       setForm({
         ...form,
-        perfis: [tipo],
-        tipo_vinculo: 'PROPRIETARIO',
+        perfis: perfisNovos,
+        tipo_vinculo: form.id_unidade ? 'PROPRIETARIO' : '',
       });
       return;
     }
@@ -678,6 +735,13 @@ export default function Pessoas({
       return;
     }
 
+    // Se vinculou unidade e não for visitante/prestador, deve conter o papel Morador
+    if (form.id_unidade && !ehApenasExterno && !form.perfis.includes('MORADOR')) {
+      setErroCadastro('Ao vincular uma unidade, é obrigatório atribuir o perfil de Morador para esta pessoa.');
+      setMsg({ t: 'Ao vincular uma unidade, o perfil de Morador é obrigatório.', tipo: 'erro' });
+      return;
+    }
+
     if (!ehApenasExterno && !form.email.trim()) {
       setErroCadastro('O e-mail é obrigatório para cadastros com acesso ao sistema.');
       setMsg({ t: 'Informe o e-mail para acesso ao sistema.', tipo: 'erro' });
@@ -692,10 +756,10 @@ export default function Pessoas({
         ...form,
         cpf: cpfLimpo,
         perfis: form.perfis,
-        tipo_vinculo: tipoVinculoEfetivo,
+        tipo_vinculo: form.id_unidade ? tipoVinculoEfetivo : undefined,
         id_unidade: form.id_unidade ? Number(form.id_unidade) : undefined,
-        id_responsavel: tipoVinculoEfetivo === 'DEPENDENTE' && form.id_responsavel ? Number(form.id_responsavel) : undefined,
-        grau_parentesco: tipoVinculoEfetivo === 'DEPENDENTE' ? form.grau_parentesco : undefined,
+        id_responsavel: form.id_unidade && tipoVinculoEfetivo === 'DEPENDENTE' && form.id_responsavel ? Number(form.id_responsavel) : undefined,
+        grau_parentesco: form.id_unidade && tipoVinculoEfetivo === 'DEPENDENTE' ? form.grau_parentesco : undefined,
         reside: ehApenasExterno ? false : form.reside,
         tipo_servico: ehPrestador ? form.tipo_servico.trim() : undefined,
       });
@@ -737,15 +801,30 @@ export default function Pessoas({
     if (p.papel_controle === 'VISITANTE' || u?.vinculo === 'VISITANTE') perfisAtivos.push('VISITANTE');
     if (p.papel_controle === 'PRESTADOR_SERVICO' || u?.vinculo === 'PRESTADOR_SERVICO') perfisAtivos.push('PRESTADOR_SERVICO');
 
-    if (perfisAtivos.length === 0) perfisAtivos.push('MORADOR');
+    const ehExterno = perfisAtivos.includes('VISITANTE') || perfisAtivos.includes('PRESTADOR_SERVICO');
+    if (!u && !ehExterno) {
+      // Sem unidade vinculada: pessoa não pode ter perfil de morador
+      const filtrados = perfisAtivos.filter(p => p !== 'MORADOR');
+      perfisAtivos.length = 0;
+      perfisAtivos.push(...(filtrados.length > 0 ? filtrados : ['PORTEIRO']));
+    } else if (u && !ehExterno) {
+      // Com unidade vinculada: deve conter obrigatoriamente perfil de morador
+      if (!perfisAtivos.includes('MORADOR')) {
+        perfisAtivos.push('MORADOR');
+      }
+    }
 
-    let vinculoInicial = u?.vinculo || 'PROPRIETARIO';
-    if (perfisAtivos.includes('PRESTADOR_SERVICO')) {
-      vinculoInicial = 'PRESTADOR_SERVICO';
-    } else if (perfisAtivos.includes('VISITANTE')) {
-      vinculoInicial = 'VISITANTE';
-    } else if (vinculoInicial === 'PRESTADOR_SERVICO' || vinculoInicial === 'VISITANTE') {
-      vinculoInicial = 'PROPRIETARIO';
+    if (perfisAtivos.length === 0) perfisAtivos.push(u ? 'MORADOR' : 'PORTEIRO');
+
+    let vinculoInicial = u ? (u.vinculo || 'PROPRIETARIO') : '';
+    if (u) {
+      if (perfisAtivos.includes('PRESTADOR_SERVICO')) {
+        vinculoInicial = 'PRESTADOR_SERVICO';
+      } else if (perfisAtivos.includes('VISITANTE')) {
+        vinculoInicial = 'VISITANTE';
+      } else if (vinculoInicial === 'PRESTADOR_SERVICO' || vinculoInicial === 'VISITANTE') {
+        vinculoInicial = 'PROPRIETARIO';
+      }
     }
 
     setFormEdicao({
@@ -809,6 +888,13 @@ export default function Pessoas({
       return;
     }
 
+    // Se vinculou unidade e não for visitante/prestador, deve conter o papel Morador
+    if (formEdicao.id_unidade && !ehPrestadorEdicao && !ehVisitanteEdicao && !formEdicao.perfis.includes('MORADOR')) {
+      setErroEdicao('Ao vincular uma unidade, é obrigatório atribuir o perfil de Morador para esta pessoa.');
+      setMsg({ t: 'Ao vincular uma unidade, o perfil de Morador é obrigatório.', tipo: 'erro' });
+      return;
+    }
+
     setSalvandoEdicao(true);
     setErroEdicao(null);
 
@@ -820,12 +906,12 @@ export default function Pessoas({
         celular: formEdicao.celular,
         data_nascimento: formEdicao.data_nascimento,
         id_unidade: formEdicao.id_unidade ? Number(formEdicao.id_unidade) : null,
-        tipo_vinculo: tipoVinculoEfetivoEdicao,
+        tipo_vinculo: formEdicao.id_unidade ? tipoVinculoEfetivoEdicao : null,
         id_responsavel:
-          tipoVinculoEfetivoEdicao === 'DEPENDENTE' && formEdicao.id_responsavel
+          formEdicao.id_unidade && tipoVinculoEfetivoEdicao === 'DEPENDENTE' && formEdicao.id_responsavel
             ? Number(formEdicao.id_responsavel)
             : null,
-        grau_parentesco: tipoVinculoEfetivoEdicao === 'DEPENDENTE' ? formEdicao.grau_parentesco : null,
+        grau_parentesco: formEdicao.id_unidade && tipoVinculoEfetivoEdicao === 'DEPENDENTE' ? formEdicao.grau_parentesco : null,
         perfis: formEdicao.perfis,
         reside: (ehPrestadorEdicao || ehVisitanteEdicao) ? false : formEdicao.reside,
         tipo_servico: ehPrestadorEdicao ? formEdicao.tipo_servico.trim() : null,
@@ -1072,11 +1158,91 @@ export default function Pessoas({
     setModalAberto(true);
   }
 
-  const c = (k: keyof typeof form) => (e: React.ChangeEvent<any>) =>
-    setForm({ ...form, [k]: e.target.value });
+  const c = (k: keyof typeof form) => (e: React.ChangeEvent<any>) => {
+    const val = e.target.value;
+    if (k === 'id_unidade') {
+      if (!val) {
+        // Sem unidade: remove MORADOR dos perfis e zera tipo_vinculo
+        const novosPerfis = form.perfis.filter(p => p !== 'MORADOR');
+        // Se ficou sem nenhum papel interno e não era visitante/prestador, define PORTEIRO como fallback padrão se admin não estiver selecionado
+        if (novosPerfis.length === 0) {
+          novosPerfis.push('PORTEIRO');
+        }
+        setForm(prev => ({
+          ...prev,
+          id_unidade: '',
+          tipo_vinculo: '',
+          id_responsavel: '',
+          perfis: novosPerfis,
+        }));
+        return;
+      } else {
+        // Com unidade vinculada:
+        // Se for VISITANTE ou PRESTADOR_SERVICO, mantém o papel exclusivo
+        const ehExterno = form.perfis.includes('PRESTADOR_SERVICO') || form.perfis.includes('VISITANTE');
+        let novosPerfis = [...form.perfis];
+        if (!ehExterno && !novosPerfis.includes('MORADOR')) {
+          novosPerfis.push('MORADOR');
+        }
+        setForm(prev => ({
+          ...prev,
+          id_unidade: val,
+          perfis: novosPerfis,
+          tipo_vinculo: prev.perfis.includes('PRESTADOR_SERVICO')
+            ? 'PRESTADOR_SERVICO'
+            : prev.perfis.includes('VISITANTE')
+            ? 'VISITANTE'
+            : (!prev.tipo_vinculo || prev.tipo_vinculo === 'VISITANTE' || prev.tipo_vinculo === 'PRESTADOR_SERVICO')
+            ? 'PROPRIETARIO'
+            : prev.tipo_vinculo,
+        }));
+        return;
+      }
+    }
+    setForm(prev => ({ ...prev, [k]: val }));
+  };
 
-  const cEdicao = (k: keyof typeof formEdicao) => (e: React.ChangeEvent<any>) =>
-    setFormEdicao({ ...formEdicao, [k]: e.target.value });
+  const cEdicao = (k: keyof typeof formEdicao) => (e: React.ChangeEvent<any>) => {
+    const val = e.target.value;
+    if (k === 'id_unidade') {
+      if (!val) {
+        // Sem unidade: remove MORADOR dos perfis e zera tipo_vinculo
+        const novosPerfis = formEdicao.perfis.filter(p => p !== 'MORADOR');
+        if (novosPerfis.length === 0) {
+          novosPerfis.push('PORTEIRO');
+        }
+        setFormEdicao(prev => ({
+          ...prev,
+          id_unidade: '',
+          tipo_vinculo: '',
+          id_responsavel: '',
+          perfis: novosPerfis,
+        }));
+        return;
+      } else {
+        // Com unidade vinculada:
+        const ehExterno = formEdicao.perfis.includes('PRESTADOR_SERVICO') || formEdicao.perfis.includes('VISITANTE');
+        let novosPerfis = [...formEdicao.perfis];
+        if (!ehExterno && !novosPerfis.includes('MORADOR')) {
+          novosPerfis.push('MORADOR');
+        }
+        setFormEdicao(prev => ({
+          ...prev,
+          id_unidade: val,
+          perfis: novosPerfis,
+          tipo_vinculo: prev.perfis.includes('PRESTADOR_SERVICO')
+            ? 'PRESTADOR_SERVICO'
+            : prev.perfis.includes('VISITANTE')
+            ? 'VISITANTE'
+            : (!prev.tipo_vinculo || prev.tipo_vinculo === 'VISITANTE' || prev.tipo_vinculo === 'PRESTADOR_SERVICO')
+            ? 'PROPRIETARIO'
+            : prev.tipo_vinculo,
+        }));
+        return;
+      }
+    }
+    setFormEdicao(prev => ({ ...prev, [k]: val }));
+  };
 
   // Titulares na unidade selecionada (Cadastro)
   const titularesNaUnidade = pessoas.filter(p =>
@@ -1117,8 +1283,8 @@ export default function Pessoas({
                       data_nascimento: '',
                       celular: '',
                       id_unidade: '',
-                      tipo_vinculo: 'PROPRIETARIO',
-                      perfis: ['MORADOR'],
+                      tipo_vinculo: '',
+                      perfis: ['PORTEIRO'],
                       id_responsavel: '',
                       grau_parentesco: 'FILHO',
                       reside: true,
@@ -1399,7 +1565,7 @@ export default function Pessoas({
               }
             />
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto min-h-[300px] pb-16">
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-slate-200/80 dark:border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400">
@@ -1635,71 +1801,146 @@ export default function Pessoas({
 
                         <td className="py-3 px-3 text-right" onClick={e => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => abrirPerfil(p)}
-                              className="text-xs font-semibold text-navy dark:text-sky-400 hover:underline cursor-pointer"
-                            >
-                              Ver
-                            </button>
-
-                            {!somenteLeitura && (
-                              <>
-                                {/* Botão de Edição sempre disponível para corrigir cadastros errôneos */}
+                            {somenteLeitura ? (
+                              <button
+                                onClick={() => abrirPerfil(p)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-navy bg-navy-50/60 hover:bg-navy-100/80 dark:text-sky-400 dark:bg-sky-950/40 dark:hover:bg-sky-900/50 transition-colors cursor-pointer"
+                              >
+                                <Icone nome="eye" className="h-3.5 w-3.5" />
+                                Ver Perfil
+                              </button>
+                            ) : (
+                              <div className="relative inline-block text-left">
                                 <button
-                                  onClick={() => abrirModalEdicao(p)}
-                                  className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
-                                  title="Editar dados cadastrais, perfil e unidade"
+                                  type="button"
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    setMenuAcoesAbertoId(menuAcoesAbertoId === p.id_pessoa ? null : p.id_pessoa);
+                                  }}
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/80 transition-colors shadow-xs cursor-pointer"
+                                  title="Opções do usuário"
                                 >
-                                  Editar
+                                  <span>Opções</span>
+                                  <Icone nome="chevronDown" className="h-3 w-3 opacity-60" />
                                 </button>
 
-                                {p.ativo ? (
-                                  <>
+                                {menuAcoesAbertoId === p.id_pessoa && (
+                                  <div
+                                    onClick={e => e.stopPropagation()}
+                                    className="absolute right-0 mt-1.5 w-48 rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-100 dark:border-slate-700 py-1.5 z-40 animate-scale-in"
+                                  >
                                     <button
-                                      onClick={() => abrirModalBloqueio(p)}
-                                      className={`text-xs font-semibold hover:underline cursor-pointer ${
-                                        p.total_bloqueios_ativos && p.total_bloqueios_ativos > 0
-                                          ? 'text-red-600 dark:text-rose-400 font-bold'
-                                          : 'text-amber-600 dark:text-amber-400'
-                                      }`}
-                                      title="Aplicar penalidade ou afastamento de áreas comuns"
+                                      type="button"
+                                      onClick={() => {
+                                        setMenuAcoesAbertoId(null);
+                                        abrirPerfil(p);
+                                      }}
+                                      className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-left cursor-pointer"
                                     >
-                                      Penalidades{p.total_bloqueios_ativos && p.total_bloqueios_ativos > 0 ? ` (${p.total_bloqueios_ativos})` : ''}
+                                      <Icone nome="eye" className="h-3.5 w-3.5 text-navy dark:text-sky-400 shrink-0" />
+                                      Ver Perfil
                                     </button>
+
                                     <button
-                                      onClick={() => setInativando(p)}
-                                      className="text-xs font-semibold text-slate-400 hover:text-red-600 dark:text-slate-500 dark:hover:text-rose-400 transition-colors cursor-pointer"
-                                      title="Inativar usuário"
+                                      type="button"
+                                      onClick={() => {
+                                        setMenuAcoesAbertoId(null);
+                                        abrirModalEdicao(p);
+                                      }}
+                                      className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:bg-blue-50/60 dark:hover:bg-blue-950/40 text-left cursor-pointer"
                                     >
-                                      Inativar
+                                      <Icone nome="edit" className="h-3.5 w-3.5 shrink-0" />
+                                      Editar Cadastro
                                     </button>
+
                                     <button
-                                      onClick={() => setExcluindo(p)}
-                                      className="text-xs font-semibold text-slate-400 hover:text-red-600 dark:text-slate-500 dark:hover:text-rose-400 transition-colors cursor-pointer"
-                                      title="Excluir cadastro permanentemente"
+                                      type="button"
+                                      onClick={() => {
+                                        setMenuAcoesAbertoId(null);
+                                        setPessoaAtividadeModal(p);
+                                      }}
+                                      className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-teal-600 dark:text-teal-400 hover:bg-teal-50/60 dark:hover:bg-teal-950/40 text-left cursor-pointer"
                                     >
-                                      Excluir
+                                      <Icone nome="calendar" className="h-3.5 w-3.5 shrink-0" />
+                                      Atividades & Reservas
                                     </button>
-                                  </>
-                                ) : (
-                                  <>
-                                    <button
-                                      onClick={() => setReativando(p)}
-                                      className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
-                                      title="Reativar usuário e restabelecer acessos"
-                                    >
-                                      Reativar
-                                    </button>
-                                    <button
-                                      onClick={() => setExcluindo(p)}
-                                      className="text-xs font-semibold text-red-500 dark:text-rose-400 hover:underline cursor-pointer"
-                                      title="Excluir cadastro permanentemente caso criado por erro"
-                                    >
-                                      Excluir
-                                    </button>
-                                  </>
+
+                                    {p.ativo ? (
+                                      <>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setMenuAcoesAbertoId(null);
+                                            abrirModalBloqueio(p);
+                                          }}
+                                          className={`w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-left cursor-pointer ${
+                                            p.total_bloqueios_ativos && p.total_bloqueios_ativos > 0
+                                              ? 'text-red-600 dark:text-rose-400 bg-red-50/40 dark:bg-rose-950/20'
+                                              : 'text-amber-600 dark:text-amber-400 hover:bg-amber-50/60 dark:hover:bg-amber-950/40'
+                                          }`}
+                                        >
+                                          <Icone nome="alert" className="h-3.5 w-3.5 shrink-0" />
+                                          Penalidades {p.total_bloqueios_ativos ? `(${p.total_bloqueios_ativos})` : ''}
+                                        </button>
+
+                                        <div className="my-1 border-t border-slate-100 dark:border-slate-700/80" />
+
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setMenuAcoesAbertoId(null);
+                                            setInativando(p);
+                                          }}
+                                          className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-left cursor-pointer"
+                                        >
+                                          <Icone nome="eyeOff" className="h-3.5 w-3.5 shrink-0" />
+                                          Inativar Usuário
+                                        </button>
+
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setMenuAcoesAbertoId(null);
+                                            setExcluindo(p);
+                                          }}
+                                          className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50/60 dark:hover:bg-rose-950/40 text-left cursor-pointer"
+                                        >
+                                          <Icone nome="trash" className="h-3.5 w-3.5 shrink-0" />
+                                          Excluir Definitivamente
+                                        </button>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <div className="my-1 border-t border-slate-100 dark:border-slate-700/80" />
+
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setMenuAcoesAbertoId(null);
+                                            setReativando(p);
+                                          }}
+                                          className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50/60 dark:hover:bg-emerald-950/40 text-left cursor-pointer"
+                                        >
+                                          <Icone nome="check" className="h-3.5 w-3.5 shrink-0" />
+                                          Reativar Perfil
+                                        </button>
+
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setMenuAcoesAbertoId(null);
+                                            setExcluindo(p);
+                                          }}
+                                          className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50/60 dark:hover:bg-rose-950/40 text-left cursor-pointer"
+                                        >
+                                          <Icone nome="trash" className="h-3.5 w-3.5 shrink-0" />
+                                          Excluir Definitivamente
+                                        </button>
+                                      </>
+                                    )}
+                                  </div>
                                 )}
-                              </>
+                              </div>
                             )}
                           </div>
                         </td>
@@ -1783,18 +2024,19 @@ export default function Pessoas({
       <Modal
         aberto={modalPerfilAberto}
         fechar={() => setModalPerfilAberto(false)}
-        titulo="Perfil & Relações Familiares"
+        titulo="Perfil do Usuário"
+        largura="max-w-xl"
       >
         {perfilSelecionado && (
           <div className="space-y-4">
             {/* Header com dados pessoais e badge do papel */}
-            <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-navy text-white font-bold text-lg">
+            <div className="flex items-center gap-3.5 border-b border-slate-100 dark:border-slate-800 pb-3.5">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-navy text-white font-bold text-lg shadow-xs">
                 {perfilSelecionado.nome.charAt(0)}
               </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base leading-tight">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base leading-tight truncate">
                     {perfilSelecionado.nome}
                   </h3>
                   <span
@@ -1808,7 +2050,7 @@ export default function Pessoas({
                     {perfilSelecionado.ativo ? 'Ativo' : 'Inativo'}
                   </Badge>
                 </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
                   {perfilSelecionado.email} • {perfilSelecionado.celular || 'Sem celular cadastrado'}
                 </p>
                 <div className="flex items-center gap-2 mt-1">
@@ -1974,21 +2216,45 @@ export default function Pessoas({
               </div>
             ) : null}
 
-            {/* Ações do Perfil */}
-            <div className="flex flex-wrap items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-              {somenteLeitura ? (
+            {/* Seção Integrada: Atividade & Ações do Cadastro */}
+            <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 dark:border-slate-800 dark:bg-slate-800/40 p-3.5 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                    <Icone nome="calendar" className="h-3.5 w-3.5 text-navy dark:text-sky-400" />
+                    Atividade no Condomínio
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Histórico de reservas, uso de áreas comuns e agendamentos.
+                  </p>
+                </div>
                 <Botao
-                  variante="claro"
+                  variante="primario"
                   tamanho="sm"
-                  onClick={() => setModalPerfilAberto(false)}
+                  icone={<Icone nome="calendar" className="h-3.5 w-3.5" />}
+                  onClick={() => setPessoaAtividadeModal(perfilSelecionado)}
                 >
-                  Fechar
+                  Ver Atividades & Reservas
                 </Botao>
-              ) : (
-                <>
+              </div>
+            </div>
+
+            {/* Barra Inferior Padronizada de Ações do Modal */}
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+              <Botao
+                variante="claro"
+                tamanho="sm"
+                onClick={() => setModalPerfilAberto(false)}
+              >
+                Fechar
+              </Botao>
+
+              {!somenteLeitura && (
+                <div className="flex items-center gap-2">
                   <Botao
                     variante="claro"
                     tamanho="sm"
+                    icone={<Icone nome="edit" className="h-3.5 w-3.5" />}
                     onClick={() => {
                       setModalPerfilAberto(false);
                       abrirModalEdicao(perfilSelecionado);
@@ -1997,57 +2263,118 @@ export default function Pessoas({
                     Editar Cadastro
                   </Botao>
 
-                  {perfilSelecionado.ativo ? (
-                    <>
-                      <Botao
-                        variante="claro"
-                        tamanho="sm"
-                        onClick={() => {
-                          setModalPerfilAberto(false);
-                          abrirModalBloqueio(perfilSelecionado);
-                        }}
+                  {/* Menu Compacto de Gerenciamento Avançado no Perfil */}
+                  <div className="relative inline-block text-left">
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        setMenuAcoesAbertoId(menuAcoesAbertoId === -1 ? null : -1);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/80 transition-colors shadow-xs cursor-pointer"
+                    >
+                      <span>Mais Ações</span>
+                      <Icone nome="chevronDown" className="h-3 w-3 opacity-60" />
+                    </button>
+
+                    {menuAcoesAbertoId === -1 && (
+                      <div
+                        onClick={e => e.stopPropagation()}
+                        className="absolute right-0 bottom-full mb-1.5 w-48 rounded-xl bg-white dark:bg-slate-800 shadow-xl border border-slate-100 dark:border-slate-700 py-1.5 z-50 animate-scale-in"
                       >
-                        Penalidades
-                      </Botao>
-                      <Botao
-                        variante="secundario"
-                        tamanho="sm"
-                        onClick={() => setInativando(perfilSelecionado)}
-                      >
-                        Inativar Usuário
-                      </Botao>
-                      <Botao
-                        variante="perigo"
-                        tamanho="sm"
-                        onClick={() => setExcluindo(perfilSelecionado)}
-                      >
-                        Excluir Definitivamente
-                      </Botao>
-                    </>
-                  ) : (
-                    <>
-                      <Botao
-                        variante="sucesso"
-                        tamanho="sm"
-                        onClick={() => setReativando(perfilSelecionado)}
-                      >
-                        Reativar Perfil
-                      </Botao>
-                      <Botao
-                        variante="perigo"
-                        tamanho="sm"
-                        onClick={() => setExcluindo(perfilSelecionado)}
-                      >
-                        Excluir Definitivamente
-                      </Botao>
-                    </>
-                  )}
-                </>
+                        {perfilSelecionado.ativo ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setMenuAcoesAbertoId(null);
+                                setModalPerfilAberto(false);
+                                abrirModalBloqueio(perfilSelecionado);
+                              }}
+                              className={`w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-left cursor-pointer ${
+                                perfilSelecionado.total_bloqueios_ativos && perfilSelecionado.total_bloqueios_ativos > 0
+                                  ? 'text-red-600 dark:text-rose-400 bg-red-50/40 dark:bg-rose-950/20'
+                                  : 'text-amber-600 dark:text-amber-400 hover:bg-amber-50/60 dark:hover:bg-amber-950/40'
+                              }`}
+                            >
+                              <Icone nome="alert" className="h-3.5 w-3.5 shrink-0" />
+                              Penalidades {perfilSelecionado.total_bloqueios_ativos ? `(${perfilSelecionado.total_bloqueios_ativos})` : ''}
+                            </button>
+
+                            <div className="my-1 border-t border-slate-100 dark:border-slate-700/80" />
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setMenuAcoesAbertoId(null);
+                                setModalPerfilAberto(false);
+                                setInativando(perfilSelecionado);
+                              }}
+                              className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/60 text-left cursor-pointer"
+                            >
+                              <Icone nome="eyeOff" className="h-3.5 w-3.5 shrink-0" />
+                              Inativar Usuário
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setMenuAcoesAbertoId(null);
+                                setModalPerfilAberto(false);
+                                setExcluindo(perfilSelecionado);
+                              }}
+                              className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50/60 dark:hover:bg-rose-950/40 text-left cursor-pointer"
+                            >
+                              <Icone nome="trash" className="h-3.5 w-3.5 shrink-0" />
+                              Excluir Definitivamente
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setMenuAcoesAbertoId(null);
+                                setModalPerfilAberto(false);
+                                setReativando(perfilSelecionado);
+                              }}
+                              className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50/60 dark:hover:bg-emerald-950/40 text-left cursor-pointer"
+                            >
+                              <Icone nome="check" className="h-3.5 w-3.5 shrink-0" />
+                              Reativar Perfil
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setMenuAcoesAbertoId(null);
+                                setModalPerfilAberto(false);
+                                setExcluindo(perfilSelecionado);
+                              }}
+                              className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50/60 dark:hover:bg-rose-950/40 text-left cursor-pointer"
+                            >
+                              <Icone nome="trash" className="h-3.5 w-3.5 shrink-0" />
+                              Excluir Definitivamente
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
               )}
             </div>
           </div>
         )}
       </Modal>
+
+      {/* MODAL: ATIVIDADE & RESERVAS EM TEMPO REAL */}
+      {pessoaAtividadeModal && (
+        <ModalAtividadePessoa
+          pessoa={pessoaAtividadeModal}
+          fechar={() => setPessoaAtividadeModal(null)}
+        />
+      )}
 
       {/* Modais de ação restritos à administração */}
       {!somenteLeitura && (
@@ -2170,51 +2497,65 @@ export default function Pessoas({
                 </select>
               </Campo>
 
-              <Campo
-                rotulo={
-                  form.perfis.includes('PRESTADOR_SERVICO')
-                    ? 'Tipo de Vínculo (Prestador de Serviço)'
-                    : form.perfis.includes('VISITANTE')
-                    ? 'Tipo de Vínculo (Visitante)'
-                    : 'Tipo de Vínculo'
-                }
-                ajuda={
-                  form.perfis.includes('PRESTADOR_SERVICO')
-                    ? 'Vínculo bloqueado e padronizado para Prestador de Serviço.'
-                    : form.perfis.includes('VISITANTE')
-                    ? 'Vínculo bloqueado e padronizado para Visitante.'
-                    : undefined
-                }
-              >
-                <select
-                  className={`${inputCls} ${
-                    form.perfis.includes('PRESTADOR_SERVICO') || form.perfis.includes('VISITANTE')
-                      ? 'cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 opacity-90'
-                      : ''
-                  }`}
-                  value={
-                    form.perfis.includes('PRESTADOR_SERVICO')
-                      ? 'PRESTADOR_SERVICO'
+              <div>
+                <Campo
+                  rotulo={
+                    !form.id_unidade
+                      ? 'Tipo de Vínculo'
+                      : form.perfis.includes('PRESTADOR_SERVICO')
+                      ? 'Tipo de Vínculo (Prestador de Serviço)'
                       : form.perfis.includes('VISITANTE')
-                      ? 'VISITANTE'
-                      : form.tipo_vinculo
+                      ? 'Tipo de Vínculo (Visitante)'
+                      : 'Tipo de Vínculo'
                   }
-                  onChange={c('tipo_vinculo')}
-                  disabled={form.perfis.includes('PRESTADOR_SERVICO') || form.perfis.includes('VISITANTE')}
                 >
-                  {form.perfis.includes('PRESTADOR_SERVICO') ? (
-                    <option value="PRESTADOR_SERVICO">Prestador de Serviço (Bloqueado)</option>
-                  ) : form.perfis.includes('VISITANTE') ? (
-                    <option value="VISITANTE">Visitante (Bloqueado)</option>
-                  ) : (
-                    <>
-                      <option value="PROPRIETARIO">Proprietário (Titular)</option>
-                      <option value="INQUILINO">Inquilino (Titular Locação)</option>
-                      <option value="DEPENDENTE">Dependente Familiar</option>
-                    </>
-                  )}
-                </select>
-              </Campo>
+                  <select
+                    className={`${inputCls} ${
+                      !form.id_unidade || form.perfis.includes('PRESTADOR_SERVICO') || form.perfis.includes('VISITANTE')
+                        ? 'cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 opacity-90'
+                        : ''
+                    }`}
+                    value={
+                      !form.id_unidade
+                        ? ''
+                        : form.perfis.includes('PRESTADOR_SERVICO')
+                        ? 'PRESTADOR_SERVICO'
+                        : form.perfis.includes('VISITANTE')
+                        ? 'VISITANTE'
+                        : form.tipo_vinculo
+                    }
+                    onChange={c('tipo_vinculo')}
+                    disabled={!form.id_unidade || form.perfis.includes('PRESTADOR_SERVICO') || form.perfis.includes('VISITANTE')}
+                  >
+                    {!form.id_unidade ? (
+                      <option value="">Não aplicável (sem unidade vinculada)</option>
+                    ) : form.perfis.includes('PRESTADOR_SERVICO') ? (
+                      <option value="PRESTADOR_SERVICO">Prestador de Serviço (Bloqueado)</option>
+                    ) : form.perfis.includes('VISITANTE') ? (
+                      <option value="VISITANTE">Visitante (Bloqueado)</option>
+                    ) : (
+                      <>
+                        <option value="PROPRIETARIO">Proprietário (Titular)</option>
+                        <option value="INQUILINO">Inquilino (Titular Locação)</option>
+                        <option value="DEPENDENTE">Dependente Familiar</option>
+                      </>
+                    )}
+                  </select>
+                </Campo>
+                {!form.id_unidade ? (
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+                    Selecione uma unidade acima para definir o tipo de vínculo.
+                  </p>
+                ) : form.perfis.includes('PRESTADOR_SERVICO') ? (
+                  <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
+                    Vínculo bloqueado e padronizado para Prestador de Serviço.
+                  </p>
+                ) : form.perfis.includes('VISITANTE') ? (
+                  <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
+                    Vínculo bloqueado e padronizado para Visitante.
+                  </p>
+                ) : null}
+              </div>
             </div>
 
             {/* TIPO DE PRESTADOR DE SERVIÇO (DESCRIÇÃO / ESPECIALIDADE) */}
@@ -2303,6 +2644,13 @@ export default function Pessoas({
                     : null;
                   const bloqueadoPorExclusivo = exclusivoAtivo !== null && exclusivoAtivo !== op.tipo;
 
+                  // Morador é obrigatório se houver unidade selecionada e não for Visitante/Prestador
+                  const moradorObrigatorio = op.tipo === 'MORADOR' && Boolean(form.id_unidade) && !exclusivoAtivo;
+                  // Morador fica bloqueado/indisponível se não houver unidade vinculada
+                  const moradorSemUnidade = op.tipo === 'MORADOR' && !form.id_unidade;
+
+                  const cardDesabilitado = bloqueadoPorExclusivo || moradorSemUnidade;
+
                   return (
                     <div
                       key={op.tipo}
@@ -2310,7 +2658,7 @@ export default function Pessoas({
                       className={`relative flex flex-col justify-between rounded-xl border p-3 transition-all select-none cursor-pointer hover:shadow-xs ${
                         selecionado
                           ? op.corAtiva
-                          : bloqueadoPorExclusivo
+                          : cardDesabilitado
                           ? 'opacity-40 border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40 text-slate-400 hover:border-slate-300'
                           : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600'
                       }`}
@@ -2332,7 +2680,7 @@ export default function Pessoas({
                             className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
                               selecionado
                                 ? 'border-transparent bg-navy text-white dark:bg-sky-500 shadow-2xs'
-                                : bloqueadoPorExclusivo
+                                : cardDesabilitado
                                 ? 'border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800/40'
                                 : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800'
                             }`}
@@ -2349,11 +2697,21 @@ export default function Pessoas({
                           </div>
                         </div>
 
-                        {/* Título & Badge de Exclusividade */}
+                        {/* Título & Badge de Exclusividade / Trava */}
                         <div className="flex items-center gap-1.5 flex-wrap mt-2.5">
                           <span className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-tight">
                             {op.titulo}
                           </span>
+                          {moradorObrigatorio && (
+                            <span className="rounded bg-emerald-200/90 text-emerald-900 dark:bg-emerald-900/80 dark:text-emerald-200 px-1.5 py-0.5 text-[9px] font-extrabold uppercase">
+                              🔒 Vinculado
+                            </span>
+                          )}
+                          {moradorSemUnidade && (
+                            <span className="rounded bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-400 px-1.5 py-0.5 text-[9px] font-bold">
+                              Requer unidade
+                            </span>
+                          )}
                           {(op.tipo === 'VISITANTE' || op.tipo === 'PRESTADOR_SERVICO') && (
                             <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-100/70 dark:bg-amber-950/60 px-1.5 py-0.5 rounded-md">
                               Exclusivo
@@ -2366,6 +2724,18 @@ export default function Pessoas({
                           {op.descricao}
                         </p>
 
+                        {moradorObrigatorio && (
+                          <p className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 mt-1.5 flex items-center gap-1">
+                            <Icone nome="check" className="h-3 w-3 shrink-0" />
+                            Obrigatório com unidade vinculada
+                          </p>
+                        )}
+                        {moradorSemUnidade && (
+                          <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 mt-1.5 flex items-center gap-1">
+                            <Icone nome="alert" className="h-3 w-3 shrink-0" />
+                            Vincule uma unidade acima para ativar
+                          </p>
+                        )}
                         {bloqueadoPorExclusivo && (
                           <p className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 mt-1.5 flex items-center gap-1">
                             <Icone nome="alert" className="h-3 w-3 shrink-0" />
@@ -2550,51 +2920,65 @@ export default function Pessoas({
                 </select>
               </Campo>
 
-              <Campo
-                rotulo={
-                  formEdicao.perfis.includes('PRESTADOR_SERVICO')
-                    ? 'Tipo de Vínculo (Prestador de Serviço)'
-                    : formEdicao.perfis.includes('VISITANTE')
-                    ? 'Tipo de Vínculo (Visitante)'
-                    : 'Tipo de Vínculo'
-                }
-                ajuda={
-                  formEdicao.perfis.includes('PRESTADOR_SERVICO')
-                    ? 'Vínculo bloqueado e padronizado para Prestador de Serviço.'
-                    : formEdicao.perfis.includes('VISITANTE')
-                    ? 'Vínculo bloqueado e padronizado para Visitante.'
-                    : undefined
-                }
-              >
-                <select
-                  className={`${inputCls} ${
-                    formEdicao.perfis.includes('PRESTADOR_SERVICO') || formEdicao.perfis.includes('VISITANTE')
-                      ? 'cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 opacity-90'
-                      : ''
-                  }`}
-                  value={
-                    formEdicao.perfis.includes('PRESTADOR_SERVICO')
-                      ? 'PRESTADOR_SERVICO'
+              <div>
+                <Campo
+                  rotulo={
+                    !formEdicao.id_unidade
+                      ? 'Tipo de Vínculo'
+                      : formEdicao.perfis.includes('PRESTADOR_SERVICO')
+                      ? 'Tipo de Vínculo (Prestador de Serviço)'
                       : formEdicao.perfis.includes('VISITANTE')
-                      ? 'VISITANTE'
-                      : formEdicao.tipo_vinculo
+                      ? 'Tipo de Vínculo (Visitante)'
+                      : 'Tipo de Vínculo'
                   }
-                  onChange={cEdicao('tipo_vinculo')}
-                  disabled={formEdicao.perfis.includes('PRESTADOR_SERVICO') || formEdicao.perfis.includes('VISITANTE')}
                 >
-                  {formEdicao.perfis.includes('PRESTADOR_SERVICO') ? (
-                    <option value="PRESTADOR_SERVICO">Prestador de Serviço (Bloqueado)</option>
-                  ) : formEdicao.perfis.includes('VISITANTE') ? (
-                    <option value="VISITANTE">Visitante (Bloqueado)</option>
-                  ) : (
-                    <>
-                      <option value="PROPRIETARIO">Proprietário (Titular)</option>
-                      <option value="INQUILINO">Inquilino (Titular Locação)</option>
-                      <option value="DEPENDENTE">Dependente Familiar</option>
-                    </>
-                  )}
-                </select>
-              </Campo>
+                  <select
+                    className={`${inputCls} ${
+                      !formEdicao.id_unidade || formEdicao.perfis.includes('PRESTADOR_SERVICO') || formEdicao.perfis.includes('VISITANTE')
+                        ? 'cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 opacity-90'
+                        : ''
+                    }`}
+                    value={
+                      !formEdicao.id_unidade
+                        ? ''
+                        : formEdicao.perfis.includes('PRESTADOR_SERVICO')
+                        ? 'PRESTADOR_SERVICO'
+                        : formEdicao.perfis.includes('VISITANTE')
+                        ? 'VISITANTE'
+                        : formEdicao.tipo_vinculo
+                    }
+                    onChange={cEdicao('tipo_vinculo')}
+                    disabled={!formEdicao.id_unidade || formEdicao.perfis.includes('PRESTADOR_SERVICO') || formEdicao.perfis.includes('VISITANTE')}
+                  >
+                    {!formEdicao.id_unidade ? (
+                      <option value="">Não aplicável (sem unidade vinculada)</option>
+                    ) : formEdicao.perfis.includes('PRESTADOR_SERVICO') ? (
+                      <option value="PRESTADOR_SERVICO">Prestador de Serviço (Bloqueado)</option>
+                    ) : formEdicao.perfis.includes('VISITANTE') ? (
+                      <option value="VISITANTE">Visitante (Bloqueado)</option>
+                    ) : (
+                      <>
+                        <option value="PROPRIETARIO">Proprietário (Titular)</option>
+                        <option value="INQUILINO">Inquilino (Titular Locação)</option>
+                        <option value="DEPENDENTE">Dependente Familiar</option>
+                      </>
+                    )}
+                  </select>
+                </Campo>
+                {!formEdicao.id_unidade ? (
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+                    Selecione uma unidade acima para definir o tipo de vínculo.
+                  </p>
+                ) : formEdicao.perfis.includes('PRESTADOR_SERVICO') ? (
+                  <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
+                    Vínculo bloqueado e padronizado para Prestador de Serviço.
+                  </p>
+                ) : formEdicao.perfis.includes('VISITANTE') ? (
+                  <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
+                    Vínculo bloqueado e padronizado para Visitante.
+                  </p>
+                ) : null}
+              </div>
             </div>
 
             {/* TIPO DE PRESTADOR DE SERVIÇO (DESCRIÇÃO / ESPECIALIDADE) */}
@@ -2676,7 +3060,7 @@ export default function Pessoas({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 items-stretch">
                 {OPCOES_PAPEIS.map(op => {
                   const selecionado = formEdicao.perfis.includes(op.tipo);
-                  const bloqueado = ehUnicoAdmin && op.tipo === 'SINDICO';
+                  const bloqueadoAdmin = ehUnicoAdmin && op.tipo === 'SINDICO';
                   const exclusivoAtivo = formEdicao.perfis.includes('VISITANTE')
                     ? 'VISITANTE'
                     : formEdicao.perfis.includes('PRESTADOR_SERVICO')
@@ -2684,22 +3068,29 @@ export default function Pessoas({
                     : null;
                   const bloqueadoPorExclusivo = exclusivoAtivo !== null && exclusivoAtivo !== op.tipo;
 
+                  // Morador é obrigatório se houver unidade selecionada e não for Visitante/Prestador
+                  const moradorObrigatorio = op.tipo === 'MORADOR' && Boolean(formEdicao.id_unidade) && !exclusivoAtivo;
+                  // Morador fica bloqueado/indisponível se não houver unidade vinculada
+                  const moradorSemUnidade = op.tipo === 'MORADOR' && !formEdicao.id_unidade;
+
+                  const cardDesabilitado = bloqueadoAdmin || bloqueadoPorExclusivo || moradorSemUnidade;
+
                   return (
                     <div
                       key={op.tipo}
                       onClick={() => {
-                        if (!bloqueado) togglePerfilEdicao(op.tipo);
+                        if (!bloqueadoAdmin) togglePerfilEdicao(op.tipo);
                       }}
                       className={`relative flex flex-col justify-between rounded-xl border p-3 transition-all select-none ${
-                        bloqueado
+                        bloqueadoAdmin
                           ? 'cursor-not-allowed border-indigo-400 bg-indigo-50/80 dark:bg-indigo-950/50 dark:border-indigo-600 opacity-95'
-                          : bloqueadoPorExclusivo
+                          : cardDesabilitado
                           ? 'opacity-40 border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40 text-slate-400 hover:border-slate-300 cursor-pointer'
                           : 'cursor-pointer hover:shadow-xs'
                       } ${
                         selecionado
                           ? op.corAtiva
-                          : !bloqueadoPorExclusivo
+                          : !cardDesabilitado
                           ? 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600'
                           : ''
                       }`}
@@ -2721,7 +3112,7 @@ export default function Pessoas({
                             className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
                               selecionado
                                 ? 'border-transparent bg-navy text-white dark:bg-sky-500 shadow-2xs'
-                                : bloqueadoPorExclusivo
+                                : cardDesabilitado
                                 ? 'border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800/40'
                                 : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800'
                             }`}
@@ -2743,9 +3134,19 @@ export default function Pessoas({
                           <span className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-tight">
                             {op.titulo}
                           </span>
-                          {bloqueado && (
+                          {bloqueadoAdmin && (
                             <span className="rounded bg-amber-200/90 text-amber-900 dark:bg-amber-900/80 dark:text-amber-200 px-1.5 py-0.5 text-[9px] font-extrabold uppercase">
                               🔒 Obrigatório
+                            </span>
+                          )}
+                          {moradorObrigatorio && (
+                            <span className="rounded bg-emerald-200/90 text-emerald-900 dark:bg-emerald-900/80 dark:text-emerald-200 px-1.5 py-0.5 text-[9px] font-extrabold uppercase">
+                              🔒 Vinculado
+                            </span>
+                          )}
+                          {moradorSemUnidade && (
+                            <span className="rounded bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-400 px-1.5 py-0.5 text-[9px] font-bold">
+                              Requer unidade
                             </span>
                           )}
                           {(op.tipo === 'VISITANTE' || op.tipo === 'PRESTADOR_SERVICO') && (
@@ -2760,6 +3161,18 @@ export default function Pessoas({
                           {op.descricao}
                         </p>
 
+                        {moradorObrigatorio && (
+                          <p className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 mt-1.5 flex items-center gap-1">
+                            <Icone nome="check" className="h-3 w-3 shrink-0" />
+                            Obrigatório com unidade vinculada
+                          </p>
+                        )}
+                        {moradorSemUnidade && (
+                          <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 mt-1.5 flex items-center gap-1">
+                            <Icone nome="alert" className="h-3 w-3 shrink-0" />
+                            Vincule uma unidade acima para ativar
+                          </p>
+                        )}
                         {bloqueadoPorExclusivo && (
                           <p className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 mt-1.5 flex items-center gap-1">
                             <Icone nome="alert" className="h-3 w-3 shrink-0" />

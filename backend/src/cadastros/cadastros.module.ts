@@ -325,6 +325,11 @@ export class CadastrosController {
       const perfisExternos = rawPerfis.filter(p => ['VISITANTE', 'PRESTADOR_SERVICO'].includes(p));
       const ehApenasExterno = perfisExternos.length > 0 && perfisInternos.length === 0;
 
+      // Validação de vinculação de unidade: ao vincular uma unidade, deve conter obrigatoriamente MORADOR (exceto visitantes/prestadores)
+      if (b.id_unidade && Number(b.id_unidade) > 0 && !ehApenasExterno && !rawPerfis.includes('MORADOR')) {
+        throw new BadRequestException('Ao vincular uma unidade a esta pessoa, o papel de Morador é obrigatório (exceto para Visitantes e Prestadores de Serviço).');
+      }
+
       // 1. Validação de unicidade estrita de proprietário e inquilino por apartamento
       if (b.id_unidade && (b.tipo_vinculo === 'PROPRIETARIO' || b.tipo_vinculo === 'INQUILINO')) {
         const existente = await c.query(
@@ -659,6 +664,8 @@ export class CadastrosController {
       }
 
       const temPerfilMorador = listaPerfisUpper.includes('MORADOR');
+      const ehApenasExternoEdicao = listaPerfisUpper.includes('VISITANTE') || listaPerfisUpper.includes('PRESTADOR_SERVICO');
+
       if (temPerfilMorador) {
         const temUnidadeInformada = b.id_unidade && Number(b.id_unidade) > 0;
         if (!temUnidadeInformada) {
@@ -670,6 +677,24 @@ export class CadastrosController {
           if (b.id_unidade === null || b.id_unidade === 0 || unExistente.rows.length === 0) {
             throw new BadRequestException('Para o papel de Morador, é obrigatório selecionar uma unidade vinculada (bloco e apartamento).');
           }
+        }
+      }
+
+      // Se possui unidade vinculada (informada ou existente que não foi removida) e não for visitante/prestador, MORADOR é obrigatório
+      if (!ehApenasExternoEdicao) {
+        let temUnidadeEfetiva = false;
+        if (b.id_unidade && Number(b.id_unidade) > 0) {
+          temUnidadeEfetiva = true;
+        } else if (b.id_unidade === undefined) {
+          const unExistente = await c.query(
+            `SELECT id_pessoa_unidade FROM pessoa_unidade WHERE id_pessoa = $1 AND data_fim_ocupacao IS NULL LIMIT 1`,
+            [id]
+          );
+          temUnidadeEfetiva = unExistente.rows.length > 0;
+        }
+
+        if (temUnidadeEfetiva && !temPerfilMorador) {
+          throw new BadRequestException('Ao vincular uma unidade a esta pessoa, o papel de Morador é obrigatório (exceto para Visitantes e Prestadores de Serviço).');
         }
       }
 

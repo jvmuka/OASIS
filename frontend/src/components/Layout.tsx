@@ -136,10 +136,13 @@ export default function Layout() {
 
         {/* Sidebar */}
         <aside
-          className={`fixed inset-y-0 left-0 z-30 w-64 transform border-r border-slate-200/80 bg-white p-4 transition-transform duration-200 ease-in-out dark:border-slate-800 dark:bg-slate-900 lg:static lg:translate-x-0 ${menuAberto ? 'translate-x-0 top-16' : '-translate-x-full lg:translate-x-0'
-            }`}
+          className={`fixed left-0 z-30 w-64 shrink-0 border-r border-slate-200/80 bg-white p-4 transition-transform duration-200 ease-in-out dark:border-slate-800 dark:bg-slate-900 overflow-y-auto ${
+            menuAberto
+              ? 'top-16 bottom-0 translate-x-0'
+              : 'inset-y-0 -translate-x-full'
+          } lg:sticky lg:top-16 lg:bottom-auto lg:self-start lg:h-[calc(100vh-4rem)] lg:translate-x-0`}
         >
-          <div className="space-y-4 overflow-y-auto max-h-[calc(100vh-80px)]">
+          <div className="space-y-4">
             <div className="space-y-1">
               {item(rotaInicial, 'Início', 'home')}
             </div>
@@ -205,7 +208,7 @@ export default function Layout() {
         </aside>
 
         {/* Área Central das Telas */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 w-full max-w-[1600px] mx-auto animate-fade-in">
+        <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 w-full max-w-[1600px] mx-auto animate-fade-in">
           <Outlet />
         </main>
       </div>
