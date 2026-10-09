@@ -434,7 +434,7 @@ export function Campo({
   children,
   className = '',
 }: {
-  rotulo: string;
+  rotulo: React.ReactNode;
   obrigatorio?: boolean;
   ajuda?: string;
   dica?: string;

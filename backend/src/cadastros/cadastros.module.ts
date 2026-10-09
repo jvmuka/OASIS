@@ -200,7 +200,24 @@ export class CadastrosController {
                 JOIN perfil pf_b ON pf_b.id_perfil = bp.id_perfil
                WHERE pf_b.id_pessoa = p.id_pessoa
                  AND bp.data_hora_inicio <= CURRENT_TIMESTAMP
-                 AND (bp.data_hora_fim IS NULL OR bp.data_hora_fim >= CURRENT_TIMESTAMP)) AS total_bloqueios_ativos
+                 AND (bp.data_hora_fim IS NULL OR bp.data_hora_fim >= CURRENT_TIMESTAMP)) AS total_bloqueios_ativos,
+             -- Total de registros no condomínio (reservas, encomendas, chaves, avisos, dependentes, penalidades)
+             ((SELECT COUNT(*) FROM reserva r WHERE r.id_perfil IN (SELECT id_perfil FROM perfil WHERE id_pessoa = p.id_pessoa))
+             + (SELECT COUNT(*) FROM encomenda e WHERE e.id_pessoa_destinatario = p.id_pessoa OR e.id_perfil_recebimento IN (SELECT id_perfil FROM perfil WHERE id_pessoa = p.id_pessoa) OR e.id_perfil_entrega IN (SELECT id_perfil FROM perfil WHERE id_pessoa = p.id_pessoa))
+             + (SELECT COUNT(*) FROM entrega_chave ec WHERE ec.id_perfil_solicitante IN (SELECT id_perfil FROM perfil WHERE id_pessoa = p.id_pessoa) OR ec.id_perfil_entrega IN (SELECT id_perfil FROM perfil WHERE id_pessoa = p.id_pessoa) OR ec.id_perfil_recebimento IN (SELECT id_perfil FROM perfil WHERE id_pessoa = p.id_pessoa))
+             + (SELECT COUNT(*) FROM aviso a WHERE a.id_perfil_autor IN (SELECT id_perfil FROM perfil WHERE id_pessoa = p.id_pessoa))
+             + (SELECT COUNT(*) FROM pessoa_unidade pu_dep WHERE pu_dep.id_responsavel = p.id_pessoa AND pu_dep.id_pessoa <> p.id_pessoa)
+             + (SELECT COUNT(*) FROM bloqueio_perfil bp WHERE bp.id_perfil_registro IN (SELECT id_perfil FROM perfil WHERE id_pessoa = p.id_pessoa))
+             + (SELECT COUNT(*) FROM bloqueio_area ba WHERE ba.id_perfil_registro IN (SELECT id_perfil FROM perfil WHERE id_pessoa = p.id_pessoa))
+             )::INTEGER AS total_historico,
+             (((SELECT COUNT(*) FROM reserva r WHERE r.id_perfil IN (SELECT id_perfil FROM perfil WHERE id_pessoa = p.id_pessoa))
+             + (SELECT COUNT(*) FROM encomenda e WHERE e.id_pessoa_destinatario = p.id_pessoa OR e.id_perfil_recebimento IN (SELECT id_perfil FROM perfil WHERE id_pessoa = p.id_pessoa) OR e.id_perfil_entrega IN (SELECT id_perfil FROM perfil WHERE id_pessoa = p.id_pessoa))
+             + (SELECT COUNT(*) FROM entrega_chave ec WHERE ec.id_perfil_solicitante IN (SELECT id_perfil FROM perfil WHERE id_pessoa = p.id_pessoa) OR ec.id_perfil_entrega IN (SELECT id_perfil FROM perfil WHERE id_pessoa = p.id_pessoa) OR ec.id_perfil_recebimento IN (SELECT id_perfil FROM perfil WHERE id_pessoa = p.id_pessoa))
+             + (SELECT COUNT(*) FROM aviso a WHERE a.id_perfil_autor IN (SELECT id_perfil FROM perfil WHERE id_pessoa = p.id_pessoa))
+             + (SELECT COUNT(*) FROM pessoa_unidade pu_dep WHERE pu_dep.id_responsavel = p.id_pessoa AND pu_dep.id_pessoa <> p.id_pessoa)
+             + (SELECT COUNT(*) FROM bloqueio_perfil bp WHERE bp.id_perfil_registro IN (SELECT id_perfil FROM perfil WHERE id_pessoa = p.id_pessoa))
+             + (SELECT COUNT(*) FROM bloqueio_area ba WHERE ba.id_perfil_registro IN (SELECT id_perfil FROM perfil WHERE id_pessoa = p.id_pessoa))
+             ) = 0)::BOOLEAN AS pode_excluir
         FROM pessoa p
         LEFT JOIN perfil pf ON pf.id_pessoa = p.id_pessoa
              AND (pf.data_fim IS NULL OR pf.data_fim > CURRENT_DATE)
@@ -250,9 +267,24 @@ export class CadastrosController {
        WHERE pu.id_responsavel = $1 AND pu.data_fim_ocupacao IS NULL
        ORDER BY p.nome`, [id]);
 
+    const historico = await this.db.query(`
+      SELECT (
+        (SELECT COUNT(*) FROM reserva r WHERE r.id_perfil IN (SELECT id_perfil FROM perfil WHERE id_pessoa = $1))
+        + (SELECT COUNT(*) FROM encomenda e WHERE e.id_pessoa_destinatario = $1 OR e.id_perfil_recebimento IN (SELECT id_perfil FROM perfil WHERE id_pessoa = $1) OR e.id_perfil_entrega IN (SELECT id_perfil FROM perfil WHERE id_pessoa = $1))
+        + (SELECT COUNT(*) FROM entrega_chave ec WHERE ec.id_perfil_solicitante IN (SELECT id_perfil FROM perfil WHERE id_pessoa = $1) OR ec.id_perfil_entrega IN (SELECT id_perfil FROM perfil WHERE id_pessoa = $1) OR ec.id_perfil_recebimento IN (SELECT id_perfil FROM perfil WHERE id_pessoa = $1))
+        + (SELECT COUNT(*) FROM aviso a WHERE a.id_perfil_autor IN (SELECT id_perfil FROM perfil WHERE id_pessoa = $1))
+        + (SELECT COUNT(*) FROM pessoa_unidade pu_dep WHERE pu_dep.id_responsavel = $1 AND pu_dep.id_pessoa <> $1)
+        + (SELECT COUNT(*) FROM bloqueio_perfil bp WHERE bp.id_perfil_registro IN (SELECT id_perfil FROM perfil WHERE id_pessoa = $1))
+        + (SELECT COUNT(*) FROM bloqueio_area ba WHERE ba.id_perfil_registro IN (SELECT id_perfil FROM perfil WHERE id_pessoa = $1))
+      )::INTEGER AS total_historico`, [id]);
+
+    const totalHistorico = Number(historico[0]?.total_historico || 0);
+
     return {
       ...base,
       dependentes,
+      total_historico: totalHistorico,
+      pode_excluir: totalHistorico === 0,
     };
   }
 
@@ -704,13 +736,20 @@ export class CadastrosController {
         throw new BadRequestException('Erro de cadastro: O CPF deve conter exatamente 11 dígitos numéricos.');
       }
 
+      // Verifica se a pessoa possui o papel MORADOR ativo
+      const ehMoradorAtual = (await c.query(
+        `SELECT 1 FROM perfil WHERE id_pessoa = $1 AND tipo_perfil = 'MORADOR' AND (data_fim IS NULL OR data_fim > CURRENT_DATE)`,
+        [id]
+      )).rows.length > 0;
+
+      // Para moradores ativos, dados sensíveis (nome, cpf, data de nascimento e email) são protegidos contra alteração por segurança
       const p = (await c.query(
         `UPDATE pessoa
-            SET nome = COALESCE($2, nome),
-                email = COALESCE($3, email),
+            SET nome = CASE WHEN $10::boolean THEN nome ELSE COALESCE($2, nome) END,
+                email = CASE WHEN $10::boolean THEN email ELSE COALESCE($3, email) END,
                 celular = COALESCE($4, celular),
-                cpf = COALESCE($5, cpf),
-                data_nascimento = COALESCE($6, data_nascimento),
+                cpf = CASE WHEN $10::boolean THEN cpf ELSE COALESCE($5, cpf) END,
+                data_nascimento = CASE WHEN $10::boolean THEN data_nascimento ELSE COALESCE($6, data_nascimento) END,
                 papel_controle = COALESCE($7, papel_controle),
                 tipo_servico = CASE WHEN $8::boolean THEN $9 ELSE tipo_servico END
           WHERE id_pessoa = $1
@@ -725,6 +764,7 @@ export class CadastrosController {
           b.papel_controle || null,
           b.tipo_servico !== undefined,
           b.tipo_servico || null,
+          ehMoradorAtual,
         ])).rows[0];
 
       if (!p) throw new BadRequestException('Pessoa não encontrada.');

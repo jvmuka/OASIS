@@ -63,6 +63,8 @@ type Pessoa = {
   responsavel?: Responsavel | null;
   dependentes: Dependente[];
   total_bloqueios_ativos?: number;
+  total_historico?: number;
+  pode_excluir?: boolean;
 };
 
 type AprovacaoPendente = {
@@ -1281,6 +1283,8 @@ export default function Pessoas({
     )
   );
 
+  const ehMoradorEdicao = formEdicao.perfis.includes('MORADOR') || Boolean(pessoaEditando?.perfis?.some(p => p.tipo === 'MORADOR'));
+
   return (
     <div className={embutido ? 'space-y-4' : 'space-y-6'}>
       {!embutido && (
@@ -1917,17 +1921,27 @@ export default function Pessoas({
                                           Inativar Usuário
                                         </button>
 
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            setMenuAcoesAbertoId(null);
-                                            setExcluindo(p);
-                                          }}
-                                          className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50/60 dark:hover:bg-rose-950/40 text-left cursor-pointer"
-                                        >
-                                          <Icone nome="trash" className="h-3.5 w-3.5 shrink-0" />
-                                          Excluir Definitivamente
-                                        </button>
+                                        {p.pode_excluir ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setMenuAcoesAbertoId(null);
+                                              setExcluindo(p);
+                                            }}
+                                            className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50/60 dark:hover:bg-rose-950/40 text-left cursor-pointer"
+                                          >
+                                            <Icone nome="trash" className="h-3.5 w-3.5 shrink-0" />
+                                            Excluir Perfil Errado
+                                          </button>
+                                        ) : (
+                                          <div
+                                            title="Esta pessoa possui histórico registrado no condomínio (reservas, encomendas, portaria, etc.) e não pode ser excluída por segurança. Utilize 'Inativar Usuário'."
+                                            className="w-full flex items-center gap-2 px-3.5 py-2 text-[11px] font-medium text-slate-400 dark:text-slate-500 cursor-not-allowed text-left select-none"
+                                          >
+                                            <Icone nome="shield" className="h-3.5 w-3.5 shrink-0 opacity-60" />
+                                            <span>Exclusão bloqueada</span>
+                                          </div>
+                                        )}
                                       </>
                                     ) : (
                                       <>
@@ -1945,17 +1959,27 @@ export default function Pessoas({
                                           Reativar Perfil
                                         </button>
 
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            setMenuAcoesAbertoId(null);
-                                            setExcluindo(p);
-                                          }}
-                                          className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50/60 dark:hover:bg-rose-950/40 text-left cursor-pointer"
-                                        >
-                                          <Icone nome="trash" className="h-3.5 w-3.5 shrink-0" />
-                                          Excluir Definitivamente
-                                        </button>
+                                        {p.pode_excluir ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setMenuAcoesAbertoId(null);
+                                              setExcluindo(p);
+                                            }}
+                                            className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50/60 dark:hover:bg-rose-950/40 text-left cursor-pointer"
+                                          >
+                                            <Icone nome="trash" className="h-3.5 w-3.5 shrink-0" />
+                                            Excluir Perfil Errado
+                                          </button>
+                                        ) : (
+                                          <div
+                                            title="Esta pessoa possui histórico registrado no condomínio e não pode ser excluída por segurança."
+                                            className="w-full flex items-center gap-2 px-3.5 py-2 text-[11px] font-medium text-slate-400 dark:text-slate-500 cursor-not-allowed text-left select-none"
+                                          >
+                                            <Icone nome="shield" className="h-3.5 w-3.5 shrink-0 opacity-60" />
+                                            <span>Exclusão bloqueada</span>
+                                          </div>
+                                        )}
                                       </>
                                     )}
                                   </div>
@@ -2353,18 +2377,28 @@ export default function Pessoas({
                               Inativar Usuário
                             </button>
 
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setMenuAcoesAbertoId(null);
-                                setModalPerfilAberto(false);
-                                setExcluindo(perfilSelecionado);
-                              }}
-                              className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50/60 dark:hover:bg-rose-950/40 text-left cursor-pointer"
-                            >
-                              <Icone nome="trash" className="h-3.5 w-3.5 shrink-0" />
-                              Excluir Definitivamente
-                            </button>
+                            {perfilSelecionado?.pode_excluir ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setMenuAcoesAbertoId(null);
+                                  setModalPerfilAberto(false);
+                                  setExcluindo(perfilSelecionado);
+                                }}
+                                className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50/60 dark:hover:bg-rose-950/40 text-left cursor-pointer"
+                              >
+                                <Icone nome="trash" className="h-3.5 w-3.5 shrink-0" />
+                                Excluir Perfil Errado
+                              </button>
+                            ) : (
+                              <div
+                                title="Esta pessoa possui histórico no condomínio (reservas, encomendas, portaria, etc.) e não pode ser excluída por segurança. Utilize 'Inativar Usuário'."
+                                className="w-full flex items-center gap-2 px-3.5 py-2 text-[11px] font-medium text-slate-400 dark:text-slate-500 cursor-not-allowed text-left select-none"
+                              >
+                                <Icone nome="shield" className="h-3.5 w-3.5 shrink-0 opacity-60" />
+                                <span>Exclusão bloqueada</span>
+                              </div>
+                            )}
                           </>
                         ) : (
                           <>
@@ -2381,18 +2415,28 @@ export default function Pessoas({
                               Reativar Perfil
                             </button>
 
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setMenuAcoesAbertoId(null);
-                                setModalPerfilAberto(false);
-                                setExcluindo(perfilSelecionado);
-                              }}
-                              className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50/60 dark:hover:bg-rose-950/40 text-left cursor-pointer"
-                            >
-                              <Icone nome="trash" className="h-3.5 w-3.5 shrink-0" />
-                              Excluir Definitivamente
-                            </button>
+                            {perfilSelecionado?.pode_excluir ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setMenuAcoesAbertoId(null);
+                                  setModalPerfilAberto(false);
+                                  setExcluindo(perfilSelecionado);
+                                }}
+                                className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50/60 dark:hover:bg-rose-950/40 text-left cursor-pointer"
+                              >
+                                <Icone nome="trash" className="h-3.5 w-3.5 shrink-0" />
+                                Excluir Perfil Errado
+                              </button>
+                            ) : (
+                              <div
+                                title="Esta pessoa possui histórico no condomínio e não pode ser excluída por segurança."
+                                className="w-full flex items-center gap-2 px-3.5 py-2 text-[11px] font-medium text-slate-400 dark:text-slate-500 cursor-not-allowed text-left select-none"
+                              >
+                                <Icone nome="shield" className="h-3.5 w-3.5 shrink-0 opacity-60" />
+                                <span>Exclusão bloqueada</span>
+                              </div>
+                            )}
                           </>
                         )}
                       </div>
@@ -2833,18 +2877,25 @@ export default function Pessoas({
         rodape={
           <div className="flex items-center justify-between w-full">
             {pessoaEditando ? (
-              <Botao
-                type="button"
-                variante="perigo"
-                tamanho="sm"
-                onClick={() => {
-                  setExcluindo(pessoaEditando);
-                  setModalEdicaoAberto(false);
-                }}
-                icone={<Icone nome="trash" className="h-4 w-4" />}
-              >
-                Excluir Usuário
-              </Botao>
+              pessoaEditando.pode_excluir ? (
+                <Botao
+                  type="button"
+                  variante="perigo"
+                  tamanho="sm"
+                  onClick={() => {
+                    setExcluindo(pessoaEditando);
+                    setModalEdicaoAberto(false);
+                  }}
+                  icone={<Icone nome="trash" className="h-4 w-4" />}
+                >
+                  Excluir Perfil Errado
+                </Botao>
+              ) : (
+                <div className="flex items-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-500 font-medium italic">
+                  <Icone nome="shield" className="h-3.5 w-3.5 text-slate-400" />
+                  <span>Exclusão bloqueada (possui histórico). Use Inativar.</span>
+                </div>
+              )
             ) : <div />}
             <div className="flex items-center gap-2">
               <Botao type="button" variante="claro" onClick={() => setModalEdicaoAberto(false)}>
@@ -2864,6 +2915,18 @@ export default function Pessoas({
         }
       >
         <form id="form-edicao-pessoa" onSubmit={salvarEdicao} className="space-y-4">
+          {ehMoradorEdicao && (
+            <div className="rounded-xl border border-sky-200 bg-sky-50/80 p-3 text-xs text-sky-900 dark:border-sky-900/60 dark:bg-sky-950/40 dark:text-sky-300 flex items-start gap-2.5">
+              <Icone nome="shield" className="h-4 w-4 shrink-0 text-sky-600 dark:text-sky-400 mt-0.5" />
+              <div>
+                <span className="font-bold">Regra de Segurança de Moradores:</span>
+                <p className="mt-0.5">
+                  Por integridade cadastral e conformidade, os campos <b>Nome Completo</b>, <b>CPF</b>, <b>Data de Nascimento</b> e <b>E-mail de Login</b> são bloqueados para edição após o cadastro. Você pode alterar celular, unidade vinculada, tipo de vínculo e permissões.
+                </p>
+              </div>
+            </div>
+          )}
+
           {erroEdicao && (
             <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300 flex items-start gap-2.5">
               <Icone nome="alert" className="h-4 w-4 shrink-0 text-red-600 dark:text-rose-400 mt-0.5" />
@@ -2874,34 +2937,85 @@ export default function Pessoas({
             </div>
           )}
 
-          <Campo rotulo="Nome Completo" obrigatorio>
+          <Campo
+            rotulo={
+              <span className="inline-flex items-center gap-1.5">
+                <span>Nome Completo</span>
+                {ehMoradorEdicao && (
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500 font-normal">
+                    🔒 Bloqueado
+                  </span>
+                )}
+              </span>
+            }
+            obrigatorio
+          >
             <input
-              className={inputCls}
+              className={`${inputCls} ${
+                ehMoradorEdicao
+                  ? 'cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 opacity-90'
+                  : ''
+              }`}
               value={formEdicao.nome}
               onChange={cEdicao('nome')}
+              disabled={ehMoradorEdicao}
               required
               maxLength={100}
             />
           </Campo>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Campo rotulo="CPF" obrigatorio>
+            <Campo
+              rotulo={
+                <span className="inline-flex items-center gap-1.5">
+                  <span>CPF</span>
+                  {ehMoradorEdicao && (
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-normal">
+                      🔒 Bloqueado
+                    </span>
+                  )}
+                </span>
+              }
+              obrigatorio
+            >
               <input
-                className={inputCls}
+                className={`${inputCls} ${
+                  ehMoradorEdicao
+                    ? 'cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 opacity-90'
+                    : ''
+                }`}
                 value={formEdicao.cpf}
                 onChange={e => setFormEdicao({ ...formEdicao, cpf: mascararCPF(e.target.value) })}
+                disabled={ehMoradorEdicao}
                 required
                 maxLength={14}
                 placeholder="000.000.000-00"
               />
             </Campo>
 
-            <Campo rotulo="Data de Nascimento" obrigatorio>
+            <Campo
+              rotulo={
+                <span className="inline-flex items-center gap-1.5">
+                  <span>Data de Nascimento</span>
+                  {ehMoradorEdicao && (
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-normal">
+                      🔒 Bloqueado
+                    </span>
+                  )}
+                </span>
+              }
+              obrigatorio
+            >
               <input
                 type="date"
-                className={inputCls}
+                className={`${inputCls} ${
+                  ehMoradorEdicao
+                    ? 'cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 opacity-90'
+                    : ''
+                }`}
                 value={formEdicao.data_nascimento}
                 onChange={cEdicao('data_nascimento')}
+                disabled={ehMoradorEdicao}
                 required
               />
             </Campo>
@@ -2909,14 +3023,28 @@ export default function Pessoas({
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Campo
-              rotulo={formEdicao.perfis.every(pf => pf === 'VISITANTE' || pf === 'PRESTADOR_SERVICO') ? 'E-mail (Opcional)' : 'E-mail de Login'}
+              rotulo={
+                <span className="inline-flex items-center gap-1.5">
+                  <span>{formEdicao.perfis.every(pf => pf === 'VISITANTE' || pf === 'PRESTADOR_SERVICO') ? 'E-mail (Opcional)' : 'E-mail de Login'}</span>
+                  {ehMoradorEdicao && (
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-normal">
+                      🔒 Bloqueado
+                    </span>
+                  )}
+                </span>
+              }
               obrigatorio={!formEdicao.perfis.every(pf => pf === 'VISITANTE' || pf === 'PRESTADOR_SERVICO')}
             >
               <input
                 type="email"
-                className={inputCls}
+                className={`${inputCls} ${
+                  ehMoradorEdicao
+                    ? 'cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 opacity-90'
+                    : ''
+                }`}
                 value={formEdicao.email}
                 onChange={cEdicao('email')}
+                disabled={ehMoradorEdicao}
                 required={!formEdicao.perfis.every(pf => pf === 'VISITANTE' || pf === 'PRESTADOR_SERVICO')}
                 maxLength={120}
               />
@@ -3567,26 +3695,46 @@ export default function Pessoas({
       <ModalConfirmacao
         aberto={!!excluindo}
         fechar={() => setExcluindo(null)}
-        confirmar={confirmarExclusao}
-        titulo="Excluir Cadastro Permanentemente"
+        confirmar={excluindo?.pode_excluir === false ? () => setExcluindo(null) : confirmarExclusao}
+        titulo={excluindo?.pode_excluir === false ? 'Exclusão Bloqueada por Segurança' : 'Excluir Perfil Criado por Engano'}
         carregando={salvandoExclusao}
         mensagem={
           excluindo && (
-            <div className="space-y-2 text-left">
-              <p className="text-xs text-slate-600 dark:text-slate-300">
-                Tem certeza de que deseja <b className="text-red-600">excluir definitivamente</b> o cadastro de{' '}
-                <b className="text-slate-900 dark:text-slate-100">{excluindo.nome}</b> ({excluindo.email})?
-              </p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 bg-rose-50 dark:bg-rose-950/40 p-2.5 rounded-lg border border-rose-200/60 dark:border-rose-800/60">
-                <b className="text-rose-700 dark:text-rose-300">Atenção:</b> Esta ação apagará o cadastro do banco de dados e deve ser utilizada para corrigir cadastros efetuados por erro. Se esta pessoa possuir histórico de reservas, encomendas ou chaves, a exclusão será bloqueada para preservar o registro legal do condomínio.
-              </p>
+            <div className="space-y-3 text-left">
+              {excluindo.pode_excluir === false ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300 space-y-2">
+                  <p className="font-bold flex items-center gap-1.5 text-amber-800 dark:text-amber-200">
+                    <Icone nome="shield" className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                    Exclusão não permitida por questão de segurança
+                  </p>
+                  <p className="text-[11px] leading-relaxed">
+                    O morador <b className="text-slate-900 dark:text-slate-100">{excluindo.nome}</b> possui registros vinculados no condomínio (reservas de áreas comuns, encomendas na portaria, chaves, avisos ou dependentes).
+                  </p>
+                  <p className="text-[11px] font-semibold text-amber-800 dark:text-amber-200">
+                    Para preservar a auditoria jurídica e integridade histórica do condomínio, exclusões só são possíveis caso o perfil tenha sido criado por engano e não possua nenhuma movimentação. Para revogar os acessos deste morador, utilize a opção <b>"Inativar Usuário"</b>.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <p className="text-xs text-slate-600 dark:text-slate-300">
+                    Tem certeza de que deseja <b className="text-red-600">excluir definitivamente</b> o cadastro de{' '}
+                    <b className="text-slate-900 dark:text-slate-100">{excluindo.nome}</b> ({excluindo.email})?
+                  </p>
+                  <div className="text-[11px] text-slate-600 dark:text-slate-300 bg-rose-50 dark:bg-rose-950/40 p-2.5 rounded-lg border border-rose-200/60 dark:border-rose-800/60 space-y-1">
+                    <p className="font-bold text-rose-700 dark:text-rose-300">Perfil sem registros vinculados:</p>
+                    <p>
+                      Esta pessoa não possui movimentações (reservas, encomendas ou portaria) no condomínio. Esta opção destina-se a remover perfis cadastrados incorretamente pela administração.
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
           )
         }
-        textoBotaoConfirmar="Sim, Excluir Definitivamente"
-        textoBotaoCancelar="Cancelar"
-        variante="perigo"
-        icone="trash"
+        textoBotaoConfirmar={excluindo?.pode_excluir === false ? 'Entendido (Fechar)' : 'Sim, Excluir Cadastro'}
+        textoBotaoCancelar={excluindo?.pode_excluir === false ? undefined : 'Cancelar'}
+        variante={excluindo?.pode_excluir === false ? 'primario' : 'perigo'}
+        icone={excluindo?.pode_excluir === false ? 'shield' : 'trash'}
       />
         </>
       )}
