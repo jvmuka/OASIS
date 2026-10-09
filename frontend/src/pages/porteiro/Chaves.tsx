@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, sessaoAtual } from '../../api';
-import { Botao, Campo, Cartao, inputCls, Mensagem, Titulo, Icone, Badge, EmptyState, Modal, ModalConfirmacao } from '../../components/ui';
+import { Botao, Campo, Cartao, inputCls, Mensagem, Titulo, Icone, Badge, EmptyState, Modal, ModalConfirmacao, Paginacao } from '../../components/ui';
 import { formatarDataHora } from '../../utils/data';
 import SeletorMorador from '../../components/SeletorMorador';
 
@@ -43,6 +43,7 @@ export default function Chaves() {
   const [areas, setAreas] = useState<AreaItem[]>([]);
   const [filtro, setFiltro] = useState<'todas' | 'disponiveis' | 'emprestadas'>('todas');
   const [busca, setBusca] = useState('');
+  const [pagina, setPagina] = useState(1);
 
   const [emprestando, setEmprestando] = useState<Chave | null>(null);
   const [solicitante, setSolicitante] = useState('');
@@ -202,6 +203,10 @@ export default function Chaves() {
     return true;
   });
 
+  const ITENS_POR_PAGINA = 20;
+  const totalPaginas = Math.ceil(chavesFiltradas.length / ITENS_POR_PAGINA) || 1;
+  const chavesPaginadas = chavesFiltradas.slice((pagina - 1) * ITENS_POR_PAGINA, pagina * ITENS_POR_PAGINA);
+
   return (
     <div className="space-y-6 animate-fade-in">
       <Titulo
@@ -271,7 +276,10 @@ export default function Chaves() {
           <div className="flex items-center gap-1.5 w-full sm:w-auto">
             <button
               type="button"
-              onClick={() => setFiltro('todas')}
+              onClick={() => {
+                setFiltro('todas');
+                setPagina(1);
+              }}
               className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
                 filtro === 'todas'
                   ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
@@ -282,7 +290,10 @@ export default function Chaves() {
             </button>
             <button
               type="button"
-              onClick={() => setFiltro('disponiveis')}
+              onClick={() => {
+                setFiltro('disponiveis');
+                setPagina(1);
+              }}
               className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
                 filtro === 'disponiveis'
                   ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
@@ -293,7 +304,10 @@ export default function Chaves() {
             </button>
             <button
               type="button"
-              onClick={() => setFiltro('emprestadas')}
+              onClick={() => {
+                setFiltro('emprestadas');
+                setPagina(1);
+              }}
               className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
                 filtro === 'emprestadas'
                   ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
@@ -310,7 +324,10 @@ export default function Chaves() {
               type="text"
               placeholder="Buscar por código, área ou morador..."
               value={busca}
-              onChange={e => setBusca(e.target.value)}
+              onChange={e => {
+                setBusca(e.target.value);
+                setPagina(1);
+              }}
               className={`${inputCls} pl-9 py-1.5 text-xs`}
             />
           </div>
@@ -329,8 +346,9 @@ export default function Chaves() {
           }
         />
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {chavesFiltradas.map(c => {
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {chavesPaginadas.map(c => {
             const disponivel = c.status === 'DISPONIVEL';
             return (
               <div
@@ -447,6 +465,15 @@ export default function Chaves() {
               </div>
             );
           })}
+          </div>
+
+          <Paginacao
+            paginaAtual={pagina}
+            totalPaginas={totalPaginas}
+            totalRegistros={chavesFiltradas.length}
+            itensPorPagina={ITENS_POR_PAGINA}
+            onMudarPagina={setPagina}
+          />
         </div>
       )}
 

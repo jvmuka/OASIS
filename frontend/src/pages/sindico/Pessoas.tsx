@@ -14,6 +14,7 @@ import {
   ModalConfirmacao,
   mascararCPF,
   mascararCelular,
+  Paginacao,
 } from '../../components/ui';
 import { ModalAtividadePessoa } from '../../components/BuscaAtividadePessoa';
 
@@ -280,8 +281,11 @@ export default function Pessoas({
   type ColunaOrdenavel = 'nome' | 'apartamento' | 'papel' | 'dependentes' | 'status';
   const [colunaOrdenada, setColunaOrdenada] = useState<ColunaOrdenavel>('nome');
   const [direcaoOrdenacao, setDirecaoOrdenacao] = useState<'asc' | 'desc'>('asc');
+  const [paginaPessoas, setPaginaPessoas] = useState(1);
+  const [paginaAprovacoes, setPaginaAprovacoes] = useState(1);
 
   function alternarOrdenacao(coluna: ColunaOrdenavel) {
+    setPaginaPessoas(1);
     if (colunaOrdenada === coluna) {
       setDirecaoOrdenacao(d => (d === 'asc' ? 'desc' : 'asc'));
     } else {
@@ -575,6 +579,7 @@ export default function Pessoas({
     setBuscaApto('');
     setFiltroFuncao('TODAS');
     setFiltroStatus('TODOS');
+    setPaginaPessoas(1);
   }
 
   // Filtragem combinada
@@ -697,6 +702,19 @@ export default function Pessoas({
 
     return direcaoOrdenacao === 'asc' ? comp : -comp;
   });
+
+  const ITENS_POR_PAGINA = 20;
+  const totalPaginasPessoas = Math.ceil(listaExibida.length / ITENS_POR_PAGINA) || 1;
+  const listaExibidaPaginada = listaExibida.slice(
+    (paginaPessoas - 1) * ITENS_POR_PAGINA,
+    paginaPessoas * ITENS_POR_PAGINA
+  );
+
+  const totalPaginasAprovacoes = Math.ceil(aprovacoes.length / ITENS_POR_PAGINA) || 1;
+  const aprovacoesPaginadas = aprovacoes.slice(
+    (paginaAprovacoes - 1) * ITENS_POR_PAGINA,
+    paginaAprovacoes * ITENS_POR_PAGINA
+  );
 
   async function cadastrar(e: React.FormEvent) {
     e.preventDefault();
@@ -1565,7 +1583,8 @@ export default function Pessoas({
               }
             />
           ) : (
-            <div className="overflow-x-auto min-h-[300px] pb-16">
+            <>
+              <div className="overflow-x-auto min-h-[300px] pb-16">
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-slate-200/80 dark:border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400">
@@ -1648,7 +1667,7 @@ export default function Pessoas({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {listaExibida.map(p => {
+                  {listaExibidaPaginada.map(p => {
                     const uAtiva = p.unidades && p.unidades[0];
                     const isDependente = uAtiva && uAtiva.vinculo === 'DEPENDENTE';
                     const isTitular = uAtiva && (uAtiva.vinculo === 'PROPRIETARIO' || uAtiva.vinculo === 'INQUILINO');
@@ -1951,7 +1970,16 @@ export default function Pessoas({
                 </tbody>
               </table>
             </div>
-          )}
+
+            <Paginacao
+              paginaAtual={paginaPessoas}
+              totalPaginas={totalPaginasPessoas}
+              totalRegistros={listaExibida.length}
+              itensPorPagina={ITENS_POR_PAGINA}
+              onMudarPagina={setPaginaPessoas}
+            />
+          </>
+        )}
         </Cartao>
       )}
 
@@ -1975,7 +2003,7 @@ export default function Pessoas({
             />
           ) : (
             <div className="space-y-3">
-              {aprovacoes.map(ap => (
+              {aprovacoesPaginadas.map(ap => (
                 <div
                   key={ap.id_pessoa_unidade}
                   className="rounded-xl border border-amber-200 bg-amber-50/40 dark:border-amber-900/40 dark:bg-amber-950/20 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
@@ -2016,6 +2044,14 @@ export default function Pessoas({
                   </div>
                 </div>
               ))}
+
+              <Paginacao
+                paginaAtual={paginaAprovacoes}
+                totalPaginas={totalPaginasAprovacoes}
+                totalRegistros={aprovacoes.length}
+                itensPorPagina={ITENS_POR_PAGINA}
+                onMudarPagina={setPaginaAprovacoes}
+              />
             </div>
           )}
         </Cartao>

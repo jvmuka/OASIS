@@ -272,6 +272,9 @@ CREATE TABLE aviso (
     data_hora_publicacao  TIMESTAMP          NOT NULL DEFAULT CURRENT_TIMESTAMP,
     data_hora_expiracao   TIMESTAMP,
     fixado                BOOLEAN            NOT NULL DEFAULT FALSE,
+    anexo_url             VARCHAR(255),
+    anexo_nome            VARCHAR(255),
+    anexo_tipo            VARCHAR(50),
     CONSTRAINT fk_aviso_autor FOREIGN KEY (id_perfil_autor) REFERENCES perfil (id_perfil),
     CONSTRAINT ck_aviso_exp   CHECK (data_hora_expiracao IS NULL
                                      OR data_hora_expiracao > data_hora_publicacao)

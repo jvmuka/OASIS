@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
-import { Badge, Botao, Cartao, EmptyState, Icone, Titulo } from '../../components/ui';
+import { Badge, Botao, Cartao, EmptyState, Icone, Titulo, Paginacao } from '../../components/ui';
 import { formatarDataHora } from '../../utils/data';
 
 export type EncomendaMorador = {
@@ -34,6 +34,7 @@ export default function MinhasEncomendas() {
   const [erro, setErro] = useState<string | null>(null);
   const [abaAtiva, setAbaAtiva] = useState<'AGUARDANDO' | 'RETIRADAS' | 'TODAS'>('AGUARDANDO');
   const [busca, setBusca] = useState('');
+  const [pagina, setPagina] = useState(1);
 
   const carregar = () => {
     setCarregando(true);
@@ -69,7 +70,18 @@ export default function MinhasEncomendas() {
         (e.nome_retirante || '').toLowerCase().includes(b) ||
         (e.apartamento || '').toLowerCase().includes(b)
       );
+    })
+    .sort((a, b) => {
+      const aPend = a.status === 'AGUARDANDO_RETIRADA' ? 0 : 1;
+      const bPend = b.status === 'AGUARDANDO_RETIRADA' ? 0 : 1;
+      if (aPend !== bPend) return aPend - bPend;
+      return new Date(b.data_hora_recebimento).getTime() - new Date(a.data_hora_recebimento).getTime();
     });
+
+  const ITENS_POR_PAGINA = 20;
+  const totalPaginas = Math.ceil(listaFiltrada.length / ITENS_POR_PAGINA);
+  const paginaValida = Math.min(Math.max(1, pagina), Math.max(1, totalPaginas));
+  const listaPaginada = listaFiltrada.slice((paginaValida - 1) * ITENS_POR_PAGINA, paginaValida * ITENS_POR_PAGINA);
 
   return (
     <div className="space-y-6">
@@ -170,7 +182,10 @@ export default function MinhasEncomendas() {
           <button
             id="tab-aguardando"
             type="button"
-            onClick={() => setAbaAtiva('AGUARDANDO')}
+            onClick={() => {
+              setAbaAtiva('AGUARDANDO');
+              setPagina(1);
+            }}
             className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-150 cursor-pointer ${
               abaAtiva === 'AGUARDANDO'
                 ? 'bg-amber-500 text-white shadow-xs'
@@ -193,7 +208,10 @@ export default function MinhasEncomendas() {
           <button
             id="tab-retiradas"
             type="button"
-            onClick={() => setAbaAtiva('RETIRADAS')}
+            onClick={() => {
+              setAbaAtiva('RETIRADAS');
+              setPagina(1);
+            }}
             className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-150 cursor-pointer ${
               abaAtiva === 'RETIRADAS'
                 ? 'bg-emerald-600 text-white shadow-xs'
@@ -216,7 +234,10 @@ export default function MinhasEncomendas() {
           <button
             id="tab-todas"
             type="button"
-            onClick={() => setAbaAtiva('TODAS')}
+            onClick={() => {
+              setAbaAtiva('TODAS');
+              setPagina(1);
+            }}
             className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-150 cursor-pointer ${
               abaAtiva === 'TODAS'
                 ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
@@ -293,145 +314,154 @@ export default function MinhasEncomendas() {
           }
         />
       ) : (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          {listaFiltrada.map(enc => {
-            const tamInfo = ROTULO_TAMANHO[enc.tamanho] || ROTULO_TAMANHO.MEDIO;
-            const isPendente = enc.status === 'AGUARDANDO_RETIRADA';
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {listaPaginada.map(enc => {
+              const tamInfo = ROTULO_TAMANHO[enc.tamanho] || ROTULO_TAMANHO.MEDIO;
+              const isPendente = enc.status === 'AGUARDANDO_RETIRADA';
 
-            return (
-              <Cartao
-                key={enc.id_encomenda}
-                className={`flex flex-col justify-between overflow-hidden transition-all duration-150 hover:shadow-card ${
-                  isPendente
-                    ? 'border-amber-200/90 shadow-soft ring-1 ring-amber-400/20 dark:border-amber-800/60'
-                    : 'border-slate-200/80 dark:border-slate-800'
-                }`}
-              >
-                <div className="p-5 space-y-4">
-                  {/* Topo do Cartão: Status e Tamanho */}
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl" role="img" aria-label="pacote">
-                        {tamInfo.icone}
-                      </span>
-                      <span
-                        className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${tamInfo.cor}`}
-                      >
-                        {tamInfo.rotulo}
-                      </span>
-                    </div>
-
-                    <Badge tipo={isPendente ? 'aviso' : 'sucesso'}>
-                      {isPendente ? 'Aguardando Retirada' : 'Retirada'}
-                    </Badge>
-                  </div>
-
-                  {/* Descrição Principal */}
-                  <div>
-                    <h4 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                      {enc.descricao || 'Pacote sem descrição informada'}
-                    </h4>
-                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                      <span className="flex items-center gap-1">
-                        <Icone nome="user" className="h-3.5 w-3.5 text-slate-400" />
-                        Destinatário:{' '}
-                        <strong className="text-slate-700 dark:text-slate-200">
-                          {enc.destinatario} {enc.para_mim ? '(Você)' : ''}
-                        </strong>
-                      </span>
-                      {enc.apartamento && (
-                        <>
-                          <span>•</span>
-                          <span className="flex items-center gap-1">
-                            <Icone nome="home" className="h-3.5 w-3.5 text-slate-400" />
-                            Apto {enc.apartamento} {enc.bloco ? `(Bloco ${enc.bloco})` : ''}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Dados de Recebimento na Guarita */}
-                  <div className="rounded-xl bg-slate-50 p-3 text-xs dark:bg-slate-800/60 space-y-1.5 border border-slate-100 dark:border-slate-800">
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                        <Icone nome="calendar" className="h-3.5 w-3.5 text-slate-400" />
-                        Chegada na portaria:
-                      </span>
-                      <span className="font-semibold text-slate-800 dark:text-slate-200">
-                        {formatarDataHora(enc.data_hora_recebimento)}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                        <Icone nome="shield" className="h-3.5 w-3.5 text-slate-400" />
-                        Recebido pelo porteiro:
-                      </span>
-                      <span className="font-medium text-slate-700 dark:text-slate-300">
-                        {enc.recebido_por}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Se já foi Retirada: Informações de Entrega */}
-                  {!isPendente && (
-                    <div className="rounded-xl bg-emerald-50/70 p-3 text-xs dark:bg-emerald-950/30 space-y-1.5 border border-emerald-100 dark:border-emerald-900/40">
-                      <div className="flex items-center justify-between">
-                        <span className="text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
-                          <Icone nome="check" className="h-3.5 w-3.5 text-emerald-600" />
-                          Data da retirada:
-                        </span>
-                        <span className="font-semibold text-emerald-900 dark:text-emerald-200">
-                          {formatarDataHora(enc.data_hora_retirada)}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <span className="text-emerald-800 dark:text-emerald-300">Retirado por:</span>
-                        <span className="font-medium text-emerald-900 dark:text-emerald-200">
-                          {enc.retirado_por === 'PROPRIO'
-                            ? 'Próprio Destinatário'
-                            : enc.retirado_por === 'MORADOR_UNIDADE'
-                            ? 'Familiar / Morador da Unidade'
-                            : enc.nome_retirante
-                            ? `Terceiro (${enc.nome_retirante})`
-                            : 'Terceiro Autorizado'}
-                        </span>
-                      </div>
-
-                      {enc.entregue_por && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-emerald-800 dark:text-emerald-300">Entregue por:</span>
-                          <span className="font-medium text-emerald-900 dark:text-emerald-200">
-                            {enc.entregue_por}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Rodapé do Cartão */}
-                <div
-                  className={`border-t px-5 py-3 text-xs flex items-center justify-between ${
+              return (
+                <Cartao
+                  key={enc.id_encomenda}
+                  className={`flex flex-col justify-between overflow-hidden transition-all duration-150 hover:shadow-card ${
                     isPendente
-                      ? 'bg-amber-50/50 border-amber-100 text-amber-800 dark:bg-amber-950/20 dark:border-amber-900/40 dark:text-amber-300'
-                      : 'bg-slate-50/60 border-slate-100 text-slate-500 dark:bg-slate-900/40 dark:border-slate-800 dark:text-slate-400'
+                      ? 'border-amber-200/90 shadow-soft ring-1 ring-amber-400/20 dark:border-amber-800/60'
+                      : 'border-slate-200/80 dark:border-slate-800'
                   }`}
                 >
-                  <span className="font-medium">
-                    {isPendente
-                      ? '📍 Disponível para retirada na guarita'
-                      : '✓ Entrega finalizada'}
-                  </span>
-                  <span className="text-[11px] text-slate-400 dark:text-slate-500">
-                    Cód. #{enc.id_encomenda}
-                  </span>
-                </div>
-              </Cartao>
-            );
-          })}
+                  <div className="p-5 space-y-4">
+                    {/* Topo do Cartão: Status e Tamanho */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl" role="img" aria-label="pacote">
+                          {tamInfo.icone}
+                        </span>
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${tamInfo.cor}`}
+                        >
+                          {tamInfo.rotulo}
+                        </span>
+                      </div>
+
+                        <Badge tipo={isPendente ? 'aviso' : 'sucesso'}>
+                          {isPendente ? 'Aguardando Retirada' : 'Retirada'}
+                        </Badge>
+                    </div>
+
+                    {/* Descrição Principal */}
+                    <div>
+                      <h4 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                        {enc.descricao || 'Pacote sem descrição informada'}
+                      </h4>
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                        <span className="flex items-center gap-1">
+                          <Icone nome="user" className="h-3.5 w-3.5 text-slate-400" />
+                          Destinatário:{' '}
+                          <strong className="text-slate-700 dark:text-slate-200">
+                            {enc.destinatario} {enc.para_mim ? '(Você)' : ''}
+                          </strong>
+                        </span>
+                        {enc.apartamento && (
+                          <>
+                            <span>•</span>
+                            <span className="flex items-center gap-1">
+                              <Icone nome="home" className="h-3.5 w-3.5 text-slate-400" />
+                              Apto {enc.apartamento} {enc.bloco ? `(Bloco ${enc.bloco})` : ''}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Dados de Recebimento na Guarita */}
+                    <div className="rounded-xl bg-slate-50 p-3 text-xs dark:bg-slate-800/60 space-y-1.5 border border-slate-100 dark:border-slate-800">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                          <Icone nome="calendar" className="h-3.5 w-3.5 text-slate-400" />
+                          Chegada na portaria:
+                        </span>
+                        <span className="font-semibold text-slate-800 dark:text-slate-200">
+                          {formatarDataHora(enc.data_hora_recebimento)}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                          <Icone nome="shield" className="h-3.5 w-3.5 text-slate-400" />
+                          Recebido pelo porteiro:
+                        </span>
+                        <span className="font-medium text-slate-700 dark:text-slate-300">
+                          {enc.recebido_por}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Se já foi Retirada: Informações de Entrega */}
+                    {!isPendente && (
+                      <div className="rounded-xl bg-emerald-50/70 p-3 text-xs dark:bg-emerald-950/30 space-y-1.5 border border-emerald-100 dark:border-emerald-900/40">
+                        <div className="flex items-center justify-between">
+                          <span className="text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                            <Icone nome="check" className="h-3.5 w-3.5 text-emerald-600" />
+                            Data da retirada:
+                          </span>
+                          <span className="font-semibold text-emerald-900 dark:text-emerald-200">
+                            {formatarDataHora(enc.data_hora_retirada)}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-emerald-800 dark:text-emerald-300">Retirado por:</span>
+                          <span className="font-medium text-emerald-900 dark:text-emerald-200">
+                            {enc.retirado_por === 'PROPRIO'
+                              ? 'Próprio Destinatário'
+                              : enc.retirado_por === 'MORADOR_UNIDADE'
+                              ? 'Familiar / Morador da Unidade'
+                              : enc.nome_retirante
+                              ? `Terceiro (${enc.nome_retirante})`
+                              : 'Terceiro Autorizado'}
+                          </span>
+                        </div>
+
+                        {enc.entregue_por && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-emerald-800 dark:text-emerald-300">Entregue por:</span>
+                            <span className="font-medium text-emerald-900 dark:text-emerald-200">
+                              {enc.entregue_por}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Rodapé do Cartão */}
+                  <div
+                    className={`border-t px-5 py-3 text-xs flex items-center justify-between ${
+                      isPendente
+                        ? 'bg-amber-50/50 border-amber-100 text-amber-800 dark:bg-amber-950/20 dark:border-amber-900/40 dark:text-amber-300'
+                        : 'bg-slate-50/60 border-slate-100 text-slate-500 dark:bg-slate-900/40 dark:border-slate-800 dark:text-slate-400'
+                    }`}
+                  >
+                    <span className="font-medium">
+                      {isPendente
+                        ? '📍 Disponível para retirada na guarita'
+                        : '✓ Entrega finalizada'}
+                    </span>
+                    <span className="text-[11px] text-slate-400 dark:text-slate-500">
+                      Cód. #{enc.id_encomenda}
+                    </span>
+                  </div>
+                </Cartao>
+              );
+            })}
+          </div>
+
+          <Paginacao
+            paginaAtual={paginaValida}
+            totalItens={listaFiltrada.length}
+            itensPorPagina={ITENS_POR_PAGINA}
+            aoMudarPagina={setPagina}
+          />
         </div>
       )}
     </div>

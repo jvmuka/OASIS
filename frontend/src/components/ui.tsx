@@ -76,10 +76,38 @@ export function Icone({
   | 'box'
   | 'dotsVertical'
   | 'dotsHorizontal'
-  | 'wrench';
+  | 'wrench'
+  | 'paperclip'
+  | 'fileText'
+  | 'download'
+  | 'bell';
   className?: string;
 }) {
   switch (nome) {
+    case 'bell':
+      return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
+      );
+    case 'paperclip':
+      return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+        </svg>
+      );
+    case 'fileText':
+      return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+      );
+    case 'download':
+      return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+        </svg>
+      );
     case 'dotsVertical':
       return (
         <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -716,4 +744,120 @@ export function mascararCelular(valor: string): string {
   if (digitos.length <= 10) return `(${digitos.slice(0, 2)}) ${digitos.slice(2, 6)}-${digitos.slice(6)}`;
   return `(${digitos.slice(0, 2)}) ${digitos.slice(2, 7)}-${digitos.slice(7, 11)}`;
 }
+
+export interface PaginacaoProps {
+  paginaAtual: number;
+  totalItens?: number;
+  totalRegistros?: number;
+  totalPaginas?: number;
+  itensPorPagina?: number;
+  aoMudarPagina?: (pagina: number) => void;
+  onMudarPagina?: (pagina: number) => void;
+  className?: string;
+}
+
+/** Componente de Paginação padrão para tabelas e listas (UI/UX Pro Max) */
+export function Paginacao({
+  paginaAtual,
+  totalItens,
+  totalRegistros,
+  totalPaginas: totalPaginasProp,
+  itensPorPagina = 20,
+  aoMudarPagina,
+  onMudarPagina,
+  className = '',
+}: PaginacaoProps) {
+  const qtdTotal = totalRegistros !== undefined ? totalRegistros : (totalItens ?? 0);
+  const totalPaginas = totalPaginasProp !== undefined
+    ? totalPaginasProp
+    : Math.max(1, Math.ceil(qtdTotal / itensPorPagina));
+  const mudarPagina = onMudarPagina || aoMudarPagina || (() => {});
+
+  if (qtdTotal <= 0) return null;
+
+  const inicio = (paginaAtual - 1) * itensPorPagina + 1;
+  const fim = Math.min(qtdTotal, paginaAtual * itensPorPagina);
+
+  const gerarPaginas = () => {
+    if (totalPaginas <= 7) {
+      return Array.from({ length: totalPaginas }, (_, i) => i + 1);
+    }
+    const paginas: (number | string)[] = [];
+    if (paginaAtual <= 4) {
+      paginas.push(1, 2, 3, 4, 5, '...', totalPaginas);
+    } else if (paginaAtual >= totalPaginas - 3) {
+      paginas.push(1, '...', totalPaginas - 4, totalPaginas - 3, totalPaginas - 2, totalPaginas - 1, totalPaginas);
+    } else {
+      paginas.push(1, '...', paginaAtual - 1, paginaAtual, paginaAtual + 1, '...', totalPaginas);
+    }
+    return paginas;
+  };
+
+  return (
+    <div className={`flex flex-col sm:flex-row items-center justify-between gap-3 pt-3.5 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400 ${className}`}>
+      <div>
+        <span>
+          Exibindo <span className="font-bold text-slate-700 dark:text-slate-200">{inicio}</span> a{' '}
+          <span className="font-bold text-slate-700 dark:text-slate-200">{fim}</span> de{' '}
+          <span className="font-bold text-slate-700 dark:text-slate-200">{qtdTotal}</span> registros
+        </span>
+      </div>
+
+      {totalPaginas > 1 && (
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            disabled={paginaAtual <= 1}
+            onClick={() => mudarPagina(paginaAtual - 1)}
+            className="flex h-8 items-center gap-1 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+            title="Página anterior"
+          >
+            <Icone nome="chevronLeft" className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Anterior</span>
+          </button>
+
+          <div className="flex items-center gap-1 px-1">
+            {gerarPaginas().map((p, idx) => {
+              if (p === '...') {
+                return (
+                  <span key={`dots-${idx}`} className="px-1.5 py-1 text-slate-400">
+                    ...
+                  </span>
+                );
+              }
+              const num = Number(p);
+              const ativo = num === paginaAtual;
+              return (
+                <button
+                  key={num}
+                  type="button"
+                  onClick={() => mudarPagina(num)}
+                  className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    ativo
+                      ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
+                      : 'border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  {num}
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            type="button"
+            disabled={paginaAtual >= totalPaginas}
+            onClick={() => mudarPagina(paginaAtual + 1)}
+            className="flex h-8 items-center gap-1 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+            title="Próxima página"
+          >
+            <span className="hidden sm:inline">Próxima</span>
+            <Icone nome="chevronRight" className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 

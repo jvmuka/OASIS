@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, sessaoAtual } from '../../api';
-import { Titulo, Cartao, Botao, Campo, inputCls, Badge, EmptyState, Modal, Icone, Mensagem, mascararCPF, mascararCelular } from '../../components/ui';
+import { Titulo, Cartao, Botao, Campo, inputCls, Badge, EmptyState, Modal, Icone, Mensagem, mascararCPF, mascararCelular, Paginacao } from '../../components/ui';
 
 interface VinculoTitular {
   id_pessoa_unidade: number;
@@ -35,6 +35,7 @@ export default function Dependentes() {
   const [carregando, setCarregando] = useState(true);
   const [vinculo, setVinculo] = useState<VinculoTitular | null>(null);
   const [dependentes, setDependentes] = useState<Dependente[]>([]);
+  const [pagina, setPagina] = useState(1);
   const [modalAberto, setModalAberto] = useState(false);
   const [copiadoId, setCopiadoId] = useState<number | null>(null);
   const [notificacao, setNotificacao] = useState<{ texto: string; tipo: 'ok' | 'erro' | 'aviso' } | null>(null);
@@ -208,8 +209,16 @@ export default function Dependentes() {
           descricao="Atualmente não há familiares vinculados a esta residência."
         />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {dependentes.map(dep => {
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {(() => {
+              const ITENS_POR_PAGINA = 20;
+              const totalPaginas = Math.ceil(dependentes.length / ITENS_POR_PAGINA) || 1;
+              const dependentesPaginados = dependentes.slice(
+                (pagina - 1) * ITENS_POR_PAGINA,
+                pagina * ITENS_POR_PAGINA
+              );
+              return dependentesPaginados.map(dep => {
                 const idade = calculaIdade(dep.data_nascimento);
                 const ehProprioUsuario = dep.id_pessoa === idUsuarioLogado;
                 const ehVinculoTitular = dep.tipo_vinculo === 'PROPRIETARIO' || dep.tipo_vinculo === 'INQUILINO';
@@ -351,9 +360,19 @@ export default function Dependentes() {
                     </div>
                   </Cartao>
                 );
-              })}
-            </div>
-          )}
+              });
+            })()}
+          </div>
+
+          <Paginacao
+            paginaAtual={pagina}
+            totalPaginas={Math.ceil(dependentes.length / 20) || 1}
+            totalRegistros={dependentes.length}
+            itensPorPagina={20}
+            onMudarPagina={setPagina}
+          />
+        </div>
+      )}
 
       {/* Modal de Solicitação de Novo Dependente */}
       <Modal

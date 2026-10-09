@@ -29,6 +29,9 @@ export class DbService implements OnModuleInit, OnModuleDestroy {
         ALTER TABLE area_comum ADD COLUMN IF NOT EXISTS status_livre_observacao VARCHAR(255);
         ALTER TABLE area_comum ADD COLUMN IF NOT EXISTS status_livre_porteiro VARCHAR(100);
         ALTER TABLE chave ALTER COLUMN codigo TYPE VARCHAR(100);
+        ALTER TABLE aviso ADD COLUMN IF NOT EXISTS anexo_url VARCHAR(255);
+        ALTER TABLE aviso ADD COLUMN IF NOT EXISTS anexo_nome VARCHAR(255);
+        ALTER TABLE aviso ADD COLUMN IF NOT EXISTS anexo_tipo VARCHAR(50);
 
         CREATE OR REPLACE FUNCTION fn_cancela_reserva() RETURNS TRIGGER AS $$
         DECLARE

@@ -1,6 +1,11 @@
-import { Controller, Get, Post, Delete, Patch, Body, Param, Module, UseGuards, Req, ParseIntPipe, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Patch, Body, Param, Module, UseGuards, Req, ParseIntPipe, BadRequestException, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
+import { promises as fs } from 'fs';
+import { randomUUID } from 'crypto';
 import { DbService } from '../db/db.service';
 import { JwtAuthGuard, PerfilGuard, Perfis, perfilDoUsuario } from '../auth/guards';
+import { AVISO_ANEXO_MAX_BYTES, AVISO_ANEXO_TIPOS_REGEX } from '../common/upload.constants';
 
 /**
  * UC05 (visualizar/ler) e UC10 (publicar).
@@ -11,6 +16,34 @@ import { JwtAuthGuard, PerfilGuard, Perfis, perfilDoUsuario } from '../auth/guar
 export class AvisosController {
   constructor(private db: DbService) {}
 
+  /** Upload de arquivo anexo para aviso (imagem ou PDF). */
+  @Post('upload-anexo')
+  @Perfis('SINDICO')
+  @UseInterceptors(FileInterceptor('arquivo', {
+    storage: memoryStorage(),
+    limits: { fileSize: AVISO_ANEXO_MAX_BYTES },
+    fileFilter: (_req, file, cb) => {
+      if (!AVISO_ANEXO_TIPOS_REGEX.test(file.mimetype)) {
+        return cb(new BadRequestException(`Tipo de arquivo não permitido (${file.mimetype}). Envie uma imagem (JPG, PNG, WebP) ou PDF.`), false);
+      }
+      cb(null, true);
+    },
+  }))
+  async uploadAnexo(@UploadedFile() file: any) {
+    if (!file) throw new BadRequestException('Nenhum arquivo enviado.');
+    await fs.mkdir('./uploads/avisos', { recursive: true }).catch(() => {});
+
+    const ext = file.originalname.split('.').pop()?.toLowerCase() || (file.mimetype === 'application/pdf' ? 'pdf' : 'png');
+    const nomeArquivo = `${Date.now()}-${randomUUID()}.${ext}`;
+    await fs.writeFile(`./uploads/avisos/${nomeArquivo}`, file.buffer);
+
+    const anexo_tipo = file.mimetype === 'application/pdf' ? 'PDF' : 'IMAGEM';
+    const anexo_url = `/uploads/avisos/${nomeArquivo}`;
+    const anexo_nome = file.originalname;
+
+    return { anexo_url, anexo_nome, anexo_tipo };
+  }
+
   /** Listagem completa de avisos gerenciados pelo síndico (publicados, agendados e expirados). */
   @Get()
   @Perfis('SINDICO')
@@ -18,6 +51,7 @@ export class AvisosController {
     return this.db.query(`
       SELECT a.id_aviso, a.titulo, a.conteudo, a.escopo, a.fixado,
              a.data_hora_publicacao, a.data_hora_expiracao,
+             a.anexo_url, a.anexo_nome, a.anexo_tipo,
              p.nome AS autor,
              CASE
                WHEN a.escopo = 'INDIVIDUAL' OR a.titulo ILIKE '%encomenda%' THEN 'ENCOMENDA'
@@ -73,6 +107,7 @@ export class AvisosController {
              COALESCE(ap.id_aviso_perfil, 0) AS id_aviso_perfil,
              a.id_aviso, a.titulo, a.conteudo, a.escopo,
              a.fixado, a.data_hora_publicacao,
+             a.anexo_url, a.anexo_nome, a.anexo_tipo,
              COALESCE(ap.lido, FALSE) AS lido,
              ap.data_hora_leitura,
              p.nome AS autor,
@@ -97,6 +132,7 @@ export class AvisosController {
        ORDER BY a.id_aviso, a.fixado DESC, a.data_hora_publicacao DESC`, [idsPerfis, temMorador])
       .then(rows => rows.sort((x, y) => {
         if (x.fixado !== y.fixado) return x.fixado ? -1 : 1;
+        if (x.lido !== y.lido) return x.lido ? 1 : -1;
         return new Date(y.data_hora_publicacao).getTime() - new Date(x.data_hora_publicacao).getTime();
       }));
   }
@@ -131,6 +167,9 @@ export class AvisosController {
     fixado?: boolean;
     data_hora_publicacao?: string;
     data_hora_expiracao?: string;
+    anexo_url?: string;
+    anexo_nome?: string;
+    anexo_tipo?: string;
   }) {
     const idPerfil = perfilDoUsuario(req.user, 'SINDICO');
     const agora = new Date();
@@ -164,9 +203,9 @@ export class AvisosController {
     }
 
     return this.db.query(`
-      INSERT INTO aviso (id_perfil_autor, titulo, conteudo, fixado, data_hora_publicacao, data_hora_expiracao)
-      VALUES ($1, $2, $3, $4, COALESCE($5, CURRENT_TIMESTAMP), $6)
-      RETURNING id_aviso, titulo, data_hora_publicacao, data_hora_expiracao`,
+      INSERT INTO aviso (id_perfil_autor, titulo, conteudo, fixado, data_hora_publicacao, data_hora_expiracao, anexo_url, anexo_nome, anexo_tipo)
+      VALUES ($1, $2, $3, $4, COALESCE($5, CURRENT_TIMESTAMP), $6, $7, $8, $9)
+      RETURNING id_aviso, titulo, data_hora_publicacao, data_hora_expiracao, anexo_url, anexo_nome, anexo_tipo`,
       [
         idPerfil,
         b.titulo,
@@ -174,16 +213,24 @@ export class AvisosController {
         b.fixado ?? false,
         dtPub,
         dtExp,
+        b.anexo_url || null,
+        b.anexo_nome || null,
+        b.anexo_tipo || null,
       ]).then(r => r[0]);
   }
 
   @Delete(':id') @Perfis('SINDICO')
-  excluir(@Param('id', ParseIntPipe) id: number) {
-    return this.db.query(`DELETE FROM aviso WHERE id_aviso = $1 RETURNING id_aviso`, [id])
-      .then(r => {
-        if (!r.length) throw new BadRequestException('Aviso não encontrado.');
-        return { ok: true, id_aviso: r[0].id_aviso };
-      });
+  async excluir(@Param('id', ParseIntPipe) id: number) {
+    const aviso = await this.db.query(`SELECT id_aviso, anexo_url FROM aviso WHERE id_aviso = $1`, [id]);
+    if (!aviso.length) throw new BadRequestException('Aviso não encontrado.');
+
+    await this.db.query(`DELETE FROM aviso WHERE id_aviso = $1`, [id]);
+
+    if (aviso[0].anexo_url) {
+      await fs.unlink(`.${aviso[0].anexo_url}`).catch(() => {});
+    }
+
+    return { ok: true, id_aviso: id };
   }
 }
 

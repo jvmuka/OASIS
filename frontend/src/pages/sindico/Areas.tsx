@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../../api';
-import { Botao, Campo, Cartao, inputCls, Mensagem, Titulo, Icone, Badge, Modal, EmptyState, ModalConfirmacao } from '../../components/ui';
+import { Botao, Campo, Cartao, inputCls, Mensagem, Titulo, Icone, Badge, Modal, EmptyState, ModalConfirmacao, Paginacao } from '../../components/ui';
 import { IMAGEM_MAX_BYTES, IMAGEM_MAX_MB, IMAGEM_TIPOS_ACEITOS, IMAGEM_EXTENSOES_ACEITAS } from '../../constants';
 import type { Area, BloqueioArea, DependenciasArea, DiaSemana, JanelaHorario, HorarioForm, ConflitoTurnoInfo } from '../../types/areas';
 import { DIAS_SEMANA_CONFIG, HORARIOS_DIA } from '../../types/areas';
@@ -412,6 +412,9 @@ export default function Areas() {
   const [areas, setAreas] = useState<Area[]>([]);
   const [bloqueios, setBloqueios] = useState<BloqueioArea[]>([]);
   const [abaBloqueios, setAbaBloqueios] = useState<'futuros' | 'historico'>('futuros');
+  const [paginaAtivas, setPaginaAtivas] = useState(1);
+  const [paginaInativas, setPaginaInativas] = useState(1);
+  const [paginaBloqueios, setPaginaBloqueios] = useState(1);
   const [msg, setMsg] = useState<{ t: string; tipo: 'erro' | 'ok' }>({ t: '', tipo: 'ok' });
   const [modalCriarAberto, setModalCriarAberto] = useState(false);
   const [modalBloqueioAberto, setModalBloqueioAberto] = useState(false);
@@ -1035,6 +1038,17 @@ export default function Areas() {
 
   const bloqueiosExibidos = abaBloqueios === 'futuros' ? bloqueiosFuturos : bloqueiosHistorico;
 
+  const ITENS_POR_PAGINA = 20;
+
+  const totalPaginasAtivas = Math.ceil(areasAtivas.length / ITENS_POR_PAGINA) || 1;
+  const areasAtivasPaginadas = areasAtivas.slice((paginaAtivas - 1) * ITENS_POR_PAGINA, paginaAtivas * ITENS_POR_PAGINA);
+
+  const totalPaginasInativas = Math.ceil(areasInativas.length / ITENS_POR_PAGINA) || 1;
+  const areasInativasPaginadas = areasInativas.slice((paginaInativas - 1) * ITENS_POR_PAGINA, paginaInativas * ITENS_POR_PAGINA);
+
+  const totalPaginasBloqueios = Math.ceil(bloqueiosExibidos.length / ITENS_POR_PAGINA) || 1;
+  const bloqueiosExibidosPaginados = bloqueiosExibidos.slice((paginaBloqueios - 1) * ITENS_POR_PAGINA, paginaBloqueios * ITENS_POR_PAGINA);
+
   /** Renderiza uma linha da tabela de áreas, compartilhada entre o bloco de ativas e o de inativas. */
   function linhaArea(a: Area) {
     const agora = new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
@@ -1316,11 +1330,19 @@ export default function Areas() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {areasAtivas.map(a => linhaArea(a))}
+                {areasAtivasPaginadas.map(a => linhaArea(a))}
               </tbody>
             </table>
           </div>
         )}
+
+        <Paginacao
+          paginaAtual={paginaAtivas}
+          totalPaginas={totalPaginasAtivas}
+          totalRegistros={areasAtivas.length}
+          itensPorPagina={ITENS_POR_PAGINA}
+          onMudarPagina={setPaginaAtivas}
+        />
       </Cartao>
 
       {/* Bloco de Áreas Inativas: esmaecido, deixando claro que os dados foram preservados */}
@@ -1354,10 +1376,18 @@ export default function Areas() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {areasInativas.map(a => linhaArea(a))}
+                {areasInativasPaginadas.map(a => linhaArea(a))}
               </tbody>
             </table>
           </div>
+
+          <Paginacao
+            paginaAtual={paginaInativas}
+            totalPaginas={totalPaginasInativas}
+            totalRegistros={areasInativas.length}
+            itensPorPagina={ITENS_POR_PAGINA}
+            onMudarPagina={setPaginaInativas}
+          />
         </Cartao>
       )}
 
@@ -1380,7 +1410,10 @@ export default function Areas() {
             <div className="inline-flex rounded-xl bg-slate-100 dark:bg-slate-800/80 p-1 text-xs font-semibold">
               <button
                 type="button"
-                onClick={() => setAbaBloqueios('futuros')}
+                onClick={() => {
+                  setAbaBloqueios('futuros');
+                  setPaginaBloqueios(1);
+                }}
                 className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition-all cursor-pointer ${
                   abaBloqueios === 'futuros'
                     ? 'bg-white text-navy shadow-sm dark:bg-slate-700 dark:text-white font-bold'
@@ -1401,7 +1434,10 @@ export default function Areas() {
 
               <button
                 type="button"
-                onClick={() => setAbaBloqueios('historico')}
+                onClick={() => {
+                  setAbaBloqueios('historico');
+                  setPaginaBloqueios(1);
+                }}
                 className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition-all cursor-pointer ${
                   abaBloqueios === 'historico'
                     ? 'bg-white text-navy shadow-sm dark:bg-slate-700 dark:text-white font-bold'
@@ -1463,7 +1499,7 @@ export default function Areas() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {bloqueiosExibidos.map(b => {
+                {bloqueiosExibidosPaginados.map(b => {
                   const bIni = new Date(b.data_hora_inicio).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
                   const bFim = new Date(b.data_hora_fim).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).replace(' ', 'T');
                   const jaConcluido = bFim < agoraISO;
@@ -1540,6 +1576,14 @@ export default function Areas() {
             </table>
           </div>
         )}
+
+        <Paginacao
+          paginaAtual={paginaBloqueios}
+          totalPaginas={totalPaginasBloqueios}
+          totalRegistros={bloqueiosExibidos.length}
+          itensPorPagina={ITENS_POR_PAGINA}
+          onMudarPagina={setPaginaBloqueios}
+        />
       </Cartao>
 
       {/* Modal de Agendamento de Manutenção (Design System UI/UX Pro Max) */}

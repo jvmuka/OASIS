@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, sessaoAtual } from '../../api';
-import { Cartao, Titulo, Icone, Badge, EmptyState } from '../../components/ui';
+import { Cartao, Titulo, Icone, Badge, EmptyState, Paginacao } from '../../components/ui';
 
 type Aviso = {
   id_aviso: number;
@@ -13,14 +13,20 @@ type Aviso = {
   data_hora_publicacao: string;
   escopo: string;
   categoria?: 'ADMINISTRADOR' | 'ENCOMENDA';
+  anexo_url?: string | null;
+  anexo_nome?: string | null;
+  anexo_tipo?: 'IMAGEM' | 'PDF' | null;
 };
+
+const ITENS_POR_PAGINA = 20;
 
 /** UC05 - Mural de Avisos com comunicados da administração (UI/UX Pro Max) */
 export default function Mural() {
   const [avisos, setAvisos] = useState<Aviso[]>([]);
   const [aberto, setAberto] = useState<number | null>(null);
   const [carregando, setCarregando] = useState(true);
-  const [filtro, setFiltro] = useState<'TODOS' | 'ADMINISTRADOR' | 'ENCOMENDA' | 'NAO_LIDOS'>('TODOS');
+  const [filtro, setFiltro] = useState<'NAO_LIDOS' | 'TODOS' | 'ADMINISTRADOR' | 'ENCOMENDA'>('NAO_LIDOS');
+  const [pagina, setPagina] = useState(1);
 
   const sessao = sessaoAtual();
   const tiposPerfis = (sessao?.perfis || []).map(p => p.tipo);
@@ -62,13 +68,33 @@ export default function Mural() {
   const countEncomenda = avisos.filter(a => a.categoria === 'ENCOMENDA').length;
   const countNaoLidos = avisos.filter(a => !a.lido).length;
 
-  const avisosFiltrados = avisos.filter(a => {
-    if (ehApenasAdmin && a.categoria === 'ENCOMENDA') return false;
-    if (filtro === 'NAO_LIDOS') return !a.lido;
-    if (filtro === 'ADMINISTRADOR') return a.categoria === 'ADMINISTRADOR';
-    if (filtro === 'ENCOMENDA') return a.categoria === 'ENCOMENDA';
-    return true;
-  });
+  const avisosFiltrados = avisos
+    .filter(a => {
+      if (ehApenasAdmin && a.categoria === 'ENCOMENDA') return false;
+      if (filtro === 'NAO_LIDOS') return !a.lido;
+      if (filtro === 'ADMINISTRADOR') return a.categoria === 'ADMINISTRADOR';
+      if (filtro === 'ENCOMENDA') return a.categoria === 'ENCOMENDA';
+      return true;
+    })
+    .sort((a, b) => {
+      // 1. Fixados primeiro
+      if (a.fixado !== b.fixado) return a.fixado ? -1 : 1;
+      // 2. Não lidos primeiro
+      if (a.lido !== b.lido) return a.lido ? 1 : -1;
+      // 3. Mais recentes primeiro
+      return new Date(b.data_hora_publicacao).getTime() - new Date(a.data_hora_publicacao).getTime();
+    });
+
+  const totalPaginas = Math.ceil(avisosFiltrados.length / ITENS_POR_PAGINA) || 1;
+  const avisosPaginados = avisosFiltrados.slice(
+    (pagina - 1) * ITENS_POR_PAGINA,
+    pagina * ITENS_POR_PAGINA
+  );
+
+  const mudarFiltro = (novoFiltro: 'NAO_LIDOS' | 'TODOS' | 'ADMINISTRADOR' | 'ENCOMENDA') => {
+    setFiltro(novoFiltro);
+    setPagina(1);
+  };
 
   return (
     <div className="space-y-6">
@@ -83,19 +109,32 @@ export default function Mural() {
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
-          onClick={() => setFiltro('TODOS')}
+          onClick={() => mudarFiltro('NAO_LIDOS')}
+          className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+            filtro === 'NAO_LIDOS'
+              ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
+              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800'
+          }`}
+        >
+          <Icone nome="bell" className="h-3.5 w-3.5" />
+          Não Lidos ({countNaoLidos})
+        </button>
+
+        <button
+          type="button"
+          onClick={() => mudarFiltro('TODOS')}
           className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer ${
             filtro === 'TODOS'
               ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
               : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800'
           }`}
         >
-          Todos ({avisos.length})
+          Todos os Avisos ({avisos.length})
         </button>
 
         <button
           type="button"
-          onClick={() => setFiltro('ADMINISTRADOR')}
+          onClick={() => mudarFiltro('ADMINISTRADOR')}
           className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer ${
             filtro === 'ADMINISTRADOR'
               ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
@@ -109,7 +148,7 @@ export default function Mural() {
         {!ehApenasAdmin && (
           <button
             type="button"
-            onClick={() => setFiltro('ENCOMENDA')}
+            onClick={() => mudarFiltro('ENCOMENDA')}
             className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer ${
               filtro === 'ENCOMENDA'
                 ? 'bg-amber-600 text-white shadow-xs dark:bg-amber-600'
@@ -120,18 +159,6 @@ export default function Mural() {
             Encomendas ({countEncomenda})
           </button>
         )}
-
-        <button
-          type="button"
-          onClick={() => setFiltro('NAO_LIDOS')}
-          className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer ${
-            filtro === 'NAO_LIDOS'
-              ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
-              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800'
-          }`}
-        >
-          Não Lidos ({countNaoLidos})
-        </button>
       </div>
 
       {carregando ? (
@@ -142,28 +169,40 @@ export default function Mural() {
       ) : avisosFiltrados.length === 0 ? (
         <Cartao>
           <EmptyState
-            icone={filtro === 'ENCOMENDA' ? 'package' : 'megaphone'}
+            icone={filtro === 'ENCOMENDA' ? 'package' : filtro === 'NAO_LIDOS' ? 'check' : 'megaphone'}
             titulo={
               filtro === 'ENCOMENDA'
                 ? 'Nenhum aviso de encomenda'
                 : filtro === 'ADMINISTRADOR'
                 ? 'Nenhum comunicado da administração'
                 : filtro === 'NAO_LIDOS'
-                ? 'Nenhum aviso não lido'
+                ? 'Nenhum aviso não lido pendente'
                 : 'Nenhum comunicado encontrado'
             }
             descricao={
               filtro === 'NAO_LIDOS'
-                ? 'Você já leu todos os comunicados recentes.'
+                ? 'Você está em dia! Todos os comunicados recentes já foram lidos.'
                 : filtro === 'ENCOMENDA'
                 ? 'Você não possui avisos de encomenda pendentes na portaria.'
                 : 'Não há avisos cadastrados no mural no momento.'
             }
           />
+          {filtro === 'NAO_LIDOS' && avisos.length > 0 && (
+            <div className="mt-4 flex justify-center">
+              <button
+                type="button"
+                onClick={() => mudarFiltro('TODOS')}
+                className="inline-flex items-center gap-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+              >
+                <Icone nome="eye" className="h-4 w-4" />
+                Ver todos os comunicados ({avisos.length})
+              </button>
+            </div>
+          )}
         </Cartao>
       ) : (
         <div className="space-y-3.5">
-          {avisosFiltrados.map(a => {
+          {avisosPaginados.map(a => {
             const eAberto = aberto === a.id_aviso;
             const isEncomenda = a.categoria === 'ENCOMENDA';
             return (
@@ -215,6 +254,12 @@ export default function Mural() {
                               NOVO
                             </span>
                           )}
+                          {a.anexo_url && (
+                            <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[10px] font-bold text-slate-700 dark:text-slate-300">
+                              <Icone nome={a.anexo_tipo === 'PDF' ? 'fileText' : 'paperclip'} className="h-3 w-3 text-navy dark:text-sky-400" />
+                              {a.anexo_tipo === 'PDF' ? 'PDF' : 'ANEXO'}
+                            </span>
+                          )}
                           <h3 className={`text-base font-bold leading-tight ${a.lido ? 'text-slate-700 dark:text-slate-200' : 'text-navy dark:text-sky-400'}`}>
                             {a.titulo}
                           </h3>
@@ -248,6 +293,41 @@ export default function Mural() {
                       <p className="whitespace-pre-line leading-relaxed text-slate-600 dark:text-slate-300">
                         {a.conteudo}
                       </p>
+
+                      {/* Anexo */}
+                      {a.anexo_url && (
+                        <div className="pt-2 space-y-2">
+                          <div>
+                            <a
+                              href={a.anexo_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={e => e.stopPropagation()}
+                              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition-colors"
+                            >
+                              <Icone
+                                nome={a.anexo_tipo === 'PDF' ? 'fileText' : 'image'}
+                                className="h-4 w-4 text-navy dark:text-sky-400"
+                              />
+                              <span className="truncate max-w-[220px] sm:max-w-xs">
+                                {a.anexo_nome || (a.anexo_tipo === 'PDF' ? 'Documento PDF' : 'Imagem em anexo')}
+                              </span>
+                              <Icone nome="download" className="h-3.5 w-3.5 text-slate-400" />
+                            </a>
+                          </div>
+
+                          {a.anexo_tipo === 'IMAGEM' && (
+                            <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 max-w-md">
+                              <img
+                                src={a.anexo_url}
+                                alt={a.titulo}
+                                className="w-full max-h-72 object-contain bg-slate-900/5 dark:bg-slate-900/50"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       <div className="flex items-center justify-between text-[11px] text-slate-400 dark:text-slate-500 border-t border-slate-100/60 dark:border-slate-800 pt-2">
                         <span>Escopo: {a.escopo}</span>
                         <span className="text-emerald-700 dark:text-emerald-400 font-semibold flex items-center gap-1">
@@ -261,6 +341,14 @@ export default function Mural() {
               </Cartao>
             );
           })}
+
+          <Paginacao
+            paginaAtual={pagina}
+            totalPaginas={totalPaginas}
+            totalRegistros={avisosFiltrados.length}
+            itensPorPagina={ITENS_POR_PAGINA}
+            onMudarPagina={setPagina}
+          />
         </div>
       )}
     </div>

@@ -24,7 +24,7 @@ export class PortariaController {
         LEFT JOIN unidade u ON u.id_unidade = pu.id_unidade
         LEFT JOIN bloco   b ON b.id_bloco   = u.id_bloco
        WHERE ($1::status_encomenda_enum IS NULL OR e.status = $1::status_encomenda_enum)
-       ORDER BY e.data_hora_recebimento DESC`, [status || null]);
+       ORDER BY (CASE WHEN e.status = 'AGUARDANDO_RETIRADA' THEN 0 ELSE 1 END), e.data_hora_recebimento DESC`, [status || null]);
   }
 
   /** UC07: gatilho RN11 gera o aviso individual automaticamente. */

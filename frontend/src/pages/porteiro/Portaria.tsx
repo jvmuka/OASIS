@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../../api';
 import {
-  Botao, Cartao, Titulo, Icone, Badge, EmptyState, Modal, Campo, Mensagem, inputCls, mascararCPF, mascararCelular,
+  Botao, Cartao, Titulo, Icone, Badge, EmptyState, Modal, Campo, Mensagem, inputCls, mascararCPF, mascararCelular, Paginacao,
 } from '../../components/ui';
 import { hojeSP, formatarHora, formatarDataHora, gerarOpcoesMeses, minutosTexto } from '../../utils/data';
 import Pessoas from '../sindico/Pessoas';
@@ -95,6 +95,7 @@ export default function Portaria() {
   const [filtroAreaAgenda, setFiltroAreaAgenda] = useState('TODAS');
   const [filtroSituacaoAgenda, setFiltroSituacaoAgenda] = useState('TODAS');
   const [filtroMesAgenda, setFiltroMesAgenda] = useState('TODOS');
+  const [paginaAgenda, setPaginaAgenda] = useState(1);
   const [todasAreas, setTodasAreas] = useState<string[]>([]);
   const opcoesMeses = useRef(gerarOpcoesMeses()).current;
 
@@ -569,25 +570,42 @@ export default function Portaria() {
                 );
               }
 
+              const ITENS_POR_PAGINA = 20;
+              const totalPaginasAgenda = Math.ceil(agendaFiltrada.length / ITENS_POR_PAGINA) || 1;
+              const agendaFiltradaPaginada = agendaFiltrada.slice(
+                (paginaAgenda - 1) * ITENS_POR_PAGINA,
+                paginaAgenda * ITENS_POR_PAGINA
+              );
+
               return (
-                <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-[420px] overflow-y-auto pr-1">
-                  {agendaFiltrada.map(r => (
-                    <div key={r.id_reserva} className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                          {dataAgenda === 'TODAS' || dataAgenda.length === 7 || filtroMesAgenda !== 'TODOS'
-                            ? `${formatarDataHora(r.data_hora_inicio, false)} – ${formatarHora(r.data_hora_fim)} · ${r.area}`
-                            : `${formatarHora(r.data_hora_inicio)} – ${formatarHora(r.data_hora_fim)} · ${r.area}`}
-                        </p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                          {r.morador} · {unidadeTexto(r.bloco, r.apartamento)}
-                        </p>
+                <div className="space-y-3">
+                  <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-[420px] overflow-y-auto pr-1">
+                    {agendaFiltradaPaginada.map(r => (
+                      <div key={r.id_reserva} className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                            {dataAgenda === 'TODAS' || dataAgenda.length === 7 || filtroMesAgenda !== 'TODOS'
+                              ? `${formatarDataHora(r.data_hora_inicio, false)} – ${formatarHora(r.data_hora_fim)} · ${r.area}`
+                              : `${formatarHora(r.data_hora_inicio)} – ${formatarHora(r.data_hora_fim)} · ${r.area}`}
+                          </p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                            {r.morador} · {unidadeTexto(r.bloco, r.apartamento)}
+                          </p>
+                        </div>
+                        <Badge tipo={SITUACAO_BADGE[r.situacao]?.tipo || 'neutro'}>
+                          {SITUACAO_BADGE[r.situacao]?.rotulo || r.situacao}
+                        </Badge>
                       </div>
-                      <Badge tipo={SITUACAO_BADGE[r.situacao]?.tipo || 'neutro'}>
-                        {SITUACAO_BADGE[r.situacao]?.rotulo || r.situacao}
-                      </Badge>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+
+                  <Paginacao
+                    paginaAtual={paginaAgenda}
+                    totalPaginas={totalPaginasAgenda}
+                    totalRegistros={agendaFiltrada.length}
+                    itensPorPagina={ITENS_POR_PAGINA}
+                    onMudarPagina={setPaginaAgenda}
+                  />
                 </div>
               );
             })()}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
-import { Botao, Campo, Cartao, inputCls, Mensagem, Titulo, Icone, Badge, EmptyState, Modal } from '../../components/ui';
+import { Botao, Campo, Cartao, inputCls, Mensagem, Titulo, Icone, Badge, EmptyState, Modal, Paginacao } from '../../components/ui';
 
 type Area = {
   id_area_comum: number;
@@ -45,12 +45,15 @@ export function formatarDiasSemana(horarios?: { dia_semana: string }[]): string 
     .join(', ');
 }
 
+const ITENS_POR_PAGINA = 20;
+
 /**
  * Tela da Portaria para Gerenciamento de Áreas de Uso Livre (Sem Agendamento).
  * Permite ao porteiro alternar o status (LIVRE / EM_USO) e registrar observações ao vivo.
  */
 export default function AreasLivres() {
   const [areas, setAreas] = useState<Area[]>([]);
+  const [pagina, setPagina] = useState(1);
   const [carregando, setCarregando] = useState(false);
   const [editandoObs, setEditandoObs] = useState<Area | null>(null);
   const [novaObservacao, setNovaObservacao] = useState('');
@@ -173,8 +176,9 @@ export default function AreasLivres() {
           descricao="Espaços como academia, piscina ou playground podem ser cadastrados pelo síndico marcando a opção 'Uso Livre (Sem Reserva)'."
         />
       ) : (
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
-          {areas.map(a => {
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+            {areas.slice((pagina - 1) * ITENS_POR_PAGINA, pagina * ITENS_POR_PAGINA).map(a => {
             const emUso = a.status_livre === 'EM_USO';
 
             return (
@@ -298,6 +302,15 @@ export default function AreasLivres() {
               </Cartao>
             );
           })}
+          </div>
+
+          <Paginacao
+            paginaAtual={pagina}
+            totalPaginas={Math.ceil(areas.length / ITENS_POR_PAGINA) || 1}
+            totalRegistros={areas.length}
+            itensPorPagina={ITENS_POR_PAGINA}
+            onMudarPagina={setPagina}
+          />
         </div>
       )}
 

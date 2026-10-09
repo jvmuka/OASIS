@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api';
-import { Botao, Cartao, Mensagem, Titulo, Icone, Badge, EmptyState, Modal, ModalConfirmacao } from '../../components/ui';
+import { Botao, Cartao, Mensagem, Titulo, Icone, Badge, EmptyState, Modal, ModalConfirmacao, Paginacao } from '../../components/ui';
 
 type Reserva = {
   id_reserva: number;
@@ -13,12 +13,15 @@ type Reserva = {
   prazo_cancelamento_horas: number;
 };
 
+const ITENS_POR_PAGINA = 20;
+
 /** UC04 - Listar e cancelar as reservas do morador logado (UI/UX Pro Max) */
 export default function MinhasReservas() {
   const nav = useNavigate();
   const [reservas, setReservas] = useState<Reserva[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [filtro, setFiltro] = useState<'TODAS' | 'ATIVAS' | 'HISTORICO'>('TODAS');
+  const [pagina, setPagina] = useState(1);
   const [cancelando, setCancelando] = useState<Reserva | null>(null);
   const [processando, setProcessando] = useState(false);
   const [msg, setMsg] = useState<{ t: string; tipo: 'erro' | 'ok' }>({ t: '', tipo: 'ok' });
@@ -114,6 +117,12 @@ export default function MinhasReservas() {
     return true;
   });
 
+  const totalPaginas = Math.ceil(reservasFiltradas.length / ITENS_POR_PAGINA) || 1;
+  const reservasPaginadas = reservasFiltradas.slice(
+    (pagina - 1) * ITENS_POR_PAGINA,
+    pagina * ITENS_POR_PAGINA
+  );
+
   return (
     <div className="space-y-6">
       <Titulo
@@ -137,7 +146,10 @@ export default function MinhasReservas() {
           <button
             key={f}
             type="button"
-            onClick={() => setFiltro(f)}
+            onClick={() => {
+              setFiltro(f);
+              setPagina(1);
+            }}
             className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer ${
               filtro === f
                 ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
@@ -175,54 +187,64 @@ export default function MinhasReservas() {
             }
           />
         ) : (
-          <div className="divide-y divide-slate-100 dark:divide-slate-800">
-            {reservasFiltradas.map(r => {
-              const st = obterStatusReserva(r);
-              return (
-                <div
-                  key={r.id_reserva}
-                  className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between hover:bg-slate-50/50 dark:hover:bg-slate-800/50 rounded-xl px-2 transition-colors"
-                >
-                  <div className="flex items-start gap-3.5">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-navy-50 text-navy dark:bg-slate-800 dark:text-sky-400 font-bold">
-                      <Icone nome="calendar" className="h-5 w-5" />
+          <div className="space-y-3">
+            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+              {reservasPaginadas.map(r => {
+                const st = obterStatusReserva(r);
+                return (
+                  <div
+                    key={r.id_reserva}
+                    className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between hover:bg-slate-50/50 dark:hover:bg-slate-800/50 rounded-xl px-2 transition-colors"
+                  >
+                    <div className="flex items-start gap-3.5">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-navy-50 text-navy dark:bg-slate-800 dark:text-sky-400 font-bold">
+                        <Icone nome="calendar" className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 leading-tight">{r.area}</h3>
+                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 font-medium">
+                          {formatarDataHora(r.data_hora_inicio)} até {formatarDataHora(r.data_hora_fim)}
+                        </p>
+                        <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                          Capacidade reservada: {r.numero_pessoas} pessoa(s)
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 leading-tight">{r.area}</h3>
-                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 font-medium">
-                        {formatarDataHora(r.data_hora_inicio)} até {formatarDataHora(r.data_hora_fim)}
-                      </p>
-                      <p className="text-[11px] text-slate-400 dark:text-slate-500">
-                        Capacidade reservada: {r.numero_pessoas} pessoa(s)
-                      </p>
+
+                    <div className="flex items-center gap-3 sm:self-center self-end">
+                      <Badge tipo={st.tipo}>
+                        {st.label}
+                      </Badge>
+
+                      {st.podeCancelar && (
+                        <Botao
+                          variante="perigo"
+                          tamanho="sm"
+                          icone={<Icone nome="trash" className="h-3.5 w-3.5" />}
+                          onClick={() => setCancelando(r)}
+                        >
+                          Cancelar
+                        </Botao>
+                      )}
+
+                      {st.prazoExpirado && (
+                        <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500 italic">
+                          Prazo de cancelamento expirado
+                        </span>
+                      )}
                     </div>
                   </div>
+                );
+              })}
+            </div>
 
-                  <div className="flex items-center gap-3 sm:self-center self-end">
-                    <Badge tipo={st.tipo}>
-                      {st.label}
-                    </Badge>
-
-                    {st.podeCancelar && (
-                      <Botao
-                        variante="perigo"
-                        tamanho="sm"
-                        icone={<Icone nome="trash" className="h-3.5 w-3.5" />}
-                        onClick={() => setCancelando(r)}
-                      >
-                        Cancelar
-                      </Botao>
-                    )}
-
-                    {st.prazoExpirado && (
-                      <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500 italic">
-                        Prazo de cancelamento expirado
-                      </span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+            <Paginacao
+              paginaAtual={pagina}
+              totalPaginas={totalPaginas}
+              totalRegistros={reservasFiltradas.length}
+              itensPorPagina={ITENS_POR_PAGINA}
+              onMudarPagina={setPagina}
+            />
           </div>
         )}
       </Cartao>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../api';
-import { Cartao, Titulo, Icone, Badge, EmptyState, Botao } from '../../components/ui';
+import { Cartao, Titulo, Icone, Badge, EmptyState, Botao, Paginacao } from '../../components/ui';
 import {
   GraficoEvolucaoMensal,
   GraficoDonutStatus,
@@ -50,6 +50,7 @@ export default function PainelAdmin() {
   const [buscaAgendamento, setBuscaAgendamento] = useState('');
   const [filtroArea, setFiltroArea] = useState('TODAS');
   const [filtroStatus, setFiltroStatus] = useState('TODOS');
+  const [pagina, setPagina] = useState(1);
   const [todasAreas, setTodasAreas] = useState<string[]>([]);
 
   useEffect(() => {
@@ -142,6 +143,10 @@ export default function PainelAdmin() {
     const matchStatus = filtroStatus === 'TODOS' || r.status === filtroStatus;
     return matchBusca && matchArea && matchStatus;
   });
+
+  const ITENS_POR_PAGINA = 20;
+  const totalPaginas = Math.ceil(agendamentosFiltrados.length / ITENS_POR_PAGINA) || 1;
+  const agendamentosPaginados = agendamentosFiltrados.slice((pagina - 1) * ITENS_POR_PAGINA, pagina * ITENS_POR_PAGINA);
 
   const temFiltroAtivo =
     buscaAgendamento.trim() !== '' || filtroArea !== 'TODAS' || filtroStatus !== 'TODOS';
@@ -422,7 +427,10 @@ export default function PainelAdmin() {
               <input
                 type="text"
                 value={buscaAgendamento}
-                onChange={e => setBuscaAgendamento(e.target.value)}
+                onChange={e => {
+                  setBuscaAgendamento(e.target.value);
+                  setPagina(1);
+                }}
                 placeholder="Buscar morador ou apto..."
                 className="w-full rounded-xl border border-slate-200 bg-slate-50/70 py-1.5 pl-8 pr-8 text-xs text-slate-800 placeholder-slate-400 focus:border-navy focus:bg-white focus:outline-hidden dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-200 dark:placeholder-slate-500 dark:focus:border-sky-500 transition-colors"
               />
@@ -431,7 +439,10 @@ export default function PainelAdmin() {
               </span>
               {buscaAgendamento && (
                 <button
-                  onClick={() => setBuscaAgendamento('')}
+                  onClick={() => {
+                    setBuscaAgendamento('');
+                    setPagina(1);
+                  }}
                   className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                   title="Limpar busca"
                 >
@@ -443,7 +454,10 @@ export default function PainelAdmin() {
             <div className="relative flex-1 min-w-[150px]">
               <select
                 value={filtroArea}
-                onChange={e => setFiltroArea(e.target.value)}
+                onChange={e => {
+                  setFiltroArea(e.target.value);
+                  setPagina(1);
+                }}
                 className="w-full rounded-xl border border-slate-200 bg-slate-50/70 py-1.5 px-3 text-xs font-medium text-slate-700 focus:border-navy focus:bg-white focus:outline-hidden dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-200 dark:focus:border-sky-500 transition-colors cursor-pointer"
               >
                 <option value="TODAS">Todas as áreas comuns</option>
@@ -458,7 +472,10 @@ export default function PainelAdmin() {
             <div className="relative flex-1 min-w-[130px]">
               <select
                 value={filtroStatus}
-                onChange={e => setFiltroStatus(e.target.value)}
+                onChange={e => {
+                  setFiltroStatus(e.target.value);
+                  setPagina(1);
+                }}
                 className="w-full rounded-xl border border-slate-200 bg-slate-50/70 py-1.5 px-3 text-xs font-medium text-slate-700 focus:border-navy focus:bg-white focus:outline-hidden dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-200 dark:focus:border-sky-500 transition-colors cursor-pointer"
               >
                 <option value="TODOS">Todos os status</option>
@@ -513,53 +530,63 @@ export default function PainelAdmin() {
               }
             />
           ) : (
-            <div className="divide-y divide-slate-100 dark:divide-slate-800/80 max-h-[380px] overflow-y-auto pr-1">
-              {agendamentosFiltrados.map((r, i) => (
-                <div key={r.id_reserva || i} className="flex items-center justify-between py-3.5 first:pt-0 last:pb-0">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-navy/10 to-brand-blue/15 text-xs font-black text-navy dark:from-sky-950 dark:to-cyan-950 dark:text-sky-400 border border-slate-200/50 dark:border-slate-800">
-                      {r.nome.charAt(0)}
-                    </div>
-                    <div className="truncate">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">
-                          {r.nome}
-                        </p>
-                        {r.unidade && (
-                          <span className="hidden sm:inline-flex px-1.5 py-0.5 text-[10px] font-bold rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                            {r.unidade}
-                          </span>
-                        )}
+            <div className="space-y-2">
+              <div className="divide-y divide-slate-100 dark:divide-slate-800/80 max-h-[380px] overflow-y-auto pr-1">
+                {agendamentosPaginados.map((r, i) => (
+                  <div key={r.id_reserva || i} className="flex items-center justify-between py-3.5 first:pt-0 last:pb-0">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-navy/10 to-brand-blue/15 text-xs font-black text-navy dark:from-sky-950 dark:to-cyan-950 dark:text-sky-400 border border-slate-200/50 dark:border-slate-800">
+                        {r.nome.charAt(0)}
                       </div>
-                      <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
-                        {r.area}
+                      <div className="truncate">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">
+                            {r.nome}
+                          </p>
+                          {r.unidade && (
+                            <span className="hidden sm:inline-flex px-1.5 py-0.5 text-[10px] font-bold rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                              {r.unidade}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
+                          {r.area}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="text-right shrink-0 ml-3">
+                      <Badge
+                        tipo={
+                          r.status === 'ATIVA'
+                            ? 'sucesso'
+                            : r.status === 'CANCELADA'
+                            ? 'perigo'
+                            : 'neutro'
+                        }
+                      >
+                        {r.status}
+                      </Badge>
+                      <p className="mt-1 text-[11px] font-medium text-slate-400 dark:text-slate-500">
+                        {new Date(r.data_hora_inicio).toLocaleDateString('pt-BR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
                       </p>
                     </div>
                   </div>
+                ))}
+              </div>
 
-                  <div className="text-right shrink-0 ml-3">
-                    <Badge
-                      tipo={
-                        r.status === 'ATIVA'
-                          ? 'sucesso'
-                          : r.status === 'CANCELADA'
-                          ? 'perigo'
-                          : 'neutro'
-                      }
-                    >
-                      {r.status}
-                    </Badge>
-                    <p className="mt-1 text-[11px] font-medium text-slate-400 dark:text-slate-500">
-                      {new Date(r.data_hora_inicio).toLocaleDateString('pt-BR', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </p>
-                  </div>
-                </div>
-              ))}
+              <Paginacao
+                paginaAtual={pagina}
+                totalPaginas={totalPaginas}
+                totalRegistros={agendamentosFiltrados.length}
+                itensPorPagina={ITENS_POR_PAGINA}
+                onMudarPagina={setPagina}
+              />
             </div>
           )}
         </Cartao>

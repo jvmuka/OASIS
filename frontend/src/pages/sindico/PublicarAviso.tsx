@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
-import { Botao, Campo, Cartao, inputCls, Mensagem, Titulo, Icone, Badge, EmptyState, Modal, ModalConfirmacao } from '../../components/ui';
+import { Botao, Campo, Cartao, inputCls, Mensagem, Titulo, Icone, Badge, EmptyState, Modal, ModalConfirmacao, Paginacao } from '../../components/ui';
 import { agoraInputDateTime } from '../../utils/data';
 
 type AvisoAdmin = {
@@ -18,6 +18,9 @@ type AvisoAdmin = {
   categoria: 'ADMINISTRADOR' | 'ENCOMENDA';
   destinatario_nome?: string;
   destinatario_unidade?: string;
+  anexo_url?: string | null;
+  anexo_nome?: string | null;
+  anexo_tipo?: 'IMAGEM' | 'PDF' | null;
 };
 
 /** UC10 - Publicar, agendar e gerenciar avisos do condomínio (UI/UX Pro Max) */
@@ -30,6 +33,9 @@ export default function PublicarAviso() {
   const [dataPublicacao, setDataPublicacao] = useState('');
   const [dataExpiracao, setDataExpiracao] = useState('');
   const [fixado, setFixado] = useState(false);
+  const [anexo, setAnexo] = useState<{ url: string; nome: string; tipo: 'IMAGEM' | 'PDF' } | null>(null);
+  const [enviandoAnexo, setEnviandoAnexo] = useState(false);
+  const [pagina, setPagina] = useState(1);
   const [salvando, setSalvando] = useState(false);
   const [excluindo, setExcluindo] = useState<AvisoAdmin | null>(null);
   const [expandido, setExpandido] = useState<number | null>(null);
@@ -80,6 +86,9 @@ export default function PublicarAviso() {
         fixado,
         data_hora_publicacao: dataPublicacao ? new Date(dataPublicacao).toISOString() : undefined,
         data_hora_expiracao: dataExpiracao ? new Date(dataExpiracao).toISOString() : undefined,
+        anexo_url: anexo?.url,
+        anexo_nome: anexo?.nome,
+        anexo_tipo: anexo?.tipo,
       });
 
       const eAgendado = dataPublicacao && new Date(dataPublicacao) > new Date();
@@ -95,12 +104,34 @@ export default function PublicarAviso() {
       setDataPublicacao('');
       setDataExpiracao('');
       setFixado(false);
+      setAnexo(null);
       setModalAberto(false);
       carregar();
     } catch (err: any) {
       setMsg({ t: err.message, tipo: 'erro' });
     } finally {
       setSalvando(false);
+    }
+  }
+
+  async function handleUploadAnexo(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setEnviandoAnexo(true);
+    setMsg({ t: '', tipo: 'ok' });
+    try {
+      const res = await api.upload<{ anexo_url: string; anexo_nome: string; anexo_tipo: 'IMAGEM' | 'PDF' }>(
+        '/avisos/upload-anexo',
+        'arquivo',
+        file,
+      );
+      setAnexo({ url: res.anexo_url, nome: res.anexo_nome, tipo: res.anexo_tipo });
+      setMsg({ t: 'Arquivo anexado com sucesso!', tipo: 'ok' });
+    } catch (err: any) {
+      setMsg({ t: err.message || 'Falha ao enviar arquivo.', tipo: 'erro' });
+    } finally {
+      setEnviandoAnexo(false);
+      e.target.value = '';
     }
   }
 
@@ -127,6 +158,11 @@ export default function PublicarAviso() {
       ? avisosEncomenda
       : avisos;
 
+  const ITENS_POR_PAGINA = 20;
+  const totalPaginas = Math.ceil(avisosExibidos.length / ITENS_POR_PAGINA);
+  const paginaValida = Math.min(Math.max(1, pagina), Math.max(1, totalPaginas));
+  const avisosPaginados = avisosExibidos.slice((paginaValida - 1) * ITENS_POR_PAGINA, paginaValida * ITENS_POR_PAGINA);
+
   return (
     <div className="space-y-6">
       <Titulo
@@ -142,6 +178,7 @@ export default function PublicarAviso() {
               setDataPublicacao('');
               setDataExpiracao('');
               setFixado(false);
+              setAnexo(null);
               setModalAberto(true);
             }}
           >
@@ -156,7 +193,10 @@ export default function PublicarAviso() {
       <div className="flex flex-wrap gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
         <button
           type="button"
-          onClick={() => setAbaAtiva('ADMINISTRADOR')}
+          onClick={() => {
+            setAbaAtiva('ADMINISTRADOR');
+            setPagina(1);
+          }}
           className={`inline-flex items-center gap-2.5 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold transition-all cursor-pointer ${
             abaAtiva === 'ADMINISTRADOR'
               ? 'bg-navy text-white shadow-sm dark:bg-sky-600'
@@ -178,7 +218,10 @@ export default function PublicarAviso() {
 
         <button
           type="button"
-          onClick={() => setAbaAtiva('ENCOMENDA')}
+          onClick={() => {
+            setAbaAtiva('ENCOMENDA');
+            setPagina(1);
+          }}
           className={`inline-flex items-center gap-2.5 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold transition-all cursor-pointer ${
             abaAtiva === 'ENCOMENDA'
               ? 'bg-amber-600 text-white shadow-sm dark:bg-amber-600'
@@ -200,7 +243,10 @@ export default function PublicarAviso() {
 
         <button
           type="button"
-          onClick={() => setAbaAtiva('TODOS')}
+          onClick={() => {
+            setAbaAtiva('TODOS');
+            setPagina(1);
+          }}
           className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-bold transition-all cursor-pointer ${
             abaAtiva === 'TODOS'
               ? 'bg-slate-800 text-white shadow-sm dark:bg-slate-700'
@@ -275,139 +321,169 @@ export default function PublicarAviso() {
             }
           />
         ) : (
-          <div className="space-y-3">
-            {avisosExibidos.map(a => {
-              const eAberto = expandido === a.id_aviso;
-              const dtPub = new Date(a.data_hora_publicacao);
-              const percLidos =
-                a.total_destinatarios > 0
-                  ? Math.round((a.total_lidos / a.total_destinatarios) * 100)
-                  : 0;
+          <div className="space-y-4">
+            <div className="space-y-3">
+              {avisosPaginados.map(a => {
+                const eAberto = expandido === a.id_aviso;
+                const dtPub = new Date(a.data_hora_publicacao);
+                const percLidos =
+                  a.total_destinatarios > 0
+                    ? Math.round((a.total_lidos / a.total_destinatarios) * 100)
+                    : 0;
 
-              const isEncomenda = a.categoria === 'ENCOMENDA';
+                const isEncomenda = a.categoria === 'ENCOMENDA';
 
-              return (
-                <div
-                  key={a.id_aviso}
-                  className={`rounded-xl border p-4 shadow-soft transition-all hover:border-slate-300 dark:hover:border-slate-700 ${
-                    isEncomenda
-                      ? 'border-amber-200/70 bg-gradient-to-r from-amber-50/20 to-transparent dark:border-amber-900/40 dark:bg-amber-950/10'
-                      : 'border-slate-200/80 bg-white dark:border-slate-800 dark:bg-slate-800/80'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="space-y-1.5 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
+                return (
+                  <div
+                    key={a.id_aviso}
+                    className={`rounded-xl border p-4 shadow-soft transition-all hover:border-slate-300 dark:hover:border-slate-700 ${
+                      isEncomenda
+                        ? 'border-amber-200/70 bg-gradient-to-r from-amber-50/20 to-transparent dark:border-amber-900/40 dark:bg-amber-950/10'
+                        : 'border-slate-200/80 bg-white dark:border-slate-800 dark:bg-slate-800/80'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-1.5 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {isEncomenda ? (
+                            <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-100 dark:bg-amber-950/60 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:text-amber-300">
+                              <Icone nome="package" className="h-3 w-3" />
+                              AVISO DE ENCOMENDA
+                            </span>
+                          ) : (
+                            <>
+                              {a.fixado && (
+                                <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 dark:bg-amber-950/60 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:text-amber-300">
+                                  <Icone nome="pin" className="h-3 w-3" />
+                                  FIXADO
+                                </span>
+                              )}
+                              <Badge
+                                tipo={
+                                  a.status === 'PUBLICADO'
+                                    ? 'sucesso'
+                                    : a.status === 'AGENDADO'
+                                    ? 'info'
+                                    : 'neutro'
+                                }
+                              >
+                                {a.status}
+                              </Badge>
+                            </>
+                          )}
+                          <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">{a.titulo}</h4>
+                        </div>
+
                         {isEncomenda ? (
-                          <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-100 dark:bg-amber-950/60 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:text-amber-300">
-                            <Icone nome="package" className="h-3 w-3" />
-                            AVISO DE ENCOMENDA
-                          </span>
+                          <div className="space-y-1">
+                            <div className="flex flex-wrap items-center gap-x-2 text-xs text-slate-600 dark:text-slate-300 font-medium">
+                              <span>Destinatário:</span>
+                              <span className="rounded-md bg-slate-100 dark:bg-slate-700/60 px-2 py-0.5 font-bold text-navy dark:text-sky-400">
+                                {a.destinatario_nome}
+                              </span>
+                              {a.destinatario_unidade && (
+                                <span className="text-slate-500 dark:text-slate-400">
+                                  ({a.destinatario_unidade})
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                              Recebido na portaria em <b>{dtPub.toLocaleString('pt-BR')}</b> • Por <b>{a.autor}</b>
+                            </p>
+                            <div className="pt-1">
+                              <span className={`inline-flex items-center gap-1 text-[11px] font-semibold ${
+                                a.total_lidos > 0
+                                  ? 'text-emerald-600 dark:text-emerald-400'
+                                  : 'text-amber-600 dark:text-amber-400'
+                              }`}>
+                                <Icone nome={a.total_lidos > 0 ? 'check' : 'clock'} className="h-3 w-3" />
+                                {a.total_lidos > 0 ? 'Visualizado pelo morador' : 'Aguardando visualização pelo morador'}
+                              </span>
+                            </div>
+                          </div>
                         ) : (
                           <>
-                            {a.fixado && (
-                              <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 dark:bg-amber-950/60 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:text-amber-300">
-                                <Icone nome="pin" className="h-3 w-3" />
-                                FIXADO
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                              {a.status === 'AGENDADO' ? 'Agendado para: ' : 'Publicado em: '}
+                              <b>{dtPub.toLocaleString('pt-BR')}</b> • Por <b>{a.autor}</b>
+                            </p>
+
+                            {/* Taxa de leitura */}
+                            <div className="mt-2 flex items-center gap-3">
+                              <div className="h-2 w-32 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                                <div
+                                  className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                                  style={{ width: `${percLidos}%` }}
+                                />
+                              </div>
+                              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                                <b>{a.total_lidos}</b> de <b>{a.total_destinatarios}</b> lidos ({percLidos}%)
                               </span>
-                            )}
-                            <Badge
-                              tipo={
-                                a.status === 'PUBLICADO'
-                                  ? 'sucesso'
-                                  : a.status === 'AGENDADO'
-                                  ? 'info'
-                                  : 'neutro'
-                              }
-                            >
-                              {a.status}
-                            </Badge>
+                            </div>
                           </>
                         )}
-                        <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">{a.titulo}</h4>
+
+                        {/* Botão de Anexo, se houver */}
+                        {a.anexo_url && (
+                          <div className="pt-2">
+                            <a
+                              href={a.anexo_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition-colors"
+                            >
+                              <Icone nome={a.anexo_tipo === 'PDF' ? 'fileText' : 'image'} className="h-4 w-4 text-navy dark:text-sky-400" />
+                              <span className="truncate max-w-[220px] sm:max-w-xs">{a.anexo_nome || (a.anexo_tipo === 'PDF' ? 'Documento PDF' : 'Imagem em anexo')}</span>
+                              <Icone nome="download" className="h-3.5 w-3.5 text-slate-400" />
+                            </a>
+                          </div>
+                        )}
                       </div>
 
-                      {isEncomenda ? (
-                        <div className="space-y-1">
-                          <div className="flex flex-wrap items-center gap-x-2 text-xs text-slate-600 dark:text-slate-300 font-medium">
-                            <span>Destinatário:</span>
-                            <span className="rounded-md bg-slate-100 dark:bg-slate-700/60 px-2 py-0.5 font-bold text-navy dark:text-sky-400">
-                              {a.destinatario_nome}
-                            </span>
-                            {a.destinatario_unidade && (
-                              <span className="text-slate-500 dark:text-slate-400">
-                                ({a.destinatario_unidade})
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-xs text-slate-500 dark:text-slate-400">
-                            Recebido na portaria em <b>{dtPub.toLocaleString('pt-BR')}</b> • Por <b>{a.autor}</b>
-                          </p>
-                          <div className="pt-1">
-                            <span className={`inline-flex items-center gap-1 text-[11px] font-semibold ${
-                              a.total_lidos > 0
-                                ? 'text-emerald-600 dark:text-emerald-400'
-                                : 'text-amber-600 dark:text-amber-400'
-                            }`}>
-                              <Icone nome={a.total_lidos > 0 ? 'check' : 'clock'} className="h-3 w-3" />
-                              {a.total_lidos > 0 ? 'Visualizado pelo morador' : 'Aguardando visualização pelo morador'}
-                            </span>
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          <p className="text-xs text-slate-500 dark:text-slate-400">
-                            {a.status === 'AGENDADO' ? 'Agendado para: ' : 'Publicado em: '}
-                            <b>{dtPub.toLocaleString('pt-BR')}</b> • Por <b>{a.autor}</b>
-                          </p>
-
-                          {/* Taxa de leitura */}
-                          <div className="mt-2 flex items-center gap-3">
-                            <div className="h-2 w-32 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-                              <div
-                                className="h-full rounded-full bg-emerald-500 transition-all duration-500"
-                                style={{ width: `${percLidos}%` }}
-                              />
-                            </div>
-                            <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                              <b>{a.total_lidos}</b> de <b>{a.total_destinatarios}</b> lidos ({percLidos}%)
-                            </span>
-                          </div>
-                        </>
-                      )}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          onClick={() => setExpandido(eAberto ? null : a.id_aviso)}
+                          className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                          title={eAberto ? 'Recolher' : 'Ver conteúdo'}
+                        >
+                          <Icone
+                            nome="chevronDown"
+                            className={`h-4 w-4 transform transition-transform ${eAberto ? 'rotate-180' : ''}`}
+                          />
+                        </button>
+                        <button
+                          onClick={() => setExcluindo(a)}
+                          className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                          title="Excluir aviso"
+                        >
+                          <Icone nome="trash" className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        onClick={() => setExpandido(eAberto ? null : a.id_aviso)}
-                        className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                        title={eAberto ? 'Recolher' : 'Ver conteúdo'}
-                      >
-                        <Icone
-                          nome="chevronDown"
-                          className={`h-4 w-4 transform transition-transform ${eAberto ? 'rotate-180' : ''}`}
-                        />
-                      </button>
-                      <button
-                        onClick={() => setExcluindo(a)}
-                        className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-colors cursor-pointer"
-                        title="Excluir aviso"
-                      >
-                        <Icone nome="trash" className="h-4 w-4" />
-                      </button>
-                    </div>
+                    {eAberto && (
+                      <div className="mt-3 border-t border-slate-100 dark:border-slate-800 pt-3 text-xs text-slate-700 dark:text-slate-300 space-y-2 animate-fade-in">
+                        <p className="whitespace-pre-line leading-relaxed text-slate-600 dark:text-slate-300 bg-slate-50/70 dark:bg-slate-800/80 p-3 rounded-lg border border-slate-100 dark:border-slate-700">
+                          {a.conteudo}
+                        </p>
+                        {a.anexo_url && a.anexo_tipo === 'IMAGEM' && (
+                          <div className="mt-2 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 max-w-md">
+                            <img src={a.anexo_url} alt={a.titulo} className="w-full max-h-72 object-contain bg-slate-900/5 dark:bg-slate-900/50" />
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
+                );
+              })}
+            </div>
 
-                  {eAberto && (
-                    <div className="mt-3 border-t border-slate-100 dark:border-slate-800 pt-3 text-xs text-slate-700 dark:text-slate-300 space-y-2 animate-fade-in">
-                      <p className="whitespace-pre-line leading-relaxed text-slate-600 dark:text-slate-300 bg-slate-50/70 dark:bg-slate-800/80 p-3 rounded-lg border border-slate-100 dark:border-slate-700">
-                        {a.conteudo}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+            <Paginacao
+              paginaAtual={paginaValida}
+              totalItens={avisosExibidos.length}
+              itensPorPagina={ITENS_POR_PAGINA}
+              aoMudarPagina={setPagina}
+            />
           </div>
         )}
       </Cartao>
@@ -455,6 +531,50 @@ export default function PublicarAviso() {
               maxLength={2000}
               placeholder="Descreva o comunicado detalhadamente..."
             />
+          </Campo>
+
+          {/* Campo de Anexo (Imagem ou PDF) */}
+          <Campo rotulo="Anexo (Imagem ou PDF)" ajuda="Opcional: Imagem ou documento de até 15MB">
+            {anexo ? (
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 text-xs dark:border-emerald-800/60 dark:bg-emerald-950/30">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">
+                    <Icone nome={anexo.tipo === 'PDF' ? 'fileText' : 'image'} className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-bold text-emerald-950 dark:text-emerald-200 truncate">{anexo.nome}</p>
+                    <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium">Anexo {anexo.tipo} pronto para envio</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAnexo(null)}
+                  className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-rose-950/50 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                  title="Remover anexo"
+                >
+                  <Icone nome="x" className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
+              <label className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-slate-50/50 p-4 text-center hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50 dark:hover:bg-slate-800 cursor-pointer transition-colors">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
+                  onChange={handleUploadAnexo}
+                  disabled={enviandoAnexo}
+                  className="hidden"
+                />
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-300">
+                  <Icone nome={enviandoAnexo ? 'clock' : 'paperclip'} className={`h-4 w-4 ${enviandoAnexo ? 'animate-spin' : ''}`} />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                    {enviandoAnexo ? 'Enviando arquivo...' : 'Clique para anexar imagem ou PDF'}
+                  </p>
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500">PNG, JPG, WebP ou PDF (máx. 15MB)</p>
+                </div>
+              </label>
+            )}
           </Campo>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

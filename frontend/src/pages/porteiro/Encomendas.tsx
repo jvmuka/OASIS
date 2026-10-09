@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
-import { Botao, Campo, Cartao, inputCls, Mensagem, Titulo, Icone, Badge, EmptyState, Modal } from '../../components/ui';
+import { Botao, Campo, Cartao, inputCls, Mensagem, Titulo, Icone, Badge, EmptyState, Modal, Paginacao } from '../../components/ui';
 import SeletorMorador from '../../components/SeletorMorador';
 
 type Pessoa = {
@@ -27,7 +27,8 @@ export default function Encomendas() {
   const [destinatario, setDestinatario] = useState('');
   const [descricao, setDescricao] = useState('');
   const [tamanho, setTamanho] = useState('MEDIO');
-  const [filtro, setFiltro] = useState<'TODAS' | 'AGUARDANDO' | 'ENTREGUE'>('TODAS');
+  const [filtro, setFiltro] = useState<'AGUARDANDO' | 'TODAS' | 'ENTREGUE'>('AGUARDANDO');
+  const [pagina, setPagina] = useState(1);
   const [salvando, setSalvando] = useState(false);
   const [msg, setMsg] = useState<{ t: string; tipo: 'erro' | 'ok' }>({ t: '', tipo: 'ok' });
 
@@ -89,11 +90,23 @@ export default function Encomendas() {
     }
   }
 
-  const encomendasFiltradas = lista.filter(e => {
-    if (filtro === 'AGUARDANDO') return e.status === 'AGUARDANDO_RETIRADA';
-    if (filtro === 'ENTREGUE') return e.status !== 'AGUARDANDO_RETIRADA';
-    return true;
-  });
+  const encomendasFiltradas = lista
+    .filter(e => {
+      if (filtro === 'AGUARDANDO') return e.status === 'AGUARDANDO_RETIRADA';
+      if (filtro === 'ENTREGUE') return e.status !== 'AGUARDANDO_RETIRADA';
+      return true;
+    })
+    .sort((a, b) => {
+      const aPend = a.status === 'AGUARDANDO_RETIRADA' ? 0 : 1;
+      const bPend = b.status === 'AGUARDANDO_RETIRADA' ? 0 : 1;
+      if (aPend !== bPend) return aPend - bPend;
+      return new Date(b.data_hora_recebimento).getTime() - new Date(a.data_hora_recebimento).getTime();
+    });
+
+  const ITENS_POR_PAGINA = 20;
+  const totalPaginas = Math.ceil(encomendasFiltradas.length / ITENS_POR_PAGINA);
+  const paginaValida = Math.min(Math.max(1, pagina), Math.max(1, totalPaginas));
+  const encomendasPaginadas = encomendasFiltradas.slice((paginaValida - 1) * ITENS_POR_PAGINA, paginaValida * ITENS_POR_PAGINA);
 
   return (
     <div className="space-y-6">
@@ -190,18 +203,21 @@ export default function Encomendas() {
 
               {/* Filtros */}
               <div className="flex gap-1.5">
-                {(['TODAS', 'AGUARDANDO', 'ENTREGUE'] as const).map(f => (
+                {(['AGUARDANDO', 'TODAS', 'ENTREGUE'] as const).map(f => (
                   <button
                     key={f}
                     type="button"
-                    onClick={() => setFiltro(f)}
+                    onClick={() => {
+                      setFiltro(f);
+                      setPagina(1);
+                    }}
                     className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition-all cursor-pointer ${
                       filtro === f
                         ? 'bg-navy text-white dark:bg-sky-600'
                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
                     }`}
                   >
-                    {f === 'TODAS' ? 'Todas' : f === 'AGUARDANDO' ? 'Aguardando' : 'Entregues'}
+                    {f === 'AGUARDANDO' ? 'Aguardando' : f === 'TODAS' ? 'Todas' : 'Entregues'}
                   </button>
                 ))}
               </div>
@@ -218,52 +234,61 @@ export default function Encomendas() {
                 }
               />
             ) : (
-              <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-[550px] overflow-y-auto pr-1">
-                {encomendasFiltradas.map(e => (
-                  <div
-                    key={e.id_encomenda}
-                    className="flex flex-col gap-3 py-3.5 sm:flex-row sm:items-center sm:justify-between hover:bg-slate-50/60 dark:hover:bg-slate-800/60 rounded-xl px-2 transition-colors"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">
-                        <Icone nome="package" className="h-5 w-5" />
+              <div className="space-y-4">
+                <div className="divide-y divide-slate-100 dark:divide-slate-800 pr-1">
+                  {encomendasPaginadas.map(e => (
+                    <div
+                      key={e.id_encomenda}
+                      className="flex flex-col gap-3 py-3.5 sm:flex-row sm:items-center sm:justify-between hover:bg-slate-50/60 dark:hover:bg-slate-800/60 rounded-xl px-2 transition-colors"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">
+                          <Icone nome="package" className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-slate-900 dark:text-slate-100 leading-tight">{e.destinatario}</p>
+                          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400 font-medium">
+                            {e.bloco ? `Bloco ${e.bloco}, Apto ${e.numero_apartamento} • ` : ''}
+                            {e.descricao || 'Sem descrição'} ({e.tamanho.toLowerCase()})
+                          </p>
+                          <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                            Recebida em:{' '}
+                            {new Date(e.data_hora_recebimento).toLocaleString('pt-BR', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-bold text-slate-900 dark:text-slate-100 leading-tight">{e.destinatario}</p>
-                        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400 font-medium">
-                          {e.bloco ? `Bloco ${e.bloco}, Apto ${e.numero_apartamento} • ` : ''}
-                          {e.descricao || 'Sem descrição'} ({e.tamanho.toLowerCase()})
-                        </p>
-                        <p className="text-[11px] text-slate-400 dark:text-slate-500">
-                          Recebida em:{' '}
-                          {new Date(e.data_hora_recebimento).toLocaleString('pt-BR', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </p>
+
+                      <div className="flex items-center gap-2 sm:self-center self-end">
+                        <Badge tipo={e.status === 'AGUARDANDO_RETIRADA' ? 'aviso' : 'sucesso'}>
+                          {e.status === 'AGUARDANDO_RETIRADA' ? 'Aguardando' : 'Entregue'}
+                        </Badge>
+
+                        {e.status === 'AGUARDANDO_RETIRADA' && (
+                          <Botao
+                            variante="claro"
+                            tamanho="sm"
+                            icone={<Icone nome="check" className="h-3.5 w-3.5" />}
+                            onClick={() => setRetirando(e)}
+                          >
+                            Dar Baixa
+                          </Botao>
+                        )}
                       </div>
                     </div>
+                  ))}
+                </div>
 
-                    <div className="flex items-center gap-2 sm:self-center self-end">
-                      <Badge tipo={e.status === 'AGUARDANDO_RETIRADA' ? 'aviso' : 'sucesso'}>
-                        {e.status === 'AGUARDANDO_RETIRADA' ? 'Aguardando' : 'Entregue'}
-                      </Badge>
-
-                      {e.status === 'AGUARDANDO_RETIRADA' && (
-                        <Botao
-                          variante="claro"
-                          tamanho="sm"
-                          icone={<Icone nome="check" className="h-3.5 w-3.5" />}
-                          onClick={() => setRetirando(e)}
-                        >
-                          Dar Baixa
-                        </Botao>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                <Paginacao
+                  paginaAtual={paginaValida}
+                  totalItens={encomendasFiltradas.length}
+                  itensPorPagina={ITENS_POR_PAGINA}
+                  aoMudarPagina={setPagina}
+                />
               </div>
             )}
           </Cartao>
