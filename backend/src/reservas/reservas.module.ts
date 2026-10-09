@@ -341,7 +341,10 @@ export class ReservasController {
              a.prazo_cancelamento_horas
         FROM reserva r JOIN area_comum a ON a.id_area_comum = r.id_area_comum
        WHERE r.id_perfil = $1
-       ORDER BY r.data_hora_inicio DESC`, [idPerfil]);
+       ORDER BY 
+         (CASE WHEN r.status = 'ATIVA' AND r.data_hora_fim >= CURRENT_TIMESTAMP THEN 0 ELSE 1 END),
+         CASE WHEN r.status = 'ATIVA' AND r.data_hora_fim >= CURRENT_TIMESTAMP THEN r.data_hora_inicio END ASC,
+         r.data_hora_inicio DESC`, [idPerfil]);
   }
 
   /** UC04: cancelar (gatilho RN08 valida o prazo e grava a data). */
