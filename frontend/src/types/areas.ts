@@ -30,6 +30,8 @@ export type ChaveArea = {
   status: string;
   responsavel?: string | null;
   data_hora_retirada?: string | null;
+  alerta_24h?: boolean;
+  horas_posse?: number;
 };
 
 export type PenalidadeUsuario = {

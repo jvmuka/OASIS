@@ -16,7 +16,7 @@ type Reserva = {
 type AvisoMeu = { id_aviso: number; lido: boolean };
 type MinhaEncomenda = { id_encomenda: number; status: 'AGUARDANDO_RETIRADA' | 'RETIRADA' | 'DEVOLVIDA' };
 type EncomendaPortaria = { id_encomenda: number; status: string };
-type Chave = { id_chave: number; status: 'DISPONIVEL' | 'EMPRESTADA' | 'EXTRAVIADA' };
+type Chave = { id_chave: number; status: 'DISPONIVEL' | 'EMPRESTADA' | 'EXTRAVIADA'; alerta_24h?: boolean; horas_posse?: number };
 type MinhaChaveEmprestada = {
   id_entrega_chave: number;
   id_chave: number;
@@ -32,6 +32,8 @@ type MinhaChaveEmprestada = {
   apartamento?: string;
   bloco?: string;
   com_voce: boolean;
+  alerta_24h?: boolean;
+  horas_posse?: number;
 };
 
 type PerfilPrincipal = 'ADMINISTRADOR' | 'SINDICO' | 'PORTEIRO' | 'MORADOR';
@@ -437,6 +439,7 @@ export default function Inicio() {
     ];
   } else if (perfilPrincipal === 'PORTEIRO') {
     const emprestadasGeral = chaves.filter(c => c.status === 'EMPRESTADA').length;
+    const atrasadasGeral = chaves.filter(c => c.alerta_24h).length;
     const minhasEmprestadas = minhasChaves.length;
 
     cardsResumo = [
@@ -456,6 +459,10 @@ export default function Inicio() {
             <span className="text-amber-600 dark:text-amber-400">
               {minhasEmprestadas} <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">com sua família</span>
             </span>
+          ) : atrasadasGeral > 0 ? (
+            <span className="text-rose-600 dark:text-rose-400">
+              {emprestadasGeral} <span className="text-xs font-bold text-rose-700 dark:text-rose-300">({atrasadasGeral} atrasada{atrasadasGeral > 1 ? 's' : ''})</span>
+            </span>
           ) : (
             emprestadasGeral
           )
@@ -463,13 +470,17 @@ export default function Inicio() {
         legenda={
           minhasEmprestadas > 0
             ? `${minhasChaves[0].com_voce ? '1 com você' : `1 com ${minhasChaves[0].responsavel}`} (${minhasChaves[0].area}) • ${emprestadasGeral} no condomínio`
-            : (emprestadasGeral ? `${emprestadasGeral} no condomínio (0 com você)` : 'Todas disponíveis')
+            : atrasadasGeral > 0
+              ? `${atrasadasGeral} chave(s) há mais de 24h sem devolução`
+              : (emprestadasGeral ? `${emprestadasGeral} no condomínio (0 com você)` : 'Todas disponíveis')
         }
-        icone="key"
+        icone={atrasadasGeral > 0 ? 'alert' : 'key'}
         cor={
           minhasEmprestadas > 0
             ? 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800'
-            : 'bg-indigo-50 text-indigo-600 border-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-400 dark:border-indigo-900/60'
+            : atrasadasGeral > 0
+              ? 'bg-rose-50 text-rose-600 border-rose-300 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800'
+              : 'bg-indigo-50 text-indigo-600 border-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-400 dark:border-indigo-900/60'
         }
         acao={
           <Link to="/portaria/chaves" className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-navy hover:underline dark:text-sky-400">
@@ -593,75 +604,115 @@ export default function Inicio() {
       ) : (
         <>
           {/* Banner de Chave(s) em Posse da Residência */}
-          {minhasChaves.length > 0 && (
-            <div className="rounded-2xl border border-amber-300/90 bg-gradient-to-r from-amber-50/95 via-orange-50/70 to-amber-50/95 dark:border-amber-700/80 dark:from-amber-950/40 dark:via-orange-950/20 dark:to-amber-950/40 p-4 shadow-sm animate-fade-in">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-amber-200/80 dark:border-amber-800/60 pb-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white shadow-xs">
-                    <Icone nome="key" className="h-5 w-5" />
+          {minhasChaves.length > 0 && (() => {
+            const temChaveAtrasada = minhasChaves.some(ch => ch.alerta_24h);
+            return (
+              <div className={`rounded-2xl border p-4 shadow-sm animate-fade-in ${
+                temChaveAtrasada
+                  ? 'border-rose-300/90 bg-gradient-to-r from-rose-50/95 via-red-50/80 to-rose-50/95 dark:border-rose-700/80 dark:from-rose-950/40 dark:via-red-950/20 dark:to-rose-950/40'
+                  : 'border-amber-300/90 bg-gradient-to-r from-amber-50/95 via-orange-50/70 to-amber-50/95 dark:border-amber-700/80 dark:from-amber-950/40 dark:via-orange-950/20 dark:to-amber-950/40'
+              }`}>
+                <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3 ${
+                  temChaveAtrasada ? 'border-rose-200/80 dark:border-rose-800/60' : 'border-amber-200/80 dark:border-amber-800/60'
+                }`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white shadow-xs ${
+                      temChaveAtrasada ? 'bg-rose-600' : 'bg-amber-500'
+                    }`}>
+                      <Icone nome={temChaveAtrasada ? 'alert' : 'key'} className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className={`text-sm font-bold flex items-center gap-2 ${
+                        temChaveAtrasada ? 'text-rose-950 dark:text-rose-200' : 'text-amber-950 dark:text-amber-200'
+                      }`}>
+                        {temChaveAtrasada ? 'Alerta: Chave em Posse há mais de 24 Horas' : 'Chave em Posse da sua Residência'}
+                        <span className={`rounded-full text-[11px] font-bold px-2.5 py-0.5 border ${
+                          temChaveAtrasada
+                            ? 'bg-rose-600 text-white border-rose-700'
+                            : 'bg-amber-500/20 text-amber-900 dark:text-amber-300 border-amber-300/70 dark:border-amber-700/70'
+                        }`}>
+                          {temChaveAtrasada ? 'Devolução Pendente' : `${minhasChaves.length} ${minhasChaves.length === 1 ? 'chave ativa' : 'chaves ativas'}`}
+                        </span>
+                      </h3>
+                      <p className={`text-xs ${
+                        temChaveAtrasada ? 'text-rose-800/90 dark:text-rose-300/80 font-medium' : 'text-amber-800/90 dark:text-amber-300/80'
+                      }`}>
+                        {temChaveAtrasada
+                          ? 'Identificamos chave(s) retirada(s) há mais de 24 horas. Solicitamos a devolução imediata na portaria para não prejudicar outros condôminos.'
+                          : 'Identificamos que você ou sua família estão com chave(s) retirada(s) na portaria.'}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-amber-950 dark:text-amber-200 flex items-center gap-2">
-                      Chave em Posse da sua Residência
-                      <span className="rounded-full bg-amber-500/20 text-amber-900 dark:text-amber-300 text-[11px] font-bold px-2.5 py-0.5 border border-amber-300/70 dark:border-amber-700/70">
-                        {minhasChaves.length} {minhasChaves.length === 1 ? 'chave ativa' : 'chaves ativas'}
-                      </span>
-                    </h3>
-                    <p className="text-xs text-amber-800/90 dark:text-amber-300/80">
-                      Identificamos que você ou sua família estão com chave(s) retirada(s) na portaria.
-                    </p>
-                  </div>
+
+                  {(perfilPrincipal === 'ADMINISTRADOR' || perfilPrincipal === 'PORTEIRO') && (
+                    <Link
+                      to="/portaria/chaves"
+                      className="inline-flex items-center gap-1.5 self-start sm:self-center text-xs font-bold text-amber-900 hover:text-navy dark:text-amber-300 dark:hover:text-white transition-colors bg-white/90 dark:bg-amber-900/60 border border-amber-300/80 dark:border-amber-700 px-3 py-1.5 rounded-lg shadow-2xs"
+                    >
+                      Controle de Chaves <Icone nome="chevronRight" className="h-3.5 w-3.5" />
+                    </Link>
+                  )}
                 </div>
 
-                {(perfilPrincipal === 'ADMINISTRADOR' || perfilPrincipal === 'PORTEIRO') && (
-                  <Link
-                    to="/portaria/chaves"
-                    className="inline-flex items-center gap-1.5 self-start sm:self-center text-xs font-bold text-amber-900 hover:text-navy dark:text-amber-300 dark:hover:text-white transition-colors bg-white/90 dark:bg-amber-900/60 border border-amber-300/80 dark:border-amber-700 px-3 py-1.5 rounded-lg shadow-2xs"
-                  >
-                    Controle de Chaves <Icone nome="chevronRight" className="h-3.5 w-3.5" />
-                  </Link>
-                )}
-              </div>
-
-              <div className="mt-3 divide-y divide-amber-200/60 dark:divide-amber-800/40">
-                {minhasChaves.map(ch => (
-                  <div key={ch.id_entrega_chave} className="py-2.5 first:pt-0 last:pb-0 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-                    <div className="flex items-start gap-2.5">
-                      <span className="mt-1 h-2 w-2 rounded-full bg-amber-500 shrink-0" />
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-bold text-slate-900 dark:text-slate-100 text-sm">{ch.area}</span>
-                          <span className="rounded-md bg-amber-200/70 text-amber-900 dark:bg-amber-900/80 dark:text-amber-200 font-mono text-[11px] font-bold px-2 py-0.5">
-                            {ch.codigo}
-                          </span>
-                          {ch.com_voce ? (
-                            <span className="rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 text-[10px] font-bold px-2 py-0.5 border border-emerald-300/60 dark:border-emerald-700">
-                              COM VOCÊ
+                <div className={`mt-3 divide-y ${
+                  temChaveAtrasada ? 'divide-rose-200/60 dark:divide-rose-800/40' : 'divide-amber-200/60 dark:divide-amber-800/40'
+                }`}>
+                  {minhasChaves.map(ch => (
+                    <div key={ch.id_entrega_chave} className="py-2.5 first:pt-0 last:pb-0 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                      <div className="flex items-start gap-2.5">
+                        <span className={`mt-1 h-2 w-2 rounded-full shrink-0 ${
+                          ch.alerta_24h ? 'bg-rose-600 ring-2 ring-rose-400/40' : 'bg-amber-500'
+                        }`} />
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-slate-900 dark:text-slate-100 text-sm">{ch.area}</span>
+                            <span className={`rounded-md font-mono text-[11px] font-bold px-2 py-0.5 ${
+                              ch.alerta_24h
+                                ? 'bg-rose-200/80 text-rose-900 dark:bg-rose-900/80 dark:text-rose-200'
+                                : 'bg-amber-200/70 text-amber-900 dark:bg-amber-900/80 dark:text-amber-200'
+                            }`}>
+                              {ch.codigo}
                             </span>
-                          ) : (
-                            <span className="rounded-md bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300 text-[10px] font-bold px-2 py-0.5 border border-blue-300/60 dark:border-blue-700">
-                              COM FAMILIAR ({ch.responsavel})
-                            </span>
-                          )}
+                            {ch.alerta_24h && (
+                              <span className="rounded-md bg-rose-100 text-rose-800 dark:bg-rose-950/90 dark:text-rose-300 text-[10px] font-bold px-2 py-0.5 border border-rose-300/80 dark:border-rose-700">
+                                Mais de 24h em posse ({ch.horas_posse}h)
+                              </span>
+                            )}
+                            {ch.com_voce ? (
+                              <span className="rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 text-[10px] font-bold px-2 py-0.5 border border-emerald-300/60 dark:border-emerald-700">
+                                COM VOCÊ
+                              </span>
+                            ) : (
+                              <span className="rounded-md bg-blue-100 text-blue-800 dark:bg-blue-950/80 dark:text-blue-300 text-[10px] font-bold px-2 py-0.5 border border-blue-300/60 dark:border-blue-700">
+                                COM FAMILIAR ({ch.responsavel})
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-1 text-slate-600 dark:text-slate-300 text-xs">
+                            {ch.com_voce ? (
+                              <>Retirada por <b>você</b> em {formatarDataHora(ch.data_hora_retirada, false)}.</>
+                            ) : (
+                              <>Retirada pelo familiar <b>{ch.responsavel}</b> em {formatarDataHora(ch.data_hora_retirada, false)}.</>
+                            )}
+                          </p>
                         </div>
-                        <p className="mt-1 text-slate-600 dark:text-slate-300 text-xs">
-                          {ch.com_voce ? (
-                            <>Retirada por <b>você</b> em {formatarDataHora(ch.data_hora_retirada, false)}.</>
-                          ) : (
-                            <>Retirada pelo familiar <b>{ch.responsavel}</b> em {formatarDataHora(ch.data_hora_retirada, false)}.</>
-                          )}
-                        </p>
+                      </div>
+
+                      <div className={`text-[11px] sm:text-right ${
+                        ch.alerta_24h
+                          ? 'font-bold text-rose-700 dark:text-rose-300'
+                          : 'text-amber-900/80 dark:text-amber-300/70 italic'
+                      }`}>
+                        {ch.alerta_24h
+                          ? 'Devolução imediata necessária na portaria.'
+                          : 'Lembre-se de devolver na portaria após o uso.'}
                       </div>
                     </div>
-
-                    <div className="text-[11px] text-amber-900/80 dark:text-amber-300/70 italic sm:text-right">
-                      Lembre-se de devolver na portaria após o uso.
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {perfilPrincipal === 'MORADOR' ? (
             <div className="space-y-6">

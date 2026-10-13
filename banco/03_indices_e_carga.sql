@@ -14,6 +14,7 @@ CREATE INDEX idx_pu_pessoa            ON pessoa_unidade (id_pessoa, data_fim_ocu
 CREATE INDEX idx_perfil_pessoa        ON perfil (id_pessoa, data_fim);
 CREATE INDEX idx_encomenda_status     ON encomenda (status, data_hora_recebimento);
 CREATE INDEX idx_entrega_chave_aberta ON entrega_chave (id_chave, data_hora_devolucao);
+CREATE INDEX idx_entrega_chave_atraso ON entrega_chave (data_hora_retirada) WHERE data_hora_devolucao IS NULL;
 CREATE INDEX idx_aviso_perfil_lido    ON aviso_perfil (id_perfil, lido);
 
 -- ---------------------------------------------------------------------

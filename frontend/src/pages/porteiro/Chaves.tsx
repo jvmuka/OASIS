@@ -16,6 +16,8 @@ type Chave = {
   bloco?: string | null;
   contato_responsavel?: string | null;
   data_hora_retirada: string | null;
+  alerta_24h?: boolean;
+  horas_posse?: number;
 };
 
 type Pessoa = {
@@ -41,7 +43,7 @@ export default function Chaves() {
   const [chaves, setChaves] = useState<Chave[]>([]);
   const [pessoas, setPessoas] = useState<Pessoa[]>([]);
   const [areas, setAreas] = useState<AreaItem[]>([]);
-  const [filtro, setFiltro] = useState<'todas' | 'disponiveis' | 'emprestadas'>('todas');
+  const [filtro, setFiltro] = useState<'todas' | 'disponiveis' | 'emprestadas' | 'atrasadas'>('todas');
   const [busca, setBusca] = useState('');
   const [pagina, setPagina] = useState(1);
 
@@ -188,10 +190,12 @@ export default function Chaves() {
 
   const totalDisponiveis = chaves.filter(c => c.status === 'DISPONIVEL').length;
   const totalEmprestadas = chaves.filter(c => c.status === 'EMPRESTADA').length;
+  const totalAtrasadas = chaves.filter(c => c.alerta_24h).length;
 
   const chavesFiltradas = chaves.filter(c => {
     if (filtro === 'disponiveis' && c.status !== 'DISPONIVEL') return false;
     if (filtro === 'emprestadas' && c.status !== 'EMPRESTADA') return false;
+    if (filtro === 'atrasadas' && !c.alerta_24h) return false;
     if (busca) {
       const q = busca.toLowerCase();
       const matchCod = c.codigo.toLowerCase().includes(q);
@@ -238,7 +242,7 @@ export default function Chaves() {
       </Titulo>
 
       {/* Cards de Métricas Rápidas */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Cartao className="flex items-center justify-between p-4">
           <div>
             <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Total no Claviculário</p>
@@ -265,6 +269,24 @@ export default function Chaves() {
             <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{totalEmprestadas}</p>
           </div>
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400">
+            <Icone nome="key" className="h-5 w-5" />
+          </div>
+        </Cartao>
+
+        <Cartao className={`flex items-center justify-between p-4 border transition-colors ${
+          totalAtrasadas > 0 
+            ? 'border-rose-300 bg-rose-50/40 dark:border-rose-900/80 dark:bg-rose-950/20' 
+            : ''
+        }`}>
+          <div>
+            <p className="text-xs font-semibold text-rose-700 dark:text-rose-400">Em Atraso (+24h)</p>
+            <p className="text-2xl font-bold text-rose-600 dark:text-rose-300">{totalAtrasadas}</p>
+          </div>
+          <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${
+            totalAtrasadas > 0
+              ? 'bg-rose-100 text-rose-600 dark:bg-rose-950/80 dark:text-rose-300 ring-2 ring-rose-400/30'
+              : 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500'
+          }`}>
             <Icone nome="alert" className="h-5 w-5" />
           </div>
         </Cartao>
@@ -273,7 +295,7 @@ export default function Chaves() {
       {/* Barra de Filtros e Busca */}
       <Cartao className="p-4">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-1.5 w-full sm:w-auto">
+          <div className="flex items-center gap-1.5 w-full sm:w-auto flex-wrap">
             <button
               type="button"
               onClick={() => {
@@ -316,6 +338,23 @@ export default function Chaves() {
             >
               Emprestadas ({totalEmprestadas})
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                setFiltro('atrasadas');
+                setPagina(1);
+              }}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+                filtro === 'atrasadas'
+                  ? 'bg-rose-600 text-white shadow-xs dark:bg-rose-600'
+                  : totalAtrasadas > 0
+                    ? 'text-rose-600 bg-rose-50 hover:bg-rose-100 dark:text-rose-400 dark:bg-rose-950/40 dark:hover:bg-rose-950/70 border border-rose-200 dark:border-rose-900/60'
+                    : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
+              }`}
+            >
+              <Icone nome="alert" className="h-3 w-3" />
+              <span>Atrasadas (+24h) ({totalAtrasadas})</span>
+            </button>
           </div>
 
           <div className="relative w-full sm:w-64">
@@ -350,13 +389,16 @@ export default function Chaves() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {chavesPaginadas.map(c => {
             const disponivel = c.status === 'DISPONIVEL';
+            const atrasada = !disponivel && !!c.alerta_24h;
             return (
               <div
                 key={c.id_chave}
                 className={`rounded-2xl border p-4.5 transition-all shadow-soft flex flex-col justify-between ${
                   disponivel
                     ? 'border-slate-200/80 bg-white hover:border-navy/30 dark:border-slate-800 dark:bg-slate-800/80 dark:hover:border-sky-500/40'
-                    : 'border-amber-300/80 bg-amber-50/40 dark:border-amber-800/70 dark:bg-amber-950/20'
+                    : atrasada
+                      ? 'border-rose-400/90 bg-rose-50/50 dark:border-rose-800/80 dark:bg-rose-950/25 ring-1 ring-rose-400/20'
+                      : 'border-amber-300/80 bg-amber-50/40 dark:border-amber-800/70 dark:bg-amber-950/20'
                 }`}
               >
                 <div>
@@ -366,10 +408,12 @@ export default function Chaves() {
                         className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl font-bold ${
                           disponivel
                             ? 'bg-navy-50 text-navy dark:bg-slate-700 dark:text-sky-400'
-                            : 'bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-300'
+                            : atrasada
+                              ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300'
+                              : 'bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-300'
                         }`}
                       >
-                        <Icone nome="key" className="h-5 w-5" />
+                        <Icone nome={atrasada ? 'alert' : 'key'} className="h-5 w-5" />
                       </div>
                       <div>
                         <h4 className="text-base font-bold text-slate-900 dark:text-slate-100 leading-tight">{c.codigo}</h4>
@@ -378,9 +422,13 @@ export default function Chaves() {
                     </div>
 
                     <div className="flex items-center gap-1.5">
-                      <Badge tipo={disponivel ? 'sucesso' : 'aviso'}>
-                        {disponivel ? 'Disponível' : 'Emprestada'}
-                      </Badge>
+                      {disponivel ? (
+                        <Badge tipo="sucesso">Disponível</Badge>
+                      ) : atrasada ? (
+                        <Badge tipo="perigo">Atrasada (+24h)</Badge>
+                      ) : (
+                        <Badge tipo="aviso">Emprestada</Badge>
+                      )}
                       {ehAdmin && (
                         <div className="flex items-center gap-0.5 ml-1">
                           <button
@@ -407,8 +455,14 @@ export default function Chaves() {
 
                   {/* Informações de quem está com a chave */}
                   {!disponivel && c.responsavel && (
-                    <div className="mt-3.5 rounded-xl border border-amber-200/80 bg-white dark:border-amber-900/60 dark:bg-slate-850 p-3 text-xs text-slate-700 dark:text-slate-300 space-y-1">
-                      <p className="text-[11px] font-semibold text-amber-800 dark:text-amber-400 uppercase tracking-wider">
+                    <div className={`mt-3.5 rounded-xl border p-3 text-xs text-slate-700 dark:text-slate-300 space-y-1.5 ${
+                      atrasada
+                        ? 'border-rose-200/90 bg-white dark:border-rose-900/60 dark:bg-slate-850'
+                        : 'border-amber-200/80 bg-white dark:border-amber-900/60 dark:bg-slate-850'
+                    }`}>
+                      <p className={`text-[11px] font-semibold uppercase tracking-wider ${
+                        atrasada ? 'text-rose-800 dark:text-rose-400' : 'text-amber-800 dark:text-amber-400'
+                      }`}>
                         Com quem está a chave:
                       </p>
                       <div className="flex items-center justify-between">
@@ -428,6 +482,12 @@ export default function Chaves() {
                         <p className="text-[10px] text-slate-400 dark:text-slate-400 pt-1 border-t border-slate-100 dark:border-slate-800">
                           Retirada em: {formatarDataHora(c.data_hora_retirada, false)}
                         </p>
+                      )}
+                      {atrasada && (
+                        <div className="mt-1 flex items-center gap-1.5 rounded-lg bg-rose-50 px-2.5 py-1 text-[11px] font-bold text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-900/60">
+                          <Icone nome="alert" className="h-3.5 w-3.5 shrink-0 text-rose-600 dark:text-rose-400" />
+                          <span>Em posse há {c.horas_posse}h (limite de 24h excedido)</span>
+                        </div>
                       )}
                     </div>
                   )}

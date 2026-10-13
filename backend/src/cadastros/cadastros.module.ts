@@ -296,7 +296,7 @@ export class CadastrosController {
   async criarPessoa(
     @Req() req: any,
     @Body() b: {
-      nome: string; email?: string; cpf: string; data_nascimento: string; celular?: string;
+      nome: string; email?: string; cpf: string; data_nascimento?: string; celular?: string;
       id_unidade?: number; tipo_vinculo?: string; tipo_perfil?: string; perfis?: string[];
       id_responsavel?: number; grau_parentesco?: string; reside?: boolean;
       tipo_servico?: string;
@@ -387,19 +387,23 @@ export class CadastrosController {
         throw new BadRequestException('Erro de cadastro: O CPF deve conter exatamente 11 dígitos numéricos.');
       }
 
-      // E-mail: obrigatório para contas de sistema, opcional para visitantes/prestadores
-      let emailEfetivo = (b.email || '').trim().toLowerCase();
-      if (!emailEfetivo) {
-        if (ehApenasExterno) {
-          emailEfetivo = `${perfisExternos[0].toLowerCase()}_${cpfLimpo}@oasis.local`;
-        } else {
-          throw new BadRequestException('O e-mail é obrigatório para cadastros com acesso ao sistema.');
-        }
+      // Data de nascimento: obrigatória para contas de sistema, opcional para visitantes/prestadores
+      const dataNascLimpa = (b.data_nascimento || '').trim();
+      if (!dataNascLimpa && !ehApenasExterno) {
+        throw new BadRequestException('A data de nascimento é obrigatória para moradores, porteiros e administradores.');
       }
+      const dataNascimentoEfetiva = dataNascLimpa || null;
+
+      // E-mail: obrigatório para contas de sistema, opcional para visitantes/prestadores
+      const emailInformado = (b.email || '').trim().toLowerCase();
+      if (!emailInformado && !ehApenasExterno) {
+        throw new BadRequestException('O e-mail é obrigatório para cadastros com acesso ao sistema.');
+      }
+      const emailEfetivo = emailInformado || null;
 
       // Validação amigável de duplicidade antes da inserção
       const pessoaDuplicada = await c.query(
-        `SELECT id_pessoa, nome, cpf, email, ativo FROM pessoa WHERE cpf = $1 OR LOWER(email) = LOWER($2) LIMIT 1`,
+        `SELECT id_pessoa, nome, cpf, email, ativo FROM pessoa WHERE cpf = $1 OR ($2::text IS NOT NULL AND LOWER(email) = LOWER($2)) LIMIT 1`,
         [cpfLimpo, emailEfetivo]
       );
       if (pessoaDuplicada.rows.length > 0) {
@@ -409,7 +413,7 @@ export class CadastrosController {
             `Erro de cadastro: O CPF informado (${b.cpf}) já está cadastrado no sistema para "${dup.nome}". Cada pessoa deve possuir um CPF próprio e exclusivo.`
           );
         }
-        if (dup.email?.toLowerCase() === emailEfetivo) {
+        if (emailEfetivo && dup.email?.toLowerCase() === emailEfetivo) {
           throw new BadRequestException(
             `Erro de cadastro: O e-mail (${emailEfetivo}) já está cadastrado para "${dup.nome}". Cada usuário deve possuir um e-mail individual.`
           );
@@ -423,7 +427,7 @@ export class CadastrosController {
         `INSERT INTO pessoa (uid_firebase, nome, email, cpf, data_nascimento, celular, status_conta, papel_controle, tipo_servico)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
          RETURNING id_pessoa, nome, email, cpf, papel_controle, tipo_servico`,
-        ['dev_' + cpfLimpo, b.nome, emailEfetivo, cpfLimpo, b.data_nascimento, b.celular || null, statusConta, papelControle, b.tipo_servico || null])).rows[0];
+        ['dev_' + cpfLimpo, b.nome, emailEfetivo, cpfLimpo, dataNascimentoEfetiva, b.celular || null, statusConta, papelControle, b.tipo_servico || null])).rows[0];
 
       // 3. Vínculo com a unidade
       if (b.id_unidade) {
@@ -743,13 +747,16 @@ export class CadastrosController {
       )).rows.length > 0;
 
       // Para moradores ativos, dados sensíveis (nome, cpf, data de nascimento e email) são protegidos contra alteração por segurança
+      const emailParam = b.email !== undefined ? ((b.email || '').trim().toLowerCase() || null) : undefined;
+      const dataNascParam = b.data_nascimento !== undefined ? ((b.data_nascimento || '').trim() || null) : undefined;
+
       const p = (await c.query(
         `UPDATE pessoa
             SET nome = CASE WHEN $10::boolean THEN nome ELSE COALESCE($2, nome) END,
-                email = CASE WHEN $10::boolean THEN email ELSE COALESCE($3, email) END,
+                email = CASE WHEN $10::boolean THEN email WHEN $11::boolean THEN $3 ELSE email END,
                 celular = COALESCE($4, celular),
                 cpf = CASE WHEN $10::boolean THEN cpf ELSE COALESCE($5, cpf) END,
-                data_nascimento = CASE WHEN $10::boolean THEN data_nascimento ELSE COALESCE($6, data_nascimento) END,
+                data_nascimento = CASE WHEN $10::boolean THEN data_nascimento WHEN $12::boolean THEN $6 ELSE data_nascimento END,
                 papel_controle = COALESCE($7, papel_controle),
                 tipo_servico = CASE WHEN $8::boolean THEN $9 ELSE tipo_servico END
           WHERE id_pessoa = $1
@@ -757,14 +764,16 @@ export class CadastrosController {
         [
           id,
           b.nome,
-          b.email,
+          emailParam ?? null,
           b.celular,
           cpfLimpo,
-          b.data_nascimento,
+          dataNascParam ?? null,
           b.papel_controle || null,
           b.tipo_servico !== undefined,
           b.tipo_servico || null,
           ehMoradorAtual,
+          emailParam !== undefined,
+          dataNascParam !== undefined,
         ])).rows[0];
 
       if (!p) throw new BadRequestException('Pessoa não encontrada.');

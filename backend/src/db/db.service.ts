@@ -33,6 +33,30 @@ export class DbService implements OnModuleInit, OnModuleDestroy {
         ALTER TABLE aviso ADD COLUMN IF NOT EXISTS anexo_nome VARCHAR(255);
         ALTER TABLE aviso ADD COLUMN IF NOT EXISTS anexo_tipo VARCHAR(50);
 
+        ALTER TABLE pessoa ALTER COLUMN data_nascimento DROP NOT NULL;
+        ALTER TABLE pessoa DROP CONSTRAINT IF EXISTS ck_pessoa_nascimento;
+        ALTER TABLE pessoa ADD CONSTRAINT ck_pessoa_nascimento CHECK (data_nascimento IS NULL OR data_nascimento < CURRENT_DATE);
+
+        ALTER TABLE pessoa ALTER COLUMN email DROP NOT NULL;
+        ALTER TABLE pessoa DROP CONSTRAINT IF EXISTS ck_pessoa_email;
+        ALTER TABLE pessoa ADD CONSTRAINT ck_pessoa_email CHECK (email IS NULL OR email LIKE '%_@_%._%');
+
+        INSERT INTO bloco (nome, descricao) VALUES ('Prédio', 'Instalações Gerais e Áreas Comuns do Condomínio') ON CONFLICT (nome) DO NOTHING;
+        INSERT INTO unidade (id_bloco, numero_apartamento, numero_vagas)
+        SELECT b.id_bloco, 'Geral', 0
+          FROM bloco b
+         WHERE b.nome = 'Prédio'
+           AND NOT EXISTS (
+             SELECT 1 FROM unidade u WHERE u.id_bloco = b.id_bloco AND u.numero_apartamento = 'Geral'
+           );
+
+        ALTER TABLE pessoa_unidade DROP CONSTRAINT IF EXISTS ck_pu_dependente_regra;
+        ALTER TABLE pessoa_unidade ADD CONSTRAINT ck_pu_dependente_regra CHECK (
+            (tipo_vinculo = 'DEPENDENTE' AND (id_responsavel IS NULL OR id_responsavel <> id_pessoa))
+            OR
+            (tipo_vinculo IN ('PROPRIETARIO', 'INQUILINO', 'VISITANTE', 'PRESTADOR_SERVICO') AND id_responsavel IS NULL)
+        );
+
         CREATE OR REPLACE FUNCTION fn_cancela_reserva() RETURNS TRIGGER AS $$
         DECLARE
             v_prazo INTEGER;

@@ -149,6 +149,10 @@ const OPCOES_PAPEIS = [
       'border-indigo-500 bg-indigo-50/80 text-indigo-900 dark:bg-indigo-950/40 dark:border-indigo-500 dark:text-indigo-200 shadow-xs',
     iconeCor: 'text-indigo-600 dark:text-indigo-400',
   },
+];
+
+const OPCOES_PAPEIS_EDICAO = [
+  ...OPCOES_PAPEIS,
   {
     tipo: 'VISITANTE',
     titulo: 'Visitante',
@@ -298,12 +302,27 @@ export default function Pessoas({
 
   // Modais de Criação & Edição
   const [modalAberto, setModalAberto] = useState(false);
+  const [modalVisitanteAberto, setModalVisitanteAberto] = useState(false);
   const [modalEdicaoAberto, setModalEdicaoAberto] = useState(false);
   const [pessoaEditando, setPessoaEditando] = useState<Pessoa | null>(null);
   const [salvando, setSalvando] = useState(false);
+  const [salvandoVisitante, setSalvandoVisitante] = useState(false);
   const [salvandoEdicao, setSalvandoEdicao] = useState(false);
   const [erroCadastro, setErroCadastro] = useState<string | null>(null);
+  const [erroVisitante, setErroVisitante] = useState<string | null>(null);
   const [erroEdicao, setErroEdicao] = useState<string | null>(null);
+
+  // Formulário de Visitante e Prestador de Serviço
+  const [formVisitante, setFormVisitante] = useState({
+    nome: '',
+    cpf: '',
+    data_nascimento: '',
+    email: '',
+    celular: '',
+    tipo: 'VISITANTE' as 'VISITANTE' | 'PRESTADOR_SERVICO',
+    id_unidade: '',
+    tipo_servico: '',
+  });
 
   // Modais de Inspeção, Atividade, Inativação, Reativação e Exclusão
   const [modalPerfilAberto, setModalPerfilAberto] = useState(false);
@@ -477,21 +496,11 @@ export default function Pessoas({
     // Se está desmarcando o tipo que já estava selecionado
     if (atuais.includes(tipo)) {
       if (tipo === 'MORADOR' && form.id_unidade) {
-        setErroCadastro('Esta pessoa possui uma unidade vinculada e deve obrigatoriamente manter o perfil de Morador. Para remover o perfil de Morador, desvincule a unidade primeiro (ou alterne para Visitante/Prestador).');
-        return;
-      }
-      if (tipo === 'VISITANTE' || tipo === 'PRESTADOR_SERVICO') {
-        // Ao desmarcar o papel exclusivo, se tiver unidade volta como MORADOR; se não tiver unidade, volta como PORTEIRO
-        const perfilFallback = form.id_unidade ? ['MORADOR'] : ['PORTEIRO'];
-        setForm({
-          ...form,
-          perfis: perfilFallback,
-          tipo_vinculo: form.id_unidade ? 'PROPRIETARIO' : '',
-        });
+        setErroCadastro('Esta pessoa possui uma unidade vinculada e deve obrigatoriamente manter o perfil de Morador. Para remover o perfil de Morador, desvincule a unidade primeiro.');
         return;
       }
       if (atuais.length === 1) {
-        setErroCadastro('A pessoa deve ter pelo menos um papel ativo no condomínio.');
+        setErroCadastro('O usuário deve ter pelo menos um papel ativo no condomínio.');
         return;
       }
       setForm({ ...form, perfis: atuais.filter(t => t !== tipo) });
@@ -501,31 +510,6 @@ export default function Pessoas({
     // Se está tentando marcar MORADOR sem ter unidade vinculada
     if (tipo === 'MORADOR' && !form.id_unidade) {
       setErroCadastro('Não é possível selecionar o perfil de Morador sem antes vincular uma unidade (bloco e apartamento).');
-      return;
-    }
-
-    // Se está selecionando VISITANTE ou PRESTADOR_SERVICO, nenhum outro papel pode ser marcado
-    if (tipo === 'VISITANTE' || tipo === 'PRESTADOR_SERVICO') {
-      setForm({
-        ...form,
-        perfis: [tipo],
-        tipo_vinculo: form.id_unidade ? tipo : '',
-      });
-      return;
-    }
-
-    // Se está selecionando outro papel (ex: Morador, Porteiro, Síndico) e Visitante/Prestador estava selecionado,
-    // substitui pelo novo papel e reseta vínculo
-    if (atuais.includes('VISITANTE') || atuais.includes('PRESTADOR_SERVICO')) {
-      const perfisNovos = [tipo];
-      if (form.id_unidade && !perfisNovos.includes('MORADOR')) {
-        perfisNovos.push('MORADOR');
-      }
-      setForm({
-        ...form,
-        perfis: perfisNovos,
-        tipo_vinculo: form.id_unidade ? 'PROPRIETARIO' : '',
-      });
       return;
     }
 
@@ -733,18 +717,15 @@ export default function Pessoas({
       return;
     }
 
-    const ehApenasExterno = form.perfis.every(pf => pf === 'VISITANTE' || pf === 'PRESTADOR_SERVICO');
-    const ehPrestador = form.perfis.includes('PRESTADOR_SERVICO');
-    const ehVisitante = form.perfis.includes('VISITANTE');
-    const tipoVinculoEfetivo = ehPrestador
-      ? 'PRESTADOR_SERVICO'
-      : ehVisitante
-      ? 'VISITANTE'
-      : form.tipo_vinculo;
+    if (!form.data_nascimento) {
+      setErroCadastro('A data de nascimento é obrigatória para cadastro de morador ou usuário do sistema.');
+      setMsg({ t: 'Informe a data de nascimento.', tipo: 'erro' });
+      return;
+    }
 
-    if (ehPrestador && !form.tipo_servico.trim()) {
-      setErroCadastro('Por favor, informe a descrição do tipo de prestador de serviço (ex: Eletricista, Encanador, Pintor, etc.).');
-      setMsg({ t: 'Informe a descrição do tipo de prestador de serviço.', tipo: 'erro' });
+    if (!form.email.trim()) {
+      setErroCadastro('O e-mail é obrigatório para cadastros com acesso ao sistema.');
+      setMsg({ t: 'Informe o e-mail para acesso ao sistema.', tipo: 'erro' });
       return;
     }
 
@@ -755,16 +736,10 @@ export default function Pessoas({
       return;
     }
 
-    // Se vinculou unidade e não for visitante/prestador, deve conter o papel Morador
-    if (form.id_unidade && !ehApenasExterno && !form.perfis.includes('MORADOR')) {
-      setErroCadastro('Ao vincular uma unidade, é obrigatório atribuir o perfil de Morador para esta pessoa.');
+    // Se vinculou unidade, deve conter o papel Morador
+    if (form.id_unidade && !form.perfis.includes('MORADOR')) {
+      setErroCadastro('Ao vincular uma unidade residencial, é obrigatório atribuir o perfil de Morador para esta pessoa.');
       setMsg({ t: 'Ao vincular uma unidade, o perfil de Morador é obrigatório.', tipo: 'erro' });
-      return;
-    }
-
-    if (!ehApenasExterno && !form.email.trim()) {
-      setErroCadastro('O e-mail é obrigatório para cadastros com acesso ao sistema.');
-      setMsg({ t: 'Informe o e-mail para acesso ao sistema.', tipo: 'erro' });
       return;
     }
 
@@ -776,15 +751,14 @@ export default function Pessoas({
         ...form,
         cpf: cpfLimpo,
         perfis: form.perfis,
-        tipo_vinculo: form.id_unidade ? tipoVinculoEfetivo : undefined,
+        tipo_vinculo: form.id_unidade ? form.tipo_vinculo : undefined,
         id_unidade: form.id_unidade ? Number(form.id_unidade) : undefined,
-        id_responsavel: form.id_unidade && tipoVinculoEfetivo === 'DEPENDENTE' && form.id_responsavel ? Number(form.id_responsavel) : undefined,
-        grau_parentesco: form.id_unidade && tipoVinculoEfetivo === 'DEPENDENTE' ? form.grau_parentesco : undefined,
-        reside: ehApenasExterno ? false : form.reside,
-        tipo_servico: ehPrestador ? form.tipo_servico.trim() : undefined,
+        id_responsavel: form.id_unidade && form.tipo_vinculo === 'DEPENDENTE' && form.id_responsavel ? Number(form.id_responsavel) : undefined,
+        grau_parentesco: form.id_unidade && form.tipo_vinculo === 'DEPENDENTE' ? form.grau_parentesco : undefined,
+        reside: form.reside,
       });
 
-      setMsg({ t: `Pessoa "${form.nome}" cadastrada com sucesso!`, tipo: 'ok' });
+      setMsg({ t: `Usuário "${form.nome}" cadastrado com sucesso!`, tipo: 'ok' });
       setCodigoGeradoSucesso(res.codigo_ativacao || null);
       setModalAberto(false);
       carregarPessoas();
@@ -807,6 +781,53 @@ export default function Pessoas({
       setMsg({ t: errTxt, tipo: 'erro' });
     } finally {
       setSalvando(false);
+    }
+  }
+
+  async function cadastrarVisitante(e: React.FormEvent) {
+    e.preventDefault();
+    setErroVisitante(null);
+
+    const cpfLimpo = formVisitante.cpf.replace(/\D/g, '');
+    if (cpfLimpo.length !== 11) {
+      setErroVisitante('O CPF deve conter exatamente 11 dígitos.');
+      return;
+    }
+    if (!formVisitante.nome.trim()) {
+      setErroVisitante('O nome completo é obrigatório.');
+      return;
+    }
+    if (formVisitante.tipo === 'PRESTADOR_SERVICO' && !formVisitante.tipo_servico.trim()) {
+      setErroVisitante('Por favor, informe a descrição do tipo de serviço (ex: Eletricista, Encanador, Pintor, etc.).');
+      return;
+    }
+
+    setSalvandoVisitante(true);
+    try {
+      await api.post('/cadastros/pessoas', {
+        nome: formVisitante.nome.trim(),
+        cpf: cpfLimpo,
+        data_nascimento: formVisitante.data_nascimento || undefined,
+        email: formVisitante.email.trim() ? formVisitante.email.trim().toLowerCase() : undefined,
+        celular: formVisitante.celular ? formVisitante.celular.replace(/\D/g, '') : undefined,
+        perfis: [formVisitante.tipo],
+        id_unidade: formVisitante.id_unidade ? Number(formVisitante.id_unidade) : undefined,
+        tipo_vinculo: formVisitante.tipo,
+        reside: false,
+        tipo_servico: formVisitante.tipo === 'PRESTADOR_SERVICO' ? formVisitante.tipo_servico.trim() : undefined,
+      });
+
+      setMsg({
+        t: `${formVisitante.tipo === 'VISITANTE' ? 'Visitante' : 'Prestador de Serviço'} "${formVisitante.nome.trim()}" cadastrado(a) com sucesso!`,
+        tipo: 'ok',
+      });
+      setModalVisitanteAberto(false);
+      carregarPessoas();
+      carregarUnidades();
+    } catch (err: any) {
+      setErroVisitante(err.message || 'Erro ao cadastrar pessoa.');
+    } finally {
+      setSalvandoVisitante(false);
     }
   }
 
@@ -921,10 +942,10 @@ export default function Pessoas({
     try {
       await api.put(`/cadastros/pessoas/${pessoaEditando.id_pessoa}`, {
         nome: formEdicao.nome,
-        email: formEdicao.email,
+        email: formEdicao.email?.trim() ? formEdicao.email.trim() : null,
         cpf: cpfLimpo,
         celular: formEdicao.celular,
-        data_nascimento: formEdicao.data_nascimento,
+        data_nascimento: formEdicao.data_nascimento ? formEdicao.data_nascimento : null,
         id_unidade: formEdicao.id_unidade ? Number(formEdicao.id_unidade) : null,
         tipo_vinculo: formEdicao.id_unidade ? tipoVinculoEfetivoEdicao : null,
         id_responsavel:
@@ -1294,30 +1315,52 @@ export default function Pessoas({
             icone={<Icone nome="users" className="h-5 w-5" />}
             acao={
               !somenteLeitura ? (
-                <Botao
-                  variante="primario"
-                  icone={<Icone nome="plus" className="h-4 w-4" />}
-                  onClick={() => {
-                    setForm({
-                      nome: '',
-                      email: '',
-                      cpf: '',
-                      data_nascimento: '',
-                      celular: '',
-                      id_unidade: '',
-                      tipo_vinculo: '',
-                      perfis: ['PORTEIRO'],
-                      id_responsavel: '',
-                      grau_parentesco: 'FILHO',
-                      reside: true,
-                      tipo_servico: '',
-                    });
-                    setErroCadastro(null);
-                    setModalAberto(true);
-                  }}
-                >
-                  Cadastrar Pessoa
-                </Botao>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Botao
+                    variante="primario"
+                    icone={<Icone nome="plus" className="h-4 w-4" />}
+                    onClick={() => {
+                      setForm({
+                        nome: '',
+                        email: '',
+                        cpf: '',
+                        data_nascimento: '',
+                        celular: '',
+                        id_unidade: '',
+                        tipo_vinculo: '',
+                        perfis: ['MORADOR'],
+                        id_responsavel: '',
+                        grau_parentesco: 'FILHO',
+                        reside: true,
+                        tipo_servico: '',
+                      });
+                      setErroCadastro(null);
+                      setModalAberto(true);
+                    }}
+                  >
+                    Cadastrar Usuário / Morador
+                  </Botao>
+                  <Botao
+                    variante="claro"
+                    icone={<Icone nome="shield" className="h-4 w-4" />}
+                    onClick={() => {
+                      setFormVisitante({
+                        nome: '',
+                        cpf: '',
+                        data_nascimento: '',
+                        email: '',
+                        celular: '',
+                        tipo: 'VISITANTE',
+                        id_unidade: '',
+                        tipo_servico: '',
+                      });
+                      setErroVisitante(null);
+                      setModalVisitanteAberto(true);
+                    }}
+                  >
+                    Cadastrar Visitante / Prestador
+                  </Botao>
+                </div>
               ) : undefined
             }
           >
@@ -1575,14 +1618,54 @@ export default function Pessoas({
                     Limpar Filtros
                   </Botao>
                 ) : !somenteLeitura ? (
-                  <Botao
-                    variante="primario"
-                    tamanho="sm"
-                    icone={<Icone nome="plus" className="h-3.5 w-3.5" />}
-                    onClick={() => setModalAberto(true)}
-                  >
-                    Cadastrar Pessoa
-                  </Botao>
+                  <div className="flex items-center gap-2">
+                    <Botao
+                      variante="primario"
+                      tamanho="sm"
+                      icone={<Icone nome="plus" className="h-3.5 w-3.5" />}
+                      onClick={() => {
+                        setForm({
+                          nome: '',
+                          email: '',
+                          cpf: '',
+                          data_nascimento: '',
+                          celular: '',
+                          id_unidade: '',
+                          tipo_vinculo: '',
+                          perfis: ['MORADOR'],
+                          id_responsavel: '',
+                          grau_parentesco: 'FILHO',
+                          reside: true,
+                          tipo_servico: '',
+                        });
+                        setErroCadastro(null);
+                        setModalAberto(true);
+                      }}
+                    >
+                      Cadastrar Morador
+                    </Botao>
+                    <Botao
+                      variante="claro"
+                      tamanho="sm"
+                      icone={<Icone nome="shield" className="h-3.5 w-3.5" />}
+                      onClick={() => {
+                        setFormVisitante({
+                          nome: '',
+                          cpf: '',
+                          data_nascimento: '',
+                          email: '',
+                          celular: '',
+                          tipo: 'VISITANTE',
+                          id_unidade: '',
+                          tipo_servico: '',
+                        });
+                        setErroVisitante(null);
+                        setModalVisitanteAberto(true);
+                      }}
+                    >
+                      Cadastrar Visitante / Prestador
+                    </Botao>
+                  </div>
                 ) : undefined
               }
             />
@@ -1704,7 +1787,7 @@ export default function Pessoas({
                                 )}
                               </div>
                               <p className="text-[11px] text-slate-400 dark:text-slate-400">
-                                {p.email} • CPF: {p.cpf}
+                                {p.email ? `${p.email} • ` : ''}CPF: {p.cpf}
                               </p>
                             </div>
                           </div>
@@ -1716,9 +1799,15 @@ export default function Pessoas({
                               {p.unidades.map((u, i) => (
                                 <span
                                   key={i}
-                                  className="rounded-md bg-slate-100 dark:bg-slate-800 dark:text-slate-300 px-2 py-0.5 font-bold text-[11px]"
+                                  className={`rounded-md px-2 py-0.5 font-bold text-[11px] ${
+                                    u.bloco === 'Prédio' || u.apartamento === 'Geral'
+                                      ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/60'
+                                      : 'bg-slate-100 dark:bg-slate-800 dark:text-slate-300'
+                                  }`}
                                 >
-                                  Bl. {u.bloco} - Apto {u.apartamento}
+                                  {u.bloco === 'Prédio' || u.apartamento === 'Geral'
+                                    ? '🏢 Prédio / Áreas Comuns'
+                                    : `Bl. ${u.bloco} - Apto ${u.apartamento}`}
                                 </span>
                               ))}
                             </div>
@@ -2112,7 +2201,7 @@ export default function Pessoas({
                   </Badge>
                 </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
-                  {perfilSelecionado.email} • {perfilSelecionado.celular || 'Sem celular cadastrado'}
+                  {perfilSelecionado.email ? `${perfilSelecionado.email} • ` : ''}{perfilSelecionado.celular || 'Sem celular cadastrado'}
                 </p>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-[11px] text-slate-500 font-mono">
@@ -2152,8 +2241,9 @@ export default function Pessoas({
                 </p>
                 <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
                   <span className="font-bold text-xs text-slate-800 dark:text-slate-200">
-                    Bloco {perfilSelecionado.unidades[0].bloco} - Apartamento{' '}
-                    {perfilSelecionado.unidades[0].apartamento}
+                    {perfilSelecionado.unidades[0].bloco === 'Prédio' || perfilSelecionado.unidades[0].apartamento === 'Geral'
+                      ? '🏢 Prédio / Condomínio (Áreas Comuns)'
+                      : `Bloco ${perfilSelecionado.unidades[0].bloco} - Apartamento ${perfilSelecionado.unidades[0].apartamento}`}
                   </span>
                   <span className="rounded bg-navy-50 text-navy dark:bg-slate-700 dark:text-sky-400 px-2 py-0.5 text-[10px] font-bold uppercase">
                     {perfilSelecionado.unidades[0].vinculo}
@@ -2461,412 +2551,504 @@ export default function Pessoas({
       {!somenteLeitura && (
         <>
           {/* MODAL: CADASTRO DE PESSOA & VÍNCULO */}
+          {/* MODAL: CADASTRO DE MORADOR / USUÁRIO DO SISTEMA */}
           <Modal
-        aberto={modalAberto}
-        fechar={() => setModalAberto(false)}
-        titulo="Cadastrar Nova Pessoa & Vínculo"
-        largura="max-w-2xl"
-        rodape={
-          <>
-            <Botao type="button" variante="claro" onClick={() => setModalAberto(false)}>
-              Cancelar
-            </Botao>
-            <Botao
-              type="submit"
-              form="form-cadastro-pessoa"
-              variante="primario"
-              carregando={salvando}
-              icone={<Icone nome="check" className="h-4 w-4" />}
-            >
-              Cadastrar Pessoa
-            </Botao>
-          </>
-        }
-      >
-        <form id="form-cadastro-pessoa" onSubmit={cadastrar} className="space-y-4">
-          {erroCadastro && (
-            <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300 flex items-start gap-2.5">
-              <Icone nome="alert" className="h-4 w-4 shrink-0 text-red-600 dark:text-rose-400 mt-0.5" />
-              <div>
-                <span className="font-bold">Atenção no cadastro:</span>
-                <p className="mt-0.5">{erroCadastro}</p>
-              </div>
-            </div>
-          )}
-          <Campo rotulo="Nome Completo" obrigatorio>
-            <input
-              className={inputCls}
-              value={form.nome}
-              onChange={c('nome')}
-              required
-              maxLength={100}
-              placeholder="Ex.: Maria Clara dos Santos"
-            />
-          </Campo>
-
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Campo rotulo="CPF" obrigatorio>
-              <input
-                className={inputCls}
-                value={form.cpf}
-                onChange={e => setForm({ ...form, cpf: mascararCPF(e.target.value) })}
-                required
-                maxLength={14}
-                placeholder="000.000.000-00"
-              />
-            </Campo>
-
-            <Campo rotulo="Data de Nascimento" obrigatorio>
-              <input
-                type="date"
-                className={inputCls}
-                value={form.data_nascimento}
-                onChange={c('data_nascimento')}
-                required
-              />
-            </Campo>
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Campo
-              rotulo={form.perfis.every(pf => pf === 'VISITANTE' || pf === 'PRESTADOR_SERVICO') ? 'E-mail (Opcional)' : 'E-mail de Login'}
-              obrigatorio={!form.perfis.every(pf => pf === 'VISITANTE' || pf === 'PRESTADOR_SERVICO')}
-            >
-              <input
-                type="email"
-                className={inputCls}
-                value={form.email}
-                onChange={c('email')}
-                required={!form.perfis.every(pf => pf === 'VISITANTE' || pf === 'PRESTADOR_SERVICO')}
-                maxLength={120}
-                placeholder="maria@email.com"
-              />
-            </Campo>
-
-            <Campo rotulo="Celular" obrigatorio>
-              <input
-                type="tel"
-                className={inputCls}
-                value={form.celular}
-                onChange={e => setForm({ ...form, celular: mascararCelular(e.target.value) })}
-                required
-                maxLength={15}
-                placeholder="(42) 99999-9999"
-              />
-            </Campo>
-          </div>
-
-          <div className="rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 p-3.5 space-y-3">
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Vínculo, Unidade & Perfil
-            </p>
-
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Campo rotulo="Unidade" obrigatorio={form.perfis.includes('MORADOR')}>
-                <select
-                  className={inputCls}
-                  value={form.id_unidade}
-                  onChange={c('id_unidade')}
-                  required={form.perfis.includes('MORADOR')}
+            aberto={modalAberto}
+            fechar={() => setModalAberto(false)}
+            titulo="Cadastrar Usuário / Morador do Sistema"
+            largura="max-w-2xl"
+            rodape={
+              <>
+                <Botao type="button" variante="claro" onClick={() => setModalAberto(false)}>
+                  Cancelar
+                </Botao>
+                <Botao
+                  type="submit"
+                  form="form-cadastro-pessoa"
+                  variante="primario"
+                  carregando={salvando}
+                  icone={<Icone nome="check" className="h-4 w-4" />}
                 >
-                  <option value="">Nenhuma (visitante/prestador/porteiro)</option>
-                  {unidades.map(u => (
-                    <option key={u.id_unidade} value={u.id_unidade}>
-                      Bl. {u.bloco} - Apto {u.numero_apartamento}
-                    </option>
-                  ))}
-                </select>
+                  Cadastrar Usuário
+                </Botao>
+              </>
+            }
+          >
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 -mt-2">
+              Cadastro de morador, porteiro ou administrador com geração de código de 1º acesso para login no sistema.
+            </p>
+            <form id="form-cadastro-pessoa" onSubmit={cadastrar} className="space-y-4">
+              {erroCadastro && (
+                <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300 flex items-start gap-2.5">
+                  <Icone nome="alert" className="h-4 w-4 shrink-0 text-red-600 dark:text-rose-400 mt-0.5" />
+                  <div>
+                    <span className="font-bold">Atenção no cadastro:</span>
+                    <p className="mt-0.5">{erroCadastro}</p>
+                  </div>
+                </div>
+              )}
+              <Campo rotulo="Nome Completo" obrigatorio>
+                <input
+                  className={inputCls}
+                  value={form.nome}
+                  onChange={c('nome')}
+                  required
+                  maxLength={100}
+                  placeholder="Ex.: Maria Clara dos Santos"
+                />
               </Campo>
 
-              <div>
-                <Campo
-                  rotulo={
-                    !form.id_unidade
-                      ? 'Tipo de Vínculo'
-                      : form.perfis.includes('PRESTADOR_SERVICO')
-                      ? 'Tipo de Vínculo (Prestador de Serviço)'
-                      : form.perfis.includes('VISITANTE')
-                      ? 'Tipo de Vínculo (Visitante)'
-                      : 'Tipo de Vínculo'
-                  }
-                >
-                  <select
-                    className={`${inputCls} ${
-                      !form.id_unidade || form.perfis.includes('PRESTADOR_SERVICO') || form.perfis.includes('VISITANTE')
-                        ? 'cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 opacity-90'
-                        : ''
-                    }`}
-                    value={
-                      !form.id_unidade
-                        ? ''
-                        : form.perfis.includes('PRESTADOR_SERVICO')
-                        ? 'PRESTADOR_SERVICO'
-                        : form.perfis.includes('VISITANTE')
-                        ? 'VISITANTE'
-                        : form.tipo_vinculo
-                    }
-                    onChange={c('tipo_vinculo')}
-                    disabled={!form.id_unidade || form.perfis.includes('PRESTADOR_SERVICO') || form.perfis.includes('VISITANTE')}
-                  >
-                    {!form.id_unidade ? (
-                      <option value="">Não aplicável (sem unidade vinculada)</option>
-                    ) : form.perfis.includes('PRESTADOR_SERVICO') ? (
-                      <option value="PRESTADOR_SERVICO">Prestador de Serviço (Bloqueado)</option>
-                    ) : form.perfis.includes('VISITANTE') ? (
-                      <option value="VISITANTE">Visitante (Bloqueado)</option>
-                    ) : (
-                      <>
-                        <option value="PROPRIETARIO">Proprietário (Titular)</option>
-                        <option value="INQUILINO">Inquilino (Titular Locação)</option>
-                        <option value="DEPENDENTE">Dependente Familiar</option>
-                      </>
-                    )}
-                  </select>
-                </Campo>
-                {!form.id_unidade ? (
-                  <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
-                    Selecione uma unidade acima para definir o tipo de vínculo.
-                  </p>
-                ) : form.perfis.includes('PRESTADOR_SERVICO') ? (
-                  <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
-                    Vínculo bloqueado e padronizado para Prestador de Serviço.
-                  </p>
-                ) : form.perfis.includes('VISITANTE') ? (
-                  <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
-                    Vínculo bloqueado e padronizado para Visitante.
-                  </p>
-                ) : null}
-              </div>
-            </div>
-
-            {/* TIPO DE PRESTADOR DE SERVIÇO (DESCRIÇÃO / ESPECIALIDADE) */}
-            {(form.perfis.includes('PRESTADOR_SERVICO') || form.tipo_vinculo === 'PRESTADOR_SERVICO') && (
-              <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
-                <Campo
-                  rotulo="Descrição do Tipo de Prestador de Serviço"
-                  obrigatorio
-                  ajuda="Informe a profissão, especialidade ou tipo de trabalho (ex: Eletricista, Encanador, Pintor, Técnico de Internet, Marceneiro, etc.)"
-                >
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Campo rotulo="CPF" obrigatorio>
                   <input
                     className={inputCls}
-                    value={form.tipo_servico}
-                    onChange={c('tipo_servico')}
+                    value={form.cpf}
+                    onChange={e => setForm({ ...form, cpf: mascararCPF(e.target.value) })}
                     required
-                    maxLength={100}
-                    placeholder="Ex: Eletricista, Encanador, Pintor, Técnico de Internet, Marceneiro..."
+                    maxLength={14}
+                    placeholder="000.000.000-00"
+                  />
+                </Campo>
+
+                <Campo rotulo="Data de Nascimento" obrigatorio>
+                  <input
+                    type="date"
+                    className={inputCls}
+                    value={form.data_nascimento}
+                    onChange={c('data_nascimento')}
+                    required
                   />
                 </Campo>
               </div>
-            )}
 
-            {/* SE FOR MORADOR: RESIDE NA UNIDADE (SIM / NÃO) */}
-            {form.perfis.includes('MORADOR') && (
-              <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Reside no Apartamento? <span className="text-red-500">*</span>
-                </label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setForm({ ...form, reside: true })}
-                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                      form.reside
-                        ? 'border-emerald-500 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200 dark:border-emerald-600 shadow-xs'
-                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400'
-                    }`}
-                  >
-                    <Icone nome="check" className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                    <span>Sim (Residente no Imóvel)</span>
-                  </button>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Campo rotulo="E-mail de Login" obrigatorio>
+                  <input
+                    type="email"
+                    className={inputCls}
+                    value={form.email}
+                    onChange={c('email')}
+                    required
+                    maxLength={120}
+                    placeholder="maria@email.com"
+                  />
+                </Campo>
 
-                  <button
-                    type="button"
-                    onClick={() => setForm({ ...form, reside: false })}
-                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                      !form.reside
-                        ? 'border-amber-500 bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-200 dark:border-amber-600 shadow-xs'
-                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400'
-                    }`}
-                  >
-                    <Icone nome="x" className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                    <span>Não (Proprietário Não Residente)</span>
-                  </button>
-                </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                  {form.reside
-                    ? 'O morador reside no imóvel e usufrui normalmente das áreas e encomendas.'
-                    : 'Proprietário não residente com moradia externa.'}
+                <Campo rotulo="Celular" obrigatorio>
+                  <input
+                    type="tel"
+                    className={inputCls}
+                    value={form.celular}
+                    onChange={e => setForm({ ...form, celular: mascararCelular(e.target.value) })}
+                    required
+                    maxLength={15}
+                    placeholder="(42) 99999-9999"
+                  />
+                </Campo>
+              </div>
+
+              <div className="rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 p-3.5 space-y-3">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  Vínculo com Imóvel & Papéis
                 </p>
-              </div>
-            )}
 
-            {/* SELEÇÃO MÚLTIPLA DE PAPÉIS NO CADASTRO */}
-            <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 space-y-2">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Papéis no Condomínio <span className="text-red-500">*</span>
-                </label>
-                <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                  {form.perfis.includes('VISITANTE')
-                    ? 'Visitante é exclusivo (nenhuma outra opção pode ser marcada simultaneamente)'
-                    : form.perfis.includes('PRESTADOR_SERVICO')
-                    ? 'Prestador de Serviço é exclusivo (nenhuma outra opção pode ser marcada simultaneamente)'
-                    : 'Selecione um ou mais papéis simultâneos'}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 items-stretch">
-                {OPCOES_PAPEIS.map(op => {
-                  const selecionado = form.perfis.includes(op.tipo);
-                  const exclusivoAtivo = form.perfis.includes('VISITANTE')
-                    ? 'VISITANTE'
-                    : form.perfis.includes('PRESTADOR_SERVICO')
-                    ? 'PRESTADOR_SERVICO'
-                    : null;
-                  const bloqueadoPorExclusivo = exclusivoAtivo !== null && exclusivoAtivo !== op.tipo;
-
-                  // Morador é obrigatório se houver unidade selecionada e não for Visitante/Prestador
-                  const moradorObrigatorio = op.tipo === 'MORADOR' && Boolean(form.id_unidade) && !exclusivoAtivo;
-                  // Morador fica bloqueado/indisponível se não houver unidade vinculada
-                  const moradorSemUnidade = op.tipo === 'MORADOR' && !form.id_unidade;
-
-                  const cardDesabilitado = bloqueadoPorExclusivo || moradorSemUnidade;
-
-                  return (
-                    <div
-                      key={op.tipo}
-                      onClick={() => togglePerfilCadastro(op.tipo)}
-                      className={`relative flex flex-col justify-between rounded-xl border p-3 transition-all select-none cursor-pointer hover:shadow-xs ${
-                        selecionado
-                          ? op.corAtiva
-                          : cardDesabilitado
-                          ? 'opacity-40 border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40 text-slate-400 hover:border-slate-300'
-                          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600'
-                      }`}
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <Campo rotulo="Unidade" obrigatorio={form.perfis.includes('MORADOR')}>
+                    <select
+                      className={inputCls}
+                      value={form.id_unidade}
+                      onChange={c('id_unidade')}
+                      required={form.perfis.includes('MORADOR')}
                     >
-                      <div>
-                        {/* Linha Superior: Ícone à esquerda, Checkbox à direita */}
-                        <div className="flex items-center justify-between">
-                          <div
-                            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-                              selecionado
-                                ? 'bg-white/80 dark:bg-slate-800 shadow-2xs'
-                                : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
-                            }`}
-                          >
-                            <Icone nome={op.icone} className={`h-4 w-4 ${selecionado ? op.iconeCor : ''}`} />
-                          </div>
+                      <option value="">Nenhuma (para Porteiro / Administrador)</option>
+                      {unidades
+                        .filter(u => u.bloco !== 'Prédio' && u.numero_apartamento !== 'Geral')
+                        .map(u => (
+                          <option key={u.id_unidade} value={u.id_unidade}>
+                            Bl. {u.bloco} - Apto {u.numero_apartamento}
+                          </option>
+                        ))}
+                    </select>
+                  </Campo>
 
-                          <div
-                            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
-                              selecionado
-                                ? 'border-transparent bg-navy text-white dark:bg-sky-500 shadow-2xs'
-                                : cardDesabilitado
-                                ? 'border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800/40'
-                                : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800'
-                            }`}
-                          >
-                            {selecionado && (
-                              <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-                                <path
-                                  fillRule="evenodd"
-                                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                  clipRule="evenodd"
-                                />
-                              </svg>
+                  <div>
+                    <Campo rotulo="Tipo de Vínculo">
+                      <select
+                        className={`${inputCls} ${
+                          !form.id_unidade
+                            ? 'cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 opacity-90'
+                            : ''
+                        }`}
+                        value={!form.id_unidade ? '' : form.tipo_vinculo}
+                        onChange={c('tipo_vinculo')}
+                        disabled={!form.id_unidade}
+                      >
+                        {!form.id_unidade ? (
+                          <option value="">Não aplicável (sem unidade vinculada)</option>
+                        ) : (
+                          <>
+                            <option value="PROPRIETARIO">Proprietário (Titular)</option>
+                            <option value="INQUILINO">Inquilino (Titular Locação)</option>
+                            <option value="DEPENDENTE">Dependente Familiar</option>
+                          </>
+                        )}
+                      </select>
+                    </Campo>
+                    {!form.id_unidade && (
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+                        Selecione uma unidade acima para definir o tipo de vínculo de morador.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* SE FOR MORADOR: RESIDE NA UNIDADE (SIM / NÃO) */}
+                {form.perfis.includes('MORADOR') && (
+                  <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Reside no Apartamento? <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, reside: true })}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                          form.reside
+                            ? 'border-emerald-500 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200 dark:border-emerald-600 shadow-xs'
+                            : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400'
+                        }`}
+                      >
+                        <Icone nome="check" className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                        <span>Sim (Residente no Imóvel)</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, reside: false })}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                          !form.reside
+                            ? 'border-amber-500 bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-200 dark:border-amber-600 shadow-xs'
+                            : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400'
+                        }`}
+                      >
+                        <Icone nome="x" className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                        <span>Não (Proprietário Não Residente)</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* SELEÇÃO MÚLTIPLA DE PAPÉIS NO CADASTRO DE USUÁRIO */}
+                <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 space-y-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                      Papéis no Condomínio <span className="text-red-500">*</span>
+                    </label>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Selecione um ou mais papéis para o usuário do sistema
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 items-stretch">
+                    {OPCOES_PAPEIS.map(op => {
+                      const selecionado = form.perfis.includes(op.tipo);
+                      const moradorObrigatorio = op.tipo === 'MORADOR' && Boolean(form.id_unidade);
+                      const moradorSemUnidade = op.tipo === 'MORADOR' && !form.id_unidade;
+                      const cardDesabilitado = moradorSemUnidade;
+
+                      return (
+                        <div
+                          key={op.tipo}
+                          onClick={() => togglePerfilCadastro(op.tipo)}
+                          className={`relative flex flex-col justify-between rounded-xl border p-3 transition-all select-none cursor-pointer hover:shadow-xs ${
+                            selecionado
+                              ? op.corAtiva
+                              : cardDesabilitado
+                              ? 'opacity-40 border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40 text-slate-400 hover:border-slate-300'
+                              : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600'
+                          }`}
+                        >
+                          <div>
+                            <div className="flex items-center justify-between">
+                              <div
+                                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                                  selecionado
+                                    ? 'bg-white/80 dark:bg-slate-800 shadow-2xs'
+                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
+                                }`}
+                              >
+                                <Icone nome={op.icone} className={`h-4 w-4 ${selecionado ? op.iconeCor : ''}`} />
+                              </div>
+
+                              <div
+                                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
+                                  selecionado
+                                    ? 'border-transparent bg-navy text-white dark:bg-sky-500 shadow-2xs'
+                                    : cardDesabilitado
+                                    ? 'border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800/40'
+                                    : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800'
+                                }`}
+                              >
+                                {selecionado && (
+                                  <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path
+                                      fillRule="evenodd"
+                                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                      clipRule="evenodd"
+                                    />
+                                  </svg>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 flex-wrap mt-2.5">
+                              <span className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-tight">
+                                {op.titulo}
+                              </span>
+                              {moradorObrigatorio && (
+                                <span className="rounded bg-emerald-200/90 text-emerald-900 dark:bg-emerald-900/80 dark:text-emerald-200 px-1.5 py-0.5 text-[9px] font-extrabold uppercase">
+                                  🔒 Vinculado
+                                </span>
+                              )}
+                              {moradorSemUnidade && (
+                                <span className="rounded bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-400 px-1.5 py-0.5 text-[9px] font-bold">
+                                  Requer unidade
+                                </span>
+                              )}
+                            </div>
+
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-snug">
+                              {op.descricao}
+                            </p>
+
+                            {moradorObrigatorio && (
+                              <p className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 mt-1.5 flex items-center gap-1">
+                                <Icone nome="check" className="h-3 w-3 shrink-0" />
+                                Obrigatório com unidade vinculada
+                              </p>
+                            )}
+                            {moradorSemUnidade && (
+                              <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 mt-1.5 flex items-center gap-1">
+                                <Icone nome="alert" className="h-3 w-3 shrink-0" />
+                                Vincule uma unidade acima para ativar
+                              </p>
                             )}
                           </div>
                         </div>
+                      );
+                    })}
+                  </div>
+                </div>
 
-                        {/* Título & Badge de Exclusividade / Trava */}
-                        <div className="flex items-center gap-1.5 flex-wrap mt-2.5">
-                          <span className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-tight">
-                            {op.titulo}
-                          </span>
-                          {moradorObrigatorio && (
-                            <span className="rounded bg-emerald-200/90 text-emerald-900 dark:bg-emerald-900/80 dark:text-emerald-200 px-1.5 py-0.5 text-[9px] font-extrabold uppercase">
-                              🔒 Vinculado
-                            </span>
-                          )}
-                          {moradorSemUnidade && (
-                            <span className="rounded bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-400 px-1.5 py-0.5 text-[9px] font-bold">
-                              Requer unidade
-                            </span>
-                          )}
-                          {(op.tipo === 'VISITANTE' || op.tipo === 'PRESTADOR_SERVICO') && (
-                            <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-100/70 dark:bg-amber-950/60 px-1.5 py-0.5 rounded-md">
-                              Exclusivo
-                            </span>
-                          )}
-                        </div>
+                {/* SE FOR DEPENDENTE: CAMPOS ADICIONAIS DE RESPONSÁVEL E PARENTESCO */}
+                {form.tipo_vinculo === 'DEPENDENTE' && (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
+                    <Campo rotulo="Titular Responsável" obrigatorio>
+                      <select
+                        className={inputCls}
+                        value={form.id_responsavel}
+                        onChange={c('id_responsavel')}
+                        required
+                      >
+                        <option value="">Selecione o Titular da Unidade</option>
+                        {titularesNaUnidade.map(t => (
+                          <option key={t.id_pessoa} value={t.id_pessoa}>
+                            {t.nome} ({t.unidades[0]?.vinculo})
+                          </option>
+                        ))}
+                      </select>
+                    </Campo>
 
-                        {/* Descrição */}
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-snug">
-                          {op.descricao}
-                        </p>
-
-                        {moradorObrigatorio && (
-                          <p className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 mt-1.5 flex items-center gap-1">
-                            <Icone nome="check" className="h-3 w-3 shrink-0" />
-                            Obrigatório com unidade vinculada
-                          </p>
-                        )}
-                        {moradorSemUnidade && (
-                          <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 mt-1.5 flex items-center gap-1">
-                            <Icone nome="alert" className="h-3 w-3 shrink-0" />
-                            Vincule uma unidade acima para ativar
-                          </p>
-                        )}
-                        {bloqueadoPorExclusivo && (
-                          <p className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 mt-1.5 flex items-center gap-1">
-                            <Icone nome="alert" className="h-3 w-3 shrink-0" />
-                            Bloqueado (clique para alternar)
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+                    <Campo rotulo="Grau de Parentesco" obrigatorio>
+                      <select
+                        className={inputCls}
+                        value={form.grau_parentesco}
+                        onChange={c('grau_parentesco')}
+                        required
+                      >
+                        <option value="CONJUGE">Cônjuge / Companheiro(a)</option>
+                        <option value="FILHO">Filho(a) / Enteado(a)</option>
+                        <option value="PAI_MAE">Pai / Mãe / Sogro(a)</option>
+                        <option value="OUTRO">Outro Familiar / Agregado</option>
+                      </select>
+                    </Campo>
+                  </div>
+                )}
               </div>
-            </div>
+            </form>
+          </Modal>
 
-            {/* SE FOR DEPENDENTE: CAMPOS ADICIONAIS DE RESPONSÁVEL E PARENTESCO */}
-            {form.tipo_vinculo === 'DEPENDENTE' && (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
-                <Campo rotulo="Titular Responsável" obrigatorio>
-                  <select
-                    className={inputCls}
-                    value={form.id_responsavel}
-                    onChange={c('id_responsavel')}
-                    required
+          {/* MODAL: CADASTRO DE VISITANTE / PRESTADOR DE SERVIÇO */}
+          <Modal
+            aberto={modalVisitanteAberto}
+            fechar={() => { if (!salvandoVisitante) setModalVisitanteAberto(false); }}
+            titulo="Cadastrar Visitante / Prestador de Serviço"
+            largura="max-w-2xl"
+            rodape={
+              <>
+                <Botao
+                  type="button"
+                  variante="claro"
+                  disabled={salvandoVisitante}
+                  onClick={() => setModalVisitanteAberto(false)}
+                >
+                  Cancelar
+                </Botao>
+                <Botao
+                  type="submit"
+                  form="form-cadastro-visitante"
+                  variante="primario"
+                  carregando={salvandoVisitante}
+                  icone={<Icone nome="check" className="h-4 w-4" />}
+                >
+                  Salvar Cadastro
+                </Botao>
+              </>
+            }
+          >
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 -mt-2">
+              Cadastro para controle de acesso físico, portaria e empréstimo de chaves. Não gera login no sistema.
+            </p>
+            <form id="form-cadastro-visitante" onSubmit={cadastrarVisitante} className="space-y-4">
+              {erroVisitante && (
+                <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300 flex items-start gap-2.5">
+                  <Icone nome="alert" className="h-4 w-4 shrink-0 text-red-600 dark:text-rose-400 mt-0.5" />
+                  <div>
+                    <span className="font-bold">Atenção no cadastro:</span>
+                    <p className="mt-0.5">{erroVisitante}</p>
+                  </div>
+                </div>
+              )}
+
+              <Campo rotulo="Tipo de Acesso / Papel">
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFormVisitante(f => ({ ...f, tipo: 'VISITANTE' }))}
+                    className={`py-2 px-3 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
+                      formVisitante.tipo === 'VISITANTE'
+                        ? 'border-indigo-600 bg-indigo-50 text-indigo-700 dark:border-indigo-500 dark:bg-indigo-950/40 dark:text-indigo-300 shadow-xs'
+                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400'
+                    }`}
                   >
-                    <option value="">Selecione o Titular da Unidade</option>
-                    {titularesNaUnidade.map(t => (
-                      <option key={t.id_pessoa} value={t.id_pessoa}>
-                        {t.nome} ({t.unidades[0]?.vinculo})
+                    Visitante
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormVisitante(f => ({ ...f, tipo: 'PRESTADOR_SERVICO' }))}
+                    className={`py-2 px-3 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
+                      formVisitante.tipo === 'PRESTADOR_SERVICO'
+                        ? 'border-amber-600 bg-amber-50 text-amber-700 dark:border-amber-500 dark:bg-amber-950/40 dark:text-amber-300 shadow-xs'
+                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400'
+                    }`}
+                  >
+                    Prestador de Serviço
+                  </button>
+                </div>
+              </Campo>
+
+              {formVisitante.tipo === 'PRESTADOR_SERVICO' && (
+                <Campo
+                  rotulo="Descrição do Tipo de Prestador de Serviço"
+                  obrigatorio
+                  ajuda="Informe a profissão, especialidade ou tipo de trabalho (ex: Eletricista, Encanador, Pintor, Técnico de Internet, etc.)"
+                >
+                  <input
+                    type="text"
+                    required
+                    maxLength={100}
+                    placeholder="Ex: Eletricista, Encanador, Pintor, Técnico de Internet..."
+                    value={formVisitante.tipo_servico}
+                    onChange={e => setFormVisitante(f => ({ ...f, tipo_servico: e.target.value }))}
+                    className={inputCls}
+                  />
+                </Campo>
+              )}
+
+              <Campo rotulo="Nome Completo" obrigatorio>
+                <input
+                  type="text"
+                  required
+                  maxLength={100}
+                  placeholder="Ex: João da Silva"
+                  value={formVisitante.nome}
+                  onChange={e => setFormVisitante(f => ({ ...f, nome: e.target.value }))}
+                  className={inputCls}
+                />
+              </Campo>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Campo rotulo="CPF" obrigatorio>
+                  <input
+                    type="text"
+                    required
+                    maxLength={14}
+                    placeholder="000.000.000-00"
+                    value={formVisitante.cpf}
+                    onChange={e => setFormVisitante(f => ({ ...f, cpf: mascararCPF(e.target.value) }))}
+                    className={inputCls}
+                  />
+                </Campo>
+
+                <Campo rotulo="Data de Nascimento (opcional)">
+                  <input
+                    type="date"
+                    value={formVisitante.data_nascimento}
+                    onChange={e => setFormVisitante(f => ({ ...f, data_nascimento: e.target.value }))}
+                    className={inputCls}
+                  />
+                </Campo>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Campo rotulo="E-mail (opcional)">
+                  <input
+                    type="email"
+                    maxLength={120}
+                    placeholder="visitante@email.com"
+                    value={formVisitante.email}
+                    onChange={e => setFormVisitante(f => ({ ...f, email: e.target.value }))}
+                    className={inputCls}
+                  />
+                </Campo>
+
+                <Campo rotulo="Celular (opcional)">
+                  <input
+                    type="text"
+                    maxLength={15}
+                    placeholder="(00) 00000-0000"
+                    value={formVisitante.celular}
+                    onChange={e => setFormVisitante(f => ({ ...f, celular: mascararCelular(e.target.value) }))}
+                    className={inputCls}
+                  />
+                </Campo>
+              </div>
+
+              <Campo rotulo="Unidade Relacionada (opcional)">
+                <select
+                  value={formVisitante.id_unidade}
+                  onChange={e => setFormVisitante(f => ({ ...f, id_unidade: e.target.value }))}
+                  className={inputCls}
+                >
+                  <option value="">Nenhuma unidade vinculada</option>
+                  {unidades
+                    .filter(u => u.bloco === 'Prédio' || u.numero_apartamento === 'Geral')
+                    .map(u => (
+                      <option key={u.id_unidade} value={u.id_unidade}>
+                        🏢 Prédio / Condomínio (Áreas Comuns)
                       </option>
                     ))}
-                  </select>
-                </Campo>
-
-                <Campo rotulo="Grau de Parentesco" obrigatorio>
-                  <select
-                    className={inputCls}
-                    value={form.grau_parentesco}
-                    onChange={c('grau_parentesco')}
-                    required
-                  >
-                    <option value="CONJUGE">Cônjuge / Companheiro(a)</option>
-                    <option value="FILHO">Filho(a) / Enteado(a)</option>
-                    <option value="PAI_MAE">Pai / Mãe / Sogro(a)</option>
-                    <option value="OUTRO">Outro Familiar / Agregado</option>
-                  </select>
-                </Campo>
-              </div>
-            )}
-          </div>
-        </form>
-      </Modal>
+                  {unidades
+                    .filter(u => u.bloco !== 'Prédio' && u.numero_apartamento !== 'Geral')
+                    .map(u => (
+                      <option key={u.id_unidade} value={u.id_unidade}>
+                        Bloco {u.bloco} - Apto {u.numero_apartamento}
+                      </option>
+                    ))}
+                </select>
+              </Campo>
+            </form>
+          </Modal>
 
       {/* MODAL: EDIÇÃO DE DADOS, PERFIL & VÍNCULO (CORREÇÃO DE ERROS) */}
       <Modal
@@ -2996,7 +3178,7 @@ export default function Pessoas({
             <Campo
               rotulo={
                 <span className="inline-flex items-center gap-1.5">
-                  <span>Data de Nascimento</span>
+                  <span>Data de Nascimento {formEdicao.perfis.every(pf => pf === 'VISITANTE' || pf === 'PRESTADOR_SERVICO') ? '(Opcional)' : ''}</span>
                   {ehMoradorEdicao && (
                     <span className="text-[10px] text-slate-400 dark:text-slate-500 font-normal">
                       🔒 Bloqueado
@@ -3004,7 +3186,7 @@ export default function Pessoas({
                   )}
                 </span>
               }
-              obrigatorio
+              obrigatorio={!formEdicao.perfis.every(pf => pf === 'VISITANTE' || pf === 'PRESTADOR_SERVICO')}
             >
               <input
                 type="date"
@@ -3016,7 +3198,7 @@ export default function Pessoas({
                 value={formEdicao.data_nascimento}
                 onChange={cEdicao('data_nascimento')}
                 disabled={ehMoradorEdicao}
-                required
+                required={!formEdicao.perfis.every(pf => pf === 'VISITANTE' || pf === 'PRESTADOR_SERVICO')}
               />
             </Campo>
           </div>
@@ -3077,11 +3259,20 @@ export default function Pessoas({
                   required={formEdicao.perfis.includes('MORADOR')}
                 >
                   <option value="">Nenhuma (visitante/prestador/porteiro)</option>
-                  {unidades.map(u => (
-                    <option key={u.id_unidade} value={u.id_unidade}>
-                      Bl. {u.bloco} - Apto {u.numero_apartamento}
-                    </option>
-                  ))}
+                  {unidades
+                    .filter(u => u.bloco === 'Prédio' || u.numero_apartamento === 'Geral')
+                    .map(u => (
+                      <option key={u.id_unidade} value={u.id_unidade}>
+                        🏢 Prédio / Condomínio (Áreas Comuns)
+                      </option>
+                    ))}
+                  {unidades
+                    .filter(u => u.bloco !== 'Prédio' && u.numero_apartamento !== 'Geral')
+                    .map(u => (
+                      <option key={u.id_unidade} value={u.id_unidade}>
+                        Bloco {u.bloco} - Apto {u.numero_apartamento}
+                      </option>
+                    ))}
                 </select>
               </Campo>
 
@@ -3222,8 +3413,8 @@ export default function Pessoas({
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 items-stretch">
-                {OPCOES_PAPEIS.map(op => {
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 items-stretch">
+                {OPCOES_PAPEIS_EDICAO.map(op => {
                   const selecionado = formEdicao.perfis.includes(op.tipo);
                   const bloqueadoAdmin = ehUnicoAdmin && op.tipo === 'SINDICO';
                   const exclusivoAtivo = formEdicao.perfis.includes('VISITANTE')

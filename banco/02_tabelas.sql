@@ -33,9 +33,9 @@ CREATE TABLE pessoa (
     id_pessoa        SERIAL        PRIMARY KEY,
     uid_firebase     VARCHAR(128)  NOT NULL UNIQUE,
     nome             VARCHAR(100)  NOT NULL,
-    email            VARCHAR(150)  NOT NULL UNIQUE,
+    email            VARCHAR(150)  UNIQUE,
     cpf              CHAR(11)      NOT NULL UNIQUE,
-    data_nascimento  DATE          NOT NULL,
+    data_nascimento  DATE,
     celular          VARCHAR(30),
     senha_hash       VARCHAR(255),
     status_conta     VARCHAR(30)   NOT NULL DEFAULT 'ATIVO',
@@ -43,8 +43,8 @@ CREATE TABLE pessoa (
     tipo_servico     VARCHAR(100),
     ativo            BOOLEAN       NOT NULL DEFAULT TRUE,
     CONSTRAINT ck_pessoa_cpf        CHECK (cpf ~ '^[0-9]{11}$'),
-    CONSTRAINT ck_pessoa_email      CHECK (email LIKE '%_@_%._%'),
-    CONSTRAINT ck_pessoa_nascimento CHECK (data_nascimento < CURRENT_DATE),
+    CONSTRAINT ck_pessoa_email      CHECK (email IS NULL OR email LIKE '%_@_%._%'),
+    CONSTRAINT ck_pessoa_nascimento CHECK (data_nascimento IS NULL OR data_nascimento < CURRENT_DATE),
     CONSTRAINT ck_pessoa_status     CHECK (status_conta IN ('AGUARDANDO_PRIMEIRO_ACESSO', 'ATIVO', 'BLOQUEADO'))
 );
 
@@ -67,9 +67,9 @@ CREATE TABLE pessoa_unidade (
     CONSTRAINT ck_pu_periodo      CHECK (data_fim_ocupacao IS NULL
                                          OR data_fim_ocupacao >= data_inicio_ocupacao),
     CONSTRAINT ck_pu_dependente_regra CHECK (
-        (tipo_vinculo = 'DEPENDENTE' AND id_responsavel IS NOT NULL AND id_responsavel <> id_pessoa)
+        (tipo_vinculo = 'DEPENDENTE' AND (id_responsavel IS NULL OR id_responsavel <> id_pessoa))
         OR
-        (tipo_vinculo IN ('PROPRIETARIO', 'INQUILINO') AND id_responsavel IS NULL)
+        (tipo_vinculo IN ('PROPRIETARIO', 'INQUILINO', 'VISITANTE', 'PRESTADOR_SERVICO') AND id_responsavel IS NULL)
     )
 );
 
@@ -200,6 +200,7 @@ CREATE TABLE entrega_chave (
     id_reserva             INTEGER,
     data_hora_retirada     TIMESTAMP  NOT NULL DEFAULT CURRENT_TIMESTAMP,
     data_hora_devolucao    TIMESTAMP,
+    alerta_24h_enviado     BOOLEAN    NOT NULL DEFAULT FALSE,
     observacao             VARCHAR(255),
     CONSTRAINT fk_ec_chave     FOREIGN KEY (id_chave)              REFERENCES chave (id_chave) ON DELETE CASCADE,
     CONSTRAINT fk_ec_solic     FOREIGN KEY (id_perfil_solicitante) REFERENCES perfil (id_perfil),

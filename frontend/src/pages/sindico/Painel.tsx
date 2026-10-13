@@ -19,6 +19,7 @@ type Painel = {
     encomendas_pendentes: number | string;
     moradores_ativos: number | string;
     chaves_emprestadas: number | string;
+    chaves_atrasadas?: number | string;
     total_unidades: number | string;
   };
   evolucao_mensal: PontoEvolucao[];
@@ -191,14 +192,24 @@ export default function PainelAdmin() {
     {
       titulo: 'Chaves em Uso',
       valor: d.totais.chaves_emprestadas,
-      subtitulo: 'Áreas técnicas & controle',
+      subtitulo: Number(d.totais.chaves_atrasadas || 0) > 0
+        ? `${d.totais.chaves_atrasadas} em atraso (+24h)`
+        : 'Áreas técnicas & controle',
       link: '/portaria/chaves',
-      icone: 'key' as const,
-      tag: 'Controle',
-      gradiente: 'from-indigo-600/15 via-purple-500/10 to-transparent',
-      borda: 'border-indigo-200/80 hover:border-indigo-400 dark:border-indigo-900/60 dark:hover:border-indigo-600',
-      iconeBg: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400',
-      tagBadge: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/80 dark:text-indigo-300',
+      icone: Number(d.totais.chaves_atrasadas || 0) > 0 ? ('alert' as const) : ('key' as const),
+      tag: Number(d.totais.chaves_atrasadas || 0) > 0 ? 'Atenção' : 'Controle',
+      gradiente: Number(d.totais.chaves_atrasadas || 0) > 0
+        ? 'from-rose-600/15 via-red-500/10 to-transparent'
+        : 'from-indigo-600/15 via-purple-500/10 to-transparent',
+      borda: Number(d.totais.chaves_atrasadas || 0) > 0
+        ? 'border-rose-300 hover:border-rose-500 dark:border-rose-900/60 dark:hover:border-rose-600'
+        : 'border-indigo-200/80 hover:border-indigo-400 dark:border-indigo-900/60 dark:hover:border-indigo-600',
+      iconeBg: Number(d.totais.chaves_atrasadas || 0) > 0
+        ? 'bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400'
+        : 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400',
+      tagBadge: Number(d.totais.chaves_atrasadas || 0) > 0
+        ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/80 dark:text-rose-300'
+        : 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/80 dark:text-indigo-300',
     },
   ];
 

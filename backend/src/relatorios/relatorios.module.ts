@@ -70,6 +70,7 @@ export class RelatoriosController {
         (SELECT COUNT(*) FROM perfil
           WHERE tipo_perfil = 'MORADOR' AND (data_fim IS NULL OR data_fim > CURRENT_DATE))::int AS moradores_ativos,
         (SELECT COUNT(*) FROM chave WHERE status = 'EMPRESTADA')::int AS chaves_emprestadas,
+        (SELECT COUNT(*) FROM entrega_chave WHERE data_hora_devolucao IS NULL AND data_hora_retirada < CURRENT_TIMESTAMP - INTERVAL '24 hours')::int AS chaves_atrasadas,
         (SELECT COUNT(*) FROM unidade)::int AS total_unidades`, [dataRef]);
 
     // Série de 6 meses até o mês de referência

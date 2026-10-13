@@ -98,15 +98,24 @@ export class PortariaController {
 
   /** Chaves atualmente em posse do morador ou de pessoas da mesma unidade familiar. */
   @Get('minhas-chaves') @Perfis('MORADOR', 'SINDICO', 'ADMINISTRADOR', 'PORTEIRO')
-  minhasChaves(@Req() req: any) {
+  async minhasChaves(@Req() req: any) {
     const idPessoa = req.user.sub;
+    await this.processarAvisosChavesAtrasadas();
     return this.db.query(`
       SELECT ec.id_entrega_chave, c.id_chave, c.codigo, c.status AS status_chave,
              a.id_area_comum, a.nome AS area, a.imagem_url AS area_imagem,
              ec.data_hora_retirada,
              p.id_pessoa, p.nome AS responsavel, p.celular AS contato_responsavel,
              u.numero_apartamento AS apartamento, b.nome AS bloco,
-             CASE WHEN p.id_pessoa = $1 THEN true ELSE false END AS com_voce
+             CASE WHEN p.id_pessoa = $1 THEN true ELSE false END AS com_voce,
+             (ec.data_hora_retirada IS NOT NULL
+              AND ec.data_hora_devolucao IS NULL
+              AND ec.data_hora_retirada < CURRENT_TIMESTAMP - INTERVAL '24 hours') AS alerta_24h,
+             CASE
+               WHEN ec.data_hora_retirada IS NOT NULL AND ec.data_hora_devolucao IS NULL
+               THEN ROUND(EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - ec.data_hora_retirada)) / 3600, 1)
+               ELSE 0
+             END AS horas_posse
         FROM entrega_chave ec
         JOIN chave c ON c.id_chave = ec.id_chave
         JOIN area_comum a ON a.id_area_comum = c.id_area_comum
@@ -130,12 +139,21 @@ export class PortariaController {
 
   // ------------------------- chaves -------------------------
   @Get('chaves') @Perfis('PORTEIRO', 'SINDICO')
-  chaves() {
+  async chaves() {
+    await this.processarAvisosChavesAtrasadas();
     return this.db.query(`
       SELECT c.id_chave, c.codigo, c.status, c.id_area_comum, a.nome AS area,
              ec.id_entrega_chave, p.nome AS responsavel, ec.data_hora_retirada,
              u.numero_apartamento AS apartamento, b.nome AS bloco, p.celular AS contato_responsavel,
-             p.papel_controle
+             p.papel_controle,
+             (ec.data_hora_retirada IS NOT NULL
+              AND ec.data_hora_devolucao IS NULL
+              AND ec.data_hora_retirada < CURRENT_TIMESTAMP - INTERVAL '24 hours') AS alerta_24h,
+             CASE
+               WHEN ec.data_hora_retirada IS NOT NULL AND ec.data_hora_devolucao IS NULL
+               THEN ROUND(EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - ec.data_hora_retirada)) / 3600, 1)
+               ELSE 0
+             END AS horas_posse
         FROM chave c
         JOIN area_comum a ON a.id_area_comum = c.id_area_comum
         LEFT JOIN entrega_chave ec ON ec.id_chave = c.id_chave AND ec.data_hora_devolucao IS NULL
@@ -146,6 +164,67 @@ export class PortariaController {
         LEFT JOIN bloco b ON b.id_bloco = u.id_bloco
        WHERE a.ativo = TRUE AND a.exige_chave = TRUE
        ORDER BY a.nome, c.codigo`);
+  }
+
+  /** Rotina para registrar aviso individual quando a chave ultrapassa 24h sem devolução. */
+  private async processarAvisosChavesAtrasadas() {
+    try {
+      const atrasadas = await this.db.query(`
+        SELECT ec.id_entrega_chave, ec.id_chave, ec.id_perfil_entrega,
+               COALESCE(ec.id_pessoa_solicitante, pf.id_pessoa) AS id_pessoa,
+               c.codigo, a.nome AS area, ec.data_hora_retirada
+          FROM entrega_chave ec
+          JOIN chave c ON c.id_chave = ec.id_chave
+          JOIN area_comum a ON a.id_area_comum = c.id_area_comum
+          LEFT JOIN perfil pf ON pf.id_perfil = ec.id_perfil_solicitante
+         WHERE ec.data_hora_devolucao IS NULL
+           AND ec.data_hora_retirada < CURRENT_TIMESTAMP - INTERVAL '24 hours'
+           AND ec.alerta_24h_enviado = FALSE
+      `);
+
+      for (const item of atrasadas) {
+        if (item.id_pessoa) {
+          const perfilDest = await this.db.query(`
+            SELECT p.id_perfil
+              FROM perfil p
+             WHERE p.id_pessoa = $1
+               AND p.tipo_perfil = 'MORADOR'
+               AND (p.data_fim IS NULL OR p.data_fim > CURRENT_DATE)
+             ORDER BY p.data_inicio DESC
+             LIMIT 1
+          `, [item.id_pessoa]);
+
+          if (perfilDest.length > 0) {
+            const idPerfilDest = perfilDest[0].id_perfil;
+            const autor = item.id_perfil_entrega;
+            const titulo = 'Aviso: Devolução de Chave Pendente (+24h)';
+            const conteudo = `A chave "${item.codigo}" da área "${item.area}" está em posse da sua residência há mais de 24 horas. Solicitamos a devolução imediata na portaria para liberar o acesso a outros moradores.`;
+
+            const avisoRow = await this.db.query(`
+              INSERT INTO aviso (id_perfil_autor, escopo, titulo, conteudo)
+              VALUES ($1, 'INDIVIDUAL', $2, $3)
+              RETURNING id_aviso
+            `, [autor, titulo, conteudo]);
+
+            if (avisoRow.length > 0) {
+              await this.db.query(`
+                INSERT INTO aviso_perfil (id_aviso, id_perfil)
+                VALUES ($1, $2)
+                ON CONFLICT (id_aviso, id_perfil) DO NOTHING
+              `, [avisoRow[0].id_aviso, idPerfilDest]);
+            }
+          }
+        }
+
+        await this.db.query(`
+          UPDATE entrega_chave
+             SET alerta_24h_enviado = TRUE
+           WHERE id_entrega_chave = $1
+        `, [item.id_entrega_chave]);
+      }
+    } catch {
+      // Ignora erro para não interferir na resposta da listagem
+    }
   }
 
   /** UC06 emprestimo: gatilho RN09 valida disponibilidade e muda o status. Permitido a PORTEIRO e SINDICO. */

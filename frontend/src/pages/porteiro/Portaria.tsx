@@ -112,6 +112,7 @@ export default function Portaria() {
     nome: '',
     cpf: '',
     data_nascimento: '',
+    email: '',
     celular: '',
     tipo: 'VISITANTE' as 'VISITANTE' | 'PRESTADOR_SERVICO',
     id_unidade: '',
@@ -149,17 +150,14 @@ export default function Portaria() {
       setErroVisitante('Por favor, informe a descrição do tipo de serviço (ex: Eletricista, Encanador, etc.).');
       return;
     }
-    if (!formVisitante.data_nascimento) {
-      setErroVisitante('Data de nascimento é obrigatória.');
-      return;
-    }
 
     setSalvandoVisitante(true);
     try {
       await api.post('/cadastros/pessoas', {
         nome: formVisitante.nome.trim(),
         cpf: cpfLimpo,
-        data_nascimento: formVisitante.data_nascimento,
+        data_nascimento: formVisitante.data_nascimento || undefined,
+        email: formVisitante.email.trim() ? formVisitante.email.trim().toLowerCase() : undefined,
         celular: formVisitante.celular ? formVisitante.celular.replace(/\D/g, '') : undefined,
         perfis: [formVisitante.tipo],
         id_unidade: formVisitante.id_unidade ? Number(formVisitante.id_unidade) : undefined,
@@ -174,6 +172,7 @@ export default function Portaria() {
         nome: '',
         cpf: '',
         data_nascimento: '',
+        email: '',
         celular: '',
         tipo: 'VISITANTE',
         id_unidade: '',
@@ -739,10 +738,9 @@ export default function Portaria() {
               />
             </Campo>
 
-            <Campo rotulo="Data de Nascimento" obrigatorio>
+            <Campo rotulo="Data de Nascimento (opcional)">
               <input
                 type="date"
-                required
                 value={formVisitante.data_nascimento}
                 onChange={e => setFormVisitante(f => ({ ...f, data_nascimento: e.target.value }))}
                 className={inputCls}
@@ -751,6 +749,17 @@ export default function Portaria() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Campo rotulo="E-mail (opcional)">
+              <input
+                type="email"
+                maxLength={120}
+                placeholder="visitante@email.com"
+                value={formVisitante.email}
+                onChange={e => setFormVisitante(f => ({ ...f, email: e.target.value }))}
+                className={inputCls}
+              />
+            </Campo>
+
             <Campo rotulo="Celular (opcional)">
               <input
                 type="text"
@@ -761,22 +770,31 @@ export default function Portaria() {
                 className={inputCls}
               />
             </Campo>
+          </div>
 
-            <Campo rotulo="Unidade Relacionada (opcional)">
-              <select
-                value={formVisitante.id_unidade}
-                onChange={e => setFormVisitante(f => ({ ...f, id_unidade: e.target.value }))}
-                className={inputCls}
-              >
-                <option value="">Nenhuma unidade vinculada</option>
-                {unidadesCondominio.map(u => (
+          <Campo rotulo="Unidade Relacionada (opcional)">
+            <select
+              value={formVisitante.id_unidade}
+              onChange={e => setFormVisitante(f => ({ ...f, id_unidade: e.target.value }))}
+              className={inputCls}
+            >
+              <option value="">Nenhuma unidade vinculada</option>
+              {unidadesCondominio
+                .filter(u => u.bloco === 'Prédio' || u.numero_apartamento === 'Geral')
+                .map(u => (
+                  <option key={u.id_unidade} value={u.id_unidade}>
+                    🏢 Prédio / Condomínio (Áreas Comuns)
+                  </option>
+                ))}
+              {unidadesCondominio
+                .filter(u => u.bloco !== 'Prédio' && u.numero_apartamento !== 'Geral')
+                .map(u => (
                   <option key={u.id_unidade} value={u.id_unidade}>
                     Bloco {u.bloco} - Apto {u.numero_apartamento}
                   </option>
                 ))}
-              </select>
-            </Campo>
-          </div>
+            </select>
+          </Campo>
 
           <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
             <Botao
