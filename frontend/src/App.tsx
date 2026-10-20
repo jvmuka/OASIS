@@ -16,6 +16,8 @@ import Areas from './pages/sindico/Areas';
 import Pessoas from './pages/sindico/Pessoas';
 import PublicarAviso from './pages/sindico/PublicarAviso';
 import AreasLivres from './pages/porteiro/AreasLivres';
+import EstruturaFisica from './pages/superadmin/EstruturaFisica';
+import PessoasSuperadmin from './pages/superadmin/PessoasSuperadmin';
 
 /** Redireciona para o painel inicial do perfil (ou login, se nao houver sessao). */
 function RedirecionaInicio() {
@@ -28,6 +30,8 @@ function RedirecionaInicio() {
 function Protegida({ perfil, children }: { perfil?: string | string[]; children: JSX.Element }) {
   const s = sessaoAtual();
   if (!s) return <Navigate to="/login" replace />;
+  // Superadmin possui passe livre para todas as telas do sistema
+  if (s.perfis.some(p => p.tipo === 'SUPERADMIN')) return children;
   const exigidos = perfil ? (Array.isArray(perfil) ? perfil : [perfil]) : null;
   if (exigidos) {
     const sinonimos = (t: string) => (t === 'SINDICO' || t === 'ADMINISTRADOR' ? ['SINDICO', 'ADMINISTRADOR'] : [t]);
@@ -60,6 +64,9 @@ export default function App() {
         <Route path="/sindico/areas" element={<Protegida perfil={['ADMINISTRADOR', 'SINDICO']}><Areas /></Protegida>} />
         <Route path="/sindico/pessoas" element={<Protegida perfil={['ADMINISTRADOR', 'SINDICO', 'PORTEIRO']}><Pessoas /></Protegida>} />
         <Route path="/sindico/avisos" element={<Protegida perfil={['ADMINISTRADOR', 'SINDICO']}><PublicarAviso /></Protegida>} />
+        {/* Plataforma Superadmin */}
+        <Route path="/superadmin/estrutura" element={<Protegida perfil="SUPERADMIN"><EstruturaFisica /></Protegida>} />
+        <Route path="/superadmin/pessoas" element={<Protegida perfil="SUPERADMIN"><PessoasSuperadmin /></Protegida>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

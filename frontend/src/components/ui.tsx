@@ -80,10 +80,24 @@ export function Icone({
   | 'paperclip'
   | 'fileText'
   | 'download'
+  | 'car'
+  | 'layers'
   | 'bell';
   className?: string;
 }) {
   switch (nome) {
+    case 'car':
+      return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M8 17a2 2 0 100-4 2 2 0 000 4zm8 0a2 2 0 100-4 2 2 0 000 4m-11-5l1.5-4.5A2 2 0 018.4 6h7.2a2 2 0 011.9 1.5L19 12m-16 0h18m-18 0v4a1 1 0 001 1h1m16-5v4a1 1 0 01-1 1h-1" />
+        </svg>
+      );
+    case 'layers':
+      return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+        </svg>
+      );
     case 'bell':
       return (
         <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

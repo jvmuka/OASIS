@@ -36,9 +36,10 @@ type MinhaChaveEmprestada = {
   horas_posse?: number;
 };
 
-type PerfilPrincipal = 'ADMINISTRADOR' | 'SINDICO' | 'PORTEIRO' | 'MORADOR';
+type PerfilPrincipal = 'SUPERADMIN' | 'ADMINISTRADOR' | 'SINDICO' | 'PORTEIRO' | 'MORADOR';
 
 const ROTULO_PERFIL: Record<PerfilPrincipal, string> = {
+  SUPERADMIN: 'Superadmin',
   ADMINISTRADOR: 'Administrador',
   SINDICO: 'Administrador',
   PORTEIRO: 'Porteiro',
@@ -210,8 +211,8 @@ function CardAcaoMorador({
 export default function Inicio() {
   const s = sessaoAtual();
   const tipos = s ? s.perfis.map(p => p.tipo) : [];
-  const perfilPrincipal: PerfilPrincipal = tipos.includes('MORADOR')
-    ? 'MORADOR'
+  const perfilPrincipal: PerfilPrincipal = tipos.includes('SUPERADMIN')
+    ? 'SUPERADMIN'
     : (tipos.includes('ADMINISTRADOR') || tipos.includes('SINDICO'))
       ? 'ADMINISTRADOR'
       : tipos.includes('PORTEIRO')
@@ -221,7 +222,9 @@ export default function Inicio() {
   const rotuloPapeis = Array.from(
     new Set(
       tipos.map(t =>
-        t === 'SINDICO' || t === 'ADMINISTRADOR'
+        t === 'SUPERADMIN'
+          ? 'Superadmin'
+          : t === 'SINDICO' || t === 'ADMINISTRADOR'
           ? 'Administrador'
           : t === 'PORTEIRO'
           ? 'Porteiro'
@@ -246,7 +249,14 @@ export default function Inicio() {
     const pMinhasChaves = api.get<MinhaChaveEmprestada[]>('/portaria/minhas-chaves').catch(() => []);
 
     let chamadas: Promise<any>[];
-    if (perfilPrincipal === 'MORADOR') {
+    if (perfilPrincipal === 'SUPERADMIN') {
+      chamadas = [
+        api.get<EncomendaPortaria[]>('/portaria/encomendas?status=AGUARDANDO_RETIRADA').catch(() => []),
+        api.get<Chave[]>('/portaria/chaves').catch(() => []),
+        api.get<AvisoMeu[]>('/avisos/meus').catch(() => []),
+        pMinhasChaves,
+      ];
+    } else if (perfilPrincipal === 'MORADOR') {
       chamadas = [
         api.get<Reserva[]>('/reservas/minhas'),
         api.get<AvisoMeu[]>('/avisos/meus'),
@@ -496,6 +506,58 @@ export default function Inicio() {
       { to: '/portaria/chaves', rotulo: 'Controle de Chaves', descricao: 'Empréstimo e devolução do claviculário', icone: 'key' },
       { to: '/mural', rotulo: 'Mural de Avisos', descricao: 'Comunicados do condomínio', icone: 'pin' },
     ];
+  } else if (perfilPrincipal === 'SUPERADMIN') {
+    const naoLidos = avisos.filter(a => !a.lido).length;
+    cardsResumo = [
+      <CartaoResumo
+        key="super-estrutura"
+        titulo="Estrutura Física"
+        valor="Blocos & Vagas"
+        legenda="Gerenciar blocos, andares, aptos e garagens com m²"
+        icone="building"
+        cor="bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-950/40 dark:text-purple-400 dark:border-purple-800"
+        acao={
+          <Link to="/superadmin/estrutura" className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-purple-600 hover:underline dark:text-purple-400">
+            Acessar Estrutura <Icone nome="chevronRight" className="h-3 w-3" />
+          </Link>
+        }
+      />,
+      <CartaoResumo
+        key="super-pessoas"
+        titulo="Governança Global"
+        valor="Pessoas & Síndicos"
+        legenda="Auditoria, nomeação de síndicos e bloqueios"
+        icone="users"
+        cor="bg-indigo-50 text-indigo-600 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-400 dark:border-indigo-800"
+        acao={
+          <Link to="/superadmin/pessoas" className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:underline dark:text-indigo-400">
+            Gerenciar Pessoas <Icone nome="chevronRight" className="h-3 w-3" />
+          </Link>
+        }
+      />,
+      <CartaoResumo
+        key="super-avisos"
+        titulo="Mural de Avisos"
+        valor={naoLidos}
+        legenda={naoLidos ? `${naoLidos} novo(s) comunicado(s)` : 'Tudo em dia'}
+        icone="pin"
+        cor="bg-blue-50 text-blue-600 border-blue-100 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900/60"
+        acao={
+          <Link to="/mural" className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-navy hover:underline dark:text-sky-400">
+            Acessar Mural <Icone nome="chevronRight" className="h-3 w-3" />
+          </Link>
+        }
+      />,
+    ];
+
+    atalhos = [
+      { to: '/superadmin/estrutura', rotulo: 'Estrutura Física & Vagas', descricao: 'Gerador em lote, blocos, andares e garagens com m²', icone: 'building' },
+      { to: '/superadmin/pessoas', rotulo: 'Pessoas & Administradoras', descricao: 'Atribuição de administradoras, gestão e exclusão irrestrita', icone: 'users' },
+      { to: '/sindico/painel', rotulo: 'Painel Geral do Condomínio', descricao: 'Indicadores operacionais e financeiros', icone: 'home' },
+      { to: '/sindico/areas', rotulo: 'Áreas Comuns', descricao: 'Regras, horários e manutenções', icone: 'building' },
+      { to: '/portaria/painel', rotulo: 'Painel da Portaria', descricao: 'Ocupação agora, agenda do dia e moradores', icone: 'building' },
+      { to: '/mural', rotulo: 'Mural de Avisos', descricao: 'Comunicados oficiais do condomínio', icone: 'pin' },
+    ];
   } else {
     const emprestadasGeral = chaves.filter(c => c.status === 'EMPRESTADA').length;
     const minhasEmprestadas = minhasChaves.length;
@@ -564,7 +626,15 @@ export default function Inicio() {
         sub={(rotuloPapeis || ROTULO_PERFIL[perfilPrincipal]) + (unidadesTexto ? ` • ${unidadesTexto}` : '')}
         icone={<Icone nome="home" className="h-5 w-5" />}
         acao={
-          (tipos.includes('SINDICO') || tipos.includes('ADMINISTRADOR')) && (
+          tipos.includes('SUPERADMIN') ? (
+            <Link
+              to="/superadmin/estrutura"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-purple-200 bg-purple-50 px-3.5 py-2 text-xs font-bold text-purple-700 shadow-soft hover:bg-purple-100 dark:border-purple-800 dark:bg-purple-950/60 dark:text-purple-300 transition-all cursor-pointer"
+            >
+              <Icone nome="shield" className="h-4 w-4" />
+              Painel Superadmin <Icone nome="chevronRight" className="h-3.5 w-3.5" />
+            </Link>
+          ) : (tipos.includes('SINDICO') || tipos.includes('ADMINISTRADOR')) ? (
             <Link
               to="/sindico/painel"
               className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-soft hover:border-navy/30 hover:text-navy dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-sky-500/40 dark:hover:text-white transition-all cursor-pointer"
@@ -572,7 +642,7 @@ export default function Inicio() {
               <Icone nome="building" className="h-4 w-4 text-navy dark:text-sky-400" />
               Painel Geral de Gestão <Icone nome="chevronRight" className="h-3.5 w-3.5" />
             </Link>
-          )
+          ) : undefined
         }
       >
         {`${saudacaoPorHorario()}, ${primeiroNome}`}

@@ -10,6 +10,7 @@ type Aviso = {
   autor: string;
   fixado: boolean;
   lido: boolean;
+  lidoInicial?: boolean;
   data_hora_publicacao: string;
   escopo: string;
   categoria?: 'ADMINISTRADOR' | 'ENCOMENDA';
@@ -41,7 +42,7 @@ export default function Mural() {
       .then(res => {
         // Se for exclusivamente administrador, desconsidera qualquer aviso de encomenda
         const dados = ehApenasAdmin ? res.filter(a => a.categoria !== 'ENCOMENDA') : res;
-        setAvisos(dados);
+        setAvisos(dados.map(a => ({ ...a, lidoInicial: a.lido })));
       })
       .finally(() => setCarregando(false));
   };
@@ -54,8 +55,10 @@ export default function Mural() {
     const jaAberto = aberto === a.id_aviso;
     setAberto(jaAberto ? null : a.id_aviso);
     if (!a.lido) {
-      await api.patch(`/avisos/${a.id_aviso}/lido`).catch(() => {});
-      // Atualiza localmente o status de lido
+      // Dispara em background para registrar no banco que o aviso foi lido
+      api.patch(`/avisos/${a.id_aviso}/lido`).catch(() => {});
+      // Atualiza localmente o status de lido para refletir dentro do card,
+      // mas mantem lidoInicial inalterado para não sumir da lista nem pular de posição enquanto o usuário lê
       setAvisos(prev =>
         prev.map(item =>
           item.id_aviso === a.id_aviso ? { ...item, lido: true } : item
@@ -66,12 +69,14 @@ export default function Mural() {
 
   const countAdmin = avisos.filter(a => a.categoria === 'ADMINISTRADOR').length;
   const countEncomenda = avisos.filter(a => a.categoria === 'ENCOMENDA').length;
-  const countNaoLidos = avisos.filter(a => !a.lido).length;
+  // A contagem de não lidos na aba reflete o estado inicial da página para não alterar a listagem bruscamente
+  const countNaoLidos = avisos.filter(a => !(a.lidoInicial ?? a.lido)).length;
 
   const avisosFiltrados = avisos
     .filter(a => {
       if (ehApenasAdmin && a.categoria === 'ENCOMENDA') return false;
-      if (filtro === 'NAO_LIDOS') return !a.lido;
+      // Permanece na listagem de não lidos enquanto estiver na mesma visualização da página
+      if (filtro === 'NAO_LIDOS') return !(a.lidoInicial ?? a.lido);
       if (filtro === 'ADMINISTRADOR') return a.categoria === 'ADMINISTRADOR';
       if (filtro === 'ENCOMENDA') return a.categoria === 'ENCOMENDA';
       return true;
@@ -79,8 +84,10 @@ export default function Mural() {
     .sort((a, b) => {
       // 1. Fixados primeiro
       if (a.fixado !== b.fixado) return a.fixado ? -1 : 1;
-      // 2. Não lidos primeiro
-      if (a.lido !== b.lido) return a.lido ? 1 : -1;
+      // 2. Não lidos na carga inicial primeiro (para não reordenar nem pular de posição ao abrir)
+      const lidoA = a.lidoInicial ?? a.lido;
+      const lidoB = b.lidoInicial ?? b.lido;
+      if (lidoA !== lidoB) return lidoA ? 1 : -1;
       // 3. Mais recentes primeiro
       return new Date(b.data_hora_publicacao).getTime() - new Date(a.data_hora_publicacao).getTime();
     });
@@ -98,12 +105,33 @@ export default function Mural() {
 
   return (
     <div className="space-y-6">
-      <Titulo
-        sub="Fique por dentro das novidades, comunicados e manutenções do condomínio."
-        icone={<Icone nome="megaphone" className="h-5 w-5" />}
-      >
-        Mural de Avisos
-      </Titulo>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <Titulo
+          sub="Fique por dentro das novidades, comunicados e manutenções do condomínio."
+          icone={<Icone nome="megaphone" className="h-5 w-5" />}
+        >
+          Mural de Avisos
+        </Titulo>
+
+        <button
+          type="button"
+          onClick={carregar}
+          disabled={carregando}
+          className="self-start sm:self-auto inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors shadow-2xs cursor-pointer"
+          title="Recarregar avisos do mural"
+        >
+          <svg
+            className={`h-3.5 w-3.5 ${carregando ? 'animate-spin' : ''}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          <span>Atualizar</span>
+        </button>
+      </div>
 
       {/* Abas e Filtros rápidos */}
       <div className="flex flex-wrap gap-2">
@@ -252,6 +280,11 @@ export default function Mural() {
                           {!a.lido && (
                             <span className="rounded-md bg-navy dark:bg-sky-600 px-2 py-0.5 text-[10px] font-bold text-white tracking-wider animate-pulse">
                               NOVO
+                            </span>
+                          )}
+                          {a.lido && !a.lidoInicial && (
+                            <span className="rounded-md bg-emerald-100 dark:bg-emerald-950/60 px-2 py-0.5 text-[10px] font-bold text-emerald-800 dark:text-emerald-300 tracking-wider">
+                              LIDO
                             </span>
                           )}
                           {a.anexo_url && (

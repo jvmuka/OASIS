@@ -36,6 +36,7 @@ export class PerfilGuard implements CanActivate {
     if (!exigidos || !exigidos.length) return true;
     const user = ctx.switchToHttp().getRequest().user;
     const meus: string[] = (user?.perfis || []).map((p: any) => p.tipo);
+    if (meus.includes('SUPERADMIN')) return true;
     const sinonimos = (t: string) => (t === 'SINDICO' || t === 'ADMINISTRADOR' ? ['SINDICO', 'ADMINISTRADOR'] : [t]);
     const permitidos = new Set(exigidos.flatMap(sinonimos));
     if (meus.some(t => permitidos.has(t))) return true;
@@ -50,10 +51,11 @@ export function perfilDoUsuario(user: any, tipo?: string): number {
   if (!tipo) {
     alvo = lista[0];
   } else if (tipo === 'SINDICO' || tipo === 'ADMINISTRADOR') {
-    alvo = lista.find((p: any) => p.tipo === 'ADMINISTRADOR' || p.tipo === 'SINDICO');
+    alvo = lista.find((p: any) => p.tipo === 'ADMINISTRADOR' || p.tipo === 'SINDICO' || p.tipo === 'SUPERADMIN');
   } else {
     alvo = lista.find((p: any) => p.tipo === tipo);
   }
+  if (!alvo && lista.length) alvo = lista[0];
   if (!alvo) throw new ForbiddenException('Usuario sem o perfil necessario.');
   return alvo.id_perfil;
 }

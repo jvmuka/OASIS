@@ -101,7 +101,7 @@ export default function Layout() {
                 )}
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5">
-                {tipos.map(t => (t === 'SINDICO' || t === 'ADMINISTRADOR' ? 'Administrador' : t === 'PORTEIRO' ? 'Porteiro' : 'Morador')).join(' • ')}
+                {tipos.map(t => (t === 'SUPERADMIN' ? 'Superadmin' : t === 'SINDICO' || t === 'ADMINISTRADOR' ? 'Administrador' : t === 'PORTEIRO' ? 'Porteiro' : 'Morador')).join(' • ')}
               </p>
             </div>
           </div>
@@ -147,6 +147,19 @@ export default function Layout() {
               {item(rotaInicial, 'Início', 'home')}
             </div>
 
+            {tipos.includes('SUPERADMIN') && (
+              <div>
+                <p className="px-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 flex items-center gap-1.5">
+                  <Icone nome="shield" className="w-3.5 h-3.5" />
+                  Superadmin
+                </p>
+                <div className="space-y-1">
+                  {item('/superadmin/estrutura', 'Estrutura Física & Vagas', 'building')}
+                  {item('/superadmin/pessoas', 'Pessoas & Administradoras', 'users')}
+                </div>
+              </div>
+            )}
+
             {tipos.includes('MORADOR') && (
               <div>
                 <p className="px-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
@@ -177,7 +190,7 @@ export default function Layout() {
               </div>
             )}
 
-            {(tipos.includes('SINDICO') || tipos.includes('ADMINISTRADOR')) && (
+            {(tipos.includes('SINDICO') || tipos.includes('ADMINISTRADOR') || tipos.includes('SUPERADMIN')) && (
               <div>
                 <p className="px-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                   Administração

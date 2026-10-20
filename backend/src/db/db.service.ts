@@ -18,7 +18,20 @@ export class DbService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleInit() {
     try {
+      try {
+        await this.pool.query("ALTER TYPE tipo_perfil_enum ADD VALUE IF NOT EXISTS 'SUPERADMIN'");
+      } catch {}
+
       await this.pool.query(`
+        ALTER TABLE vaga_garagem ADD COLUMN IF NOT EXISTS metragem_m2 NUMERIC(6,2) NOT NULL DEFAULT 12.00;
+        ALTER TABLE vaga_garagem DROP CONSTRAINT IF EXISTS ck_vaga_metragem_positiva;
+        ALTER TABLE vaga_garagem ADD CONSTRAINT ck_vaga_metragem_positiva CHECK (metragem_m2 > 0);
+
+        ALTER TABLE unidade ADD COLUMN IF NOT EXISTS andar INTEGER NOT NULL DEFAULT 1;
+        ALTER TABLE unidade DROP CONSTRAINT IF EXISTS ck_unidade_andar;
+        ALTER TABLE unidade ADD CONSTRAINT ck_unidade_andar CHECK (andar >= 0);
+        UPDATE unidade SET andar = (numero_apartamento::INTEGER / 10) WHERE numero_apartamento ~ '^[0-9]+$';
+
         ALTER TABLE codigo_primeiro_acesso ADD COLUMN IF NOT EXISTS usado_em TIMESTAMP;
         ALTER TABLE codigo_primeiro_acesso ADD COLUMN IF NOT EXISTS criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
         ALTER TABLE codigo_primeiro_acesso ADD COLUMN IF NOT EXISTS tipo VARCHAR(30) DEFAULT 'PRIMEIRO_ACESSO';
@@ -40,15 +53,6 @@ export class DbService implements OnModuleInit, OnModuleDestroy {
         ALTER TABLE pessoa ALTER COLUMN email DROP NOT NULL;
         ALTER TABLE pessoa DROP CONSTRAINT IF EXISTS ck_pessoa_email;
         ALTER TABLE pessoa ADD CONSTRAINT ck_pessoa_email CHECK (email IS NULL OR email LIKE '%_@_%._%');
-
-        INSERT INTO bloco (nome, descricao) VALUES ('Prédio', 'Instalações Gerais e Áreas Comuns do Condomínio') ON CONFLICT (nome) DO NOTHING;
-        INSERT INTO unidade (id_bloco, numero_apartamento, numero_vagas)
-        SELECT b.id_bloco, 'Geral', 0
-          FROM bloco b
-         WHERE b.nome = 'Prédio'
-           AND NOT EXISTS (
-             SELECT 1 FROM unidade u WHERE u.id_bloco = b.id_bloco AND u.numero_apartamento = 'Geral'
-           );
 
         ALTER TABLE pessoa_unidade DROP CONSTRAINT IF EXISTS ck_pu_dependente_regra;
         ALTER TABLE pessoa_unidade ADD CONSTRAINT ck_pu_dependente_regra CHECK (

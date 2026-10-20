@@ -38,6 +38,8 @@ $exclusoes = @(
     'Documentos/AGENTS.md',
     'Documentos/relatorios_commits',
     'Documentos/implementacoes',
+    'Documentos/planos_executados',
+    'Documentos/planos_pendentes',
     'Documentos/diferencas_e_impactos_docker.md',
     'Documentos/diagramas/sql_consolidado'
 )

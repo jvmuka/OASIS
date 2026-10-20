@@ -442,7 +442,7 @@ export class PortariaController {
   }
 
   /** Detalhe de atividade de uma pessoa: agora, proximas reservas e historico de 90 dias. */
-  @Get('pessoas/:idPessoa/atividade') @Perfis('PORTEIRO', 'SINDICO')
+  @Get('pessoas/:idPessoa/atividade') @Perfis('PORTEIRO', 'SINDICO', 'SUPERADMIN')
   async atividadePessoa(@Param('idPessoa', ParseIntPipe) idPessoa: number) {
     const pessoa = await this.db.query(`
       SELECT p.id_pessoa, p.nome, p.cpf, p.celular, b.nome AS bloco, u.numero_apartamento AS apartamento

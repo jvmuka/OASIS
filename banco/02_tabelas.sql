@@ -13,10 +13,12 @@ CREATE TABLE unidade (
     id_unidade          SERIAL       PRIMARY KEY,
     id_bloco            INTEGER      NOT NULL,
     numero_apartamento  VARCHAR(10)  NOT NULL,
+    andar               INTEGER      NOT NULL DEFAULT 1,
     numero_vagas        INTEGER      NOT NULL DEFAULT 0,
     CONSTRAINT fk_unidade_bloco   FOREIGN KEY (id_bloco) REFERENCES bloco (id_bloco),
     CONSTRAINT uk_unidade_ap      UNIQUE (id_bloco, numero_apartamento),
-    CONSTRAINT ck_unidade_vagas   CHECK (numero_vagas >= 0)
+    CONSTRAINT ck_unidade_vagas   CHECK (numero_vagas >= 0),
+    CONSTRAINT ck_unidade_andar   CHECK (andar >= 0)
 );
 
 CREATE TABLE vaga_garagem (
@@ -26,7 +28,9 @@ CREATE TABLE vaga_garagem (
     pavimento      pavimento_enum NOT NULL,
     tipo_vaga      tipo_vaga_enum NOT NULL,
     coberta        BOOLEAN        NOT NULL DEFAULT FALSE,
-    CONSTRAINT fk_vaga_unidade FOREIGN KEY (id_unidade) REFERENCES unidade (id_unidade)
+    metragem_m2    NUMERIC(6,2)   NOT NULL DEFAULT 12.00,
+    CONSTRAINT fk_vaga_unidade FOREIGN KEY (id_unidade) REFERENCES unidade (id_unidade),
+    CONSTRAINT ck_vaga_metragem_positiva CHECK (metragem_m2 > 0)
 );
 
 CREATE TABLE pessoa (
