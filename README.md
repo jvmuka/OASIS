@@ -10,6 +10,11 @@ O sistema é composto por três camadas, todas executadas em contêineres Docker
 | API REST | NestJS + TypeScript | http://localhost:3000/api |
 | Banco de dados | PostgreSQL 16 | `localhost:5433` |
 
+### 🌐 Acesso em Produção (Online)
+A aplicação oficial está em execução e disponível para acesso público em:
+* **Domínio Oficial:** [https://oasiscondo.com.br](https://oasiscondo.com.br) *(com certificado SSL/TLS HTTPS)*
+* **Manual de Infraestrutura:** [`Documentos/infraestrutura/guia_vps_producao_oracle.md`](Documentos/infraestrutura/guia_vps_producao_oracle.md)
+
 O documento completo do projeto (requisitos, casos de uso, diagramas, modelo de dados e plano de testes) está em [`Documentos/referencias_do_Projeto/OASIS_Projeto.pdf`](Documentos/referencias_do_Projeto/OASIS_Projeto.pdf).
 
 ---

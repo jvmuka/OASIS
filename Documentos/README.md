@@ -17,7 +17,8 @@ Documentos/
 │   ├── padrao_ux_ui.md                    <- Guia completo de UI/UX, Design System, Tabelas, Filtros e Modais
 │   └── diretrizes_desenvolvimento.md      <- Padrões de engenharia, arquitetura em 3 camadas e commits
 │
-├── infraestrutura/                        <- Manuais operacionais e arquitetura de contêineres
+├── infraestrutura/                        <- Manuais operacionais, Docker e Cloud (Produção)
+│   ├── guia_vps_producao_oracle.md        <- [NOVO] Manual de produção: VPS Oracle, Nginx, SSL e operação
 │   ├── guia_docker.md                     <- Guia prático de comandos Docker e Docker Compose
 │   └── diferencas_e_impactos_docker.md    <- Análise técnica comparativa da conteinerização
 │
@@ -37,6 +38,7 @@ Documentos/
 │   └── sql_consolidado/                   <- Scripts SQL históricos de referência dos diagramas
 │
 ├── planos_executados/                     <- Funcionalidades já desenvolvidas, testadas e entregues
+│   ├── plano_deploy_vps_producao_e_ambiente_demo.md <- [NOVO] Deploy em produção VPS Oracle, SSL e modo demo
 │   ├── plano_gestao_estrutural_administrador.md
 │   ├── plano_implementacao_superadmin_estrutural.md
 │   ├── plano_separacao_cadastros_visitantes_predio.md
@@ -86,10 +88,11 @@ Para diretrizes de desenvolvimento, regras de arquitetura em três camadas e flu
 
 ---
 
-## 3. 🐳 Infraestrutura & Execução em Contêineres (Docker)
+## 3. 🐳 Infraestrutura, Docker & Nuvem de Produção
 
-Instruções para deploy, gerenciamento e controle do ambiente Docker Compose:
+Instruções para deploy, gerenciamento e controle do ambiente Docker Compose e do servidor em produção:
 
+- 👉 **[`Documentos/infraestrutura/guia_vps_producao_oracle.md`](infraestrutura/guia_vps_producao_oracle.md)**: Manual de produção na VPS Oracle Cloud, Nginx como Proxy Reverso, SSL oficial Let's Encrypt (Certbot), segurança e rotinas operacionais no domínio `oasiscondo.com.br`.
 - 👉 **[`Documentos/infraestrutura/guia_docker.md`](infraestrutura/guia_docker.md)**: Comandos para compilar imagens, iniciar contêineres, acompanhar logs em tempo real e resetar volumes.
 - 👉 **[`Documentos/infraestrutura/diferencas_e_impactos_docker.md`](infraestrutura/diferencas_e_impactos_docker.md)**: Comparativo detalhado entre a execução local nativa e a arquitetura em contêineres.
 
@@ -114,6 +117,7 @@ Instruções para deploy, gerenciamento e controle do ambiente Docker Compose:
 ### ✅ Planos Já Executados e Validados
 | Documento | Data / Conclusão | Funcionalidades Entregues |
 | :--- | :---: | :--- |
+| [`planos_executados/plano_deploy_vps_producao_e_ambiente_demo.md`](planos_executados/plano_deploy_vps_producao_e_ambiente_demo.md) | 04/11/2026 | Deploy em produção na VPS Oracle Cloud (Always Free) com domínio `oasiscondo.com.br`, HTTPS/SSL via Certbot, segregação de ambientes via `VITE_MODO_DEMO` e `NODE_ENV`, atalho de Superadmin e higienização do banco para início dos cadastros reais. |
 | [`planos_executados/plano_gestao_estrutural_administrador.md`](planos_executados/plano_gestao_estrutural_administrador.md) | 16/10/2026 | Visualização estrutural de blocos, andares, apartamentos e vagas na tela do Administrador (somente leitura), modal unificado de perfil de usuário com botão de edição e alinhamento de ações. |
 | [`planos_executados/plano_implementacao_superadmin_estrutural.md`](planos_executados/plano_implementacao_superadmin_estrutural.md) | 15/10/2026 | Perfil `SUPERADMIN`, gerador estrutural de Blocos, Andares, Apartamentos por Andar, Vagas de garagem com metragem útil ($m^2$) e governança global de pessoas. |
 | [`planos_executados/plano_separacao_cadastros_visitantes_predio.md`](planos_executados/plano_separacao_cadastros_visitantes_predio.md) | 13/10/2026 | Separação do cadastro de usuários do sistema vs. visitantes e prestadores de serviço, campos opcionais e vínculo institucional com o prédio. |
