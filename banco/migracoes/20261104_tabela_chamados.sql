@@ -58,3 +58,4 @@ CREATE TABLE IF NOT EXISTS chamado_mensagem (
 );
 
 CREATE INDEX IF NOT EXISTS idx_chamado_msg_chamado ON chamado_mensagem(id_chamado, data_hora ASC);
+

@@ -606,3 +606,4 @@ export class ChamadosController {
   providers: [DbService, SyncService],
 })
 export class ChamadosModule {}
+

@@ -67,3 +67,4 @@ Disponibilizar uma nova funcionalidade completa para o sistema OASIS Condomínio
   2. Triagem e resposta oficial pela síndica Ana Souza.
   3. Réplica do morador na thread.
   4. Finalização como `REALIZADA` com registro de data de fechamento e persistência no banco.
+
