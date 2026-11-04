@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, Module, UseGuards, Req, ParseIntPipe, BadRequestException } from '@nestjs/common';
 import { DbService } from '../db/db.service';
 import { JwtAuthGuard, PerfilGuard, Perfis, perfilDoUsuario } from '../auth/guards';
+import { SyncService } from '../sync/sync.service';
 
 /**
  * UC06 (chaves), UC07 (registrar encomenda) e UC08 (alterar status).
@@ -9,7 +10,7 @@ import { JwtAuthGuard, PerfilGuard, Perfis, perfilDoUsuario } from '../auth/guar
 @Controller('portaria')
 @UseGuards(JwtAuthGuard, PerfilGuard)
 export class PortariaController {
-  constructor(private db: DbService) {}
+  constructor(private db: DbService, private sync: SyncService) {}
 
   // ------------------------- encomendas -------------------------
   @Get('encomendas') @Perfis('PORTEIRO', 'SINDICO')
@@ -29,36 +30,52 @@ export class PortariaController {
 
   /** UC07: gatilho RN11 gera o aviso individual automaticamente. */
   @Post('encomendas') @Perfis('PORTEIRO')
-  registrar(@Req() req: any, @Body() b: {
+  async registrar(@Req() req: any, @Body() b: {
     id_pessoa_destinatario: number; descricao?: string; tamanho: string;
   }) {
     const idPerfil = perfilDoUsuario(req.user, 'PORTEIRO');
-    return this.db.query(`
+    const res = await this.db.query(`
       INSERT INTO encomenda (id_pessoa_destinatario, id_perfil_recebimento, descricao, tamanho)
       VALUES ($1,$2,$3,$4) RETURNING id_encomenda, status, data_hora_recebimento`,
       [b.id_pessoa_destinatario, idPerfil, b.descricao || null, b.tamanho])
       .then(r => r[0]);
+
+    this.sync.emitir({
+      topico: 'ENCOMENDAS',
+      acao: 'CRIADO',
+      idPessoaAlvo: b.id_pessoa_destinatario,
+      detalhes: { id_encomenda: res.id_encomenda },
+    });
+    return res;
   }
 
   /** UC08: gatilho RN12 exige retirado_por (e o nome, se TERCEIRO). */
   @Patch('encomendas/:id/retirada') @Perfis('PORTEIRO')
-  retirada(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body() b: {
+  async retirada(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body() b: {
     retirado_por: string; nome_retirante?: string;
   }) {
     const idPerfil = perfilDoUsuario(req.user, 'PORTEIRO');
-    return this.db.query(`
+    const res = await this.db.query(`
       UPDATE encomenda
          SET data_hora_retirada = CURRENT_TIMESTAMP,
              retirado_por = $2::retirado_por_enum,
              nome_retirante = $3,
              id_perfil_entrega = $4
        WHERE id_encomenda = $1 AND status = 'AGUARDANDO_RETIRADA'
-       RETURNING id_encomenda, status, data_hora_retirada`,
+       RETURNING id_encomenda, status, data_hora_retirada, id_pessoa_destinatario`,
       [id, b.retirado_por, b.nome_retirante || null, idPerfil])
       .then(r => {
         if (!r.length) throw new BadRequestException('Encomenda inexistente ou ja retirada.');
         return r[0];
       });
+
+    this.sync.emitir({
+      topico: 'ENCOMENDAS',
+      acao: 'ATUALIZADO',
+      idPessoaAlvo: res.id_pessoa_destinatario,
+      detalhes: { id_encomenda: id },
+    });
+    return res;
   }
 
   /** Encomendas do morador autenticado e de sua unidade (ele nao pode ver a lista completa da portaria). */
@@ -253,27 +270,41 @@ export class PortariaController {
       throw new BadRequestException('Informe o morador ou prestador de serviço solicitante da chave.');
     }
 
-    return this.db.query(`
+    const res = await this.db.query(`
       INSERT INTO entrega_chave (id_chave, id_perfil_solicitante, id_pessoa_solicitante, id_perfil_entrega, id_reserva, observacao)
       VALUES ($1,$2,$3,$4,$5,$6) RETURNING id_entrega_chave, data_hora_retirada`,
       [id, idPerfil, idPessoa, idOperador, b.id_reserva || null, b.observacao || null])
       .then(r => r[0]);
+
+    this.sync.emitir({
+      topico: 'CHAVES',
+      acao: 'ATUALIZADO',
+      detalhes: { id_chave: id, id_pessoa_solicitante: idPessoa },
+    });
+    return res;
   }
 
   /** UC06 devolucao: gatilho RN10 valida e libera a chave. Permitido a PORTEIRO e SINDICO. */
   @Patch('chaves/emprestimos/:id/devolucao') @Perfis('PORTEIRO', 'SINDICO')
-  devolver(@Req() req: any, @Param('id', ParseIntPipe) id: number) {
+  async devolver(@Req() req: any, @Param('id', ParseIntPipe) id: number) {
     const idOperador = req.user.perfis?.find((p: any) => p.tipo === 'PORTEIRO' || p.tipo === 'SINDICO')?.id_perfil
       || perfilDoUsuario(req.user);
-    return this.db.query(`
+    const res = await this.db.query(`
       UPDATE entrega_chave
          SET data_hora_devolucao = CURRENT_TIMESTAMP, id_perfil_recebimento = $2
        WHERE id_entrega_chave = $1 AND data_hora_devolucao IS NULL
-       RETURNING id_entrega_chave, data_hora_devolucao`, [id, idOperador])
+       RETURNING id_entrega_chave, data_hora_devolucao, id_chave`, [id, idOperador])
       .then(r => {
         if (!r.length) throw new BadRequestException('Empréstimo inexistente ou já devolvido.');
         return r[0];
       });
+
+    this.sync.emitir({
+      topico: 'CHAVES',
+      acao: 'ATUALIZADO',
+      detalhes: { id_chave: res.id_chave },
+    });
+    return res;
   }
 
   /** Cadastra uma nova via/cópia de chave para uma área comum (SINDICO). */
@@ -294,6 +325,7 @@ export class PortariaController {
       [b.id_area_comum, codigo, b.observacao?.trim() || null]
     );
     await this.db.query(`UPDATE area_comum SET exige_chave = TRUE WHERE id_area_comum = $1`, [b.id_area_comum]);
+    this.sync.emitir({ topico: 'CHAVES', acao: 'CRIADO', detalhes: { id_chave: res[0].id_chave } });
     return res[0];
   }
 
@@ -319,6 +351,7 @@ export class PortariaController {
        RETURNING *`,
       [codigo, b.observacao?.trim() || null, id]
     );
+    this.sync.emitir({ topico: 'CHAVES', acao: 'ATUALIZADO', detalhes: { id_chave: id } });
     return res[0];
   }
 
@@ -332,6 +365,7 @@ export class PortariaController {
     }
     await this.db.query(`DELETE FROM entrega_chave WHERE id_chave = $1`, [id]);
     await this.db.query(`DELETE FROM chave WHERE id_chave = $1`, [id]);
+    this.sync.emitir({ topico: 'CHAVES', acao: 'EXCLUIDO', detalhes: { id_chave: id } });
     return { ok: true, id_chave: id, id_area_comum: chave[0].id_area_comum };
   }
 

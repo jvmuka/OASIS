@@ -102,7 +102,7 @@ export default function PainelAdmin() {
   if (erro || !d) {
     return (
       <div className="space-y-6">
-        <Titulo
+        <Titulo ajudaKey="/sindico/painel"
           sub="Acompanhe os principais indicadores de operação e uso dos espaços coletivos."
           icone={<Icone nome="home" className="h-5 w-5" />}
         >

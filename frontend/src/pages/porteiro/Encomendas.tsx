@@ -1,3 +1,4 @@
+import { useSync } from '../../hooks/useSync';
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { Botao, Campo, Cartao, inputCls, Mensagem, Titulo, Icone, Badge, EmptyState, Modal, Paginacao } from '../../components/ui';
@@ -46,6 +47,10 @@ export default function Encomendas() {
   useEffect(() => {
     carregar();
   }, []);
+
+  useSync('ENCOMENDAS', () => {
+    carregar();
+  });
 
   async function registrar(e: React.FormEvent) {
     e.preventDefault();
@@ -110,7 +115,7 @@ export default function Encomendas() {
 
   return (
     <div className="space-y-6">
-      <Titulo
+      <Titulo ajudaKey="/portaria/encomendas"
         sub="Registre a chegada de pacotes e faça a baixa de entrega aos moradores."
         icone={<Icone nome="package" className="h-5 w-5" />}
       >

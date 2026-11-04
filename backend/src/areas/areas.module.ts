@@ -6,6 +6,7 @@ import { promises as fs } from 'fs';
 import sharp from 'sharp';
 import { DbService } from '../db/db.service';
 import { JwtAuthGuard, PerfilGuard, Perfis, perfilDoUsuario } from '../auth/guards';
+import { SyncService } from '../sync/sync.service';
 import { IMAGEM_MAX_BYTES, IMAGEM_TIPOS_REGEX } from '../common/upload.constants';
 
 /** Largura maxima (px) das imagens de area comum apos redimensionamento. */
@@ -29,7 +30,7 @@ function gerarSiglaChave(nome: string): string {
 @Controller('areas')
 @UseGuards(JwtAuthGuard, PerfilGuard)
 export class AreasController {
-  constructor(private db: DbService) {}
+  constructor(private db: DbService, private sync: SyncService) {}
 
   @Get()
   listar(@Req() req: any) {
@@ -162,6 +163,16 @@ export class AreasController {
       [b.id_area_comum, idPerfil, b.data_hora_inicio, b.data_hora_fim, b.motivo, b.descricao || null])
       .then(r => r[0]);
 
+    this.sync.emitir({
+      topico: 'AREAS_LIVRES',
+      acao: 'ATUALIZADO',
+      detalhes: { id_area_comum: b.id_area_comum },
+    });
+    this.sync.emitir({
+      topico: 'RESERVAS',
+      acao: 'ATUALIZADO',
+      detalhes: { id_area_comum: b.id_area_comum },
+    });
     return {
       ...novoBloqueio,
       reservas_canceladas: reservasConflitantes.length,
@@ -178,11 +189,19 @@ export class AreasController {
   /** Cancela/remove uma manutencao ou bloqueio (SINDICO). */
   @Delete('bloqueios/:id') @Perfis('SINDICO')
   async removerBloqueio(@Param('id', ParseIntPipe) id: number) {
-    return this.db.query(`DELETE FROM bloqueio_area WHERE id_bloqueio_area = $1 RETURNING *`, [id])
-      .then(r => {
-        if (!r.length) throw new BadRequestException('Bloqueio inexistente.');
-        return { ok: true, id_bloqueio_area: id };
-      });
+    const res = await this.db.query(`DELETE FROM bloqueio_area WHERE id_bloqueio_area = $1 RETURNING *`, [id]);
+    if (!res.length) throw new BadRequestException('Bloqueio inexistente.');
+    this.sync.emitir({
+      topico: 'AREAS_LIVRES',
+      acao: 'ATUALIZADO',
+      detalhes: { id_bloqueio_area: id, id_area_comum: res[0].id_area_comum },
+    });
+    this.sync.emitir({
+      topico: 'RESERVAS',
+      acao: 'ATUALIZADO',
+      detalhes: { id_area_comum: res[0].id_area_comum },
+    });
+    return { ok: true, id_bloqueio_area: id };
   }
 
   @Get(':id')
@@ -256,6 +275,7 @@ export class AreasController {
     if (resultado.imagem_url) {
       await fs.unlink(`.${resultado.imagem_url}`).catch(() => {});
     }
+    this.sync.emitir({ topico: 'AREAS_LIVRES', acao: 'EXCLUIDO', detalhes: { id_area_comum: id } });
     return { ok: true, id_area_comum: id };
   }
 
@@ -308,6 +328,7 @@ export class AreasController {
         }
       }
 
+      this.sync.emitir({ topico: 'AREAS_LIVRES', acao: 'CRIADO', detalhes: { id_area_comum: novaArea.id_area_comum } });
       return novaArea;
     });
   }
@@ -400,6 +421,7 @@ export class AreasController {
         }
       }
 
+      this.sync.emitir({ topico: 'AREAS_LIVRES', acao: 'ATUALIZADO', detalhes: { id_area_comum: areaAtualizada.id_area_comum } });
       return areaAtualizada;
     });
   }
@@ -431,6 +453,11 @@ export class AreasController {
     if (!res.length) {
       throw new BadRequestException('Área comum não encontrada.');
     }
+    this.sync.emitir({
+      topico: 'AREAS_LIVRES',
+      acao: 'ATUALIZADO',
+      detalhes: { id_area_comum: id, status_livre: body.status_livre },
+    });
     return res[0];
   }
 

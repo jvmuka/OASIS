@@ -1,3 +1,4 @@
+import { useSync } from '../hooks/useSync';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, sessaoAtual } from '../api';
@@ -305,6 +306,10 @@ export default function Inicio() {
     carregar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useSync(['RESERVAS', 'ENCOMENDAS', 'CHAVES', 'AVISOS'], () => {
+    if (s) carregar();
+  });
 
   if (!s) return null;
 

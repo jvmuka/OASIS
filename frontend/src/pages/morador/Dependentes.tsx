@@ -1,3 +1,4 @@
+import { useSync } from '../../hooks/useSync';
 import { useEffect, useState } from 'react';
 import { api, sessaoAtual } from '../../api';
 import { Titulo, Cartao, Botao, Campo, inputCls, Badge, EmptyState, Modal, Icone, Mensagem, mascararCPF, mascararCelular, Paginacao } from '../../components/ui';
@@ -70,6 +71,10 @@ export default function Dependentes() {
   useEffect(() => {
     carregar();
   }, []);
+
+  useSync('PESSOAS', () => {
+    carregar();
+  });
 
   const copiarCodigo = (codigo: string, id: number) => {
     navigator.clipboard.writeText(codigo);
@@ -163,7 +168,7 @@ export default function Dependentes() {
         />
       )}
 
-      <Titulo
+      <Titulo ajudaKey="/morador/familia"
         icone={<Icone nome="users" className="h-5 w-5" />}
         sub="Pessoas e familiares vinculados à sua residência."
         acao={

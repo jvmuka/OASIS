@@ -9,6 +9,8 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
+ARG VITE_MODO_DEMO=false
+ENV VITE_MODO_DEMO=$VITE_MODO_DEMO
 RUN npm run build
 
 # ----------------------------------------------------

@@ -1,3 +1,4 @@
+import { useSync } from '../../hooks/useSync';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../../api';
 import {
@@ -222,13 +223,18 @@ export default function Portaria() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataAgenda]);
 
+  useSync(['RESERVAS', 'AREAS_LIVRES', 'PESSOAS'], () => {
+    carregarOcupacao();
+    carregarAgenda(dataAgenda);
+  }, [dataAgenda]);
+
 
   // Exibe apenas reservas atualmente em andamento (desaparece assim que o horário de término chega)
   const ocupacaoAtiva = ocupacao.filter(o => !o.em_atraso && new Date(o.data_hora_fim) > new Date());
 
   return (
     <div className="space-y-6">
-      <Titulo
+      <Titulo ajudaKey="/portaria/painel"
         sub="Ocupação das áreas comuns, agenda do dia e consulta de moradores para controle de acesso."
         icone={<Icone nome="building" className="h-5 w-5" />}
         acao={

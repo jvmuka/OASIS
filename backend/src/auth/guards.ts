@@ -8,14 +8,17 @@ import { JwtService } from '@nestjs/jwt';
 /** Decorator de rota: @Perfis('SINDICO') exige o perfil indicado. */
 export const Perfis = (...tipos: string[]) => SetMetadata('perfis', tipos);
 
-/** Valida o token Bearer e anexa o usuario em req.user. */
+/** Valida o token Bearer (ou query param 'token' para SSE) e anexa o usuario em req.user. */
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
-  constructor(private jwt: JwtService) {}
+  constructor(private jwt: JwtService) { }
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
     const req = ctx.switchToHttp().getRequest();
     const header: string = req.headers['authorization'] || '';
-    const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+    const token = header.startsWith('Bearer ')
+      ? header.slice(7)
+      : (req.query?.token ? String(req.query.token) : null);
+
     if (!token) throw new UnauthorizedException('Token ausente.');
     try {
       req.user = await this.jwt.verifyAsync(token);
@@ -29,7 +32,7 @@ export class JwtAuthGuard implements CanActivate {
 /** Verifica se o usuario possui algum dos perfis exigidos pela rota. */
 @Injectable()
 export class PerfilGuard implements CanActivate {
-  constructor(private reflector: Reflector) {}
+  constructor(private reflector: Reflector) { }
   canActivate(ctx: ExecutionContext): boolean {
     const exigidos = this.reflector.getAllAndOverride<string[]>('perfis',
       [ctx.getHandler(), ctx.getClass()]);

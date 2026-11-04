@@ -1,3 +1,4 @@
+import { useSync } from '../../hooks/useSync';
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { Badge, Botao, Cartao, EmptyState, Icone, Titulo, Paginacao } from '../../components/ui';
@@ -50,6 +51,10 @@ export default function MinhasEncomendas() {
     carregar();
   }, []);
 
+  useSync('ENCOMENDAS', () => {
+    carregar();
+  });
+
   const aguardando = encomendas.filter(e => e.status === 'AGUARDANDO_RETIRADA');
   const retiradas = encomendas.filter(e => e.status === 'RETIRADA');
 
@@ -86,7 +91,7 @@ export default function MinhasEncomendas() {
   return (
     <div className="space-y-6">
       {/* Topo com Título e Botão de Atualizar */}
-      <Titulo
+      <Titulo ajudaKey="/morador/encomendas"
         sub="Acompanhe as encomendas recebidas na portaria e o histórico de retiradas da sua unidade."
         icone={<Icone nome="package" className="h-6 w-6" />}
         acao={

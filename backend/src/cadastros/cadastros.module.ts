@@ -2,6 +2,7 @@ import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, Module, 
 import * as crypto from 'crypto';
 import { DbService } from '../db/db.service';
 import { JwtAuthGuard, PerfilGuard, Perfis, perfilDoUsuario } from '../auth/guards';
+import { SyncService } from '../sync/sync.service';
 
 /** Gera um codigo de ativacao criptograficamente seguro (8 caracteres alfanumericos maiusculos). */
 function gerarCodigoAtivacao(): string {
@@ -16,7 +17,7 @@ function gerarCodigoAtivacao(): string {
 @Controller('cadastros')
 @UseGuards(JwtAuthGuard, PerfilGuard)
 export class CadastrosController {
-  constructor(private db: DbService) {}
+  constructor(private db: DbService, private sync: SyncService) {}
 
   // ------------------------- blocos e unidades -------------------------
   @Get('blocos')
@@ -328,7 +329,7 @@ export class CadastrosController {
       ? perfilDoUsuario(req.user, 'SINDICO')
       : perfilDoUsuario(req.user, 'PORTEIRO');
 
-    return this.db.transacao(async c => {
+    const resFinal = await this.db.transacao(async c => {
       // Identifica papéis solicitados
       let rawPerfis: string[] = [];
       if (Array.isArray(b.perfis) && b.perfis.length > 0) {
@@ -529,11 +530,13 @@ export class CadastrosController {
           [codigoGerado, p.id_pessoa, idPerfilGerador || null]);
       }
 
-      return {
+      const resultado = {
         ...p,
         perfil,
         codigo_ativacao: codigoGerado,
       };
+      this.sync.emitir({ topico: 'PESSOAS', acao: 'CRIADO', idPessoaAlvo: p.id_pessoa, detalhes: { id_pessoa: p.id_pessoa } });
+      return resultado;
     });
   }
 
@@ -589,11 +592,13 @@ export class CadastrosController {
              VALUES ($1,$2,$3,'DISPONIVEL')`, [codigo, v.id_pessoa, idPerfilSindico]);
         }
 
+        this.sync.emitir({ topico: 'PESSOAS', acao: 'ATUALIZADO', idPessoaAlvo: v.id_pessoa, detalhes: { id_pessoa_unidade: idPessoaUnidade, aprovado: true } });
         return { aprovado: true, codigo_ativacao: codigo };
       } else {
         await c.query(
           `UPDATE pessoa_unidade SET status_aprovacao = 'REJEITADO', motivo_rejeicao = $2
             WHERE id_pessoa_unidade = $1`, [idPessoaUnidade, b.motivo_rejeicao || 'Cadastro recusado pela administração.']);
+        this.sync.emitir({ topico: 'PESSOAS', acao: 'ATUALIZADO', idPessoaAlvo: v.id_pessoa, detalhes: { id_pessoa_unidade: idPessoaUnidade, aprovado: false } });
         return { aprovado: false };
       }
     });
@@ -1046,6 +1051,7 @@ export class CadastrosController {
         }
       }
 
+      this.sync.emitir({ topico: 'PESSOAS', acao: 'ATUALIZADO', idPessoaAlvo: id, detalhes: { id_pessoa: id } });
       return p;
     });
   }
@@ -1074,6 +1080,7 @@ export class CadastrosController {
 
       // Inativação segura: preserva vínculos residenciais, dependentes e histórico
       await c.query(`UPDATE pessoa SET ativo = FALSE WHERE id_pessoa = $1`, [id]);
+      this.sync.emitir({ topico: 'PESSOAS', acao: 'ATUALIZADO', idPessoaAlvo: id, detalhes: { id_pessoa: id, ativo: false } });
       return { ok: true, mensagem: 'Pessoa inativada com sucesso.' };
     });
   }
@@ -1143,6 +1150,7 @@ export class CadastrosController {
         }
       }
 
+      this.sync.emitir({ topico: 'PESSOAS', acao: 'ATUALIZADO', idPessoaAlvo: id, detalhes: { id_pessoa: id, ativo: true } });
       return { ok: true, mensagem: 'Pessoa e acessos reativados com sucesso.' };
     });
   }

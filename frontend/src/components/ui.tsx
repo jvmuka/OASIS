@@ -1,3 +1,4 @@
+import { BotaoAjudaContexto, ModalAjudaContexto } from './AjudaContexto';
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -333,11 +334,15 @@ export function Titulo({
   sub,
   icone,
   acao,
+  ajudaKey,
+  ocultarAjuda = false,
 }: {
   children: React.ReactNode;
   sub?: string;
   icone?: React.ReactNode;
   acao?: React.ReactNode;
+  ajudaKey?: string;
+  ocultarAjuda?: boolean;
 }) {
   return (
     <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -348,7 +353,10 @@ export function Titulo({
           </div>
         )}
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-2xl">{children}</h1>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-2xl">{children}</h1>
+            {!ocultarAjuda && <BotaoAjudaContexto ajudaKey={ajudaKey} />}
+          </div>
           {sub && <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400 font-normal">{sub}</p>}
         </div>
       </div>
@@ -356,6 +364,8 @@ export function Titulo({
     </div>
   );
 }
+
+export { BotaoAjudaContexto, ModalAjudaContexto };
 
 /** Cartão moderno com borda refinada e sombra suave */
 export function Cartao({

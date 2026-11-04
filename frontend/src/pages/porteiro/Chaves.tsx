@@ -1,3 +1,4 @@
+import { useSync } from '../../hooks/useSync';
 import { useEffect, useState } from 'react';
 import { api, sessaoAtual } from '../../api';
 import { Botao, Campo, Cartao, inputCls, Mensagem, Titulo, Icone, Badge, EmptyState, Modal, ModalConfirmacao, Paginacao } from '../../components/ui';
@@ -75,6 +76,10 @@ export default function Chaves() {
   useEffect(() => {
     carregar();
   }, []);
+
+  useSync('CHAVES', () => {
+    carregar();
+  });
 
   const solicitantesChave = pessoas
     .filter(p => {
@@ -213,7 +218,7 @@ export default function Chaves() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <Titulo
+      <Titulo ajudaKey="/portaria/chaves"
         sub="Controle de retirada e devolução das chaves das áreas comuns e dependências coletivas."
         icone={<Icone nome="key" className="h-5 w-5" />}
         acao={

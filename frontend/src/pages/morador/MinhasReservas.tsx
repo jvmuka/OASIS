@@ -1,3 +1,4 @@
+import { useSync } from '../../hooks/useSync';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api';
@@ -38,6 +39,10 @@ export default function MinhasReservas() {
   useEffect(() => {
     carregar();
   }, []);
+
+  useSync('RESERVAS', () => {
+    carregar();
+  });
 
   async function confirmarCancelamento() {
     if (!cancelando) return;
@@ -167,7 +172,7 @@ export default function MinhasReservas() {
 
   return (
     <div className="space-y-6">
-      <Titulo
+      <Titulo ajudaKey="/morador/reservas"
         sub="Acompanhe o status dos seus agendamentos e gerencie cancelamentos."
         icone={<Icone nome="clock" className="h-5 w-5" />}
         acao={

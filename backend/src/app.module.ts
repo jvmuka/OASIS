@@ -10,6 +10,7 @@ import { PortariaModule } from './portaria/portaria.module';
 import { AvisosModule } from './avisos/avisos.module';
 import { RelatoriosModule } from './relatorios/relatorios.module';
 import { SuperadminModule } from './superadmin/superadmin.module';
+import { SyncModule } from './sync/sync.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { SuperadminModule } from './superadmin/superadmin.module';
       limit: 180,   // maximo 180 requisicoes por minuto por IP (permite navegacao fluida no SPA)
     }]),
     DbModule,
+    SyncModule,
     AuthModule,
     CadastrosModule,
     AreasModule,

@@ -7,6 +7,8 @@ import BotaoModoEscuro from '../components/BotaoModoEscuro';
 /** UC01 - Autenticar no Sistema OASIS e Primeiro Acesso via Código */
 export default function Login() {
   const nav = useNavigate();
+  // Modo demonstracao/desenvolvimento: ocultado automaticamente em producao real
+  const modoDemo = import.meta.env.VITE_MODO_DEMO === 'true' || (import.meta.env.DEV && import.meta.env.VITE_MODO_DEMO !== 'false');
   const [aba, setAba] = useState<'login' | 'primeiro_acesso' | 'esqueci_senha'>('login');
 
   // Estado Login Padrão
@@ -324,41 +326,52 @@ export default function Login() {
 
               <Mensagem texto={erro} tipo="erro" />
 
-              {/* Atalhos para Demonstração */}
-              <div className="mt-6 border-t border-slate-100 dark:border-slate-800 pt-4">
-                <p className="mb-2 text-center text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                  Acesso Rápido para Teste (1 Clique)
-                </p>
-                <div className="grid grid-cols-3 gap-1.5 text-xs">
-                  <button
-                    id="btn-login-morador"
-                    type="button"
-                    onClick={() => preencherRapido('carlos.silva@teste.com')}
-                    className="rounded-lg border border-slate-200 bg-slate-50/70 p-2 text-center font-medium text-slate-700 hover:bg-slate-100 hover:text-navy dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-sky-400 transition-colors cursor-pointer"
-                  >
-                    <span className="block font-bold text-navy dark:text-sky-400">Morador</span>
-                    <span className="text-[10px] text-slate-400 dark:text-slate-500">Carlos Silva</span>
-                  </button>
-                  <button
-                    id="btn-login-sindico"
-                    type="button"
-                    onClick={() => preencherRapido('ana.souza@teste.com')}
-                    className="rounded-lg border border-slate-200 bg-slate-50/70 p-2 text-center font-medium text-slate-700 hover:bg-slate-100 hover:text-navy dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-sky-400 transition-colors cursor-pointer"
-                  >
-                    <span className="block font-bold text-navy dark:text-sky-400">Síndica</span>
-                    <span className="text-[10px] text-slate-400 dark:text-slate-500">Ana</span>
-                  </button>
-                  <button
-                    id="btn-login-porteiro"
-                    type="button"
-                    onClick={() => preencherRapido('roberto.lima@teste.com')}
-                    className="rounded-lg border border-slate-200 bg-slate-50/70 p-2 text-center font-medium text-slate-700 hover:bg-slate-100 hover:text-navy dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-sky-400 transition-colors cursor-pointer"
-                  >
-                    <span className="block font-bold text-navy dark:text-sky-400">Porteiro</span>
-                    <span className="text-[10px] text-slate-400 dark:text-slate-500">Roberto</span>
-                  </button>
+              {/* Atalhos para Demonstração e Desenvolvimento */}
+              {modoDemo && (
+                <div className="mt-6 border-t border-slate-100 dark:border-slate-800 pt-4">
+                  <p className="mb-2 text-center text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                    Acesso Rápido para Teste (1 Clique)
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-xs">
+                    <button
+                      id="btn-login-morador"
+                      type="button"
+                      onClick={() => preencherRapido('carlos.silva@teste.com')}
+                      className="rounded-lg border border-slate-200 bg-slate-50/70 p-2 text-center font-medium text-slate-700 hover:bg-slate-100 hover:text-navy dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-sky-400 transition-colors cursor-pointer"
+                    >
+                      <span className="block font-bold text-navy dark:text-sky-400">Morador</span>
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500">Carlos Silva</span>
+                    </button>
+                    <button
+                      id="btn-login-sindico"
+                      type="button"
+                      onClick={() => preencherRapido('ana.souza@teste.com')}
+                      className="rounded-lg border border-slate-200 bg-slate-50/70 p-2 text-center font-medium text-slate-700 hover:bg-slate-100 hover:text-navy dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-sky-400 transition-colors cursor-pointer"
+                    >
+                      <span className="block font-bold text-navy dark:text-sky-400">Síndica</span>
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500">Ana</span>
+                    </button>
+                    <button
+                      id="btn-login-porteiro"
+                      type="button"
+                      onClick={() => preencherRapido('roberto.lima@teste.com')}
+                      className="rounded-lg border border-slate-200 bg-slate-50/70 p-2 text-center font-medium text-slate-700 hover:bg-slate-100 hover:text-navy dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-sky-400 transition-colors cursor-pointer"
+                    >
+                      <span className="block font-bold text-navy dark:text-sky-400">Porteiro</span>
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500">Roberto</span>
+                    </button>
+                    <button
+                      id="btn-login-superadmin"
+                      type="button"
+                      onClick={() => preencherRapido('superadmin@oasis.com')}
+                      className="rounded-lg border border-sky-200 bg-slate-50/70 p-2 text-center font-medium text-slate-700 hover:bg-slate-100 hover:text-navy dark:border-sky-800 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-sky-400 transition-colors cursor-pointer"
+                    >
+                      <span className="block font-bold text-sky-600 dark:text-sky-400">Superadmin</span>
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500">Master</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
             </form>
           )}
 
@@ -406,15 +419,17 @@ export default function Login() {
                     Validar Código de Ativação
                   </Botao>
 
-                  <div className="mt-4 border-t border-slate-100 dark:border-slate-800 pt-3 text-center">
-                    <button
-                      type="button"
-                      onClick={preencherCodigoTeste}
-                      className="text-[11px] font-semibold text-sky-600 hover:text-sky-700 dark:text-sky-400 cursor-pointer"
-                    >
-                      Testar com Código de Exemplo (Carlos Silva)
-                    </button>
-                  </div>
+                  {modoDemo && (
+                    <div className="mt-4 border-t border-slate-100 dark:border-slate-800 pt-3 text-center">
+                      <button
+                        type="button"
+                        onClick={preencherCodigoTeste}
+                        className="text-[11px] font-semibold text-sky-600 hover:text-sky-700 dark:text-sky-400 cursor-pointer"
+                      >
+                        Testar com Código de Exemplo (Carlos Silva)
+                      </button>
+                    </div>
+                  )}
                 </form>
               ) : (
                 <form onSubmit={concluirPrimeiroAcesso} className="space-y-4 animate-scale-in" noValidate>
@@ -596,7 +611,7 @@ export default function Login() {
                 </form>
               ) : (
                 <form onSubmit={concluirRecuperacao} className="space-y-4">
-                  {codigoDevRecuperacao && (
+                  {modoDemo && codigoDevRecuperacao && (
                     <div className="rounded-xl border border-sky-200 bg-sky-50/80 dark:border-sky-800/50 dark:bg-sky-950/40 p-3 text-xs">
                       <p className="font-semibold text-sky-900 dark:text-sky-300">Ambiente de Demonstração:</p>
                       <p className="mt-0.5 text-slate-600 dark:text-slate-300">

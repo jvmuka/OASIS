@@ -1,3 +1,4 @@
+import { useSync } from '../../hooks/useSync';
 import { useEffect, useState } from 'react';
 import { api } from '../../api';
 import { Botao, Campo, Cartao, inputCls, Mensagem, Titulo, Icone, Badge, EmptyState, Modal, Paginacao } from '../../components/ui';
@@ -77,6 +78,10 @@ export default function AreasLivres() {
     carregar();
   }, []);
 
+  useSync('AREAS_LIVRES', () => {
+    carregar();
+  });
+
   async function alternarStatus(area: Area, novoStatus: 'LIVRE' | 'EM_USO') {
     try {
       await api.patch(`/areas/${area.id_area_comum}/status-livre`, {
@@ -117,7 +122,7 @@ export default function AreasLivres() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <Titulo
+      <Titulo ajudaKey="/portaria/areas-livres"
         sub="Monitore e atualize a ocupação em tempo real dos espaços coletivos que não exigem agendamento prévio."
         icone={<Icone nome="building" className="h-5 w-5" />}
         acao={

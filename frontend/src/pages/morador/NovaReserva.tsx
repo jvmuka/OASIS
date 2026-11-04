@@ -1,3 +1,4 @@
+import { useSync } from '../../hooks/useSync';
 import { useEffect, useState } from 'react';
 import { api, sessaoAtual } from '../../api';
 import { Botao, Campo, Cartao, inputCls, Mensagem, Titulo, Icone, Badge, EmptyState, ModalConfirmacao } from '../../components/ui';
@@ -35,6 +36,13 @@ export default function NovaReserva() {
   useEffect(() => {
     carregarAreas();
   }, []);
+
+  useSync(['RESERVAS', 'AREAS_LIVRES'], () => {
+    carregarAreas();
+    if (area && data) {
+      consultar(data, false);
+    }
+  }, [area, data]);
 
   function carregarAreas() {
     api.get<Area[]>('/areas').then(a => setAreas(a.filter(x => x.ativo)));
@@ -85,6 +93,7 @@ export default function NovaReserva() {
         fim: slot.fim,
         numero_pessoas: pessoas,
       });
+      window.dispatchEvent(new CustomEvent('oasis:tour-concluir'));
       setMsg({
         t: `Reserva confirmada com sucesso para "${area.nome}" no dia ${data} das ${slot.inicio} às ${slot.fim}.`,
         tipo: 'ok',
@@ -135,6 +144,7 @@ export default function NovaReserva() {
   return (
     <div className="space-y-6">
       <Titulo
+        ajudaKey="/morador/reservar"
         sub="Consulte os espaços coletivos do condomínio, horários de funcionamento e reserve sua data."
         icone={<Icone nome="calendar" className="h-5 w-5" />}
         acao={
@@ -312,13 +322,13 @@ export default function NovaReserva() {
           {/* Lista de Espaços com Agendamento (Reserva) */}
           {(areasLivres.length === 0 || abaAtiva === 'com_reserva') && (
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 animate-fade-in">
-              {areasComReserva.map(a => {
+              {areasComReserva.map((a, idx) => {
                 const valorArea = Number(a.valor || 0);
                 const penalizado = Boolean(a.penalidade_usuario?.bloqueado);
 
                 return (
-                  <Cartao
-                    key={a.id_area_comum}
+                  <div id={idx === 0 ? 'tour-passo-area' : undefined} key={a.id_area_comum} className="rounded-xl">
+                    <Cartao
                     className={`overflow-hidden p-0 transition-all duration-200 ${
                       penalizado
                         ? 'grayscale opacity-60 bg-slate-100 dark:bg-slate-900/60 border-slate-300 dark:border-slate-700 cursor-not-allowed select-none'
@@ -332,6 +342,7 @@ export default function NovaReserva() {
                           : () => {
                               setArea(a);
                               setPessoas(Math.min(pessoas, a.capacidade));
+                              window.dispatchEvent(new CustomEvent('oasis:tour-avancar', { detail: { passoConcluido: 1 } }));
                             }
                       }
                       title={penalizado ? `Acesso bloqueado por penalidade: ${a.penalidade_usuario?.motivo}` : undefined}
@@ -465,6 +476,7 @@ export default function NovaReserva() {
                       </div>
                     </div>
                   </Cartao>
+                  </div>
                 );
               })}
             </div>
@@ -555,13 +567,16 @@ export default function NovaReserva() {
             <div className="grid gap-6 md:grid-cols-12">
               {/* Coluna Esquerda: Calendário & Regras */}
               <div className="space-y-4 md:col-span-6">
-                <div>
+                <div id="tour-passo-calendario">
                   <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     1. Selecione a Data Desejada
                   </p>
                   <Calendario
                     dataSelecionada={data}
-                    onChange={d => consultar(d, true)}
+                    onChange={d => {
+                      consultar(d, true);
+                      window.dispatchEvent(new CustomEvent('oasis:tour-avancar', { detail: { passoConcluido: 2 } }));
+                    }}
                     datasComMarcacao={area.reserva_por_dia ? datasOcupadas : undefined}
                     onMesAnoChange={(ano, mes) => setMesCalendario({ ano, mes })}
                     diasSemanaPermitidos={
@@ -633,7 +648,7 @@ export default function NovaReserva() {
               </div>
 
               {/* Coluna Direita: Grade de Horários */}
-              <div className="flex flex-col justify-between md:col-span-6 md:border-l md:border-slate-100 dark:md:border-slate-800 md:pl-6">
+              <div id="tour-passo-horarios" className="flex flex-col justify-between md:col-span-6 md:border-l md:border-slate-100 dark:md:border-slate-800 md:pl-6">
                 <div>
                   <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     2. {area.reserva_por_dia ? (grade?.slots && grade.slots.length > 1 ? 'Selecione o Turno' : 'Diária Completa') : 'Escolha o Horário'} ({data ? `${data} - ${grade?.dia_semana || ''}` : 'Nenhuma data selecionada'})
@@ -737,6 +752,7 @@ export default function NovaReserva() {
                                 if (pessoas > maxP) {
                                   setPessoas(Math.max(1, maxP));
                                 }
+                                window.dispatchEvent(new CustomEvent('oasis:tour-avancar', { detail: { passoConcluido: 3 } }));
                               }}
                               className={
                                 `flex items-center justify-between rounded-xl border ${isDiaria ? 'p-3.5 w-full' : 'p-2.5'} text-xs font-semibold transition-all ` +
@@ -816,7 +832,7 @@ export default function NovaReserva() {
                 </div>
 
                 {/* Botão de Confirmação */}
-                <div className="mt-6 border-t border-slate-100 dark:border-slate-800 pt-4">
+                <div id="tour-passo-confirmar" className="mt-6 border-t border-slate-100 dark:border-slate-800 pt-4">
                   {slot && (
                     <div className="mb-3 rounded-xl bg-navy-50/70 dark:bg-sky-950/50 dark:text-sky-300 p-3 text-xs text-navy font-medium space-y-1">
                       <div>Resumo: <b>{area.nome}</b> em <b>{data}</b> das <b>{slot.inicio} às {slot.fim}</b> ({pessoas} pessoas).</div>

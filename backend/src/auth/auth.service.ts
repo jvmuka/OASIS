@@ -82,8 +82,9 @@ export class AuthService {
     if (pessoa.status_conta === 'BLOQUEADO')
       throw new UnauthorizedException('Conta bloqueada pela administracao.');
 
-    const devSenha = process.env.DEV_SENHA || 'Teste@2026';
-    const ehSenhaDev = senha === devSenha || senha === 'Teste@2026';
+    const devSenha = process.env.DEV_SENHA;
+    const isProd = process.env.NODE_ENV === 'production';
+    const ehSenhaDev = !isProd && Boolean(devSenha) && senha === devSenha;
 
     // Se possui senha personalizada salva, valida via hash; senao ou adicionalmente, permite senha DEV padrao
     if (pessoa.senha_hash) {
@@ -229,7 +230,7 @@ export class AuthService {
     return {
       ok: true,
       mensagem: 'Código de recuperação gerado com sucesso. Verifique seu e-mail.',
-      codigo_dev: codigo, // Exibido para facilitar demonstracao e testes locais
+      ...((process.env.NODE_ENV !== 'production' && Boolean(process.env.DEV_SENHA)) ? { codigo_dev: codigo } : {}),
     };
   }
 

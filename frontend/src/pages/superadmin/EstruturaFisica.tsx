@@ -663,7 +663,7 @@ export default function EstruturaFisica({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <Titulo>Gestão Estrutural & Vagas</Titulo>
+            <Titulo ajudaKey="/superadmin/estrutura">Gestão Estrutural & Vagas</Titulo>
             {!somenteLeitura ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 px-2.5 py-0.5 text-xs font-bold ring-1 ring-purple-600/20">
                 <Icone nome="shield" className="w-3.5 h-3.5" />

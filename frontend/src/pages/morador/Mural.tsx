@@ -1,3 +1,4 @@
+import { useSync } from '../../hooks/useSync';
 import { useEffect, useState } from 'react';
 import { api, sessaoAtual } from '../../api';
 import { Cartao, Titulo, Icone, Badge, EmptyState, Paginacao } from '../../components/ui';
@@ -50,6 +51,10 @@ export default function Mural() {
   useEffect(() => {
     carregar();
   }, []);
+
+  useSync('AVISOS', () => {
+    carregar();
+  });
 
   async function abrir(a: Aviso) {
     const jaAberto = aberto === a.id_aviso;
@@ -106,7 +111,7 @@ export default function Mural() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <Titulo
+        <Titulo ajudaKey="/mural"
           sub="Fique por dentro das novidades, comunicados e manutenções do condomínio."
           icone={<Icone nome="megaphone" className="h-5 w-5" />}
         >

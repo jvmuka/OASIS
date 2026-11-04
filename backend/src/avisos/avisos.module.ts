@@ -6,6 +6,7 @@ import { randomUUID } from 'crypto';
 import { DbService } from '../db/db.service';
 import { JwtAuthGuard, PerfilGuard, Perfis, perfilDoUsuario } from '../auth/guards';
 import { AVISO_ANEXO_MAX_BYTES, AVISO_ANEXO_TIPOS_REGEX } from '../common/upload.constants';
+import { SyncService } from '../sync/sync.service';
 
 /**
  * UC05 (visualizar/ler) e UC10 (publicar).
@@ -14,7 +15,7 @@ import { AVISO_ANEXO_MAX_BYTES, AVISO_ANEXO_TIPOS_REGEX } from '../common/upload
 @Controller('avisos')
 @UseGuards(JwtAuthGuard, PerfilGuard)
 export class AvisosController {
-  constructor(private db: DbService) {}
+  constructor(private db: DbService, private syncService: SyncService) { }
 
   /** Upload de arquivo anexo para aviso (imagem ou PDF). */
   @Post('upload-anexo')
@@ -31,7 +32,7 @@ export class AvisosController {
   }))
   async uploadAnexo(@UploadedFile() file: any) {
     if (!file) throw new BadRequestException('Nenhum arquivo enviado.');
-    await fs.mkdir('./uploads/avisos', { recursive: true }).catch(() => {});
+    await fs.mkdir('./uploads/avisos', { recursive: true }).catch(() => { });
 
     const ext = file.originalname.split('.').pop()?.toLowerCase() || (file.mimetype === 'application/pdf' ? 'pdf' : 'png');
     const nomeArquivo = `${Date.now()}-${randomUUID()}.${ext}`;
@@ -147,6 +148,14 @@ export class AvisosController {
       UPDATE aviso_perfil SET lido = TRUE, data_hora_leitura = COALESCE(data_hora_leitura, CURRENT_TIMESTAMP)
        WHERE (id_aviso_perfil = $1 OR id_aviso = $1) AND id_perfil = ANY($2::int[])
        RETURNING id_aviso_perfil, lido, data_hora_leitura`, [id, idsPerfis]);
+
+    this.syncService.emitir({
+      topico: 'AVISOS',
+      acao: 'ATUALIZADO',
+      idPessoaAlvo: req.user?.sub,
+      detalhes: { id_aviso: id },
+    });
+
     if (r.length) return r[0];
 
     // 2. Se for aviso de escopo MURAL que ainda não tinha linha em aviso_perfil, insere
@@ -161,7 +170,7 @@ export class AvisosController {
   }
 
   @Post() @Perfis('SINDICO')
-  publicar(@Req() req: any, @Body() b: {
+  async publicar(@Req() req: any, @Body() b: {
     titulo: string;
     conteudo: string;
     fixado?: boolean;
@@ -193,16 +202,13 @@ export class AvisosController {
       if (isNaN(dtExp.getTime())) {
         throw new BadRequestException('Data de expiração inválida.');
       }
-      if (dtExp < agora) {
-        throw new BadRequestException('A data de expiração não pode ser no passado.');
-      }
-      const dtBase = dtPub ?? agora;
+      const dtBase = dtPub || agora;
       if (dtExp <= dtBase) {
         throw new BadRequestException('A data de expiração deve ser posterior à data de publicação.');
       }
     }
 
-    return this.db.query(`
+    const res = await this.db.query(`
       INSERT INTO aviso (id_perfil_autor, titulo, conteudo, fixado, data_hora_publicacao, data_hora_expiracao, anexo_url, anexo_nome, anexo_tipo)
       VALUES ($1, $2, $3, $4, COALESCE($5, CURRENT_TIMESTAMP), $6, $7, $8, $9)
       RETURNING id_aviso, titulo, data_hora_publicacao, data_hora_expiracao, anexo_url, anexo_nome, anexo_tipo`,
@@ -217,6 +223,14 @@ export class AvisosController {
         b.anexo_nome || null,
         b.anexo_tipo || null,
       ]).then(r => r[0]);
+
+    this.syncService.emitir({
+      topico: 'AVISOS',
+      acao: 'CRIADO',
+      detalhes: { id_aviso: res.id_aviso, titulo: res.titulo },
+    });
+
+    return res;
   }
 
   @Delete(':id') @Perfis('SINDICO')
@@ -227,12 +241,18 @@ export class AvisosController {
     await this.db.query(`DELETE FROM aviso WHERE id_aviso = $1`, [id]);
 
     if (aviso[0].anexo_url) {
-      await fs.unlink(`.${aviso[0].anexo_url}`).catch(() => {});
+      await fs.unlink(`.${aviso[0].anexo_url}`).catch(() => { });
     }
+
+    this.syncService.emitir({
+      topico: 'AVISOS',
+      acao: 'EXCLUIDO',
+      detalhes: { id_aviso: id },
+    });
 
     return { ok: true, id_aviso: id };
   }
 }
 
 @Module({ controllers: [AvisosController] })
-export class AvisosModule {}
+export class AvisosModule { }

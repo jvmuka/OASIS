@@ -175,7 +175,8 @@ OASIS/
 └── Documentos/
     ├── referencias_do_Projeto/OASIS_Projeto.pdf   documento do projeto
     ├── diagramas/        casos de uso, classes, sequência, DER, modelo lógico e mapa de navegação
-    ├── guia_docker.md    guia detalhado de execução com Docker
+    ├── infraestrutura/guia_docker.md    guia detalhado de execução com Docker
+    ├── padroes/          guia de UX/UI, design system e diretrizes de desenvolvimento
     ├── Logos/ e Fontes/  identidade visual
     └── README.md         índice da pasta Documentos
 ```

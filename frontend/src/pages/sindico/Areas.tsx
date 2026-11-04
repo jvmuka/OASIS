@@ -1,3 +1,4 @@
+import { useSync } from '../../hooks/useSync';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../../api';
 import { Botao, Campo, Cartao, inputCls, Mensagem, Titulo, Icone, Badge, Modal, EmptyState, ModalConfirmacao, Paginacao } from '../../components/ui';
@@ -523,6 +524,11 @@ export default function Areas() {
     carregarAreas();
     carregarBloqueios();
   }, []);
+
+  useSync(['AREAS_LIVRES', 'RESERVAS'], () => {
+    carregarAreas();
+    carregarBloqueios();
+  });
 
   function aplicarPreset(p: 'MANHA' | 'TARDE' | 'NOITE' | 'DIA_TODO') {
     setPresetHorario(p);
@@ -1223,7 +1229,7 @@ export default function Areas() {
 
   return (
     <div className="space-y-6">
-      <Titulo
+      <Titulo ajudaKey="/sindico/areas"
         sub="Gerenciamento dos espaços coletivos, interdições para manutenção e regras de agendamento."
         icone={<Icone nome="building" className="h-5 w-5" />}
         acao={

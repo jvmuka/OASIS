@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Patch, Body, Param, Query, Module, UseGuards, Req, ParseIntPipe, BadRequestException } from '@nestjs/common';
 import { DbService } from '../db/db.service';
 import { JwtAuthGuard, PerfilGuard, Perfis, perfilDoUsuario } from '../auth/guards';
+import { SyncService } from '../sync/sync.service';
 
 const DIAS = ['DOMINGO','SEGUNDA','TERCA','QUARTA','QUINTA','SEXTA','SABADO'];
 
@@ -12,7 +13,7 @@ const DIAS = ['DOMINGO','SEGUNDA','TERCA','QUARTA','QUINTA','SEXTA','SABADO'];
 @Controller('reservas')
 @UseGuards(JwtAuthGuard, PerfilGuard)
 export class ReservasController {
-  constructor(private db: DbService) {}
+  constructor(private db: DbService, private sync: SyncService) {}
 
   /** UC02 auxiliar: datas com reservas ou bloqueios no mês para uma área (usado para marcar dias ocupados no calendário) */
   @Get('datas-ocupadas')
@@ -316,12 +317,20 @@ export class ReservasController {
 
     const idPerfil = perfilDoUsuario(req.user, 'MORADOR');
     const fimAjustado = (b.fim === '24:00' || b.fim === '23:59') ? '23:59:59' : b.fim;
-    return this.db.query(`
+    const res = await this.db.query(`
       INSERT INTO reserva (id_area_comum, id_perfil, data_hora_inicio, data_hora_fim, numero_pessoas)
       VALUES ($1,$2,($3 || ' ' || $4)::timestamp,($3 || ' ' || $5)::timestamp,$6)
       RETURNING id_reserva, status, data_hora_inicio, data_hora_fim`,
       [b.id_area_comum, idPerfil, b.data, b.inicio, fimAjustado, b.numero_pessoas])
       .then(r => r[0]);
+
+    this.sync.emitir({
+      topico: 'RESERVAS',
+      acao: 'CRIADO',
+      idPessoaAlvo: idPessoa,
+      detalhes: { id_area_comum: b.id_area_comum, data: b.data, id_reserva: res.id_reserva },
+    });
+    return res;
   }
 
   /** Minhas reservas (morador autenticado). */
@@ -349,10 +358,10 @@ export class ReservasController {
 
   /** UC04: cancelar (gatilho RN08 valida o prazo e grava a data). */
   @Patch(':id/cancelar') @Perfis('MORADOR')
-  cancelar(@Req() req: any, @Param('id', ParseIntPipe) id: number,
+  async cancelar(@Req() req: any, @Param('id', ParseIntPipe) id: number,
            @Body() b: { motivo?: string }) {
     const idPerfil = perfilDoUsuario(req.user, 'MORADOR');
-    return this.db.query(`
+    const res = await this.db.query(`
       UPDATE reserva SET status = 'CANCELADA', motivo_cancelamento = $3
        WHERE id_reserva = $1 AND id_perfil = $2 AND status = 'ATIVA'
          AND data_hora_inicio > CURRENT_TIMESTAMP
@@ -362,6 +371,14 @@ export class ReservasController {
         if (!r.length) throw new BadRequestException('Reserva inexistente, de outro morador ou ja encerrada.');
         return r[0];
       });
+
+    this.sync.emitir({
+      topico: 'RESERVAS',
+      acao: 'ATUALIZADO',
+      idPessoaAlvo: req.user?.sub,
+      detalhes: { id_reserva: id },
+    });
+    return res;
   }
 }
 

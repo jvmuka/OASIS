@@ -107,6 +107,21 @@ export class DbService implements OnModuleInit, OnModuleDestroy {
         CREATE TRIGGER tg_bloqueio_perfil_cancela_reservas
             AFTER INSERT ON bloqueio_perfil
             FOR EACH ROW EXECUTE FUNCTION fn_bloqueio_perfil_cancela_reservas();
+
+        INSERT INTO pessoa (uid_firebase, nome, email, cpf, data_nascimento, celular, ativo, status_conta)
+        VALUES ('superadmin_oasis_master', 'Super Administrador OASIS', 'superadmin@oasis.com', '00000000000', '1990-01-01', '42999990000', TRUE, 'ATIVO')
+        ON CONFLICT (email) DO NOTHING;
+
+        INSERT INTO perfil (id_pessoa, tipo_perfil, data_inicio)
+        SELECT p.id_pessoa, 'SUPERADMIN', CURRENT_DATE
+          FROM pessoa p
+         WHERE p.email = 'superadmin@oasis.com'
+           AND NOT EXISTS (
+             SELECT 1 FROM perfil pf 
+              WHERE pf.id_pessoa = p.id_pessoa 
+                AND pf.tipo_perfil = 'SUPERADMIN' 
+                AND pf.data_fim IS NULL
+           );
       `);
     } catch (err) {
       console.warn('Aviso na migracao automatica do banco:', err);

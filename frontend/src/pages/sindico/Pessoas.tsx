@@ -1,3 +1,4 @@
+import { useSync } from '../../hooks/useSync';
 import { useEffect, useState } from 'react';
 import { api, sessaoAtual, salvarSessao } from '../../api';
 import {
@@ -657,6 +658,14 @@ export default function Pessoas({
     api.get<AprovacaoPendente[]>('/cadastros/aprovacoes-pendentes').then(setAprovacoes);
 
   useEffect(() => {
+    carregarPessoas();
+    carregarUnidades();
+    if (!somenteLeitura) {
+      carregarAprovacoes();
+    }
+  }, [somenteLeitura]);
+
+  useSync('PESSOAS', () => {
     carregarPessoas();
     carregarUnidades();
     if (!somenteLeitura) {
@@ -1446,7 +1455,7 @@ export default function Pessoas({
     <div className={embutido ? 'space-y-4' : 'space-y-6'}>
       {!embutido && (
         <>
-          <Titulo
+          <Titulo ajudaKey="/sindico/pessoas"
             sub="Controle de moradores, relações familiares, gestão de inquilinos, síndicos e portaria."
             icone={<Icone nome="users" className="h-5 w-5" />}
             acao={

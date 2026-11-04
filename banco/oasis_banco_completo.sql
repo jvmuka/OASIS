@@ -403,7 +403,9 @@ INSERT INTO pessoa (uid_firebase, nome, email, cpf, data_nascimento, celular) VA
     ('fb_uid_0005', 'Roberto Lima',    'roberto.lima@teste.com',
      '55566677788', '1982-11-17', '42999110005'),
     ('fb_uid_0006', 'Helena Braga',    'helena.braga@teste.com',
-     '66677788899', '1995-03-03', '42999110006');
+     '66677788899', '1995-03-03', '42999110006'),
+    ('fb_uid_superadmin', 'Super Administrador OASIS', 'superadmin@oasis.com',
+     '00000000000', '1990-01-01', '42999990000');
 
 INSERT INTO perfil (id_pessoa, tipo_perfil, data_inicio) VALUES
     (1, 'MORADOR',  '2024-02-01'),
@@ -412,7 +414,8 @@ INSERT INTO perfil (id_pessoa, tipo_perfil, data_inicio) VALUES
     (4, 'SINDICO',  '2026-01-01'),
     (4, 'MORADOR',  '2020-03-15'),
     (5, 'PORTEIRO', '2023-07-01'),
-    (6, 'MORADOR',  '2025-01-20');
+    (6, 'MORADOR',  '2025-01-20'),
+    (7, 'SUPERADMIN', '2024-01-01');
 
 INSERT INTO pessoa_unidade
     (id_pessoa, id_unidade, tipo_vinculo, id_responsavel, grau_parentesco, status_aprovacao, reside, data_inicio_ocupacao) VALUES

@@ -41,6 +41,7 @@ $exclusoes = @(
     'Documentos/planos_executados',
     'Documentos/planos_pendentes',
     'Documentos/diferencas_e_impactos_docker.md',
+    'Documentos/infraestrutura/diferencas_e_impactos_docker.md',
     'Documentos/diagramas/sql_consolidado'
 )
 
@@ -60,7 +61,7 @@ $obrigatorios = @(
 )
 
 # Padroes que nunca podem aparecer no pacote
-$proibido = '^OASIS/(\.git/|\.agents/|CLAUDE\.md$|gerar_entrega\.ps1$|Documentos/AGENTS\.md$|Documentos/relatorios_commits/|Documentos/implementacoes/|Documentos/diferencas_e_impactos_docker\.md$|Documentos/diagramas/sql_consolidado/|backend/\.env$|frontend/\.env$)|/node_modules/|/dist/|/uploads/'
+$proibido = '^OASIS/(\.git/|\.agents/|CLAUDE\.md$|gerar_entrega\.ps1$|Documentos/AGENTS\.md$|Documentos/relatorios_commits/|Documentos/implementacoes/|Documentos/diferencas_e_impactos_docker\.md$|Documentos/infraestrutura/diferencas_e_impactos_docker\.md$|Documentos/diagramas/sql_consolidado/|backend/\.env$|frontend/\.env$)|/node_modules/|/dist/|/uploads/'
 
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) { Falhar 'Git nao encontrado no PATH.' }
 if (-not (Test-Path -LiteralPath '.env.demonstracao')) { Falhar 'Arquivo .env.demonstracao nao encontrado.' }

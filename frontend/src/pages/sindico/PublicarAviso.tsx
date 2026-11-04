@@ -165,7 +165,7 @@ export default function PublicarAviso() {
 
   return (
     <div className="space-y-6">
-      <Titulo
+      <Titulo ajudaKey="/sindico/avisos"
         sub="Crie comunicados imediatos, agende publicações e acompanhe as taxas de leitura dos moradores."
         icone={<Icone nome="megaphone" className="h-5 w-5" />}
         acao={

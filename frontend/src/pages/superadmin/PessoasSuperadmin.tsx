@@ -414,7 +414,7 @@ export default function PessoasSuperadmin() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <Titulo>Pessoas & Administradoras</Titulo>
+            <Titulo ajudaKey="/superadmin/pessoas">Pessoas & Administradoras</Titulo>
             <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 px-2.5 py-0.5 text-xs font-bold ring-1 ring-purple-600/20">
               <Icone nome="shield" className="w-3.5 h-3.5" />
               Superadmin
