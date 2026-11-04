@@ -8,7 +8,8 @@ export type TopicoSync =
   | 'AREAS_LIVRES'
   | 'AVISOS'
   | 'PESSOAS'
-  | 'ESTRUTURA';
+  | 'ESTRUTURA'
+  | 'CHAMADOS';
 
 export type AcaoSync = 'CRIADO' | 'ATUALIZADO' | 'EXCLUIDO';
 
@@ -44,7 +45,7 @@ export class SyncService {
       filter(ev => {
         // Se for admin ou porteiro, recebe todos os eventos operacionais
         if (ehAdminOuPorteiro) return true;
-        // Se não tiver alvo específico, é um evento de condomínio (ex: novo aviso geral, área livre atualizada, reserva)
+        // Se não tiver alvo específico, é um evento de condomínio (ex: novo aviso geral, área livre atualizada, reserva, chamado)
         if (!ev.idPessoaAlvo) return true;
         // Se tiver alvo específico, entrega somente para a pessoa de destino
         return ev.idPessoaAlvo === idPessoa;
@@ -55,4 +56,3 @@ export class SyncService {
     );
   }
 }
-

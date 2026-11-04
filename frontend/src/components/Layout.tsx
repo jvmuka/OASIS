@@ -168,6 +168,7 @@ export default function Layout() {
                 <div className="space-y-1">
                   {item('/morador/reservar', 'Nova Reserva', 'calendar')}
                   {item('/morador/reservas', 'Minhas Reservas', 'clock')}
+                  {item('/morador/chamados', 'Abrir Chamado', 'wrench')}
                   {item('/morador/encomendas', 'Minhas Encomendas', 'package')}
                   {item('/morador/familia', 'Minha Família', 'users')}
                   {item('/mural', 'Mural de Avisos', 'pin')}
@@ -197,6 +198,7 @@ export default function Layout() {
                 </p>
                 <div className="space-y-1">
                   {item('/sindico/painel', 'Painel Geral', 'home')}
+                  {item('/sindico/chamados', 'Gestão de Chamados', 'wrench')}
                   {!tipos.includes('PORTEIRO') && item('/portaria/painel', 'Painel da Portaria', 'building')}
                   {!tipos.includes('PORTEIRO') && item('/portaria/areas-livres', 'Áreas de Uso Livre', 'clock')}
                   {item('/portaria/chaves', 'Controle de Chaves', 'key')}

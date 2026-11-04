@@ -36,3 +36,6 @@ CREATE TYPE escopo_aviso_enum           AS ENUM ('MURAL','INDIVIDUAL');
 CREATE TYPE grau_parentesco_enum        AS ENUM ('CONJUGE','FILHO','PAI_MAE','OUTRO');
 CREATE TYPE status_aprovacao_enum       AS ENUM ('PENDENTE','APROVADO','REJEITADO');
 CREATE TYPE status_codigo_enum          AS ENUM ('DISPONIVEL','USADO','EXPIRADO','CANCELADO');
+
+CREATE TYPE categoria_chamado_enum      AS ENUM ('LIMPEZA','AVARIA_QUEBRADO','MANUTENCAO','CONVIVENCIA_BARULHO','OUTROS');
+CREATE TYPE status_chamado_enum         AS ENUM ('EM_ANALISE','EM_ANDAMENTO','REALIZADA','ARQUIVADA');

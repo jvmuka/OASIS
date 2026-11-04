@@ -11,6 +11,7 @@ import { AvisosModule } from './avisos/avisos.module';
 import { RelatoriosModule } from './relatorios/relatorios.module';
 import { SuperadminModule } from './superadmin/superadmin.module';
 import { SyncModule } from './sync/sync.module';
+import { ChamadosModule } from './chamados/chamados.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { SyncModule } from './sync/sync.module';
     AvisosModule,
     RelatoriosModule,
     SuperadminModule,
+    ChamadosModule,
   ],
 })
 export class AppModule {}

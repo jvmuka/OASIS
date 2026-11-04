@@ -317,3 +317,45 @@ CREATE TABLE codigo_primeiro_acesso (
 );
 
 CREATE INDEX idx_cpa_codigo ON codigo_primeiro_acesso (codigo) WHERE status = 'DISPONIVEL';
+
+CREATE TABLE chamado (
+    id_chamado             SERIAL                   PRIMARY KEY,
+    id_unidade             INTEGER                  NOT NULL,
+    id_pessoa_autor        INTEGER                  NOT NULL,
+    id_perfil_autor        INTEGER                  NOT NULL,
+    id_area_comum          INTEGER,
+    categoria              categoria_chamado_enum   NOT NULL,
+    titulo                 VARCHAR(120)             NOT NULL,
+    descricao              TEXT                     NOT NULL,
+    local_especifico       VARCHAR(150),
+    status                 status_chamado_enum      NOT NULL DEFAULT 'EM_ANALISE',
+    imagem_url             VARCHAR(255),
+    data_hora_abertura     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    data_hora_fechamento   TIMESTAMP WITH TIME ZONE,
+    data_hora_atualizacao  TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_chamado_unidade FOREIGN KEY (id_unidade) REFERENCES unidade (id_unidade),
+    CONSTRAINT fk_chamado_pessoa FOREIGN KEY (id_pessoa_autor) REFERENCES pessoa (id_pessoa),
+    CONSTRAINT fk_chamado_perfil FOREIGN KEY (id_perfil_autor) REFERENCES perfil (id_perfil),
+    CONSTRAINT fk_chamado_area FOREIGN KEY (id_area_comum) REFERENCES area_comum (id_area_comum) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_chamado_unidade ON chamado (id_unidade);
+CREATE INDEX idx_chamado_status ON chamado (status);
+CREATE INDEX idx_chamado_categoria ON chamado (categoria);
+CREATE INDEX idx_chamado_abertura ON chamado (data_hora_abertura DESC);
+
+CREATE TABLE chamado_mensagem (
+    id_chamado_mensagem    SERIAL                   PRIMARY KEY,
+    id_chamado             INTEGER                  NOT NULL,
+    id_pessoa              INTEGER                  NOT NULL,
+    id_perfil              INTEGER                  NOT NULL,
+    origem                 VARCHAR(20)              NOT NULL CHECK (origem IN ('MORADOR', 'ADMINISTRACAO')),
+    mensagem               TEXT                     NOT NULL,
+    anexo_url              VARCHAR(255),
+    data_hora              TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_chamadomsg_chamado FOREIGN KEY (id_chamado) REFERENCES chamado (id_chamado) ON DELETE CASCADE,
+    CONSTRAINT fk_chamadomsg_pessoa FOREIGN KEY (id_pessoa) REFERENCES pessoa (id_pessoa),
+    CONSTRAINT fk_chamadomsg_perfil FOREIGN KEY (id_perfil) REFERENCES perfil (id_perfil)
+);
+
+CREATE INDEX idx_chamado_msg_chamado ON chamado_mensagem (id_chamado, data_hora ASC);

@@ -60,6 +60,94 @@ export const AJUDA_CONFIG: Record<string, AjudaTela> = {
   },
 
   // ----------------------------------------------------
+  // MORADOR: ABRIR E ACOMPANHAR CHAMADOS (/morador/chamados)
+  // ----------------------------------------------------
+  '/morador/chamados': {
+    titulo: 'Como Abrir e Acompanhar Chamados',
+    subtitulo: 'Canal particular para registro de avarias, limpeza e manutenções',
+    icone: 'wrench',
+    resumo: 'Registre ocorrências diretamente para a administração do condomínio com privacidade total por unidade habitacional. Seus vizinhos não têm acesso aos seus chamados.',
+    passoAPasso: [
+      {
+        passo: 1,
+        titulo: 'Clique em "+ Abrir Novo Chamado"',
+        descricao: 'No topo da página, clique no botão principal para abrir o formulário de abertura de ocorrência.',
+      },
+      {
+        passo: 2,
+        titulo: 'Escolha a Categoria e Detalhes',
+        descricao: 'Selecione a categoria correspondente (Limpeza, Avaria / Quebrado, Manutenção, Convivência ou Outros), informe o título resumido e indique o local específico se aplicável.',
+      },
+      {
+        passo: 3,
+        titulo: 'Anexe uma Foto (Opcional)',
+        descricao: 'Se desejar, envie uma foto do item quebrado ou da área que necessita de reparos para acelerar o diagnóstico da equipe.',
+      },
+      {
+        passo: 4,
+        titulo: 'Acompanhe as Respostas em Tempo Real',
+        descricao: 'Quando a síndica ou administrador responder ou alterar o status para Em Andamento ou Realizada, a tela atualizará instantaneamente.',
+      },
+    ],
+    dicas: [
+      'Privacidade total: Os chamados e as mensagens trocadas são visíveis unicamente para você e para a administração.',
+      'Você pode enviar réplicas e mensagens adicionais a qualquer momento clicando no chamado na lista.',
+    ],
+    duvidasFrequentes: [
+      {
+        pergunta: 'Outros moradores conseguem ver o que relatei?',
+        resposta: 'Não. Os chamados e mensagens são particulares da sua unidade.',
+      },
+      {
+        pergunta: 'O que significa o status "Em Andamento"?',
+        resposta: 'Significa que a administração acolheu a solicitação e acionou a equipe de manutenção ou prestadores terceirizados para resolver.',
+      },
+    ],
+  },
+
+  // ----------------------------------------------------
+  // SÍNDICO: GESTÃO DE CHAMADOS (/sindico/chamados)
+  // ----------------------------------------------------
+  '/sindico/chamados': {
+    titulo: 'Gestão e Triagem de Chamados',
+    subtitulo: 'Acompanhamento centralizado e respostas particulares às unidades',
+    icone: 'wrench',
+    resumo: 'Gerencie todas as ocorrências abertas pelos moradores do condomínio, filtre por status e categoria, altere o ciclo de vida e envie orientações e respostas oficiais diretamente ao morador.',
+    passoAPasso: [
+      {
+        passo: 1,
+        titulo: 'Triagem pelos Cards de Indicadores',
+        descricao: 'Confira os cards no topo com a contagem de chamados "Aguardando Análise". Clique no card para filtrar rapidamente os itens pendentes.',
+      },
+      {
+        passo: 2,
+        titulo: 'Abra o Painel de Atendimento',
+        descricao: 'Clique em "Atender & Responder" em qualquer chamado da lista para abrir a gaveta lateral com os dados completos e a foto enviada pelo morador.',
+      },
+      {
+        passo: 3,
+        titulo: 'Atualize o Status com 1 Clique',
+        descricao: 'Alterne o status para "Em Andamento" ao acionar a equipe operacional, ou "Realizada" assim que o reparo for executado.',
+      },
+      {
+        passo: 4,
+        titulo: 'Envie Respostas Particulares',
+        descricao: 'Utilize o campo de resposta na gaveta para orientar o morador sobre prazos e soluções. O morador é notificado em tempo real sem precisar de F5.',
+      },
+    ],
+    dicas: [
+      'Mantenha os chamados com status atualizado para que os moradores acompanhem a evolução e reduzam mensagens repetidas na portaria.',
+      'Ao finalizar um chamado como "Realizada", a data e hora de fechamento são gravadas automaticamente para auditoria.',
+    ],
+    duvidasFrequentes: [
+      {
+        pergunta: 'Onde o morador visualiza a minha resposta?',
+        resposta: 'Na aba "Abrir Chamado" do painel do morador, dentro do histórico particular do chamado.',
+      },
+    ],
+  },
+
+  // ----------------------------------------------------
   // MORADOR: NOVA RESERVA (/morador/reservar)
   // ----------------------------------------------------
   '/morador/reservar': {
@@ -673,6 +761,12 @@ export function obterAjudaPorRota(pathname: string, chaveManual?: string): Ajuda
   }
 
   // Mapeamentos específicos por prefixo das rotas reais do App.tsx
+  if (rotaLimpa.startsWith('/morador/chamados')) {
+    return AJUDA_CONFIG['/morador/chamados'];
+  }
+  if (rotaLimpa.startsWith('/sindico/chamados')) {
+    return AJUDA_CONFIG['/sindico/chamados'];
+  }
   if (rotaLimpa.startsWith('/morador/reservar') || rotaLimpa.startsWith('/morador/nova-reserva')) {
     return AJUDA_CONFIG['/morador/reservar'];
   }

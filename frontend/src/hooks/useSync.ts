@@ -7,7 +7,8 @@ export type TopicoSync =
   | 'CHAVES'
   | 'AREAS_LIVRES'
   | 'AVISOS'
-  | 'PESSOAS';
+  | 'PESSOAS'
+  | 'CHAMADOS';
 
 export interface EventoSync {
   topico: TopicoSync;

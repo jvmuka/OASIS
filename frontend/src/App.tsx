@@ -8,6 +8,7 @@ import MinhasReservas from './pages/morador/MinhasReservas';
 import Dependentes from './pages/morador/Dependentes';
 import MinhasEncomendas from './pages/morador/Encomendas';
 import Mural from './pages/morador/Mural';
+import MoradorChamados from './pages/morador/Chamados';
 import Portaria from './pages/porteiro/Portaria';
 import Encomendas from './pages/porteiro/Encomendas';
 import Chaves from './pages/porteiro/Chaves';
@@ -15,6 +16,7 @@ import Painel from './pages/sindico/Painel';
 import Areas from './pages/sindico/Areas';
 import Pessoas from './pages/sindico/Pessoas';
 import PublicarAviso from './pages/sindico/PublicarAviso';
+import SindicoChamados from './pages/sindico/Chamados';
 import AreasLivres from './pages/porteiro/AreasLivres';
 import EstruturaFisica from './pages/superadmin/EstruturaFisica';
 import PessoasSuperadmin from './pages/superadmin/PessoasSuperadmin';
@@ -51,6 +53,7 @@ export default function App() {
         {/* Morador */}
         <Route path="/morador/reservar" element={<Protegida perfil="MORADOR"><NovaReserva /></Protegida>} />
         <Route path="/morador/reservas" element={<Protegida perfil="MORADOR"><MinhasReservas /></Protegida>} />
+        <Route path="/morador/chamados" element={<Protegida perfil="MORADOR"><MoradorChamados /></Protegida>} />
         <Route path="/morador/encomendas" element={<Protegida perfil="MORADOR"><MinhasEncomendas /></Protegida>} />
         <Route path="/morador/familia" element={<Protegida perfil="MORADOR"><Dependentes /></Protegida>} />
         <Route path="/mural" element={<Protegida><Mural /></Protegida>} />
@@ -61,6 +64,7 @@ export default function App() {
         <Route path="/portaria/chaves" element={<Protegida perfil={['PORTEIRO', 'ADMINISTRADOR', 'SINDICO']}><Chaves /></Protegida>} />
         {/* Administrador */}
         <Route path="/sindico/painel" element={<Protegida perfil={['ADMINISTRADOR', 'SINDICO']}><Painel /></Protegida>} />
+        <Route path="/sindico/chamados" element={<Protegida perfil={['ADMINISTRADOR', 'SINDICO']}><SindicoChamados /></Protegida>} />
         <Route path="/sindico/areas" element={<Protegida perfil={['ADMINISTRADOR', 'SINDICO']}><Areas /></Protegida>} />
         <Route path="/sindico/pessoas" element={<Protegida perfil={['ADMINISTRADOR', 'SINDICO', 'PORTEIRO']}><Pessoas /></Protegida>} />
         <Route path="/sindico/avisos" element={<Protegida perfil={['ADMINISTRADOR', 'SINDICO']}><PublicarAviso /></Protegida>} />
