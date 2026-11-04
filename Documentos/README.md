@@ -38,7 +38,8 @@ Documentos/
 │   └── sql_consolidado/                   <- Scripts SQL históricos de referência dos diagramas
 │
 ├── planos_executados/                     <- Funcionalidades já desenvolvidas, testadas e entregues
-│   ├── plano_deploy_vps_producao_e_ambiente_demo.md <- [NOVO] Deploy em produção VPS Oracle, SSL e modo demo
+│   ├── plano_deploy_vps_producao_e_ambiente_demo.md <- Deploy em produção VPS Oracle, SSL e modo demo
+│   ├── plano_sincronicidade_e_help_contexto.md      <- Sistema de sincronismo (SSE/polling) e ajuda contextual interativa
 │   ├── plano_gestao_estrutural_administrador.md
 │   ├── plano_implementacao_superadmin_estrutural.md
 │   ├── plano_separacao_cadastros_visitantes_predio.md
@@ -118,6 +119,7 @@ Instruções para deploy, gerenciamento e controle do ambiente Docker Compose e 
 | Documento | Data / Conclusão | Funcionalidades Entregues |
 | :--- | :---: | :--- |
 | [`planos_executados/plano_deploy_vps_producao_e_ambiente_demo.md`](planos_executados/plano_deploy_vps_producao_e_ambiente_demo.md) | 04/11/2026 | Deploy em produção na VPS Oracle Cloud (Always Free) com domínio `oasiscondo.com.br`, HTTPS/SSL via Certbot, segregação de ambientes via `VITE_MODO_DEMO` e `NODE_ENV`, atalho de Superadmin e higienização do banco para início dos cadastros reais. |
+| [`planos_executados/plano_sincronicidade_e_help_contexto.md`](planos_executados/plano_sincronicidade_e_help_contexto.md) | 04/11/2026 | Sistema de sincronismo de dados em tempo real (SSE/polling) e componente de ajuda contextual interativa (`AjudaContexto`, `GuiaInterativoReserva`). |
 | [`planos_executados/plano_gestao_estrutural_administrador.md`](planos_executados/plano_gestao_estrutural_administrador.md) | 16/10/2026 | Visualização estrutural de blocos, andares, apartamentos e vagas na tela do Administrador (somente leitura), modal unificado de perfil de usuário com botão de edição e alinhamento de ações. |
 | [`planos_executados/plano_implementacao_superadmin_estrutural.md`](planos_executados/plano_implementacao_superadmin_estrutural.md) | 15/10/2026 | Perfil `SUPERADMIN`, gerador estrutural de Blocos, Andares, Apartamentos por Andar, Vagas de garagem com metragem útil ($m^2$) e governança global de pessoas. |
 | [`planos_executados/plano_separacao_cadastros_visitantes_predio.md`](planos_executados/plano_separacao_cadastros_visitantes_predio.md) | 13/10/2026 | Separação do cadastro de usuários do sistema vs. visitantes e prestadores de serviço, campos opcionais e vínculo institucional com o prédio. |

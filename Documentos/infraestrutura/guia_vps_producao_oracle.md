@@ -213,3 +213,4 @@ Após a limpeza de dados de teste e preservação da estrutura predial:
 * **Usuário Superadmin:** `superadmin@oasis.com`
 * **Senha Inicial:** `Admin@2026`
 * **Ações Disponíveis:** Cadastro do Síndico real, porteiros e moradores vinculados às unidades.
+

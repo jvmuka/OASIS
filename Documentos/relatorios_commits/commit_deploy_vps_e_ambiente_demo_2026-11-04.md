@@ -59,3 +59,4 @@ Este conjunto de alterações estabeleceu a infraestrutura de produção do OASI
 * [x] Teste de subida dos contêineres Docker na VPS Oracle: todos com status `Up (healthy)`.
 * [x] Certificado SSL/TLS emitido com sucesso pelo Certbot para `oasiscondo.com.br` e `www.oasiscondo.com.br`.
 * [x] Validação da tela de login em produção: atalhos ocultos e acesso via `superadmin@oasis.com`.
+

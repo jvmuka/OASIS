@@ -81,3 +81,4 @@ Com o amadurecimento dos módulos funcionais do OASIS (portaria, reservas, estru
 3. **Persistência de Dados e Firewall:**
    * Regras de firewall persistidas no sistema operacional (`netfilter-persistent save`).
    * Volumes Docker (`oasis_pgdata` e `oasis_uploads`) verificados e montados corretamente.
+
