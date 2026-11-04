@@ -8,7 +8,7 @@
 -- ---------------------------------------------------------------------
 -- Tipos enumerados (dominios fechados)
 -- ---------------------------------------------------------------------
-CREATE TYPE tipo_perfil_enum            AS ENUM ('MORADOR','ADMINISTRADOR','SINDICO','PORTEIRO');
+CREATE TYPE tipo_perfil_enum            AS ENUM ('MORADOR','ADMINISTRADOR','SINDICO','PORTEIRO','SUPERADMIN');
 CREATE TYPE tipo_vinculo_enum           AS ENUM ('PROPRIETARIO','INQUILINO','DEPENDENTE','VISITANTE','PRESTADOR_SERVICO');
 CREATE TYPE pavimento_enum              AS ENUM ('TERREO','SUBSOLO_1','SUBSOLO_2');
 CREATE TYPE tipo_vaga_enum              AS ENUM ('SIMPLES','DUPLA');
