@@ -14,6 +14,10 @@ Documentos/
 ├── AGENTS.md                              <- Diretrizes para agentes de IA e automação
 │
 ├── padroes/                               <- [NOVO] Normas, Design System e Guias de Qualidade
+├── banco_de_dados/                        <- [NOVO] Dicionário de Dados e Arquitetura do Banco
+│   └── manual_banco_de_dados.md           <- Dicionário completo de 21 tabelas, 20 ENUMs, ER Mermaid e RN01..RN17
+│
+
 │   ├── padrao_ux_ui.md                    <- Guia completo de UI/UX, Design System, Tabelas, Filtros e Modais
 │   └── diretrizes_desenvolvimento.md      <- Padrões de engenharia, arquitetura em 3 camadas e commits
 │
