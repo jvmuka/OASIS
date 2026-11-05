@@ -257,81 +257,109 @@ export default function SindicoChamados() {
       {erro && <Mensagem tipo="erro" texto={erro} aoFechar={() => setErro('')} />}
 
       {/* Cartões de Indicadores / Métricas do Topo com Seleção Rápida (Padrão Lettly SaaS) */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Card 1: Em Análise */}
         <button
           type="button"
           onClick={() => setFiltroStatus('EM_ANALISE')}
-          className={`text-left p-4.5 rounded-2xl border transition-all cursor-pointer shadow-2xs hover:shadow-card hover:-translate-y-0.5 ${
+          className={`text-left p-5 rounded-2xl border transition-all cursor-pointer shadow-2xs hover:shadow-card hover:-translate-y-0.5 ${
             filtroStatus === 'EM_ANALISE'
-              ? 'border-navy bg-white dark:bg-[#0e1525] ring-2 ring-navy/15 dark:border-sky-500 dark:ring-sky-500/25'
+              ? 'border-navy bg-white dark:bg-[#0e1525] ring-2 ring-navy/20 dark:border-sky-500 dark:ring-sky-500/25'
               : 'border-[#e2e6ec] dark:border-slate-800 bg-white dark:bg-[#0e1525] hover:border-amber-400'
           }`}
         >
-          <div className="flex items-center justify-between mb-2">
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#fdf0d9] text-[#b26a00] border border-[#f8dcab]">
+          <div className="flex items-center justify-between gap-2">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#fdf0d9] text-[#b26a00] border border-[#f8dcab]">
               <span className="h-1.5 w-1.5 rounded-full bg-[#b26a00] animate-pulse" />
               Análise
             </span>
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#fdf0d9] text-[#b26a00] dark:bg-amber-950/60 dark:text-amber-400 shadow-2xs">
+              <Icone nome="alert" className="h-5 w-5" />
+            </div>
           </div>
-          <div className="text-2xl font-extrabold text-[#0b1830] dark:text-white">{stats.EM_ANALISE}</div>
-          <p className="text-[11px] text-[#525d6e] dark:text-slate-400 mt-1">Exigem resposta inicial</p>
+          <div className="mt-4">
+            <div className="text-3xl font-extrabold tracking-tight text-[#0b1830] dark:text-white">{stats.EM_ANALISE}</div>
+            <h4 className="mt-1 text-sm font-bold text-[#0b1830] dark:text-slate-200">Aguardando Análise</h4>
+            <p className="text-xs text-[#525d6e] dark:text-slate-400 mt-0.5">Exigem resposta inicial</p>
+          </div>
         </button>
 
+        {/* Card 2: Em Andamento */}
         <button
           type="button"
           onClick={() => setFiltroStatus('EM_ANDAMENTO')}
-          className={`text-left p-4.5 rounded-2xl border transition-all cursor-pointer shadow-2xs hover:shadow-card hover:-translate-y-0.5 ${
+          className={`text-left p-5 rounded-2xl border transition-all cursor-pointer shadow-2xs hover:shadow-card hover:-translate-y-0.5 ${
             filtroStatus === 'EM_ANDAMENTO'
-              ? 'border-navy bg-white dark:bg-[#0e1525] ring-2 ring-navy/15 dark:border-sky-500 dark:ring-sky-500/25'
+              ? 'border-navy bg-white dark:bg-[#0e1525] ring-2 ring-navy/20 dark:border-sky-500 dark:ring-sky-500/25'
               : 'border-[#e2e6ec] dark:border-slate-800 bg-white dark:bg-[#0e1525] hover:border-blue-400'
           }`}
         >
-          <div className="flex items-center justify-between mb-2">
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#e8edf7] text-[#2548a0] border border-[#c8d6ed]">
+          <div className="flex items-center justify-between gap-2">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#e8edf7] text-[#2548a0] border border-[#c8d6ed]">
               <Icone nome="clock" className="w-3 h-3" />
-              Em Andamento
+              Andamento
             </span>
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#e8edf7] text-[#2548a0] dark:bg-blue-950/60 dark:text-blue-400 shadow-2xs">
+              <Icone nome="clock" className="h-5 w-5" />
+            </div>
           </div>
-          <div className="text-2xl font-extrabold text-[#0b1830] dark:text-white">{stats.EM_ANDAMENTO}</div>
-          <p className="text-[11px] text-[#525d6e] dark:text-slate-400 mt-1">Serviço acionado</p>
+          <div className="mt-4">
+            <div className="text-3xl font-extrabold tracking-tight text-[#0b1830] dark:text-white">{stats.EM_ANDAMENTO}</div>
+            <h4 className="mt-1 text-sm font-bold text-[#0b1830] dark:text-slate-200">Em Andamento</h4>
+            <p className="text-xs text-[#525d6e] dark:text-slate-400 mt-0.5">Serviço ou reparo acionado</p>
+          </div>
         </button>
 
+        {/* Card 3: Realizadas */}
         <button
           type="button"
           onClick={() => setFiltroStatus('REALIZADA')}
-          className={`text-left p-4.5 rounded-2xl border transition-all cursor-pointer shadow-2xs hover:shadow-card hover:-translate-y-0.5 ${
+          className={`text-left p-5 rounded-2xl border transition-all cursor-pointer shadow-2xs hover:shadow-card hover:-translate-y-0.5 ${
             filtroStatus === 'REALIZADA'
-              ? 'border-navy bg-white dark:bg-[#0e1525] ring-2 ring-navy/15 dark:border-sky-500 dark:ring-sky-500/25'
+              ? 'border-navy bg-white dark:bg-[#0e1525] ring-2 ring-navy/20 dark:border-sky-500 dark:ring-sky-500/25'
               : 'border-[#e2e6ec] dark:border-slate-800 bg-white dark:bg-[#0e1525] hover:border-emerald-400'
           }`}
         >
-          <div className="flex items-center justify-between mb-2">
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#e3f4eb] text-[#1e8e5a] border border-[#bfe4d2]">
+          <div className="flex items-center justify-between gap-2">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#e3f4eb] text-[#1e8e5a] border border-[#bfe4d2]">
               <Icone nome="check" className="w-3 h-3" />
               Realizadas
             </span>
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#e3f4eb] text-[#1e8e5a] dark:bg-emerald-950/60 dark:text-emerald-400 shadow-2xs">
+              <Icone nome="check" className="h-5 w-5" />
+            </div>
           </div>
-          <div className="text-2xl font-extrabold text-[#0b1830] dark:text-white">{stats.REALIZADA}</div>
-          <p className="text-[11px] text-[#525d6e] dark:text-slate-400 mt-1">Concluídas com sucesso</p>
+          <div className="mt-4">
+            <div className="text-3xl font-extrabold tracking-tight text-[#0b1830] dark:text-white">{stats.REALIZADA}</div>
+            <h4 className="mt-1 text-sm font-bold text-[#0b1830] dark:text-slate-200">Concluídas</h4>
+            <p className="text-xs text-[#525d6e] dark:text-slate-400 mt-0.5">Finalizadas com sucesso</p>
+          </div>
         </button>
 
+        {/* Card 4: Total */}
         <button
           type="button"
           onClick={() => setFiltroStatus('TODAS')}
-          className={`text-left p-4.5 rounded-2xl border transition-all cursor-pointer shadow-2xs hover:shadow-card hover:-translate-y-0.5 ${
+          className={`text-left p-5 rounded-2xl border transition-all cursor-pointer shadow-2xs hover:shadow-card hover:-translate-y-0.5 ${
             filtroStatus === 'TODAS'
-              ? 'border-navy bg-white dark:bg-[#0e1525] ring-2 ring-navy/15 dark:border-sky-500 dark:ring-sky-500/25'
+              ? 'border-navy bg-white dark:bg-[#0e1525] ring-2 ring-navy/20 dark:border-sky-500 dark:ring-sky-500/25'
               : 'border-[#e2e6ec] dark:border-slate-800 bg-white dark:bg-[#0e1525] hover:border-slate-400'
           }`}
         >
-          <div className="flex items-center justify-between mb-2">
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#f6f7f9] text-[#525d6e] border border-[#e2e6ec] dark:bg-slate-800 dark:text-slate-300">
+          <div className="flex items-center justify-between gap-2">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#f6f7f9] text-[#525d6e] border border-[#e2e6ec] dark:bg-slate-800 dark:text-slate-300">
               <Icone nome="wrench" className="w-3 h-3" />
               Total
             </span>
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#f6f7f9] text-[#0b1830] dark:bg-slate-800 dark:text-slate-300 shadow-2xs">
+              <Icone nome="wrench" className="h-5 w-5" />
+            </div>
           </div>
-          <div className="text-2xl font-extrabold text-[#0b1830] dark:text-white">{stats.TOTAL}</div>
-          <p className="text-[11px] text-[#525d6e] dark:text-slate-400 mt-1">Histórico completo</p>
+          <div className="mt-4">
+            <div className="text-3xl font-extrabold tracking-tight text-[#0b1830] dark:text-white">{stats.TOTAL}</div>
+            <h4 className="mt-1 text-sm font-bold text-[#0b1830] dark:text-slate-200">Total de Chamados</h4>
+            <p className="text-xs text-[#525d6e] dark:text-slate-400 mt-0.5">Histórico completo</p>
+          </div>
         </button>
       </div>
 

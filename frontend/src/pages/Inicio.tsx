@@ -90,7 +90,7 @@ function Atalho({ to, rotulo, descricao, icone }: { to: string; rotulo: string; 
   return (
     <Link
       to={to}
-      className="group flex items-center gap-3.5 rounded-2xl border border-[#e2e6ec] bg-white p-4.5 shadow-2xs transition-all duration-150 hover:border-navy/30 hover:shadow-card active:scale-[0.99] dark:border-slate-800 dark:bg-[#0e1525] dark:hover:border-sky-500/40"
+      className="group flex items-center gap-3.5 rounded-2xl border border-[#e2e6ec] bg-white p-5 shadow-2xs transition-all duration-150 hover:border-navy/30 hover:shadow-card active:scale-[0.99] dark:border-slate-800 dark:bg-[#0e1525] dark:hover:border-sky-500/40"
     >
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#f6f7f9] text-[#0b1830] transition-colors group-hover:bg-navy group-hover:text-white dark:bg-slate-800 dark:text-sky-400 dark:group-hover:bg-sky-600 dark:group-hover:text-white">
         <Icone nome={icone} className="h-5 w-5" />

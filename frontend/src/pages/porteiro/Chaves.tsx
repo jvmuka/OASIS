@@ -398,7 +398,7 @@ export default function Chaves() {
             return (
               <div
                 key={c.id_chave}
-                className={`rounded-2xl border p-4.5 transition-all shadow-soft flex flex-col justify-between ${
+                className={`rounded-2xl border p-5 transition-all shadow-2xs flex flex-col justify-between ${
                   disponivel
                     ? 'border-slate-200/80 bg-white hover:border-navy/30 dark:border-slate-800 dark:bg-slate-800/80 dark:hover:border-sky-500/40'
                     : atrasada
