@@ -988,3 +988,44 @@ CREATE TABLE IF NOT EXISTS chamado_mensagem (
 );
 
 CREATE INDEX IF NOT EXISTS idx_chamado_msg_chamado ON chamado_mensagem(id_chamado, data_hora ASC);
+
+
+-- =====================================================================
+-- MULTI-CONDOMINIO (MULTI-TENANCY)
+-- =====================================================================
+
+CREATE TABLE IF NOT EXISTS condominio (
+    id_condominio       SERIAL          PRIMARY KEY,
+    nome                VARCHAR(120)    NOT NULL,
+    razao_social        VARCHAR(150),
+    cnpj                CHAR(14)        UNIQUE,
+    slug                VARCHAR(60)     NOT NULL UNIQUE,
+    endereco_completo   VARCHAR(255),
+    cidade              VARCHAR(80)     NOT NULL DEFAULT 'Ponta Grossa',
+    uf                  CHAR(2)         NOT NULL DEFAULT 'PR',
+    cep                 CHAR(8),
+    telefone_contato    VARCHAR(20),
+    email_contato       VARCHAR(150),
+    logo_url            VARCHAR(255),
+    ativo               BOOLEAN         NOT NULL DEFAULT TRUE,
+    criado_em           TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em       TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_condominio_slug ON condominio(slug);
+CREATE INDEX IF NOT EXISTS idx_condominio_ativo ON condominio(ativo);
+
+INSERT INTO condominio (id_condominio, nome, slug, cidade, uf, ativo)
+VALUES (1, 'Condomínio Residencial OASIS', 'oasis-central', 'Ponta Grossa', 'PR', TRUE)
+ON CONFLICT (id_condominio) DO UPDATE
+SET nome = EXCLUDED.nome, slug = EXCLUDED.slug;
+
+SELECT setval('condominio_id_condominio_seq', (SELECT COALESCE(MAX(id_condominio), 1) FROM condominio));
+
+ALTER TABLE bloco ADD COLUMN IF NOT EXISTS id_condominio INTEGER NOT NULL DEFAULT 1 REFERENCES condominio(id_condominio);
+ALTER TABLE area_comum ADD COLUMN IF NOT EXISTS id_condominio INTEGER NOT NULL DEFAULT 1 REFERENCES condominio(id_condominio);
+ALTER TABLE aviso ADD COLUMN IF NOT EXISTS id_condominio INTEGER NOT NULL DEFAULT 1 REFERENCES condominio(id_condominio);
+ALTER TABLE chave ADD COLUMN IF NOT EXISTS id_condominio INTEGER NOT NULL DEFAULT 1 REFERENCES condominio(id_condominio);
+ALTER TABLE codigo_primeiro_acesso ADD COLUMN IF NOT EXISTS id_condominio INTEGER NOT NULL DEFAULT 1 REFERENCES condominio(id_condominio);
+ALTER TABLE chamado ADD COLUMN IF NOT EXISTS id_condominio INTEGER NOT NULL DEFAULT 1 REFERENCES condominio(id_condominio);
+ALTER TABLE perfil ADD COLUMN IF NOT EXISTS id_condominio INTEGER REFERENCES condominio(id_condominio);

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { painelInicial, sessaoAtual, sair } from '../api';
+import { painelInicial, sessaoAtual, sair, alternarCondominio } from '../api';
 import { Icone, Badge } from './ui';
 import BotaoModoEscuro from './BotaoModoEscuro';
 
@@ -85,6 +85,40 @@ export default function Layout() {
           </Link>
         </div>
 
+        {/* Seletor de Condomínio Ativo no Topo */}
+        <div className="flex items-center gap-2">
+          {tipos.includes('SUPERADMIN') ? (
+            <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
+              <Icone nome="building" className="w-3.5 h-3.5 text-navy dark:text-sky-400 shrink-0" />
+              <select
+                value={s.condominio?.id_condominio || 1}
+                onChange={async (e) => {
+                  const id = parseInt(e.target.value, 10);
+                  await alternarCondominio(id);
+                  window.location.reload();
+                }}
+                className="bg-transparent font-bold text-slate-800 dark:text-slate-100 outline-none cursor-pointer max-w-[160px] sm:max-w-[260px] truncate"
+                title="Alternar condomínio ativo"
+              >
+                {(s.condominiosDisponiveis || [s.condominio || { id_condominio: 1, nome: 'Condomínio Residencial OASIS' }]).map((c: any) => (
+                  <option
+                    key={c.id_condominio}
+                    value={c.id_condominio}
+                    className="text-slate-900 bg-white dark:bg-slate-800 dark:text-slate-100"
+                  >
+                    {c.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <span className="hidden md:inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-700">
+              <Icone nome="building" className="w-3.5 h-3.5 text-navy dark:text-sky-400" />
+              <span className="max-w-[200px] truncate">{s.condominio?.nome || 'Condomínio Residencial OASIS'}</span>
+            </span>
+          )}
+        </div>
+
         {/* Informações do Usuário & Alternador de Tema & Logout */}
         <div className="flex items-center gap-3 sm:gap-4">
           <div className="flex items-center gap-3">
@@ -154,7 +188,8 @@ export default function Layout() {
                   Superadmin
                 </p>
                 <div className="space-y-1">
-                  {item('/superadmin/estrutura', 'Estrutura Física & Vagas', 'building')}
+                  {item('/superadmin/condominios', 'Condomínios', 'building')}
+                  {item('/superadmin/estrutura', 'Estrutura Física & Vagas', 'layers')}
                   {item('/superadmin/pessoas', 'Pessoas & Administradoras', 'users')}
                 </div>
               </div>

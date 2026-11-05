@@ -296,34 +296,88 @@ export class AuthService {
     return resultado;
   }
 
-  async gerarSessaoParaPessoa(idPessoa: number) {
+  async usuarioPossuiVinculoCondominio(idPessoa: number, idCondominio: number): Promise<boolean> {
+    const vinculos = await this.db.query(`
+      SELECT 1 FROM pessoa_unidade pu
+        JOIN unidade u ON u.id_unidade = pu.id_unidade
+        JOIN bloco b ON b.id_bloco = u.id_bloco
+       WHERE pu.id_pessoa = $1 AND b.id_condominio = $2 AND pu.data_fim_ocupacao IS NULL
+       UNION
+      SELECT 1 FROM perfil pf
+       WHERE pf.id_pessoa = $1 AND pf.id_condominio = $2 AND (pf.data_fim IS NULL OR pf.data_fim > CURRENT_DATE)
+    `, [idPessoa, idCondominio]);
+    return vinculos.length > 0;
+  }
+
+  async gerarSessaoParaPessoa(idPessoa: number, idCondominioForcado?: number) {
     const pessoas = await this.db.query(
       `SELECT id_pessoa, nome, email, ativo FROM pessoa WHERE id_pessoa = $1`, [idPessoa]);
     if (!pessoas.length) throw new UnauthorizedException('Usuario nao encontrado.');
     const pessoa = pessoas[0];
 
     const perfis = await this.db.query(
-      `SELECT id_perfil, tipo_perfil
+      `SELECT id_perfil, tipo_perfil, id_condominio
          FROM perfil
         WHERE id_pessoa = $1 AND (data_fim IS NULL OR data_fim > CURRENT_DATE)
         ORDER BY data_inicio DESC`, [pessoa.id_pessoa]);
 
+    const ehSuperadmin = perfis.some(p => p.tipo_perfil === 'SUPERADMIN');
+
     const unidades = await this.db.query(
-      `SELECT b.nome AS bloco, u.numero_apartamento, pu.tipo_vinculo, pu.grau_parentesco
+      `SELECT b.nome AS bloco, b.id_condominio, u.numero_apartamento, pu.tipo_vinculo, pu.grau_parentesco
          FROM pessoa_unidade pu
          JOIN unidade u ON u.id_unidade = pu.id_unidade
          JOIN bloco   b ON b.id_bloco   = u.id_bloco
         WHERE pu.id_pessoa = $1 AND pu.data_fim_ocupacao IS NULL`, [pessoa.id_pessoa]);
 
+    let idCondominioAtivo = idCondominioForcado;
+    if (!idCondominioAtivo) {
+      if (unidades.length > 0 && unidades[0].id_condominio) {
+        idCondominioAtivo = unidades[0].id_condominio;
+      } else {
+        const perfilComCondo = perfis.find(p => p.id_condominio);
+        if (perfilComCondo) {
+          idCondominioAtivo = perfilComCondo.id_condominio;
+        } else {
+          idCondominioAtivo = 1;
+        }
+      }
+    }
+
+    const condominios = await this.db.query(
+      `SELECT id_condominio, nome, slug, cidade, uf, logo_url, ativo FROM condominio WHERE id_condominio = $1`,
+      [idCondominioAtivo]
+    );
+
+    const condominioAtivo = condominios.length ? condominios[0] : {
+      id_condominio: 1,
+      nome: 'Condomínio Residencial OASIS',
+      slug: 'oasis-central',
+      cidade: 'Ponta Grossa',
+      uf: 'PR',
+      ativo: true,
+    };
+
+    let condominiosDisponiveis = [condominioAtivo];
+    if (ehSuperadmin) {
+      condominiosDisponiveis = await this.db.query(
+        `SELECT id_condominio, nome, slug, cidade, uf, ativo FROM condominio ORDER BY id_condominio ASC`
+      );
+    }
+
     const payload = {
       sub: pessoa.id_pessoa,
       nome: pessoa.nome,
-      perfis: perfis.map(p => ({ id_perfil: p.id_perfil, tipo: p.tipo_perfil })),
+      id_condominio: condominioAtivo.id_condominio,
+      slug_condominio: condominioAtivo.slug,
+      perfis: perfis.map(p => ({ id_perfil: p.id_perfil, tipo: p.tipo_perfil, id_condominio: p.id_condominio })),
     };
 
     return {
       token: await this.jwt.signAsync(payload),
       pessoa: { id_pessoa: pessoa.id_pessoa, nome: pessoa.nome, email: pessoa.email },
+      condominio: condominioAtivo,
+      condominiosDisponiveis,
       perfis: payload.perfis,
       unidades,
     };

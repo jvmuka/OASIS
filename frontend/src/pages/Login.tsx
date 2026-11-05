@@ -54,7 +54,7 @@ export default function Login() {
     setCarregando(true);
     try {
       const r = await api.post<{ token: string } & Sessao>('/auth/login', { email, senha });
-      salvarSessao(r.token, { pessoa: r.pessoa, perfis: r.perfis, unidades: r.unidades });
+      salvarSessao(r.token, { pessoa: r.pessoa, perfis: r.perfis, unidades: r.unidades, condominio: r.condominio, condominiosDisponiveis: r.condominiosDisponiveis });
       nav('/');
     } catch (err: any) {
       setErro(err.message || 'Erro ao realizar login.');
@@ -104,7 +104,7 @@ export default function Login() {
         email: emailAtivacao,
         novaSenha,
       });
-      salvarSessao(r.token, { pessoa: r.pessoa, perfis: r.perfis, unidades: r.unidades });
+      salvarSessao(r.token, { pessoa: r.pessoa, perfis: r.perfis, unidades: r.unidades, condominio: r.condominio, condominiosDisponiveis: r.condominiosDisponiveis });
       nav('/');
     } catch (err: any) {
       const msg = err.message || 'Erro ao concluir primeiro acesso.';
@@ -164,7 +164,7 @@ export default function Login() {
         codigo: codigoRecuperacao,
         novaSenha: novaSenhaRecuperacao,
       });
-      salvarSessao(r.token, { pessoa: r.pessoa, perfis: r.perfis, unidades: r.unidades });
+      salvarSessao(r.token, { pessoa: r.pessoa, perfis: r.perfis, unidades: r.unidades, condominio: r.condominio, condominiosDisponiveis: r.condominiosDisponiveis });
       nav('/');
     } catch (err: any) {
       const msg = err.message || 'Erro ao redefinir senha.';
@@ -188,7 +188,7 @@ export default function Login() {
         email: emailTeste,
         senha: 'Teste@2026',
       });
-      salvarSessao(r.token, { pessoa: r.pessoa, perfis: r.perfis, unidades: r.unidades });
+      salvarSessao(r.token, { pessoa: r.pessoa, perfis: r.perfis, unidades: r.unidades, condominio: r.condominio, condominiosDisponiveis: r.condominiosDisponiveis });
       nav('/');
     } catch (err: any) {
       setErro(err.message || 'Erro ao realizar login.');

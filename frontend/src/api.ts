@@ -11,10 +11,20 @@ const TOKEN_KEY = 'oasis_token';
 const SESSAO_KEY = 'oasis_sessao';
 
 export type Perfil = { id_perfil: number; tipo: 'MORADOR' | 'SINDICO' | 'ADMINISTRADOR' | 'PORTEIRO' | 'SUPERADMIN' };
+export interface CondominioInfo {
+  id_condominio: number;
+  nome: string;
+  slug: string;
+  cidade?: string;
+  uf?: string;
+}
+
 export type Sessao = {
   pessoa: { id_pessoa: number; nome: string; email: string };
   perfis: Perfil[];
   unidades: { bloco: string; numero_apartamento: string }[];
+  condominio?: CondominioInfo;
+  condominiosDisponiveis?: CondominioInfo[];
 };
 
 export function salvarSessao(token: string, sessao: Sessao) {
@@ -126,3 +136,15 @@ export const api = {
   },
 };
 
+
+export async function alternarCondominio(idCondominio: number): Promise<Sessao> {
+  const novaSessao = await api.post<any>(`/auth/alternar-condominio/${idCondominio}`);
+  salvarSessao(novaSessao.token, {
+    pessoa: novaSessao.pessoa,
+    perfis: novaSessao.perfis,
+    unidades: novaSessao.unidades,
+    condominio: novaSessao.condominio,
+    condominiosDisponiveis: novaSessao.condominiosDisponiveis,
+  });
+  return novaSessao;
+}

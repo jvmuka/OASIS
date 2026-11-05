@@ -53,11 +53,195 @@ interface CriarVagaDto {
   metragem_m2: number;
 }
 
+
+function resolverIdCondominio(req: any, queryCondo?: string): number {
+  if (queryCondo && !isNaN(parseInt(queryCondo, 10))) {
+    return parseInt(queryCondo, 10);
+  }
+  const headerCondo = req.headers ? req.headers['x-condominio-id'] : undefined;
+  if (headerCondo && !isNaN(parseInt(headerCondo, 10))) {
+    return parseInt(headerCondo, 10);
+  }
+  if (req.user && req.user.id_condominio) {
+    return Number(req.user.id_condominio);
+  }
+  return 1;
+}
+
 @Controller('superadmin')
 @UseGuards(JwtAuthGuard, PerfilGuard)
 @Perfis('SUPERADMIN')
 export class SuperadminController {
   constructor(private db: DbService) {}
+
+  // =========================================================================
+  // 0. GESTÃO DE CONDOMÍNIOS (TENANTS)
+  // =========================================================================
+
+  @Get('condominios')
+  async listarCondominios() {
+    return this.db.query(`
+      SELECT c.id_condominio, c.nome, c.razao_social, c.cnpj, c.slug,
+             c.endereco_completo, c.cidade, c.uf, c.cep,
+             c.telefone_contato, c.email_contato, c.logo_url, c.ativo, c.criado_em,
+             (SELECT COUNT(*)::INTEGER FROM bloco b WHERE b.id_condominio = c.id_condominio) AS total_blocos,
+             (SELECT COUNT(*)::INTEGER FROM unidade u JOIN bloco b ON b.id_bloco = u.id_bloco WHERE b.id_condominio = c.id_condominio) AS total_unidades,
+             (SELECT COUNT(DISTINCT pu.id_pessoa)::INTEGER FROM pessoa_unidade pu 
+                JOIN unidade u ON u.id_unidade = pu.id_unidade 
+                JOIN bloco b ON b.id_bloco = u.id_bloco 
+               WHERE b.id_condominio = c.id_condominio AND pu.data_fim_ocupacao IS NULL) AS total_moradores
+        FROM condominio c
+       ORDER BY c.id_condominio ASC
+    `);
+  }
+
+  @Post('condominios')
+  async criarCondominio(
+    @Body()
+    body: {
+      nome: string;
+      razao_social?: string;
+      cnpj?: string;
+      slug?: string;
+      endereco_completo?: string;
+      cidade?: string;
+      uf?: string;
+      cep?: string;
+      telefone_contato?: string;
+      email_contato?: string;
+    },
+  ) {
+    const nome = body.nome?.trim();
+    if (!nome) throw new BadRequestException('O nome do condomínio é obrigatório.');
+
+    let slug = body.slug?.trim().toLowerCase();
+    if (!slug) {
+      slug = nome
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '');
+    }
+
+    const cnpjLimpo = body.cnpj ? body.cnpj.replace(/\D/g, '') : null;
+
+    const res = await this.db.query(
+      `INSERT INTO condominio (
+        nome, razao_social, cnpj, slug, endereco_completo, cidade, uf, cep,
+        telefone_contato, email_contato, ativo
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, TRUE)
+       RETURNING *`,
+      [
+        nome,
+        body.razao_social?.trim() || null,
+        cnpjLimpo,
+        slug,
+        body.endereco_completo?.trim() || null,
+        body.cidade?.trim() || 'Ponta Grossa',
+        body.uf?.trim()?.toUpperCase() || 'PR',
+        body.cep ? body.cep.replace(/\D/g, '') : null,
+        body.telefone_contato?.trim() || null,
+        body.email_contato?.trim() || null,
+      ],
+    );
+
+    const novoCondo = res[0];
+
+    // Cria automaticamente o bloco "Bloco A" para facilitar a estruturação inicial
+    await this.db.query(
+      `INSERT INTO bloco (id_condominio, nome, descricao) VALUES ($1, 'Bloco A', 'Bloco principal do condomínio')`,
+      [novoCondo.id_condominio],
+    );
+
+    return novoCondo;
+  }
+
+  @Get('condominios/:id')
+  async obterCondominio(@Param('id', ParseIntPipe) id: number) {
+    const res = await this.db.query(`SELECT * FROM condominio WHERE id_condominio = $1`, [id]);
+    if (!res.length) throw new NotFoundException('Condomínio não encontrado.');
+    return res[0];
+  }
+
+  @Put('condominios/:id')
+  async editarCondominio(
+    @Param('id', ParseIntPipe) id: number,
+    @Body()
+    body: {
+      nome: string;
+      razao_social?: string;
+      cnpj?: string;
+      slug?: string;
+      endereco_completo?: string;
+      cidade?: string;
+      uf?: string;
+      cep?: string;
+      telefone_contato?: string;
+      email_contato?: string;
+    },
+  ) {
+    const nome = body.nome?.trim();
+    if (!nome) throw new BadRequestException('O nome do condomínio é obrigatório.');
+
+    let slug = body.slug?.trim().toLowerCase();
+    if (!slug) {
+      slug = nome
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '');
+    }
+
+    const cnpjLimpo = body.cnpj ? body.cnpj.replace(/\D/g, '') : null;
+
+    const res = await this.db.query(
+      `UPDATE condominio
+          SET nome = $1, razao_social = $2, cnpj = $3, slug = $4,
+              endereco_completo = $5, cidade = $6, uf = $7, cep = $8,
+              telefone_contato = $9, email_contato = $10,
+              atualizado_em = CURRENT_TIMESTAMP
+        WHERE id_condominio = $11
+        RETURNING *`,
+      [
+        nome,
+        body.razao_social?.trim() || null,
+        cnpjLimpo,
+        slug,
+        body.endereco_completo?.trim() || null,
+        body.cidade?.trim() || 'Ponta Grossa',
+        body.uf?.trim()?.toUpperCase() || 'PR',
+        body.cep ? body.cep.replace(/\D/g, '') : null,
+        body.telefone_contato?.trim() || null,
+        body.email_contato?.trim() || null,
+        id,
+      ],
+    );
+
+    if (!res.length) throw new NotFoundException('Condomínio não encontrado.');
+    return res[0];
+  }
+
+  @Patch('condominios/:id/status')
+  async alternarStatusCondominio(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { ativo: boolean },
+  ) {
+    if (id === 1 && body.ativo === false) {
+      throw new BadRequestException('O condomínio matriz OASIS não pode ser desativado.');
+    }
+    const res = await this.db.query(
+      `UPDATE condominio 
+          SET ativo = $1, atualizado_em = CURRENT_TIMESTAMP
+        WHERE id_condominio = $2
+        RETURNING *`,
+      [Boolean(body.ativo), id],
+    );
+    if (!res.length) throw new NotFoundException('Condomínio não encontrado.');
+    return res[0];
+  }
+
 
   // =========================================================================
   // 1. GESTÃO ESTRUTURAL: BLOCOS, ANDARES, APARTAMENTOS E VAGAS COM METRAGEM
@@ -69,19 +253,22 @@ export class SuperadminController {
    */
   @Get('estrutura')
   @Perfis('SUPERADMIN', 'SINDICO')
-  async obterEstruturaCompleta() {
-    // 1. Busca todos os blocos (exceto bloco de sistema 'Prédio' se não tiver unidades residenciais)
+  async obterEstruturaCompleta(@Query('condominio') queryCondo: string, @Req() req: any) {
+    const idCondominio = resolverIdCondominio(req, queryCondo);
+
+    // 1. Busca blocos pertencentes ao condomínio ativo
     const blocos = await this.db.query(`
       SELECT b.id_bloco, b.nome, b.descricao,
              COUNT(u.id_unidade)::INTEGER AS total_unidades,
              COALESCE(SUM(u.numero_vagas), 0)::INTEGER AS total_vagas_atribuidas
         FROM bloco b
         LEFT JOIN unidade u ON u.id_bloco = b.id_bloco
+       WHERE b.id_condominio = $1
        GROUP BY b.id_bloco, b.nome, b.descricao
        ORDER BY (CASE WHEN b.nome = 'Prédio' THEN 2 ELSE 1 END), b.nome
-    `);
+    `, [idCondominio]);
 
-    // 2. Busca todas as unidades com detalhes
+    // 2. Busca unidades pertencentes ao condomínio ativo
     const unidades = await this.db.query(`
       SELECT u.id_unidade, u.id_bloco, b.nome AS bloco, u.numero_apartamento, u.andar, u.numero_vagas,
              (SELECT COUNT(*)::INTEGER FROM pessoa_unidade pu 
@@ -100,8 +287,9 @@ export class SuperadminController {
                  AND pu.data_fim_ocupacao IS NULL LIMIT 1) AS inquilino
         FROM unidade u
         JOIN bloco b ON b.id_bloco = u.id_bloco
+       WHERE b.id_condominio = $1
        ORDER BY b.nome, u.andar, (CASE WHEN u.numero_apartamento ~ '^[0-9]+$' THEN u.numero_apartamento::INTEGER ELSE 999999 END), u.numero_apartamento
-    `);
+    `, [idCondominio]);
 
     // 2.1. Busca todos os vínculos de moradores ativos com as unidades
     const moradores = await this.db.query(`
@@ -111,8 +299,11 @@ export class SuperadminController {
              pu.id_responsavel, resp.nome AS responsavel_nome
         FROM pessoa_unidade pu
         JOIN pessoa p ON p.id_pessoa = pu.id_pessoa
+        JOIN unidade u ON u.id_unidade = pu.id_unidade
+        JOIN bloco b ON b.id_bloco = u.id_bloco
         LEFT JOIN pessoa resp ON resp.id_pessoa = pu.id_responsavel
        WHERE pu.data_fim_ocupacao IS NULL
+         AND b.id_condominio = $1
        ORDER BY 
          CASE pu.tipo_vinculo 
            WHEN 'PROPRIETARIO' THEN 1 
@@ -121,7 +312,7 @@ export class SuperadminController {
            ELSE 4 
          END, 
          p.nome
-    `);
+    `, [idCondominio]);
 
     // Agrupa moradores por unidade
     const moradoresPorUnidade: Record<number, any[]> = {};
@@ -137,10 +328,9 @@ export class SuperadminController {
         FROM vaga_garagem vg
         JOIN unidade u ON u.id_unidade = vg.id_unidade
         JOIN bloco b ON b.id_bloco = u.id_bloco
+       WHERE b.id_condominio = $1
        ORDER BY vg.identificacao
-    `);
-
-    // Agrupa vagas por unidade
+    `, [idCondominio]);
     const vagasPorUnidade: Record<number, any[]> = {};
     for (const v of vagas) {
       if (!vagasPorUnidade[v.id_unidade]) vagasPorUnidade[v.id_unidade] = [];
@@ -180,7 +370,8 @@ export class SuperadminController {
    * GERADOR EM LOTE: Cria bloco, andares, apartamentos e vagas com metragem em transação atômica.
    */
   @Post('blocos/lote')
-  async gerarBlocoEmLote(@Body() dto: GerarBlocoLoteDto) {
+  async gerarBlocoEmLote(@Body() dto: GerarBlocoLoteDto & { id_condominio?: number }, @Req() req: any) {
+    const idCondominio = dto.id_condominio || resolverIdCondominio(req);
     const nomeBloco = dto.nome_bloco?.trim();
     if (!nomeBloco) throw new BadRequestException('O nome do bloco é obrigatório.');
     if (!dto.total_andares || dto.total_andares < 1 || dto.total_andares > 50) {
@@ -200,16 +391,16 @@ export class SuperadminController {
       // 1. Cria ou reutiliza bloco
       let idBloco: number;
       const blocoExistente = await client.query(
-        `SELECT id_bloco FROM bloco WHERE LOWER(nome) = LOWER($1)`,
-        [nomeBloco]
+        `SELECT id_bloco FROM bloco WHERE id_condominio = $1 AND LOWER(nome) = LOWER($2)`,
+        [idCondominio, nomeBloco]
       );
       if (blocoExistente.rows.length) {
-        throw new BadRequestException(`Já existe um bloco cadastrado com o nome "${nomeBloco}".`);
+        throw new BadRequestException(`Já existe um bloco cadastrado com o nome "${nomeBloco}" neste condomínio.`);
       }
 
       const resBloco = await client.query(
-        `INSERT INTO bloco (nome, descricao) VALUES ($1, $2) RETURNING id_bloco, nome, descricao`,
-        [nomeBloco, dto.descricao?.trim() || null]
+        `INSERT INTO bloco (id_condominio, nome, descricao) VALUES ($1, $2, $3) RETURNING id_bloco, nome, descricao`,
+        [idCondominio, nomeBloco, dto.descricao?.trim() || null]
       );
       idBloco = resBloco.rows[0].id_bloco;
 
@@ -277,12 +468,13 @@ export class SuperadminController {
 
   /** Criação de bloco simples/avulso */
   @Post('blocos')
-  async criarBloco(@Body() b: { nome: string; descricao?: string }) {
+  async criarBloco(@Body() b: { nome: string; descricao?: string; id_condominio?: number }, @Req() req: any) {
+    const idCondominio = b.id_condominio || resolverIdCondominio(req);
     const nome = b.nome?.trim();
     if (!nome) throw new BadRequestException('O nome do bloco é obrigatório.');
     return this.db.query(
-      `INSERT INTO bloco (nome, descricao) VALUES ($1, $2) RETURNING *`,
-      [nome, b.descricao?.trim() || null]
+      `INSERT INTO bloco (id_condominio, nome, descricao) VALUES ($1, $2, $3) RETURNING *`,
+      [idCondominio, nome, b.descricao?.trim() || null]
     ).then(r => r[0]);
   }
 

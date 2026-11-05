@@ -719,6 +719,46 @@ export const AJUDA_CONFIG: Record<string, AjudaTela> = {
       },
     ],
   },
+  // ----------------------------------------------------
+  // GESTÃO DE CONDOMÍNIOS (SUPERADMIN)
+  // ----------------------------------------------------
+  '/superadmin/condominios': {
+    titulo: 'Gestão Multi-Condomínio',
+    subtitulo: 'Cadastro e governança de instâncias da plataforma',
+    icone: 'apartment',
+    resumo: 'Painel central onde o Superadmin cadastra novos condomínios, audita instâncias ativas e alterna o contexto de trabalho com 1 clique.',
+    passoAPasso: [
+      {
+        passo: 1,
+        titulo: 'Cadastrar Novo Condomínio',
+        descricao: 'Clique no botão "+ Novo Condomínio", informe nome, identificador (slug), CNPJ, endereço e cidade.',
+      },
+      {
+        passo: 2,
+        titulo: 'Alternar de Instância Ativa',
+        descricao: 'Clique no botão "Acessar Condomínio" em qualquer card para mudar o contexto global de trabalho da plataforma.',
+      },
+      {
+        passo: 3,
+        titulo: 'Gerenciar Status e Edição',
+        descricao: 'Pause ou reative condomínios a qualquer momento usando a chave de status nos cards.',
+      },
+    ],
+    dicas: [
+      'O identificador URL (slug) é gerado automaticamente a partir do nome e serve para distinguir cada condomínio de forma amigável.',
+      'Você também pode alternar o condomínio ativo rapidamente pelo seletor no cabeçalho superior.',
+    ],
+    duvidasFrequentes: [
+      {
+        pergunta: 'Os dados de moradores e blocos se misturam?',
+        resposta: 'Não. Cada condomínio possui isolamento estrito de dados (multi-tenancy) a nível de banco de dados e APIs.',
+      },
+      {
+        pergunta: 'Quem pode ver este painel?',
+        resposta: 'Apenas usuários com a credencial global de SUPERADMIN.',
+      },
+    ],
+  },
 };
 
 // Aliases para cobrir variações de chaves e rotas legadas
@@ -743,6 +783,7 @@ AJUDA_CONFIG['/sindico/publicar-aviso'] = AJUDA_CONFIG['/sindico/avisos'];
 AJUDA_CONFIG['sindico-avisos'] = AJUDA_CONFIG['/sindico/avisos'];
 AJUDA_CONFIG['superadmin-estrutura'] = AJUDA_CONFIG['/superadmin/estrutura'];
 AJUDA_CONFIG['superadmin-pessoas'] = AJUDA_CONFIG['/superadmin/pessoas'];
+AJUDA_CONFIG['superadmin-condominios'] = AJUDA_CONFIG['/superadmin/condominios'];
 
 /** Função para obter a ajuda da tela atual com resolução precisa */
 export function obterAjudaPorRota(pathname: string, chaveManual?: string): AjudaTela | null {
@@ -805,6 +846,9 @@ export function obterAjudaPorRota(pathname: string, chaveManual?: string): Ajuda
   }
   if (rotaLimpa.startsWith('/sindico/avisos') || rotaLimpa.startsWith('/sindico/publicar-aviso')) {
     return AJUDA_CONFIG['/sindico/avisos'];
+  }
+  if (rotaLimpa.startsWith('/superadmin/condominios')) {
+    return AJUDA_CONFIG['/superadmin/condominios'];
   }
   if (rotaLimpa.startsWith('/superadmin/estrutura')) {
     return AJUDA_CONFIG['/superadmin/estrutura'];

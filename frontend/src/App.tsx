@@ -20,6 +20,7 @@ import SindicoChamados from './pages/sindico/Chamados';
 import AreasLivres from './pages/porteiro/AreasLivres';
 import EstruturaFisica from './pages/superadmin/EstruturaFisica';
 import PessoasSuperadmin from './pages/superadmin/PessoasSuperadmin';
+import CondominiosSuperadmin from './pages/superadmin/Condominios';
 
 /** Redireciona para o painel inicial do perfil (ou login, se nao houver sessao). */
 function RedirecionaInicio() {
@@ -69,6 +70,7 @@ export default function App() {
         <Route path="/sindico/pessoas" element={<Protegida perfil={['ADMINISTRADOR', 'SINDICO', 'PORTEIRO']}><Pessoas /></Protegida>} />
         <Route path="/sindico/avisos" element={<Protegida perfil={['ADMINISTRADOR', 'SINDICO']}><PublicarAviso /></Protegida>} />
         {/* Plataforma Superadmin */}
+        <Route path="/superadmin/condominios" element={<Protegida perfil="SUPERADMIN"><CondominiosSuperadmin /></Protegida>} />
         <Route path="/superadmin/estrutura" element={<Protegida perfil="SUPERADMIN"><EstruturaFisica /></Protegida>} />
         <Route path="/superadmin/pessoas" element={<Protegida perfil="SUPERADMIN"><PessoasSuperadmin /></Protegida>} />
       </Route>
