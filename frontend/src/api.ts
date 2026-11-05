@@ -97,13 +97,16 @@ async function parseResposta(r: Response, contexto: 'upload' | 'geral' = 'geral'
 }
 
 async function req<T>(metodo: string, rota: string, corpo?: unknown): Promise<T> {
+  const sessao = sessaoAtual();
+  const idCondominio = sessao?.condominio?.id_condominio;
+  const token = localStorage.getItem(TOKEN_KEY);
+
   const r = await fetch('/api' + rota, {
     method: metodo,
     headers: {
       'Content-Type': 'application/json',
-      ...(localStorage.getItem(TOKEN_KEY)
-        ? { Authorization: 'Bearer ' + localStorage.getItem(TOKEN_KEY) }
-        : {}),
+      ...(token ? { Authorization: 'Bearer ' + token } : {}),
+      ...(idCondominio ? { 'x-condominio-id': String(idCondominio) } : {}),
     },
     body: corpo ? JSON.stringify(corpo) : undefined,
   });
@@ -129,14 +132,16 @@ export const api = {
   delete: <T>(rota: string) => req<T>('DELETE', rota),
   /** Envia um arquivo via multipart/form-data. */
   upload: async <T>(rota: string, campo: string, arquivo: File): Promise<T> => {
+    const sessao = sessaoAtual();
+    const idCondominio = sessao?.condominio?.id_condominio;
+    const token = localStorage.getItem(TOKEN_KEY);
     const form = new FormData();
     form.append(campo, arquivo);
     const r = await fetch('/api' + rota, {
       method: 'POST',
       headers: {
-        ...(localStorage.getItem(TOKEN_KEY)
-          ? { Authorization: 'Bearer ' + localStorage.getItem(TOKEN_KEY) }
-          : {}),
+        ...(token ? { Authorization: 'Bearer ' + token } : {}),
+        ...(idCondominio ? { 'x-condominio-id': String(idCondominio) } : {}),
       },
       body: form,
     });

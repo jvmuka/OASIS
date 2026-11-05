@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Patch, Body, Param, Query, Module, UseGuards, Req, ParseIntPipe, BadRequestException } from '@nestjs/common';
 import { DbService } from '../db/db.service';
-import { JwtAuthGuard, PerfilGuard, Perfis, perfilDoUsuario, ModuloGuard, ExigeModulo } from '../auth/guards';
+import { JwtAuthGuard, PerfilGuard, Perfis, perfilDoUsuario, ModuloGuard, ExigeModulo, resolverIdCondominio } from '../auth/guards';
 import { SyncService } from '../sync/sync.service';
 
 const DIAS = ['DOMINGO','SEGUNDA','TERCA','QUARTA','QUINTA','SEXTA','SABADO'];
@@ -338,6 +338,7 @@ export class ReservasController {
   @Get('minhas') @Perfis('MORADOR')
   async minhas(@Req() req: any) {
     const idPerfil = perfilDoUsuario(req.user, 'MORADOR');
+    const idCondominio = resolverIdCondominio(req);
     await this.db.query(`
       UPDATE reserva
          SET status = 'CONCLUIDA'
@@ -350,11 +351,11 @@ export class ReservasController {
                   ELSE r.status END AS status,
              a.prazo_cancelamento_horas
         FROM reserva r JOIN area_comum a ON a.id_area_comum = r.id_area_comum
-       WHERE r.id_perfil = $1
+       WHERE r.id_perfil = $1 AND a.id_condominio = $2
        ORDER BY 
          (CASE WHEN r.status = 'ATIVA' AND r.data_hora_fim >= CURRENT_TIMESTAMP THEN 0 ELSE 1 END),
          CASE WHEN r.status = 'ATIVA' AND r.data_hora_fim >= CURRENT_TIMESTAMP THEN r.data_hora_inicio END ASC,
-         r.data_hora_inicio DESC`, [idPerfil]);
+         r.data_hora_inicio DESC`, [idPerfil, idCondominio]);
   }
 
   /** UC04: cancelar (gatilho RN08 valida o prazo e grava a data). */

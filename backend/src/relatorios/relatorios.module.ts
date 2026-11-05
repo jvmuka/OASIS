@@ -1,6 +1,6 @@
-import { Controller, Get, Module, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Module, Query, UseGuards, Req } from '@nestjs/common';
 import { DbService } from '../db/db.service';
-import { JwtAuthGuard, PerfilGuard, Perfis } from '../auth/guards';
+import { JwtAuthGuard, PerfilGuard, Perfis, resolverIdCondominio } from '../auth/guards';
 
 const MESES_ABREV: Record<string, string> = {
   '01': 'Jan', '02': 'Fev', '03': 'Mar', '04': 'Abr',
@@ -21,7 +21,8 @@ export class RelatoriosController {
   constructor(private db: DbService) {}
 
   @Get('painel') @Perfis('SINDICO')
-  async painel(@Query('mes') mesParam?: string) {
+  async painel(@Req() req: any, @Query('mes') mesParam?: string) {
+    const idCondominio = resolverIdCondominio(req);
     await this.db.query(`
       UPDATE reserva
          SET status = 'CONCLUIDA'
@@ -60,18 +61,32 @@ export class RelatoriosController {
       });
     }
 
-    // Totais com filtro no mês de referência
+    // Totais com filtro no mês de referência e condomínio ativo
     const [tot] = await this.db.query(`
       SELECT
-        (SELECT COUNT(*) FROM reserva
-          WHERE status <> 'CANCELADA'
-            AND date_trunc('month', data_hora_inicio) = date_trunc('month', $1::date))::int AS reservas_mes,
-        (SELECT COUNT(*) FROM encomenda WHERE status = 'AGUARDANDO_RETIRADA')::int AS encomendas_pendentes,
+        (SELECT COUNT(*) FROM reserva r
+           JOIN area_comum a ON a.id_area_comum = r.id_area_comum
+          WHERE a.id_condominio = $2
+            AND r.status <> 'CANCELADA'
+            AND date_trunc('month', r.data_hora_inicio) = date_trunc('month', $1::date))::int AS reservas_mes,
+        (SELECT COUNT(*) FROM encomenda e
+           JOIN pessoa p ON p.id_pessoa = e.id_pessoa_destinatario
+           LEFT JOIN pessoa_unidade pu ON pu.id_pessoa = p.id_pessoa AND pu.data_fim_ocupacao IS NULL
+           LEFT JOIN unidade u ON u.id_unidade = pu.id_unidade
+           LEFT JOIN bloco b ON b.id_bloco = u.id_bloco
+          WHERE b.id_condominio = $2 AND e.status = 'AGUARDANDO_RETIRADA')::int AS encomendas_pendentes,
         (SELECT COUNT(*) FROM perfil
-          WHERE tipo_perfil = 'MORADOR' AND (data_fim IS NULL OR data_fim > CURRENT_DATE))::int AS moradores_ativos,
-        (SELECT COUNT(*) FROM chave WHERE status = 'EMPRESTADA')::int AS chaves_emprestadas,
-        (SELECT COUNT(*) FROM entrega_chave WHERE data_hora_devolucao IS NULL AND data_hora_retirada < CURRENT_TIMESTAMP - INTERVAL '24 hours')::int AS chaves_atrasadas,
-        (SELECT COUNT(*) FROM unidade)::int AS total_unidades`, [dataRef]);
+          WHERE id_condominio = $2 AND tipo_perfil = 'MORADOR' AND (data_fim IS NULL OR data_fim > CURRENT_DATE))::int AS moradores_ativos,
+        (SELECT COUNT(*) FROM chave c
+           JOIN area_comum a ON a.id_area_comum = c.id_area_comum
+          WHERE a.id_condominio = $2 AND c.status = 'EMPRESTADA')::int AS chaves_emprestadas,
+        (SELECT COUNT(*) FROM entrega_chave ec
+           JOIN chave c ON c.id_chave = ec.id_chave
+           JOIN area_comum a ON a.id_area_comum = c.id_area_comum
+          WHERE a.id_condominio = $2 AND ec.data_hora_devolucao IS NULL AND ec.data_hora_retirada < CURRENT_TIMESTAMP - INTERVAL '24 hours')::int AS chaves_atrasadas,
+        (SELECT COUNT(*) FROM unidade u
+           JOIN bloco b ON b.id_bloco = u.id_bloco
+          WHERE b.id_condominio = $2)::int AS total_unidades`, [dataRef, idCondominio]);
 
     // Série de 6 meses até o mês de referência
     const evolucaoRaw = await this.db.query(`
@@ -86,11 +101,12 @@ export class RelatoriosController {
              to_char(m.mes, 'MM') AS mes_num,
              COUNT(r.id_reserva)::int AS total
         FROM meses m
-        LEFT JOIN reserva r 
-          ON date_trunc('month', r.data_hora_inicio) = m.mes
+        LEFT JOIN (
+          reserva r JOIN area_comum a ON a.id_area_comum = r.id_area_comum AND a.id_condominio = $2
+        ) ON date_trunc('month', r.data_hora_inicio) = m.mes
          AND r.status <> 'CANCELADA'
        GROUP BY m.mes
-       ORDER BY m.mes ASC`, [dataRef]);
+       ORDER BY m.mes ASC`, [dataRef, idCondominio]);
 
     const evolucao = evolucaoRaw.map((row: any) => ({
       mes_chave: row.mes_chave,
@@ -100,10 +116,11 @@ export class RelatoriosController {
 
     // Status das reservas estritamente no mês de referência
     const statusReservasRaw = await this.db.query(`
-      SELECT status, COUNT(*)::int AS total
-        FROM reserva
-       WHERE date_trunc('month', data_hora_inicio) = date_trunc('month', $1::date)
-       GROUP BY status`, [dataRef]);
+      SELECT r.status, COUNT(*)::int AS total
+        FROM reserva r
+        JOIN area_comum a ON a.id_area_comum = r.id_area_comum
+       WHERE a.id_condominio = $2 AND date_trunc('month', r.data_hora_inicio) = date_trunc('month', $1::date)
+       GROUP BY r.status`, [dataRef, idCondominio]);
 
     const mapaStatus: Record<string, number> = { ATIVA: 0, CONCLUIDA: 0, CANCELADA: 0 };
     for (const r of statusReservasRaw) {
@@ -125,8 +142,9 @@ export class RelatoriosController {
           ON r.id_area_comum = a.id_area_comum 
          AND r.status <> 'CANCELADA'
          AND date_trunc('month', r.data_hora_inicio) = date_trunc('month', $1::date)
+       WHERE a.id_condominio = $2
        GROUP BY a.id_area_comum, a.nome
-       ORDER BY reservas DESC, a.nome ASC`, [dataRef]);
+       ORDER BY reservas DESC, a.nome ASC`, [dataRef, idCondominio]);
 
     // Agendamentos detalhados estritamente do mês selecionado
     const recentes = await this.db.query(`
@@ -147,9 +165,9 @@ export class RelatoriosController {
         JOIN area_comum a ON a.id_area_comum = r.id_area_comum
         JOIN perfil pf ON pf.id_perfil = r.id_perfil
         JOIN pessoa p ON p.id_pessoa = pf.id_pessoa
-       WHERE date_trunc('month', r.data_hora_inicio) = date_trunc('month', $1::date)
+       WHERE a.id_condominio = $2 AND date_trunc('month', r.data_hora_inicio) = date_trunc('month', $1::date)
        ORDER BY r.data_hora_inicio DESC
-       LIMIT 50`, [dataRef]);
+       LIMIT 50`, [dataRef, idCondominio]);
 
     return {
       mes_selecionado: mesAno,

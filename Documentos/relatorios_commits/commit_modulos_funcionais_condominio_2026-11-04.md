@@ -111,3 +111,4 @@ Executado o script `scratch/test_modulos_e2e.js` com validação de:
 - `frontend/src/components/Layout.tsx`
 - `frontend/src/App.tsx`
 - `frontend/src/pages/superadmin/Condominios.tsx`
+

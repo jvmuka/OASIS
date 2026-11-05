@@ -77,3 +77,4 @@ export function ModulosProvider({ children }: { children: React.ReactNode }) {
 export function useModulos() {
   return useContext(ModulosContext);
 }
+

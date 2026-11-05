@@ -4,7 +4,7 @@ import { memoryStorage } from 'multer';
 import { promises as fs } from 'fs';
 import { randomUUID } from 'crypto';
 import { DbService } from '../db/db.service';
-import { JwtAuthGuard, PerfilGuard, Perfis, perfilDoUsuario, ModuloGuard, ExigeModulo } from '../auth/guards';
+import { JwtAuthGuard, PerfilGuard, Perfis, perfilDoUsuario, ModuloGuard, ExigeModulo, resolverIdCondominio } from '../auth/guards';
 import { AVISO_ANEXO_MAX_BYTES, AVISO_ANEXO_TIPOS_REGEX } from '../common/upload.constants';
 import { SyncService } from '../sync/sync.service';
 
@@ -49,7 +49,8 @@ export class AvisosController {
   /** Listagem completa de avisos gerenciados pelo síndico (publicados, agendados e expirados). */
   @Get()
   @Perfis('SINDICO')
-  listarTodos() {
+  listarTodos(@Req() req: any) {
+    const idCondominio = resolverIdCondominio(req);
     return this.db.query(`
       SELECT a.id_aviso, a.titulo, a.conteudo, a.escopo, a.fixado,
              a.data_hora_publicacao, a.data_hora_expiracao,
@@ -93,7 +94,8 @@ export class AvisosController {
         FROM aviso a
         JOIN perfil pf ON pf.id_perfil = a.id_perfil_autor
         JOIN pessoa p ON p.id_pessoa = pf.id_pessoa
-       ORDER BY a.fixado DESC, a.data_hora_publicacao DESC`);
+       WHERE a.id_condominio = $1
+       ORDER BY a.fixado DESC, a.data_hora_publicacao DESC`, [idCondominio]);
   }
 
   /** Mural do usuário logado: apenas avisos cuja data de publicação já chegou e que não expiraram. */
@@ -103,6 +105,7 @@ export class AvisosController {
     if (!idsPerfis.length) return [];
     const tipos: string[] = (req.user?.perfis || []).map((p: any) => p.tipo);
     const temMorador = tipos.includes('MORADOR');
+    const idCondominio = resolverIdCondominio(req);
 
     return this.db.query(`
       SELECT DISTINCT ON (a.id_aviso)
@@ -121,7 +124,8 @@ export class AvisosController {
         JOIN perfil pf ON pf.id_perfil = a.id_perfil_autor
         JOIN pessoa p ON p.id_pessoa = pf.id_pessoa
         LEFT JOIN aviso_perfil ap ON ap.id_aviso = a.id_aviso AND ap.id_perfil = ANY($1::int[])
-       WHERE (
+       WHERE a.id_condominio = $3
+         AND (
              a.escopo = 'MURAL'
           OR ap.id_perfil = ANY($1::int[])
           OR a.id_perfil_autor = ANY($1::int[])
@@ -131,7 +135,7 @@ export class AvisosController {
          )
          AND a.data_hora_publicacao <= CURRENT_TIMESTAMP
          AND (a.data_hora_expiracao IS NULL OR a.data_hora_expiracao > CURRENT_TIMESTAMP)
-       ORDER BY a.id_aviso, a.fixado DESC, a.data_hora_publicacao DESC`, [idsPerfis, temMorador])
+       ORDER BY a.id_aviso, a.fixado DESC, a.data_hora_publicacao DESC`, [idsPerfis, temMorador, idCondominio])
       .then(rows => rows.sort((x, y) => {
         if (x.fixado !== y.fixado) return x.fixado ? -1 : 1;
         if (x.lido !== y.lido) return x.lido ? 1 : -1;
@@ -209,10 +213,11 @@ export class AvisosController {
       }
     }
 
+    const idCondominio = resolverIdCondominio(req);
     const res = await this.db.query(`
-      INSERT INTO aviso (id_perfil_autor, titulo, conteudo, fixado, data_hora_publicacao, data_hora_expiracao, anexo_url, anexo_nome, anexo_tipo)
-      VALUES ($1, $2, $3, $4, COALESCE($5, CURRENT_TIMESTAMP), $6, $7, $8, $9)
-      RETURNING id_aviso, titulo, data_hora_publicacao, data_hora_expiracao, anexo_url, anexo_nome, anexo_tipo`,
+      INSERT INTO aviso (id_perfil_autor, titulo, conteudo, fixado, data_hora_publicacao, data_hora_expiracao, anexo_url, anexo_nome, anexo_tipo, id_condominio)
+      VALUES ($1, $2, $3, $4, COALESCE($5, CURRENT_TIMESTAMP), $6, $7, $8, $9, $10)
+      RETURNING id_aviso, id_condominio, titulo, data_hora_publicacao, data_hora_expiracao, anexo_url, anexo_nome, anexo_tipo`,
       [
         idPerfil,
         b.titulo,
@@ -223,6 +228,7 @@ export class AvisosController {
         b.anexo_url || null,
         b.anexo_nome || null,
         b.anexo_tipo || null,
+        idCondominio,
       ]).then(r => r[0]);
 
     this.syncService.emitir({

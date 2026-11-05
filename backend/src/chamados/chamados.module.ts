@@ -22,7 +22,7 @@ import { promises as fs } from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { DbService } from '../db/db.service';
-import { JwtAuthGuard, PerfilGuard, Perfis, perfilDoUsuario, ModuloGuard, ExigeModulo } from '../auth/guards';
+import { JwtAuthGuard, PerfilGuard, Perfis, perfilDoUsuario, ModuloGuard, ExigeModulo, resolverIdCondominio } from '../auth/guards';
 import { SyncService } from '../sync/sync.service';
 
 const CATEGORIAS_VALIDAS = [
@@ -78,12 +78,14 @@ export class ChamadosController {
    */
   @Get('estatisticas')
   @Perfis('SINDICO', 'ADMINISTRADOR')
-  async estatisticas() {
+  async estatisticas(@Req() req: any) {
+    const idCondominio = resolverIdCondominio(req);
     const rows = await this.db.query<{ status: string; total: string }>(`
       SELECT status, COUNT(*)::text AS total
         FROM chamado
+       WHERE id_condominio = $1
        GROUP BY status
-    `);
+    `, [idCondominio]);
 
     const stats = {
       EM_ANALISE: 0,
@@ -159,12 +161,14 @@ export class ChamadosController {
   @Get()
   @Perfis('SINDICO', 'ADMINISTRADOR')
   async listarTodos(
+    @Req() req: any,
     @Query('status') status?: string,
     @Query('categoria') categoria?: string,
     @Query('busca') busca?: string,
   ) {
-    let whereClauses: string[] = ['1=1'];
-    const params: any[] = [];
+    const idCondominio = resolverIdCondominio(req);
+    let whereClauses: string[] = ['c.id_condominio = $1'];
+    const params: any[] = [idCondominio];
 
     if (status && status !== 'TODAS') {
       params.push(status);
@@ -372,7 +376,8 @@ export class ChamadosController {
       idUnidade = unidades[0].id_unidade;
     }
 
-    const insertResult = await this.db.query<{ id_chamado: number }>(
+    const idCondominio = resolverIdCondominio(req);
+    const insertResult = await this.db.query<{ id_chamado: number; id_condominio: number }>(
       `
       INSERT INTO chamado (
         id_unidade,
@@ -386,9 +391,10 @@ export class ChamadosController {
         status,
         imagem_url,
         data_hora_abertura,
-        data_hora_atualizacao
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'EM_ANALISE', $9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-      RETURNING id_chamado
+        data_hora_atualizacao,
+        id_condominio
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'EM_ANALISE', $9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $10)
+      RETURNING id_chamado, id_condominio
     `,
       [
         idUnidade,
@@ -400,6 +406,7 @@ export class ChamadosController {
         body.descricao.trim(),
         body.local_especifico ? body.local_especifico.trim() : null,
         body.imagem_url || null,
+        idCondominio,
       ],
     );
 
@@ -420,6 +427,7 @@ export class ChamadosController {
 
     return {
       id_chamado: novoId,
+      id_condominio: insertResult[0].id_condominio,
       mensagem: 'Chamado aberto com sucesso! A administração foi notificada.',
     };
   }

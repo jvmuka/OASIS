@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, Module, UseGuards, Req, ParseIntPipe, BadRequestException } from '@nestjs/common';
 import { DbService } from '../db/db.service';
-import { JwtAuthGuard, PerfilGuard, Perfis, perfilDoUsuario, ModuloGuard, ExigeModulo } from '../auth/guards';
+import { JwtAuthGuard, PerfilGuard, Perfis, perfilDoUsuario, ModuloGuard, ExigeModulo, resolverIdCondominio } from '../auth/guards';
 import { SyncService } from '../sync/sync.service';
 
 /**
@@ -14,7 +14,8 @@ export class PortariaController {
 
   // ------------------------- encomendas -------------------------
   @Get('encomendas') @Perfis('PORTEIRO', 'SINDICO') @ExigeModulo('ENCOMENDAS_PACOTES')
-  encomendas(@Query('status') status?: string) {
+  encomendas(@Req() req: any, @Query('status') status?: string) {
+    const idCondominio = resolverIdCondominio(req);
     return this.db.query(`
       SELECT e.id_encomenda, p.nome AS destinatario, b.nome AS bloco,
              u.numero_apartamento, e.descricao, e.tamanho, e.status,
@@ -24,8 +25,9 @@ export class PortariaController {
         LEFT JOIN pessoa_unidade pu ON pu.id_pessoa = p.id_pessoa AND pu.data_fim_ocupacao IS NULL
         LEFT JOIN unidade u ON u.id_unidade = pu.id_unidade
         LEFT JOIN bloco   b ON b.id_bloco   = u.id_bloco
-       WHERE ($1::status_encomenda_enum IS NULL OR e.status = $1::status_encomenda_enum)
-       ORDER BY (CASE WHEN e.status = 'AGUARDANDO_RETIRADA' THEN 0 ELSE 1 END), e.data_hora_recebimento DESC`, [status || null]);
+       WHERE b.id_condominio = $1
+         AND ($2::status_encomenda_enum IS NULL OR e.status = $2::status_encomenda_enum)
+       ORDER BY (CASE WHEN e.status = 'AGUARDANDO_RETIRADA' THEN 0 ELSE 1 END), e.data_hora_recebimento DESC`, [idCondominio, status || null]);
   }
 
   /** UC07: gatilho RN11 gera o aviso individual automaticamente. */
@@ -156,7 +158,8 @@ export class PortariaController {
 
   // ------------------------- chaves -------------------------
   @Get('chaves') @Perfis('PORTEIRO', 'SINDICO') @ExigeModulo('CONTROLE_CHAVES')
-  async chaves() {
+  async chaves(@Req() req: any) {
+    const idCondominio = resolverIdCondominio(req);
     await this.processarAvisosChavesAtrasadas();
     return this.db.query(`
       SELECT c.id_chave, c.codigo, c.status, c.id_area_comum, a.nome AS area,
@@ -179,8 +182,8 @@ export class PortariaController {
         LEFT JOIN pessoa_unidade pu ON pu.id_pessoa = p.id_pessoa AND pu.data_fim_ocupacao IS NULL
         LEFT JOIN unidade u ON u.id_unidade = pu.id_unidade
         LEFT JOIN bloco b ON b.id_bloco = u.id_bloco
-       WHERE a.ativo = TRUE AND a.exige_chave = TRUE
-       ORDER BY a.nome, c.codigo`);
+       WHERE a.ativo = TRUE AND a.exige_chave = TRUE AND a.id_condominio = $1
+       ORDER BY a.nome, c.codigo`, [idCondominio]);
   }
 
   /** Rotina para registrar aviso individual quando a chave ultrapassa 24h sem devolução. */
@@ -375,7 +378,8 @@ export class PortariaController {
    * Desaparece automaticamente assim que a reserva acaba (CURRENT_TIMESTAMP >= data_hora_fim).
    */
   @Get('ocupacao-agora') @Perfis('PORTEIRO', 'SINDICO')
-  async ocupacaoAgora() {
+  async ocupacaoAgora(@Req() req: any) {
+    const idCondominio = resolverIdCondominio(req);
     await this.db.query(
       `UPDATE reserva SET status = 'CONCLUIDA' WHERE status = 'ATIVA' AND data_hora_fim < CURRENT_TIMESTAMP`
     );
@@ -393,30 +397,32 @@ export class PortariaController {
         LEFT JOIN pessoa_unidade pu ON pu.id_pessoa = p.id_pessoa AND pu.data_fim_ocupacao IS NULL
         LEFT JOIN unidade u ON u.id_unidade = pu.id_unidade
         LEFT JOIN bloco b ON b.id_bloco = u.id_bloco
-       WHERE r.status = 'ATIVA'
+       WHERE a.id_condominio = $1
+         AND r.status = 'ATIVA'
          AND CURRENT_TIMESTAMP >= r.data_hora_inicio
          AND CURRENT_TIMESTAMP < r.data_hora_fim
-       ORDER BY r.data_hora_fim ASC`);
+       ORDER BY r.data_hora_fim ASC`, [idCondominio]);
   }
 
   /** Agenda do dia, mês ou qualquer data com a situacao calculada de cada reserva. */
   @Get('agenda') @Perfis('PORTEIRO', 'SINDICO')
-  agenda(@Query('data') data?: string, @Query('mes') mes?: string) {
+  agenda(@Req() req: any, @Query('data') data?: string, @Query('mes') mes?: string) {
+    const idCondominio = resolverIdCondominio(req);
     const paramMes = mes || (data && /^\d{4}-\d{2}$/.test(data) ? data : undefined);
     const isQualquerData = (data === 'TODAS' || data === 'qualquer') && !paramMes;
 
-    let whereClause = '';
-    const params: any[] = [];
+    let whereClause = 'WHERE a.id_condominio = $1';
+    const params: any[] = [idCondominio];
 
     if (paramMes) {
-      whereClause = `WHERE to_char(r.data_hora_inicio, 'YYYY-MM') = $1`;
       params.push(paramMes);
+      whereClause += ` AND to_char(r.data_hora_inicio, 'YYYY-MM') = ${params.length}`;
     } else if (!isQualquerData) {
       const dia = data && /^\d{4}-\d{2}-\d{2}$/.test(data)
         ? data
         : new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).slice(0, 10);
-      whereClause = 'WHERE r.data_hora_inicio::date = $1::date';
       params.push(dia);
+      whereClause += ` AND r.data_hora_inicio::date = ${params.length}::date`;
     }
 
     return this.db.query(`
@@ -444,7 +450,8 @@ export class PortariaController {
 
   /** Busca moradores por nome, CPF, bloco ou apartamento, indicando quem esta em atividade agora. */
   @Get('pessoas/busca') @Perfis('PORTEIRO', 'SINDICO')
-  buscarPessoas(@Query('q') q?: string) {
+  buscarPessoas(@Req() req: any, @Query('q') q?: string) {
+    const idCondominio = resolverIdCondominio(req);
     const termo = (q || '').trim();
     if (!termo) return [];
     const filtro = `%${termo.toLowerCase()}%`;
@@ -470,9 +477,10 @@ export class PortariaController {
            LIMIT 1
         ) ativa ON TRUE
        WHERE p.ativo = TRUE
+         AND (b.id_condominio = $2 OR EXISTS (SELECT 1 FROM perfil pf WHERE pf.id_pessoa = p.id_pessoa AND pf.id_condominio = $2))
          AND (LOWER(p.nome) LIKE $1 OR p.cpf LIKE $1 OR LOWER(b.nome) LIKE $1 OR u.numero_apartamento LIKE $1)
        ORDER BY p.nome
-       LIMIT 30`, [filtro]);
+       LIMIT 30`, [filtro, idCondominio]);
   }
 
   /** Detalhe de atividade de uma pessoa: agora, proximas reservas e historico de 90 dias. */

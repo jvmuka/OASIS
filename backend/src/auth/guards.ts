@@ -64,3 +64,15 @@ export function perfilDoUsuario(user: any, tipo?: string): number {
 }
 
 export { ExigeModulo, ModuloGuard } from './modulo.guard';
+
+export function resolverIdCondominio(req: any): number {
+  const headerId = req?.headers?.['x-condominio-id'];
+  const perfis = (req?.user?.perfis || []).map((p: any) => p.tipo);
+  const ehSuperadmin = perfis.includes('SUPERADMIN');
+
+  // Apenas Superadmin pode trocar de contexto via header arbitrário; demais usuários usam estritamente o condomínio do seu token
+  if (ehSuperadmin && headerId && !isNaN(Number(headerId))) {
+    return Number(headerId);
+  }
+  return Number(req?.user?.id_condominio || 1);
+}

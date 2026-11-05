@@ -47,3 +47,4 @@ SELECT c.id_condominio, m.codigo, TRUE
   FROM condominio c
  CROSS JOIN modulo_sistema m
 ON CONFLICT (id_condominio, codigo_modulo) DO NOTHING;
+

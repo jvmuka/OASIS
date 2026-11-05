@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, Module, UseGuards, ParseIntPipe, BadRequestException, Req } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { DbService } from '../db/db.service';
-import { JwtAuthGuard, PerfilGuard, Perfis, perfilDoUsuario, ModuloGuard, ExigeModulo } from '../auth/guards';
+import { JwtAuthGuard, PerfilGuard, Perfis, perfilDoUsuario, ModuloGuard, ExigeModulo, resolverIdCondominio } from '../auth/guards';
 import { SyncService } from '../sync/sync.service';
 
 /** Gera um codigo de ativacao criptograficamente seguro (8 caracteres alfanumericos maiusculos). */
@@ -21,19 +21,22 @@ export class CadastrosController {
 
   // ------------------------- blocos e unidades -------------------------
   @Get('blocos')
-  blocos() {
-    return this.db.query(`SELECT * FROM bloco ORDER BY nome`);
+  blocos(@Req() req: any) {
+    const idCondominio = resolverIdCondominio(req);
+    return this.db.query(`SELECT * FROM bloco WHERE id_condominio = $1 ORDER BY nome`, [idCondominio]);
   }
 
   @Post('blocos') @Perfis('SINDICO')
-  criarBloco(@Body() b: { nome: string; descricao?: string }) {
+  criarBloco(@Req() req: any, @Body() b: { nome: string; descricao?: string }) {
+    const idCondominio = resolverIdCondominio(req);
     return this.db.query(
-      `INSERT INTO bloco (nome, descricao) VALUES ($1,$2) RETURNING *`,
-      [b.nome, b.descricao || null]).then(r => r[0]);
+      `INSERT INTO bloco (nome, descricao, id_condominio) VALUES ($1,$2,$3) RETURNING *`,
+      [b.nome, b.descricao || null, idCondominio]).then(r => r[0]);
   }
 
   @Get('unidades')
-  unidades() {
+  unidades(@Req() req: any) {
+    const idCondominio = resolverIdCondominio(req);
     return this.db.query(`
       SELECT u.id_unidade, b.nome AS bloco, u.numero_apartamento, u.numero_vagas,
              (SELECT COUNT(*)::INTEGER FROM pessoa_unidade pu WHERE pu.id_unidade = u.id_unidade AND pu.data_fim_ocupacao IS NULL AND pu.reside = TRUE) AS total_moradores,
@@ -52,7 +55,8 @@ export class CadastrosController {
                 LIMIT 3
               ) sub) AS nomes_ocupantes
         FROM unidade u JOIN bloco b ON b.id_bloco = u.id_bloco
-       ORDER BY b.nome, (CASE WHEN u.numero_apartamento ~ '^[0-9]+$' THEN u.numero_apartamento::INTEGER ELSE 999999 END), u.numero_apartamento`);
+       WHERE b.id_condominio = $1
+       ORDER BY b.nome, (CASE WHEN u.numero_apartamento ~ '^[0-9]+$' THEN u.numero_apartamento::INTEGER ELSE 999999 END), u.numero_apartamento`, [idCondominio]);
   }
 
   @Get('unidades/:id/ocupantes')
@@ -92,6 +96,7 @@ export class CadastrosController {
   // ------------------------- pessoas e pesquisa abrangente -------------------------
   @Get('pessoas')
   async pessoas(
+    @Req() req: any,
     @Query('busca') busca?: string,
     @Query('nome') nome?: string,
     @Query('cpf') cpf?: string,
@@ -102,6 +107,9 @@ export class CadastrosController {
   ) {
     const conditions: string[] = [];
     const params: any[] = [];
+    const idCondominio = resolverIdCondominio(req);
+    params.push(idCondominio);
+    conditions.push('(b.id_condominio = $1 OR pf.id_condominio = $1)');
 
     if (status) {
       const s = status.trim().toUpperCase();

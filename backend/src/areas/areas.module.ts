@@ -5,7 +5,7 @@ import 'multer';
 import { promises as fs } from 'fs';
 import sharp from 'sharp';
 import { DbService } from '../db/db.service';
-import { JwtAuthGuard, PerfilGuard, Perfis, perfilDoUsuario, ModuloGuard, ExigeModulo } from '../auth/guards';
+import { JwtAuthGuard, PerfilGuard, Perfis, perfilDoUsuario, ModuloGuard, ExigeModulo, resolverIdCondominio } from '../auth/guards';
 import { SyncService } from '../sync/sync.service';
 import { IMAGEM_MAX_BYTES, IMAGEM_TIPOS_REGEX } from '../common/upload.constants';
 
@@ -36,6 +36,7 @@ export class AreasController {
   @Get()
   listar(@Req() req: any) {
     const idPessoa = req.user?.sub || 0;
+    const idCondominio = resolverIdCondominio(req);
     return this.db.query(`
       SELECT a.*,
              COALESCE(json_agg(DISTINCT jsonb_build_object(
@@ -81,13 +82,15 @@ export class AreasController {
              ) AS penalidade_usuario
         FROM area_comum a
         LEFT JOIN area_horario h ON h.id_area_comum = a.id_area_comum
+       WHERE a.id_condominio = $2
        GROUP BY a.id_area_comum
-       ORDER BY a.nome`, [idPessoa]);
+       ORDER BY a.nome`, [idPessoa, idCondominio]);
   }
 
   /** Lista todos os bloqueios e manutencoes de areas comuns. */
   @Get('bloqueios')
-  listarBloqueios() {
+  listarBloqueios(@Req() req: any) {
+    const idCondominio = resolverIdCondominio(req);
     return this.db.query(`
       SELECT b.id_bloqueio_area, b.id_area_comum, a.nome AS area_nome,
              b.data_hora_inicio, b.data_hora_fim, b.motivo, b.descricao,
@@ -96,7 +99,8 @@ export class AreasController {
         JOIN area_comum a ON a.id_area_comum = b.id_area_comum
         JOIN perfil pf ON pf.id_perfil = b.id_perfil_registro
         JOIN pessoa p ON p.id_pessoa = pf.id_pessoa
-       ORDER BY b.data_hora_inicio DESC`);
+       WHERE a.id_condominio = $1
+       ORDER BY b.data_hora_inicio DESC`, [idCondominio]);
   }
 
   /** Registra uma nova manutencao ou interdicao de area comum (SINDICO). */
@@ -281,7 +285,8 @@ export class AreasController {
   }
 
   @Post() @Perfis('SINDICO')
-  async criar(@Body() a: any) {
+  async criar(@Req() req: any, @Body() a: any) {
+    const idCondominio = resolverIdCondominio(req);
     if (!a.nome || !a.capacidade) {
       throw new BadRequestException('Informe o nome e a capacidade do espaço comum.');
     }
@@ -293,8 +298,8 @@ export class AreasController {
         INSERT INTO area_comum
           (nome, descricao, capacidade, tipo_acesso, tipo_uso, duracao_slot_min,
            antecedencia_minima_dias, antecedencia_maxima_dias,
-           prazo_cancelamento_horas, limite_reservas_semana, exige_chave, valor, imagem_url, antecedencia_minima_horas, idade_minima, reserva_por_dia, requer_reserva, tipo_limite_reserva, max_unidades_simultaneas)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING *`,
+           prazo_cancelamento_horas, limite_reservas_semana, exige_chave, valor, imagem_url, antecedencia_minima_horas, idade_minima, reserva_por_dia, requer_reserva, tipo_limite_reserva, max_unidades_simultaneas, id_condominio)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20) RETURNING *`,
         [a.nome, a.descricao || null, a.capacidade, a.tipo_acesso || 'LIVRE', a.tipo_uso || 'RESERVAVEL',
          a.duracao_slot_min ?? 60, antMinDias,
          a.antecedencia_maxima_dias ?? 30, a.prazo_cancelamento_horas ?? 24,
@@ -302,7 +307,8 @@ export class AreasController {
          a.imagem_url || null, antMinHoras, a.idade_minima ?? 0, Boolean(a.reserva_por_dia),
          a.requer_reserva !== undefined ? Boolean(a.requer_reserva) : true,
          a.tipo_limite_reserva || 'SEMANAL',
-         a.max_unidades_simultaneas ? Number(a.max_unidades_simultaneas) : 1]);
+         a.max_unidades_simultaneas ? Number(a.max_unidades_simultaneas) : 1,
+         idCondominio]);
       const novaArea = res.rows[0];
 
       if (Boolean(a.exige_chave)) {

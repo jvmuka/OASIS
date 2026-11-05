@@ -386,7 +386,7 @@ export class AuthService {
       condominiosDisponiveis,
       modulosAtivos,
       perfis: payload.perfis,
-      unidades,
+      unidades: unidades.filter(u => u.id_condominio === condominioAtivo.id_condominio),
     };
   }
 
