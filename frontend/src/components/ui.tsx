@@ -367,7 +367,7 @@ export function Titulo({
 
 export { BotaoAjudaContexto, ModalAjudaContexto };
 
-/** Cartão moderno com borda refinada e sombra suave */
+/** Cartão moderno com borda refinada e sombra suave (Lettly SaaS) */
 export function Cartao({
   children,
   className = '',
@@ -379,9 +379,9 @@ export function Cartao({
 }) {
   return (
     <div
-      className={`rounded-xl border bg-white dark:bg-slate-900 dark:text-slate-200 p-5 transition-all duration-200 ${destaque
+      className={`rounded-2xl border bg-white dark:bg-[#0e1525] dark:text-slate-200 p-5 transition-all duration-200 ${destaque
           ? 'border-navy/20 shadow-card ring-1 ring-navy/5 dark:border-sky-500/30 dark:ring-sky-500/10'
-          : 'border-slate-200/80 shadow-soft hover:border-slate-300/80 dark:border-slate-800 dark:hover:border-slate-700'
+          : 'border-[#e2e6ec] shadow-card hover:shadow-card-hover dark:border-slate-800 dark:hover:border-slate-700'
         } ${className}`}
     >
       {children}
@@ -389,7 +389,7 @@ export function Cartao({
   );
 }
 
-/** Botão estilizado com variantes, estados de loading e micro-interação */
+/** Botão estilizado com variantes, estados de loading e micro-interação (Lettly SaaS) */
 export function Botao(
   props: React.ButtonHTMLAttributes<HTMLButtonElement> & {
     variante?: 'primario' | 'secundario' | 'claro' | 'perigo' | 'sucesso' | 'fantasma';
@@ -410,22 +410,22 @@ export function Botao(
   } = props;
 
   const tamanhos = {
-    sm: 'px-2.5 py-1.5 text-xs',
+    sm: 'px-3 py-1.5 text-xs',
     md: 'px-4 py-2 text-sm',
     lg: 'px-5 py-2.5 text-base',
   }[tamanho];
 
   const estilos = {
     primario:
-      'bg-navy text-white hover:bg-navy-light shadow-sm hover:shadow active:scale-[0.98] border border-transparent dark:bg-sky-600 dark:hover:bg-sky-500',
+      'bg-navy text-white hover:bg-navy-light shadow-xs hover:shadow-card active:scale-[0.98] border border-transparent dark:bg-sky-600 dark:hover:bg-sky-500 font-semibold',
     secundario:
-      'bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900 active:scale-[0.98] border border-slate-200/60 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:border-slate-700 dark:hover:text-white',
+      'bg-[#f6f7f9] text-slate-700 hover:bg-[#eef1f5] hover:text-slate-900 active:scale-[0.98] border border-[#e2e6ec] dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:border-slate-700 dark:hover:text-white font-medium',
     claro:
-      'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-navy hover:border-slate-300 shadow-sm active:scale-[0.98] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:hover:text-white dark:hover:border-slate-600',
+      'border border-[#e2e6ec] bg-white text-slate-700 hover:bg-[#f6f7f9] hover:text-navy hover:border-slate-300 shadow-xs active:scale-[0.98] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:hover:text-white dark:hover:border-slate-600 font-medium',
     perigo:
-      'bg-red-600 text-white hover:bg-red-700 shadow-sm hover:shadow active:scale-[0.98] border border-transparent dark:bg-rose-600 dark:hover:bg-rose-500',
+      'bg-red-600 text-white hover:bg-red-700 shadow-xs hover:shadow active:scale-[0.98] border border-transparent dark:bg-rose-600 dark:hover:bg-rose-500 font-semibold',
     sucesso:
-      'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm hover:shadow active:scale-[0.98] border border-transparent dark:bg-emerald-600 dark:hover:bg-emerald-500',
+      'bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs hover:shadow active:scale-[0.98] border border-transparent dark:bg-emerald-600 dark:hover:bg-emerald-500 font-semibold',
     fantasma:
       'bg-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900 active:scale-[0.98] border border-transparent dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white',
   }[variante];
@@ -433,7 +433,7 @@ export function Botao(
   return (
     <button
       disabled={disabled || carregando}
-      className={`inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-all duration-150 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${tamanhos} ${estilos} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-all duration-150 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${tamanhos} ${estilos} ${className}`}
       {...rest}
     >
       {carregando ? (
@@ -479,11 +479,11 @@ export function Campo({
   );
 }
 
-/** Classe padrão moderna para inputs de formulário */
+/** Classe padrão moderna para inputs de formulário (Lettly SaaS) */
 export const inputCls =
-  'w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-800 placeholder-slate-400 transition-all duration-150 outline-none focus:border-navy focus:ring-2 focus:ring-navy/15 hover:border-slate-300 disabled:bg-slate-50 disabled:text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400 dark:hover:border-slate-600 dark:focus:border-sky-500 dark:focus:ring-sky-500/20 dark:disabled:bg-slate-800/40 dark:disabled:text-slate-500';
+  'w-full rounded-xl border border-[#e2e6ec] bg-white px-3.5 py-2 text-sm text-slate-800 placeholder-slate-400 transition-all duration-150 outline-none focus:border-navy focus:ring-2 focus:ring-navy/15 hover:border-slate-300 disabled:bg-slate-50 disabled:text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-400 dark:hover:border-slate-600 dark:focus:border-sky-500 dark:focus:ring-sky-500/20 dark:disabled:bg-slate-800/40 dark:disabled:text-slate-500';
 
-/** Badge / Pílula de status semântica com indicador colorido */
+/** Badge / Pílula de status semântica com indicador colorido (Lettly SaaS) */
 export function Badge({
   tipo = 'neutro',
   children,
@@ -494,21 +494,21 @@ export function Badge({
   className?: string;
 }) {
   const estilos = {
-    sucesso: 'bg-emerald-50 text-emerald-700 border-emerald-200/80 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800/60',
-    aviso: 'bg-amber-50 text-amber-800 border-amber-200/80 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800/60',
-    perigo: 'bg-red-50 text-red-700 border-red-200/80 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-800/60',
-    info: 'bg-sky-50 text-sky-700 border-sky-200/80 dark:bg-sky-950/50 dark:text-sky-300 dark:border-sky-800/60',
+    sucesso: 'bg-[#e3f4eb] text-[#1e8e5a] border-[#1e8e5a]/20 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/50',
+    aviso: 'bg-[#fdf0d9] text-[#b26a00] border-[#b26a00]/25 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/50',
+    perigo: 'bg-[#fbe7e7] text-[#c2383d] border-[#c2383d]/20 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/50',
+    info: 'bg-[#e6edf9] text-[#2548a0] border-[#2548a0]/20 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800/50',
     primario: 'bg-navy-50 text-navy border-navy-200/80 dark:bg-slate-800 dark:text-sky-300 dark:border-slate-700',
-    neutro: 'bg-slate-100 text-slate-600 border-slate-200/80 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
+    neutro: 'bg-[#e7ebf1] text-[#525d6e] border-[#525d6e]/20 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
   }[tipo];
 
   const dot = {
-    sucesso: 'bg-emerald-500',
-    aviso: 'bg-amber-500',
-    perigo: 'bg-red-500 dark:bg-rose-500',
-    info: 'bg-sky-500',
+    sucesso: 'bg-[#1e8e5a]',
+    aviso: 'bg-[#b26a00]',
+    perigo: 'bg-[#c2383d]',
+    info: 'bg-[#2548a0]',
     primario: 'bg-navy dark:bg-sky-400',
-    neutro: 'bg-slate-400 dark:bg-slate-500',
+    neutro: 'bg-[#525d6e] dark:bg-slate-500',
   }[tipo];
 
   return (

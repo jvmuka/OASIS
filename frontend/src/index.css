@@ -8,11 +8,11 @@
   }
 
   body {
-    @apply bg-slate-50 text-slate-800 font-sans antialiased transition-colors duration-200 dark:bg-slate-950 dark:text-slate-100;
+    @apply bg-[#f6f7f9] text-[#0e1525] font-sans antialiased transition-colors duration-200 dark:bg-[#0b1830] dark:text-slate-100;
   }
 
-  h1, h2, h3, .font-title {
-    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  h1, h2, h3, h4, h5, h6, .font-title {
+    font-family: 'Plus Jakarta Sans', sans-serif;
     letter-spacing: -0.02em;
   }
 }
