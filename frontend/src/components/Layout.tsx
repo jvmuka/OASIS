@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { painelInicial, sessaoAtual, sair, alternarCondominio } from '../api';
+import { useModulos } from '../contexts/ModulosContext';
 import { Icone, Badge } from './ui';
 import BotaoModoEscuro from './BotaoModoEscuro';
 
@@ -11,6 +12,7 @@ import BotaoModoEscuro from './BotaoModoEscuro';
 export default function Layout() {
   const nav = useNavigate();
   const [menuAberto, setMenuAberto] = useState(false);
+  const { temModulo } = useModulos();
   const s = sessaoAtual();
   if (!s) return null;
   const tipos = s.perfis.map(p => p.tipo);
@@ -201,12 +203,12 @@ export default function Layout() {
                   Morador
                 </p>
                 <div className="space-y-1">
-                  {item('/morador/reservar', 'Nova Reserva', 'calendar')}
-                  {item('/morador/reservas', 'Minhas Reservas', 'clock')}
-                  {item('/morador/chamados', 'Abrir Chamado', 'wrench')}
-                  {item('/morador/encomendas', 'Minhas Encomendas', 'package')}
-                  {item('/morador/familia', 'Minha Família', 'users')}
-                  {item('/mural', 'Mural de Avisos', 'pin')}
+                  {temModulo('RESERVAS_AREAS') && item('/morador/reservar', 'Nova Reserva', 'calendar')}
+                  {temModulo('RESERVAS_AREAS') && item('/morador/reservas', 'Minhas Reservas', 'clock')}
+                  {temModulo('CHAMADOS_OCORRENCIAS') && item('/morador/chamados', 'Abrir Chamado', 'wrench')}
+                  {temModulo('ENCOMENDAS_PACOTES') && item('/morador/encomendas', 'Minhas Encomendas', 'package')}
+                  {temModulo('DEPENDENTES_FAMILIA') && item('/morador/familia', 'Minha Família', 'users')}
+                  {temModulo('MURAL_AVISOS') && item('/mural', 'Mural de Avisos', 'pin')}
                 </div>
               </div>
             )}
@@ -218,9 +220,9 @@ export default function Layout() {
                 </p>
                 <div className="space-y-1">
                   {item('/portaria/painel', 'Painel da Portaria', 'building')}
-                  {item('/portaria/areas-livres', 'Áreas de Uso Livre', 'clock')}
-                  {item('/portaria/encomendas', 'Encomendas', 'package')}
-                  {item('/portaria/chaves', 'Controle de Chaves', 'key')}
+                  {temModulo('AREAS_LIVRES') && item('/portaria/areas-livres', 'Áreas de Uso Livre', 'clock')}
+                  {temModulo('ENCOMENDAS_PACOTES') && item('/portaria/encomendas', 'Encomendas', 'package')}
+                  {temModulo('CONTROLE_CHAVES') && item('/portaria/chaves', 'Controle de Chaves', 'key')}
                   {item('/sindico/pessoas', 'Pessoas & Cadastros', 'users')}
                 </div>
               </div>
@@ -233,18 +235,18 @@ export default function Layout() {
                 </p>
                 <div className="space-y-1">
                   {item('/sindico/painel', 'Painel Geral', 'home')}
-                  {item('/sindico/chamados', 'Gestão de Chamados', 'wrench')}
+                  {temModulo('CHAMADOS_OCORRENCIAS') && item('/sindico/chamados', 'Gestão de Chamados', 'wrench')}
                   {!tipos.includes('PORTEIRO') && item('/portaria/painel', 'Painel da Portaria', 'building')}
-                  {!tipos.includes('PORTEIRO') && item('/portaria/areas-livres', 'Áreas de Uso Livre', 'clock')}
-                  {item('/portaria/chaves', 'Controle de Chaves', 'key')}
-                  {item('/sindico/areas', 'Áreas Comuns', 'building')}
+                  {!tipos.includes('PORTEIRO') && temModulo('AREAS_LIVRES') && item('/portaria/areas-livres', 'Áreas de Uso Livre', 'clock')}
+                  {temModulo('CONTROLE_CHAVES') && item('/portaria/chaves', 'Controle de Chaves', 'key')}
+                  {temModulo('RESERVAS_AREAS') && item('/sindico/areas', 'Áreas Comuns', 'building')}
                   {item('/sindico/pessoas', 'Pessoas & Unidades', 'users')}
-                  {item('/sindico/avisos', 'Publicar Avisos', 'megaphone')}
+                  {temModulo('MURAL_AVISOS') && item('/sindico/avisos', 'Publicar Avisos', 'megaphone')}
                 </div>
               </div>
             )}
 
-            {!tipos.includes('MORADOR') && (
+            {!tipos.includes('MORADOR') && temModulo('MURAL_AVISOS') && (
               <div>
                 <p className="px-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                   Comunicação

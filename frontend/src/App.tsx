@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { painelInicial, sessaoAtual } from './api';
+import { ModulosProvider, useModulos } from './contexts/ModulosContext';
 import Login from './pages/Login';
 import Layout from './components/Layout';
 import Inicio from './pages/Inicio';
@@ -29,12 +30,28 @@ function RedirecionaInicio() {
   return <Navigate to={painelInicial(s)} replace />;
 }
 
-/** Bloqueia rotas para quem nao esta logado ou nao tem nenhum dos perfis exigidos. */
-function Protegida({ perfil, children }: { perfil?: string | string[]; children: JSX.Element }) {
+/** Bloqueia rotas para quem nao esta logado ou nao tem nenhum dos perfis/módulos exigidos. */
+function Protegida({
+  perfil,
+  modulo,
+  children,
+}: {
+  perfil?: string | string[];
+  modulo?: string;
+  children: JSX.Element;
+}) {
   const s = sessaoAtual();
+  const { temModulo } = useModulos();
   if (!s) return <Navigate to="/login" replace />;
-  // Superadmin possui passe livre para todas as telas do sistema
+
+  // Superadmin possui passe livre universal
   if (s.perfis.some(p => p.tipo === 'SUPERADMIN')) return children;
+
+  // Bloqueio por módulo inativo no condomínio
+  if (modulo && !temModulo(modulo)) {
+    return <Navigate to="/" replace />;
+  }
+
   const exigidos = perfil ? (Array.isArray(perfil) ? perfil : [perfil]) : null;
   if (exigidos) {
     const sinonimos = (t: string) => (t === 'SINDICO' || t === 'ADMINISTRADOR' ? ['SINDICO', 'ADMINISTRADOR'] : [t]);
@@ -46,35 +63,37 @@ function Protegida({ perfil, children }: { perfil?: string | string[]; children:
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/" element={<RedirecionaInicio />} />
-      <Route element={<Layout />}>
-        <Route path="/inicio" element={<Protegida><Inicio /></Protegida>} />
-        {/* Morador */}
-        <Route path="/morador/reservar" element={<Protegida perfil="MORADOR"><NovaReserva /></Protegida>} />
-        <Route path="/morador/reservas" element={<Protegida perfil="MORADOR"><MinhasReservas /></Protegida>} />
-        <Route path="/morador/chamados" element={<Protegida perfil="MORADOR"><MoradorChamados /></Protegida>} />
-        <Route path="/morador/encomendas" element={<Protegida perfil="MORADOR"><MinhasEncomendas /></Protegida>} />
-        <Route path="/morador/familia" element={<Protegida perfil="MORADOR"><Dependentes /></Protegida>} />
-        <Route path="/mural" element={<Protegida><Mural /></Protegida>} />
-        {/* Porteiro e Administrador */}
-        <Route path="/portaria/painel" element={<Protegida perfil={['PORTEIRO', 'ADMINISTRADOR', 'SINDICO']}><Portaria /></Protegida>} />
-        <Route path="/portaria/areas-livres" element={<Protegida perfil={['PORTEIRO', 'ADMINISTRADOR', 'SINDICO']}><AreasLivres /></Protegida>} />
-        <Route path="/portaria/encomendas" element={<Protegida perfil="PORTEIRO"><Encomendas /></Protegida>} />
-        <Route path="/portaria/chaves" element={<Protegida perfil={['PORTEIRO', 'ADMINISTRADOR', 'SINDICO']}><Chaves /></Protegida>} />
-        {/* Administrador */}
-        <Route path="/sindico/painel" element={<Protegida perfil={['ADMINISTRADOR', 'SINDICO']}><Painel /></Protegida>} />
-        <Route path="/sindico/chamados" element={<Protegida perfil={['ADMINISTRADOR', 'SINDICO']}><SindicoChamados /></Protegida>} />
-        <Route path="/sindico/areas" element={<Protegida perfil={['ADMINISTRADOR', 'SINDICO']}><Areas /></Protegida>} />
-        <Route path="/sindico/pessoas" element={<Protegida perfil={['ADMINISTRADOR', 'SINDICO', 'PORTEIRO']}><Pessoas /></Protegida>} />
-        <Route path="/sindico/avisos" element={<Protegida perfil={['ADMINISTRADOR', 'SINDICO']}><PublicarAviso /></Protegida>} />
-        {/* Plataforma Superadmin */}
-        <Route path="/superadmin/condominios" element={<Protegida perfil="SUPERADMIN"><CondominiosSuperadmin /></Protegida>} />
-        <Route path="/superadmin/estrutura" element={<Protegida perfil="SUPERADMIN"><EstruturaFisica /></Protegida>} />
-        <Route path="/superadmin/pessoas" element={<Protegida perfil="SUPERADMIN"><PessoasSuperadmin /></Protegida>} />
-      </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <ModulosProvider>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/" element={<RedirecionaInicio />} />
+        <Route element={<Layout />}>
+          <Route path="/inicio" element={<Protegida><Inicio /></Protegida>} />
+          {/* Morador */}
+          <Route path="/morador/reservar" element={<Protegida perfil="MORADOR" modulo="RESERVAS_AREAS"><NovaReserva /></Protegida>} />
+          <Route path="/morador/reservas" element={<Protegida perfil="MORADOR" modulo="RESERVAS_AREAS"><MinhasReservas /></Protegida>} />
+          <Route path="/morador/chamados" element={<Protegida perfil="MORADOR" modulo="CHAMADOS_OCORRENCIAS"><MoradorChamados /></Protegida>} />
+          <Route path="/morador/encomendas" element={<Protegida perfil="MORADOR" modulo="ENCOMENDAS_PACOTES"><MinhasEncomendas /></Protegida>} />
+          <Route path="/morador/familia" element={<Protegida perfil="MORADOR" modulo="DEPENDENTES_FAMILIA"><Dependentes /></Protegida>} />
+          <Route path="/mural" element={<Protegida modulo="MURAL_AVISOS"><Mural /></Protegida>} />
+          {/* Porteiro e Administrador */}
+          <Route path="/portaria/painel" element={<Protegida perfil={['PORTEIRO', 'ADMINISTRADOR', 'SINDICO']}><Portaria /></Protegida>} />
+          <Route path="/portaria/areas-livres" element={<Protegida perfil={['PORTEIRO', 'ADMINISTRADOR', 'SINDICO']} modulo="AREAS_LIVRES"><AreasLivres /></Protegida>} />
+          <Route path="/portaria/encomendas" element={<Protegida perfil="PORTEIRO" modulo="ENCOMENDAS_PACOTES"><Encomendas /></Protegida>} />
+          <Route path="/portaria/chaves" element={<Protegida perfil={['PORTEIRO', 'ADMINISTRADOR', 'SINDICO']} modulo="CONTROLE_CHAVES"><Chaves /></Protegida>} />
+          {/* Administrador */}
+          <Route path="/sindico/painel" element={<Protegida perfil={['ADMINISTRADOR', 'SINDICO']}><Painel /></Protegida>} />
+          <Route path="/sindico/chamados" element={<Protegida perfil={['ADMINISTRADOR', 'SINDICO']} modulo="CHAMADOS_OCORRENCIAS"><SindicoChamados /></Protegida>} />
+          <Route path="/sindico/areas" element={<Protegida perfil={['ADMINISTRADOR', 'SINDICO']} modulo="RESERVAS_AREAS"><Areas /></Protegida>} />
+          <Route path="/sindico/pessoas" element={<Protegida perfil={['ADMINISTRADOR', 'SINDICO', 'PORTEIRO']}><Pessoas /></Protegida>} />
+          <Route path="/sindico/avisos" element={<Protegida perfil={['ADMINISTRADOR', 'SINDICO']} modulo="MURAL_AVISOS"><PublicarAviso /></Protegida>} />
+          {/* Plataforma Superadmin */}
+          <Route path="/superadmin/condominios" element={<Protegida perfil="SUPERADMIN"><CondominiosSuperadmin /></Protegida>} />
+          <Route path="/superadmin/estrutura" element={<Protegida perfil="SUPERADMIN"><EstruturaFisica /></Protegida>} />
+          <Route path="/superadmin/pessoas" element={<Protegida perfil="SUPERADMIN"><PessoasSuperadmin /></Protegida>} />
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </ModulosProvider>
   );
 }

@@ -4,7 +4,7 @@ import { memoryStorage } from 'multer';
 import { promises as fs } from 'fs';
 import { randomUUID } from 'crypto';
 import { DbService } from '../db/db.service';
-import { JwtAuthGuard, PerfilGuard, Perfis, perfilDoUsuario } from '../auth/guards';
+import { JwtAuthGuard, PerfilGuard, Perfis, perfilDoUsuario, ModuloGuard, ExigeModulo } from '../auth/guards';
 import { AVISO_ANEXO_MAX_BYTES, AVISO_ANEXO_TIPOS_REGEX } from '../common/upload.constants';
 import { SyncService } from '../sync/sync.service';
 
@@ -13,7 +13,8 @@ import { SyncService } from '../sync/sync.service';
  * RN13 distribui o aviso do mural; RN14 grava a data da leitura.
  */
 @Controller('avisos')
-@UseGuards(JwtAuthGuard, PerfilGuard)
+@UseGuards(JwtAuthGuard, ModuloGuard, PerfilGuard)
+@ExigeModulo('MURAL_AVISOS')
 export class AvisosController {
   constructor(private db: DbService, private syncService: SyncService) { }
 

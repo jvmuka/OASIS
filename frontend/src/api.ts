@@ -19,12 +19,25 @@ export interface CondominioInfo {
   uf?: string;
 }
 
+export interface ModuloSistema {
+  codigo: string;
+  nome: string;
+  descricao: string;
+  categoria: string;
+  icone: string;
+  ordem_exibicao: number;
+  ativo: boolean;
+  data_ativacao?: string;
+  data_desativacao?: string;
+}
+
 export type Sessao = {
   pessoa: { id_pessoa: number; nome: string; email: string };
   perfis: Perfil[];
   unidades: { bloco: string; numero_apartamento: string }[];
   condominio?: CondominioInfo;
   condominiosDisponiveis?: CondominioInfo[];
+  modulosAtivos?: string[];
 };
 
 export function salvarSessao(token: string, sessao: Sessao) {
@@ -145,6 +158,22 @@ export async function alternarCondominio(idCondominio: number): Promise<Sessao> 
     unidades: novaSessao.unidades,
     condominio: novaSessao.condominio,
     condominiosDisponiveis: novaSessao.condominiosDisponiveis,
+    modulosAtivos: novaSessao.modulosAtivos,
   });
   return novaSessao;
+}
+
+export async function obterMeusModulos(): Promise<{ modulosAtivos: string[]; todos: ModuloSistema[] }> {
+  return api.get<{ modulosAtivos: string[]; todos: ModuloSistema[] }>('/auth/meus-modulos');
+}
+
+export async function obterModulosCondominio(idCondominio: number): Promise<ModuloSistema[]> {
+  return api.get<ModuloSistema[]>(`/superadmin/condominios/${idCondominio}/modulos`);
+}
+
+export async function atualizarModulosCondominio(
+  idCondominio: number,
+  modulos: Array<{ codigo_modulo: string; ativo: boolean }>
+): Promise<ModuloSistema[]> {
+  return api.patch<ModuloSistema[]>(`/superadmin/condominios/${idCondominio}/modulos`, { modulos });
 }

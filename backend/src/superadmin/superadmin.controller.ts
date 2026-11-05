@@ -16,6 +16,7 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard, PerfilGuard, Perfis } from '../auth/guards';
 import { DbService } from '../db/db.service';
+import { SyncService } from '../sync/sync.service';
 
 interface GerarBlocoLoteDto {
   nome_bloco: string;
@@ -72,7 +73,7 @@ function resolverIdCondominio(req: any, queryCondo?: string): number {
 @UseGuards(JwtAuthGuard, PerfilGuard)
 @Perfis('SUPERADMIN')
 export class SuperadminController {
-  constructor(private db: DbService) {}
+  constructor(private db: DbService, private sync: SyncService) {}
 
   // =========================================================================
   // 0. GESTÃO DE CONDOMÍNIOS (TENANTS)
@@ -151,6 +152,14 @@ export class SuperadminController {
     // Cria automaticamente o bloco "Bloco A" para facilitar a estruturação inicial
     await this.db.query(
       `INSERT INTO bloco (id_condominio, nome, descricao) VALUES ($1, 'Bloco A', 'Bloco principal do condomínio')`,
+      [novoCondo.id_condominio],
+    );
+
+    // Inicializa todos os módulos como ativos para o novo condomínio
+    await this.db.query(
+      `INSERT INTO condominio_modulo (id_condominio, codigo_modulo, ativo)
+       SELECT $1, codigo, TRUE FROM modulo_sistema
+       ON CONFLICT (id_condominio, codigo_modulo) DO NOTHING`,
       [novoCondo.id_condominio],
     );
 
@@ -240,6 +249,51 @@ export class SuperadminController {
     );
     if (!res.length) throw new NotFoundException('Condomínio não encontrado.');
     return res[0];
+  }
+
+  @Get('condominios/:id/modulos')
+  async listarModulosCondominio(@Param('id', ParseIntPipe) idCondominio: number) {
+    return this.db.query(`
+      SELECT m.codigo, m.nome, m.descricao, m.categoria, m.icone, m.ordem_exibicao,
+             COALESCE(cm.ativo, TRUE) AS ativo,
+             cm.data_ativacao, cm.data_desativacao
+        FROM modulo_sistema m
+        LEFT JOIN condominio_modulo cm ON cm.codigo_modulo = m.codigo AND cm.id_condominio = $1
+       ORDER BY m.ordem_exibicao ASC
+    `, [idCondominio]);
+  }
+
+  @Patch('condominios/:id/modulos')
+  async atualizarModulosCondominio(
+    @Param('id', ParseIntPipe) idCondominio: number,
+    @Body() body: { modulos: Array<{ codigo_modulo: string; ativo: boolean }> }
+  ) {
+    const modulos = body.modulos;
+    if (!Array.isArray(modulos) || !modulos.length) {
+      throw new BadRequestException('A lista de módulos é obrigatória.');
+    }
+
+    for (const m of modulos) {
+      if (!m.codigo_modulo) continue;
+      const ativo = Boolean(m.ativo);
+      await this.db.query(`
+        INSERT INTO condominio_modulo (id_condominio, codigo_modulo, ativo, data_desativacao)
+        VALUES ($1, $2, $3, CASE WHEN $3 = FALSE THEN CURRENT_TIMESTAMP ELSE NULL END)
+        ON CONFLICT (id_condominio, codigo_modulo) DO UPDATE
+        SET ativo = EXCLUDED.ativo,
+            data_desativacao = CASE WHEN EXCLUDED.ativo = FALSE THEN CURRENT_TIMESTAMP ELSE NULL END,
+            data_ativacao = CASE WHEN EXCLUDED.ativo = TRUE THEN CURRENT_TIMESTAMP ELSE condominio_modulo.data_ativacao END
+      `, [idCondominio, m.codigo_modulo, ativo]);
+    }
+
+    // Emite evento de sincronização em tempo real via SSE
+    this.sync.emitir({
+      topico: 'MODULOS',
+      acao: 'ATUALIZADO',
+      detalhes: { id_condominio: idCondominio },
+    });
+
+    return this.listarModulosCondominio(idCondominio);
   }
 
 

@@ -586,3 +586,4 @@ Para assegurar compatibilidade contínua em deploys e atualizações, o backend 
 - Cria as tabelas `chamado`, `chamado_mensagem`, `vaga_garagem` caso ainda não existam.
 - Aplica a coluna `id_condominio` nas tabelas raiz com valor padrão `1`.
 - Garante a presença do usuário mestre `superadmin@oasis.com` com perfil `SUPERADMIN`.
+

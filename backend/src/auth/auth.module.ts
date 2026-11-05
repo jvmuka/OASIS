@@ -2,7 +2,7 @@ import { Module, Global, Logger } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { JwtAuthGuard, PerfilGuard } from './guards';
+import { JwtAuthGuard, PerfilGuard, ModuloGuard } from './guards';
 
 function obterJwtSecret(): string {
   const secret = process.env.JWT_SECRET;

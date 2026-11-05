@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, Module, UseGuards, ParseIntPipe, BadRequestException, Req } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { DbService } from '../db/db.service';
-import { JwtAuthGuard, PerfilGuard, Perfis, perfilDoUsuario } from '../auth/guards';
+import { JwtAuthGuard, PerfilGuard, Perfis, perfilDoUsuario, ModuloGuard, ExigeModulo } from '../auth/guards';
 import { SyncService } from '../sync/sync.service';
 
 /** Gera um codigo de ativacao criptograficamente seguro (8 caracteres alfanumericos maiusculos). */
@@ -15,7 +15,7 @@ function gerarCodigoAtivacao(): string {
  * UC11 - Cadastrar / Editar Pessoa e Unidade, Gestão de Dependentes e Primeiro Acesso.
  */
 @Controller('cadastros')
-@UseGuards(JwtAuthGuard, PerfilGuard)
+@UseGuards(JwtAuthGuard, ModuloGuard, PerfilGuard)
 export class CadastrosController {
   constructor(private db: DbService, private sync: SyncService) {}
 
@@ -605,7 +605,7 @@ export class CadastrosController {
   }
 
   // ------------------------- Consulta e Solicitação de Dependente pelo Morador -------------------------
-  @Get('meus-dependentes') @Perfis('MORADOR')
+  @Get('meus-dependentes') @Perfis('MORADOR') @ExigeModulo('DEPENDENTES_FAMILIA')
   async obterMeusDependentes(@Req() req: any) {
     const idPessoa = req.user.sub;
     const vinculos = await this.db.query(
@@ -657,7 +657,7 @@ export class CadastrosController {
     };
   }
 
-  @Post('meus-dependentes') @Perfis('MORADOR')
+  @Post('meus-dependentes') @Perfis('MORADOR') @ExigeModulo('DEPENDENTES_FAMILIA')
   async solicitarDependente(
     @Req() req: any,
     @Body() b: {

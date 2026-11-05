@@ -22,7 +22,7 @@ import { promises as fs } from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { DbService } from '../db/db.service';
-import { JwtAuthGuard, PerfilGuard, Perfis, perfilDoUsuario } from '../auth/guards';
+import { JwtAuthGuard, PerfilGuard, Perfis, perfilDoUsuario, ModuloGuard, ExigeModulo } from '../auth/guards';
 import { SyncService } from '../sync/sync.service';
 
 const CATEGORIAS_VALIDAS = [
@@ -36,7 +36,8 @@ const CATEGORIAS_VALIDAS = [
 const STATUS_VALIDOS = ['EM_ANALISE', 'EM_ANDAMENTO', 'REALIZADA', 'ARQUIVADA'];
 
 @Controller('chamados')
-@UseGuards(JwtAuthGuard, PerfilGuard)
+@UseGuards(JwtAuthGuard, ModuloGuard, PerfilGuard)
+@ExigeModulo('CHAMADOS_OCORRENCIAS')
 export class ChamadosController {
   constructor(
     private db: DbService,

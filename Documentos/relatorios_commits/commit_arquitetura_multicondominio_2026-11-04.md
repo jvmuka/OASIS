@@ -84,3 +84,4 @@ Foram executados testes ponta a ponta simulando as operações reais via API:
   - Login de Síndica (Ana Souza): Acesso mantido normalmente ao painel administrativo.
   - Acesso Universal do Superadmin: Confirmado acesso irrestrito às áreas comuns e reservas.
 - **Compilação e Containers:** Frontend (`tsc -b && vite build`) e Backend (`nest build`) compilados com zero erros; containers Docker atualizados e saudáveis.
+

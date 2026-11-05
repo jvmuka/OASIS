@@ -9,7 +9,8 @@ export type TopicoSync =
   | 'AVISOS'
   | 'PESSOAS'
   | 'ESTRUTURA'
-  | 'CHAMADOS';
+  | 'CHAMADOS'
+  | 'MODULOS';
 
 export type AcaoSync = 'CRIADO' | 'ATUALIZADO' | 'EXCLUIDO';
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { api, sessaoAtual, alternarCondominio } from '../../api';
+import { api, sessaoAtual, alternarCondominio, ModuloSistema, obterModulosCondominio, atualizarModulosCondominio } from '../../api';
+import { useModulos } from '../../contexts/ModulosContext';
 import { Titulo, Cartao, Botao, Badge, Icone, inputCls, Mensagem } from '../../components/ui';
 
 export interface CondominioDetalhado {
@@ -45,6 +46,56 @@ export default function CondominiosSuperadmin() {
   const [formCep, setFormCep] = useState('');
   const [formTelefone, setFormTelefone] = useState('');
   const [formEmail, setFormEmail] = useState('');
+
+  // Modal de Módulos
+  const { recarregarModulos } = useModulos();
+  const [modalModulosAberto, setModalModulosAberto] = useState(false);
+  const [condominioModulos, setCondominioModulos] = useState<CondominioDetalhado | null>(null);
+  const [modulosLista, setModulosLista] = useState<ModuloSistema[]>([]);
+  const [modulosCarregando, setModulosCarregando] = useState(false);
+  const [modulosSalvando, setModulosSalvando] = useState(false);
+
+  const abrirModalModulos = async (c: CondominioDetalhado) => {
+    setCondominioModulos(c);
+    setModalModulosAberto(true);
+    setModulosCarregando(true);
+    try {
+      const lista = await obterModulosCondominio(c.id_condominio);
+      setModulosLista(lista);
+    } catch (e: any) {
+      setErro(e.message || 'Falha ao carregar módulos do condomínio.');
+    } finally {
+      setModulosCarregando(false);
+    }
+  };
+
+  const toggleModulo = (codigo: string) => {
+    setModulosLista((prev) =>
+      prev.map((m) => (m.codigo === codigo ? { ...m, ativo: !m.ativo } : m))
+    );
+  };
+
+  const handleSalvarModulos = async () => {
+    if (!condominioModulos) return;
+    setModulosSalvando(true);
+    try {
+      const payload = modulosLista.map((m) => ({
+        codigo_modulo: m.codigo,
+        ativo: m.ativo,
+      }));
+      await atualizarModulosCondominio(condominioModulos.id_condominio, payload);
+      setSucesso(`Módulos do condomínio "${condominioModulos.nome}" atualizados com sucesso!`);
+      setModalModulosAberto(false);
+      // Se for o condomínio ativo na sessão atual, atualiza o contexto global
+      if (condominioModulos.id_condominio === idCondominioAtivo) {
+        await recarregarModulos();
+      }
+    } catch (e: any) {
+      setErro(e.message || 'Falha ao salvar configuração modular.');
+    } finally {
+      setModulosSalvando(false);
+    }
+  };
 
   const carregarCondominios = async () => {
     try {
@@ -304,14 +355,26 @@ export default function CondominiosSuperadmin() {
                 </div>
 
                 <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
-                  <button
-                    type="button"
-                    onClick={() => abrirModalEditar(c)}
-                    className="text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-1 p-1"
-                  >
-                    <Icone nome="edit" className="w-3.5 h-3.5" />
-                    <span>Editar</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => abrirModalEditar(c)}
+                      className="text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-1 p-1"
+                    >
+                      <Icone nome="edit" className="w-3.5 h-3.5" />
+                      <span>Editar</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => abrirModalModulos(c)}
+                      className="text-xs font-semibold px-2 py-1 rounded-lg border border-purple-200 dark:border-purple-800 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/40 flex items-center gap-1 transition-colors"
+                      title="Gerenciar módulos habilitados para este condomínio"
+                    >
+                      <Icone nome="wrench" className="w-3.5 h-3.5" />
+                      <span>Módulos</span>
+                    </button>
+                  </div>
 
                   <div className="flex items-center gap-2">
                     <button
@@ -526,6 +589,126 @@ export default function CondominiosSuperadmin() {
           </div>
         </div>
       )}
+      {/* Modal: Gerenciar Módulos Contratados */}
+      {modalModulosAberto && condominioModulos && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-purple-50 text-purple-600 dark:bg-purple-950/60 dark:text-purple-400 rounded-xl">
+                  <Icone nome="wrench" className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 dark:text-slate-100 text-lg flex items-center gap-2">
+                    <span>Módulos Contratados</span>
+                    <span className="text-xs font-normal text-slate-400">({condominioModulos.nome})</span>
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Ative ou desative as ferramentas da plataforma sob medida para esta unidade
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalModulosAberto(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
+              >
+                <Icone nome="x" className="w-5 h-5" />
+              </button>
+            </div>
+
+            {modulosCarregando ? (
+              <div className="py-12 text-center text-slate-400">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 dark:border-purple-400 mb-3" />
+                <p className="text-sm">Carregando catálogo de módulos...</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 gap-3">
+                  {modulosLista.map((mod) => (
+                    <div
+                      key={mod.codigo}
+                      className={`p-4 rounded-xl border transition-all flex items-center justify-between gap-4 ${
+                        mod.ativo
+                          ? 'bg-slate-50/70 border-slate-200 dark:bg-slate-800/40 dark:border-slate-700'
+                          : 'bg-white border-slate-200/50 opacity-60 dark:bg-slate-900/40 dark:border-slate-800'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div
+                          className={`p-2.5 rounded-lg shrink-0 mt-0.5 ${
+                            mod.ativo
+                              ? 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300'
+                              : 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500'
+                          }`}
+                        >
+                          <Icone nome={(mod.icone as any) || 'wrench'} className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                              {mod.nome}
+                            </h4>
+                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-200/60 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                              {mod.codigo}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                            {mod.descricao}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Toggle Switch */}
+                      <button
+                        type="button"
+                        onClick={() => toggleModulo(mod.codigo)}
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                          mod.ativo ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700'
+                        }`}
+                        role="switch"
+                        aria-checked={mod.ativo}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                            mod.ativo ? 'translate-x-5' : 'translate-x-0'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                  <span className="text-xs text-slate-400">
+                    {modulosLista.filter((m) => m.ativo).length} de {modulosLista.length} módulos ativos
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Botao
+                      type="button"
+                      variante="secundario"
+                      onClick={() => setModalModulosAberto(false)}
+                      disabled={modulosSalvando}
+                    >
+                      Cancelar
+                    </Botao>
+                    <Botao
+                      type="button"
+                      variante="primario"
+                      onClick={handleSalvarModulos}
+                      disabled={modulosSalvando}
+                      className="bg-purple-600 hover:bg-purple-700 text-white"
+                    >
+                      {modulosSalvando ? 'Salvando...' : 'Salvar Configuração'}
+                    </Botao>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

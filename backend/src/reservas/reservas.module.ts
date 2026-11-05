@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Patch, Body, Param, Query, Module, UseGuards, Req, ParseIntPipe, BadRequestException } from '@nestjs/common';
 import { DbService } from '../db/db.service';
-import { JwtAuthGuard, PerfilGuard, Perfis, perfilDoUsuario } from '../auth/guards';
+import { JwtAuthGuard, PerfilGuard, Perfis, perfilDoUsuario, ModuloGuard, ExigeModulo } from '../auth/guards';
 import { SyncService } from '../sync/sync.service';
 
 const DIAS = ['DOMINGO','SEGUNDA','TERCA','QUARTA','QUINTA','SEXTA','SABADO'];
@@ -11,7 +11,8 @@ const DIAS = ['DOMINGO','SEGUNDA','TERCA','QUARTA','QUINTA','SEXTA','SABADO'];
  * a API monta a grade de horarios e repassa as mensagens das regras.
  */
 @Controller('reservas')
-@UseGuards(JwtAuthGuard, PerfilGuard)
+@UseGuards(JwtAuthGuard, ModuloGuard, PerfilGuard)
+@ExigeModulo('RESERVAS_AREAS')
 export class ReservasController {
   constructor(private db: DbService, private sync: SyncService) {}
 

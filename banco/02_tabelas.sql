@@ -393,3 +393,29 @@ ALTER TABLE chave ADD COLUMN IF NOT EXISTS id_condominio INTEGER NOT NULL DEFAUL
 ALTER TABLE codigo_primeiro_acesso ADD COLUMN IF NOT EXISTS id_condominio INTEGER NOT NULL DEFAULT 1 REFERENCES condominio(id_condominio);
 ALTER TABLE chamado ADD COLUMN IF NOT EXISTS id_condominio INTEGER NOT NULL DEFAULT 1 REFERENCES condominio(id_condominio);
 ALTER TABLE perfil ADD COLUMN IF NOT EXISTS id_condominio INTEGER REFERENCES condominio(id_condominio);
+
+-- ----------------------------------------------------
+-- 19. MODULOS DO SISTEMA E TENANCY MODULAR
+-- ----------------------------------------------------
+CREATE TABLE IF NOT EXISTS modulo_sistema (
+    codigo          VARCHAR(40)     PRIMARY KEY,
+    nome            VARCHAR(80)     NOT NULL,
+    descricao       VARCHAR(255)    NOT NULL,
+    categoria       VARCHAR(40)     NOT NULL DEFAULT 'OPERACIONAL',
+    icone           VARCHAR(30)     NOT NULL DEFAULT 'wrench',
+    ordem_exibicao  INTEGER         NOT NULL DEFAULT 0,
+    criado_em       TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS condominio_modulo (
+    id_condominio_modulo SERIAL PRIMARY KEY,
+    id_condominio        INTEGER NOT NULL REFERENCES condominio(id_condominio) ON DELETE CASCADE,
+    codigo_modulo        VARCHAR(40) NOT NULL REFERENCES modulo_sistema(codigo) ON DELETE RESTRICT,
+    ativo                BOOLEAN NOT NULL DEFAULT TRUE,
+    data_ativacao        TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    data_desativacao     TIMESTAMP WITH TIME ZONE,
+    CONSTRAINT uk_condominio_modulo UNIQUE (id_condominio, codigo_modulo)
+);
+
+CREATE INDEX IF NOT EXISTS idx_cm_condo ON condominio_modulo(id_condominio);
+CREATE INDEX IF NOT EXISTS idx_cm_ativo ON condominio_modulo(id_condominio, ativo);

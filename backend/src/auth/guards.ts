@@ -62,3 +62,5 @@ export function perfilDoUsuario(user: any, tipo?: string): number {
   if (!alvo) throw new ForbiddenException('Usuario sem o perfil necessario.');
   return alvo.id_perfil;
 }
+
+export { ExigeModulo, ModuloGuard } from './modulo.guard';

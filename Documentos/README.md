@@ -42,6 +42,8 @@ Documentos/
 │   └── sql_consolidado/                   <- Scripts SQL históricos de referência dos diagramas
 │
 ├── planos_executados/                     <- Funcionalidades já desenvolvidas, testadas e entregues
+│   ├── plano_modulos_funcionais_condominio.md       <- [FASE 2] Sistema modular de recursos por condomínio e gestão Superadmin
+│   ├── plano_implementacao_multicondominio.md       <- [FASE 1] Arquitetura multi-tenancy nativa, isolamento de dados e Superadmin
 │   ├── plano_deploy_vps_producao_e_ambiente_demo.md <- Deploy em produção VPS Oracle, SSL e modo demo
 │   ├── plano_sincronicidade_e_help_contexto.md      <- Sistema de sincronismo (SSE/polling) e ajuda contextual interativa
 │   ├── plano_gestao_estrutural_administrador.md

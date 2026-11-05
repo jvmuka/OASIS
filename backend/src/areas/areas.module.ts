@@ -5,7 +5,7 @@ import 'multer';
 import { promises as fs } from 'fs';
 import sharp from 'sharp';
 import { DbService } from '../db/db.service';
-import { JwtAuthGuard, PerfilGuard, Perfis, perfilDoUsuario } from '../auth/guards';
+import { JwtAuthGuard, PerfilGuard, Perfis, perfilDoUsuario, ModuloGuard, ExigeModulo } from '../auth/guards';
 import { SyncService } from '../sync/sync.service';
 import { IMAGEM_MAX_BYTES, IMAGEM_TIPOS_REGEX } from '../common/upload.constants';
 
@@ -28,7 +28,8 @@ function gerarSiglaChave(nome: string): string {
  * Consulta liberada a todos os perfis; alteracoes restritas ao SINDICO.
  */
 @Controller('areas')
-@UseGuards(JwtAuthGuard, PerfilGuard)
+@UseGuards(JwtAuthGuard, ModuloGuard, PerfilGuard)
+@ExigeModulo('RESERVAS_AREAS')
 export class AreasController {
   constructor(private db: DbService, private sync: SyncService) {}
 

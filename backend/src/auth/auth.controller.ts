@@ -58,4 +58,11 @@ export class AuthController {
     }
     return this.auth.gerarSessaoParaPessoa(req.user.sub, id);
   }
+
+  @Get('meus-modulos')
+  @UseGuards(JwtAuthGuard)
+  async obterMeusModulos(@Req() req: any) {
+    const idCondominio = Number(req.headers?.['x-condominio-id'] || req.user?.id_condominio || 1);
+    return this.auth.obterModulosCondominio(idCondominio);
+  }
 }

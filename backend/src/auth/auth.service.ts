@@ -373,13 +373,35 @@ export class AuthService {
       perfis: perfis.map(p => ({ id_perfil: p.id_perfil, tipo: p.tipo_perfil, id_condominio: p.id_condominio })),
     };
 
+    const modulosQuery = await this.db.query(
+      `SELECT codigo_modulo FROM condominio_modulo WHERE id_condominio = $1 AND ativo = TRUE`,
+      [condominioAtivo.id_condominio]
+    );
+    const modulosAtivos = modulosQuery.map(m => m.codigo_modulo);
+
     return {
       token: await this.jwt.signAsync(payload),
       pessoa: { id_pessoa: pessoa.id_pessoa, nome: pessoa.nome, email: pessoa.email },
       condominio: condominioAtivo,
       condominiosDisponiveis,
+      modulosAtivos,
       perfis: payload.perfis,
       unidades,
+    };
+  }
+
+  async obterModulosCondominio(idCondominio: number) {
+    const modulos = await this.db.query(
+      `SELECT m.codigo, m.nome, m.descricao, m.categoria, m.icone, m.ordem_exibicao,
+              COALESCE(cm.ativo, TRUE) AS ativo
+         FROM modulo_sistema m
+         LEFT JOIN condominio_modulo cm ON cm.codigo_modulo = m.codigo AND cm.id_condominio = $1
+        ORDER BY m.ordem_exibicao ASC`,
+      [idCondominio]
+    );
+    return {
+      modulosAtivos: modulos.filter(m => m.ativo).map(m => m.codigo),
+      todos: modulos,
     };
   }
 }

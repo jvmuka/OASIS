@@ -67,3 +67,4 @@ CREATE INDEX IF NOT EXISTS idx_chamado_condominio ON chamado(id_condominio);
 ALTER TABLE perfil ADD COLUMN IF NOT EXISTS id_condominio INTEGER REFERENCES condominio(id_condominio);
 UPDATE perfil SET id_condominio = 1 WHERE id_condominio IS NULL AND tipo_perfil <> 'SUPERADMIN';
 CREATE INDEX IF NOT EXISTS idx_perfil_condominio ON perfil(id_condominio);
+

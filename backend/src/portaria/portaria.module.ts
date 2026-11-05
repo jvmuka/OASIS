@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, Module, UseGuards, Req, ParseIntPipe, BadRequestException } from '@nestjs/common';
 import { DbService } from '../db/db.service';
-import { JwtAuthGuard, PerfilGuard, Perfis, perfilDoUsuario } from '../auth/guards';
+import { JwtAuthGuard, PerfilGuard, Perfis, perfilDoUsuario, ModuloGuard, ExigeModulo } from '../auth/guards';
 import { SyncService } from '../sync/sync.service';
 
 /**
@@ -8,12 +8,12 @@ import { SyncService } from '../sync/sync.service';
  * O rastreio de quem entregou/recebeu usa o id_perfil do porteiro logado.
  */
 @Controller('portaria')
-@UseGuards(JwtAuthGuard, PerfilGuard)
+@UseGuards(JwtAuthGuard, ModuloGuard, PerfilGuard)
 export class PortariaController {
   constructor(private db: DbService, private sync: SyncService) {}
 
   // ------------------------- encomendas -------------------------
-  @Get('encomendas') @Perfis('PORTEIRO', 'SINDICO')
+  @Get('encomendas') @Perfis('PORTEIRO', 'SINDICO') @ExigeModulo('ENCOMENDAS_PACOTES')
   encomendas(@Query('status') status?: string) {
     return this.db.query(`
       SELECT e.id_encomenda, p.nome AS destinatario, b.nome AS bloco,
@@ -29,7 +29,7 @@ export class PortariaController {
   }
 
   /** UC07: gatilho RN11 gera o aviso individual automaticamente. */
-  @Post('encomendas') @Perfis('PORTEIRO')
+  @Post('encomendas') @Perfis('PORTEIRO') @ExigeModulo('ENCOMENDAS_PACOTES')
   async registrar(@Req() req: any, @Body() b: {
     id_pessoa_destinatario: number; descricao?: string; tamanho: string;
   }) {
@@ -50,7 +50,7 @@ export class PortariaController {
   }
 
   /** UC08: gatilho RN12 exige retirado_por (e o nome, se TERCEIRO). */
-  @Patch('encomendas/:id/retirada') @Perfis('PORTEIRO')
+  @Patch('encomendas/:id/retirada') @Perfis('PORTEIRO') @ExigeModulo('ENCOMENDAS_PACOTES')
   async retirada(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body() b: {
     retirado_por: string; nome_retirante?: string;
   }) {
@@ -79,7 +79,7 @@ export class PortariaController {
   }
 
   /** Encomendas do morador autenticado e de sua unidade (ele nao pode ver a lista completa da portaria). */
-  @Get('minhas-encomendas') @Perfis('MORADOR')
+  @Get('minhas-encomendas') @Perfis('MORADOR') @ExigeModulo('ENCOMENDAS_PACOTES')
   minhasEncomendas(@Req() req: any) {
     return this.db.query(`
       SELECT e.id_encomenda, e.descricao, e.tamanho, e.status,
@@ -114,7 +114,7 @@ export class PortariaController {
   }
 
   /** Chaves atualmente em posse do morador ou de pessoas da mesma unidade familiar. */
-  @Get('minhas-chaves') @Perfis('MORADOR', 'SINDICO', 'ADMINISTRADOR', 'PORTEIRO')
+  @Get('minhas-chaves') @Perfis('MORADOR', 'SINDICO', 'ADMINISTRADOR', 'PORTEIRO') @ExigeModulo('CONTROLE_CHAVES')
   async minhasChaves(@Req() req: any) {
     const idPessoa = req.user.sub;
     await this.processarAvisosChavesAtrasadas();
@@ -155,7 +155,7 @@ export class PortariaController {
   }
 
   // ------------------------- chaves -------------------------
-  @Get('chaves') @Perfis('PORTEIRO', 'SINDICO')
+  @Get('chaves') @Perfis('PORTEIRO', 'SINDICO') @ExigeModulo('CONTROLE_CHAVES')
   async chaves() {
     await this.processarAvisosChavesAtrasadas();
     return this.db.query(`
@@ -245,7 +245,7 @@ export class PortariaController {
   }
 
   /** UC06 emprestimo: gatilho RN09 valida disponibilidade e muda o status. Permitido a PORTEIRO e SINDICO. */
-  @Post('chaves/:id/emprestimo') @Perfis('PORTEIRO', 'SINDICO')
+  @Post('chaves/:id/emprestimo') @Perfis('PORTEIRO', 'SINDICO') @ExigeModulo('CONTROLE_CHAVES')
   async emprestar(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body() b: {
     id_perfil_solicitante?: number; id_pessoa_solicitante?: number; id_reserva?: number; observacao?: string;
   }) {
@@ -285,7 +285,7 @@ export class PortariaController {
   }
 
   /** UC06 devolucao: gatilho RN10 valida e libera a chave. Permitido a PORTEIRO e SINDICO. */
-  @Patch('chaves/emprestimos/:id/devolucao') @Perfis('PORTEIRO', 'SINDICO')
+  @Patch('chaves/emprestimos/:id/devolucao') @Perfis('PORTEIRO', 'SINDICO') @ExigeModulo('CONTROLE_CHAVES')
   async devolver(@Req() req: any, @Param('id', ParseIntPipe) id: number) {
     const idOperador = req.user.perfis?.find((p: any) => p.tipo === 'PORTEIRO' || p.tipo === 'SINDICO')?.id_perfil
       || perfilDoUsuario(req.user);
@@ -308,7 +308,7 @@ export class PortariaController {
   }
 
   /** Cadastra uma nova via/cópia de chave para uma área comum (SINDICO). */
-  @Post('chaves') @Perfis('SINDICO')
+  @Post('chaves') @Perfis('SINDICO') @ExigeModulo('CONTROLE_CHAVES')
   async criarChave(@Body() b: { id_area_comum: number; codigo: string; observacao?: string }) {
     if (!b.id_area_comum || !b.codigo?.trim()) {
       throw new BadRequestException('Informe a área comum e o código da chave.');
@@ -330,7 +330,7 @@ export class PortariaController {
   }
 
   /** Atualiza o código/nome e observação de uma chave física (SINDICO). */
-  @Put('chaves/:id') @Perfis('SINDICO')
+  @Put('chaves/:id') @Perfis('SINDICO') @ExigeModulo('CONTROLE_CHAVES')
   async editarChave(@Param('id', ParseIntPipe) id: number, @Body() b: { codigo: string; observacao?: string }) {
     if (!b.codigo?.trim()) {
       throw new BadRequestException('O código da chave é obrigatório.');
@@ -356,7 +356,7 @@ export class PortariaController {
   }
 
   /** Exclui uma chave física caso não esteja emprestada no momento (SINDICO). */
-  @Delete('chaves/:id') @Perfis('SINDICO')
+  @Delete('chaves/:id') @Perfis('SINDICO') @ExigeModulo('CONTROLE_CHAVES')
   async excluirChave(@Param('id', ParseIntPipe) id: number) {
     const chave = await this.db.query(`SELECT id_chave, id_area_comum, status, codigo FROM chave WHERE id_chave = $1`, [id]);
     if (!chave.length) throw new BadRequestException('Chave não encontrada.');
