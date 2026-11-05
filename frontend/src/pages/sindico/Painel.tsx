@@ -160,10 +160,8 @@ export default function PainelAdmin() {
       link: '/portaria/painel',
       icone: 'calendar' as const,
       tag: 'Agenda',
-      gradiente: 'from-blue-600/15 via-sky-500/10 to-transparent',
-      borda: 'border-blue-200/80 hover:border-blue-400 dark:border-blue-900/60 dark:hover:border-blue-600',
-      iconeBg: 'bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400',
-      tagBadge: 'bg-blue-50 text-blue-700 dark:bg-blue-950/80 dark:text-blue-300',
+      iconeBg: 'bg-[#e8edf7] text-[#2548a0] dark:bg-blue-950/60 dark:text-blue-400',
+      tagBadge: 'bg-[#e8edf7] text-[#2548a0] border border-[#c8d6ed] dark:bg-blue-950/80 dark:text-blue-300 dark:border-blue-900',
     },
     {
       titulo: 'Encomendas na Portaria',
@@ -172,10 +170,8 @@ export default function PainelAdmin() {
       link: '/portaria/encomendas',
       icone: 'package' as const,
       tag: 'Portaria',
-      gradiente: 'from-amber-600/15 via-orange-500/10 to-transparent',
-      borda: 'border-amber-200/80 hover:border-amber-400 dark:border-amber-900/60 dark:hover:border-amber-600',
-      iconeBg: 'bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400',
-      tagBadge: 'bg-amber-50 text-amber-700 dark:bg-amber-950/80 dark:text-amber-300',
+      iconeBg: 'bg-[#fdf0d9] text-[#b26a00] dark:bg-amber-950/60 dark:text-amber-400',
+      tagBadge: 'bg-[#fdf0d9] text-[#b26a00] border border-[#f8dcab] dark:bg-amber-950/80 dark:text-amber-300 dark:border-amber-900',
     },
     {
       titulo: 'Moradores Ativos',
@@ -184,10 +180,8 @@ export default function PainelAdmin() {
       link: '/sindico/pessoas',
       icone: 'users' as const,
       tag: 'Cadastros',
-      gradiente: 'from-emerald-600/15 via-teal-500/10 to-transparent',
-      borda: 'border-emerald-200/80 hover:border-emerald-400 dark:border-emerald-900/60 dark:hover:border-emerald-600',
-      iconeBg: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400',
-      tagBadge: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300',
+      iconeBg: 'bg-[#e3f4eb] text-[#1e8e5a] dark:bg-emerald-950/60 dark:text-emerald-400',
+      tagBadge: 'bg-[#e3f4eb] text-[#1e8e5a] border border-[#bfe4d2] dark:bg-emerald-950/80 dark:text-emerald-300 dark:border-emerald-900',
     },
     {
       titulo: 'Chaves em Uso',
@@ -198,18 +192,12 @@ export default function PainelAdmin() {
       link: '/portaria/chaves',
       icone: Number(d.totais.chaves_atrasadas || 0) > 0 ? ('alert' as const) : ('key' as const),
       tag: Number(d.totais.chaves_atrasadas || 0) > 0 ? 'Atenção' : 'Controle',
-      gradiente: Number(d.totais.chaves_atrasadas || 0) > 0
-        ? 'from-rose-600/15 via-red-500/10 to-transparent'
-        : 'from-indigo-600/15 via-purple-500/10 to-transparent',
-      borda: Number(d.totais.chaves_atrasadas || 0) > 0
-        ? 'border-rose-300 hover:border-rose-500 dark:border-rose-900/60 dark:hover:border-rose-600'
-        : 'border-indigo-200/80 hover:border-indigo-400 dark:border-indigo-900/60 dark:hover:border-indigo-600',
       iconeBg: Number(d.totais.chaves_atrasadas || 0) > 0
-        ? 'bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400'
-        : 'bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400',
+        ? 'bg-[#fbe7e7] text-[#c2383d] dark:bg-rose-950/60 dark:text-rose-400'
+        : 'bg-[#eef2f9] text-[#2548a0] dark:bg-indigo-950/60 dark:text-indigo-400',
       tagBadge: Number(d.totais.chaves_atrasadas || 0) > 0
-        ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/80 dark:text-rose-300'
-        : 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/80 dark:text-indigo-300',
+        ? 'bg-[#fbe7e7] text-[#c2383d] border border-[#f5c6c6] dark:bg-rose-950/80 dark:text-rose-300 dark:border-rose-900'
+        : 'bg-[#eef2f9] text-[#2548a0] border border-[#d6e0f2] dark:bg-indigo-950/80 dark:text-indigo-300 dark:border-indigo-900',
     },
   ];
 
@@ -231,9 +219,9 @@ export default function PainelAdmin() {
 
         <div className="flex items-center gap-2.5 flex-wrap">
           {/* Seletor de Mês de Análise */}
-          <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 shadow-2xs dark:border-slate-800 dark:bg-slate-900">
-            <Icone nome="calendar" className="h-4 w-4 text-slate-400" />
-            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden sm:inline">
+          <div className="flex items-center gap-1.5 rounded-xl border border-[#e2e6ec] bg-white px-3 py-1.5 shadow-2xs dark:border-slate-800 dark:bg-[#0e1525]">
+            <Icone nome="calendar" className="h-4 w-4 text-[#525d6e] dark:text-slate-400" />
+            <span className="text-[11px] font-bold text-[#525d6e] dark:text-slate-400 uppercase tracking-wider hidden sm:inline">
               Mês:
             </span>
             <select
@@ -243,7 +231,7 @@ export default function PainelAdmin() {
                 setMesSelecionado(novoMes);
                 carregar(novoMes);
               }}
-              className="bg-transparent text-xs font-bold text-slate-800 focus:outline-hidden dark:text-slate-100 cursor-pointer pr-1"
+              className="bg-transparent text-xs font-bold text-[#0b1830] focus:outline-hidden dark:text-slate-100 cursor-pointer pr-1"
             >
               {d.meses_disponiveis.map(m => (
                 <option key={m.valor} value={m.valor} className="dark:bg-slate-900">
@@ -255,13 +243,13 @@ export default function PainelAdmin() {
 
           <Link
             to="/sindico/avisos"
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 hover:text-navy dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-sky-400 transition-all"
+            className="inline-flex items-center gap-2 rounded-xl border border-[#e2e6ec] bg-white px-3.5 py-2 text-xs font-bold text-[#0b1830] shadow-2xs hover:bg-[#f6f7f9] hover:text-navy dark:border-slate-800 dark:bg-[#0e1525] dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-sky-400 transition-all"
           >
             <Icone nome="megaphone" className="h-4 w-4 text-sky-500" />
             <span>Publicar Aviso</span>
           </Link>
 
-          {/* Botão sólido Novo Morador (sem gradiente/fade) */}
+          {/* Botão sólido Novo Morador */}
           <Link
             to="/sindico/pessoas"
             className="inline-flex items-center gap-2 rounded-xl bg-navy px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-navy/90 dark:bg-sky-600 dark:hover:bg-sky-500 transition-colors"
@@ -274,7 +262,7 @@ export default function PainelAdmin() {
             onClick={() => carregar(mesSelecionado)}
             title="Atualizar dados"
             disabled={carregando}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-navy hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400 dark:hover:text-sky-400 dark:hover:bg-slate-800 transition-all disabled:opacity-50"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#e2e6ec] bg-white text-[#525d6e] hover:text-navy hover:bg-[#f6f7f9] dark:border-slate-800 dark:bg-[#0e1525] dark:text-slate-400 dark:hover:text-sky-400 dark:hover:bg-slate-800 transition-all disabled:opacity-50"
           >
             <svg className={`h-4 w-4 ${carregando ? 'animate-spin text-navy dark:text-sky-400' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
@@ -288,39 +276,34 @@ export default function PainelAdmin() {
         </div>
       </div>
 
-      {/* 1. Super Cards de Indicadores Operacionais */}
+      {/* 1. Super Cards de Indicadores Operacionais (Padrão Lettly SaaS) */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {kpis.map(k => (
           <Link
             key={k.titulo}
             to={k.link}
-            className={`group relative overflow-hidden rounded-2xl border bg-white p-5 shadow-xs transition-all duration-300 hover:-translate-y-1 hover:shadow-md dark:bg-slate-900 ${k.borda}`}
+            className="group relative overflow-hidden rounded-2xl border border-[#e2e6ec] bg-white p-5 shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:border-navy/30 hover:shadow-card dark:border-slate-800 dark:bg-[#0e1525]"
           >
-            {/* Gradiente sutil decorativo de fundo */}
-            <div
-              className={`absolute inset-0 bg-gradient-to-br ${k.gradiente} opacity-60 transition-opacity group-hover:opacity-100`}
-            />
-
-            <div className="relative z-10">
+            <div>
               <div className="flex items-center justify-between">
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider ${k.tagBadge}`}>
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${k.tagBadge}`}>
                   {k.tag}
                 </span>
                 <div
-                  className={`flex h-10 w-10 items-center justify-center rounded-xl shadow-2xs transition-transform duration-300 group-hover:scale-110 ${k.iconeBg}`}
+                  className={`flex h-10 w-10 items-center justify-center rounded-xl shadow-2xs transition-transform duration-200 group-hover:scale-105 ${k.iconeBg}`}
                 >
                   <Icone nome={k.icone} className="h-5 w-5" />
                 </div>
               </div>
 
               <div className="mt-4">
-                <p className="text-3xl font-black tracking-tight text-slate-900 dark:text-slate-100">
+                <p className="text-3xl font-extrabold tracking-tight text-[#0b1830] dark:text-white">
                   {k.valor}
                 </p>
-                <h4 className="mt-1 text-sm font-bold text-slate-700 dark:text-slate-300">
+                <h4 className="mt-1 text-sm font-bold text-[#0b1830] dark:text-slate-300">
                   {k.titulo}
                 </h4>
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                <p className="mt-0.5 text-xs text-[#525d6e] dark:text-slate-400">
                   {k.subtitulo}
                 </p>
               </div>

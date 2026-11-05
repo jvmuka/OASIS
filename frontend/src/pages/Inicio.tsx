@@ -54,7 +54,7 @@ function saudacaoPorHorario() {
   return 'Boa noite';
 }
 
-/** Cartao numerico (ou textual) de resumo: sempre mostra um valor, nunca fica em branco. */
+/** Cartao numerico (ou textual) de resumo no estilo Lettly SaaS: sempre mostra um valor, nunca fica em branco. */
 function CartaoResumo({
   titulo,
   valor,
@@ -71,33 +71,33 @@ function CartaoResumo({
   acao?: React.ReactNode;
 }) {
   return (
-    <Cartao className="flex items-start justify-between gap-3 p-5">
+    <Cartao className="flex items-start justify-between gap-3 p-5 rounded-2xl border border-[#e2e6ec] dark:border-slate-800 bg-white dark:bg-[#0e1525] shadow-2xs hover:shadow-card transition-all">
       <div className="min-w-0">
-        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">{titulo}</p>
-        <p className="mt-1.5 truncate text-2xl font-extrabold tracking-tight text-navy dark:text-sky-400">{valor}</p>
-        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{legenda}</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-[#525d6e] dark:text-slate-400">{titulo}</p>
+        <p className="mt-1.5 truncate text-2xl font-extrabold tracking-tight text-[#0b1830] dark:text-white">{valor}</p>
+        <p className="mt-1 text-xs text-[#525d6e] dark:text-slate-400">{legenda}</p>
         {acao}
       </div>
-      <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border ${cor}`}>
-        <Icone nome={icone} className="h-6 w-6" />
+      <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border ${cor}`}>
+        <Icone nome={icone} className="h-5 w-5" />
       </div>
     </Cartao>
   );
 }
 
-/** Atalho grande e clicavel para uma tela do sistema. */
+/** Atalho grande e clicavel para uma tela do sistema no estilo Lettly SaaS. */
 function Atalho({ to, rotulo, descricao, icone }: { to: string; rotulo: string; descricao: string; icone: IconeNome }) {
   return (
     <Link
       to={to}
-      className="group flex items-center gap-4 rounded-xl border border-slate-200/80 bg-white p-5 shadow-soft transition-all duration-150 hover:border-navy/30 hover:shadow-card active:scale-[0.99] dark:border-slate-800 dark:bg-slate-900 dark:hover:border-sky-500/40"
+      className="group flex items-center gap-3.5 rounded-2xl border border-[#e2e6ec] bg-white p-4.5 shadow-2xs transition-all duration-150 hover:border-navy/30 hover:shadow-card active:scale-[0.99] dark:border-slate-800 dark:bg-[#0e1525] dark:hover:border-sky-500/40"
     >
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-navy-50 text-navy transition-colors group-hover:bg-navy group-hover:text-white dark:bg-slate-800 dark:text-sky-400 dark:group-hover:bg-sky-600 dark:group-hover:text-white">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#f6f7f9] text-[#0b1830] transition-colors group-hover:bg-navy group-hover:text-white dark:bg-slate-800 dark:text-sky-400 dark:group-hover:bg-sky-600 dark:group-hover:text-white">
         <Icone nome={icone} className="h-5 w-5" />
       </div>
       <div className="min-w-0">
-        <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{rotulo}</p>
-        <p className="truncate text-xs text-slate-500 dark:text-slate-400">{descricao}</p>
+        <p className="text-sm font-bold text-[#0b1830] dark:text-slate-100">{rotulo}</p>
+        <p className="truncate text-xs text-[#525d6e] dark:text-slate-400">{descricao}</p>
       </div>
       <Icone
         nome="chevronRight"
@@ -141,28 +141,28 @@ function CardAcaoMorador({
   textoAcao: string;
 }) {
   const badgeClasses = {
-    azul: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800',
-    verde: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800',
-    ambar: 'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800',
+    azul: 'bg-[#e8edf7] text-[#2548a0] border-[#c8d6ed] dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800',
+    verde: 'bg-[#e3f4eb] text-[#1e8e5a] border-[#bfe4d2] dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800',
+    ambar: 'bg-[#fdf0d9] text-[#b26a00] border-[#f8dcab] dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800',
     indigo: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-800',
-    cinza: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700',
+    cinza: 'bg-[#f6f7f9] text-[#525d6e] border-[#e2e6ec] dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700',
   }[badge?.tipo || 'cinza'];
 
   return (
     <Link
       to={to}
-      className="group relative flex flex-col justify-between rounded-2xl border border-slate-200/80 bg-white p-5 shadow-soft transition-all duration-200 hover:-translate-y-1 hover:border-navy/30 hover:shadow-card active:scale-[0.99] dark:border-slate-800 dark:bg-slate-900 dark:hover:border-sky-500/40"
+      className="group relative flex flex-col justify-between rounded-2xl border border-[#e2e6ec] bg-white p-5 shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:border-navy/30 hover:shadow-card active:scale-[0.99] dark:border-slate-800 dark:bg-[#0e1525] dark:hover:border-sky-500/40"
     >
       <div>
         {/* Topo: Ícone temático + Badge de status */}
         <div className="flex items-start justify-between gap-3">
           <div
-            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border transition-transform duration-200 group-hover:scale-105 ${corIcone.bg} ${corIcone.text} ${corIcone.border} ${corIcone.darkBg} ${corIcone.darkText} ${corIcone.darkBorder}`}
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition-transform duration-200 group-hover:scale-105 ${corIcone.bg} ${corIcone.text} ${corIcone.border} ${corIcone.darkBg} ${corIcone.darkText} ${corIcone.darkBorder}`}
           >
-            <Icone nome={icone} className="h-6 w-6" />
+            <Icone nome={icone} className="h-5 w-5" />
           </div>
           {badge && (
-            <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold tracking-tight ${badgeClasses}`}>
+            <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-bold tracking-tight ${badgeClasses}`}>
               {badge.texto}
             </span>
           )}
@@ -170,24 +170,24 @@ function CardAcaoMorador({
 
         {/* Informações centrais */}
         <div className="mt-4">
-          <h2 className="text-base font-bold text-slate-900 transition-colors group-hover:text-navy dark:text-slate-100 dark:group-hover:text-sky-400">
+          <h2 className="text-base font-bold text-[#0b1830] transition-colors group-hover:text-navy dark:text-slate-100 dark:group-hover:text-sky-400">
             {titulo}
           </h2>
 
           <div className="mt-2 min-h-[46px]">
             {destaque ? (
               <>
-                <p className="truncate text-sm font-bold text-slate-800 dark:text-slate-200">
+                <p className="truncate text-sm font-bold text-[#0b1830] dark:text-slate-200">
                   {destaque.principal}
                 </p>
                 {destaque.secundario && (
-                  <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">
+                  <p className="mt-0.5 truncate text-xs text-[#525d6e] dark:text-slate-400">
                     {destaque.secundario}
                   </p>
                 )}
               </>
             ) : (
-              <p className="text-xs text-slate-500 line-clamp-2 dark:text-slate-400">
+              <p className="text-xs text-[#525d6e] line-clamp-2 dark:text-slate-400">
                 {descricao}
               </p>
             )}
@@ -196,11 +196,11 @@ function CardAcaoMorador({
       </div>
 
       {/* Rodapé integrado com botão/ação */}
-      <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 dark:border-slate-800/80">
+      <div className="mt-4 flex items-center justify-between border-t border-[#e2e6ec] pt-3 dark:border-slate-800/80">
         <span className="text-xs font-bold text-navy group-hover:underline dark:text-sky-400">
           {textoAcao}
         </span>
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-500 transition-all duration-150 group-hover:bg-navy group-hover:text-white dark:bg-slate-800 dark:text-slate-400 dark:group-hover:bg-sky-500 dark:group-hover:text-slate-950">
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#f6f7f9] text-[#525d6e] transition-all duration-150 group-hover:bg-navy group-hover:text-white dark:bg-slate-800 dark:text-slate-400 dark:group-hover:bg-sky-500 dark:group-hover:text-slate-950">
           <Icone nome="chevronRight" className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
         </div>
       </div>
@@ -796,23 +796,23 @@ export default function Inicio() {
               </div>
 
               {/* Card complementar: Minha Família & Moradores da Unidade */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-slate-200/80 bg-white dark:border-slate-800 dark:bg-slate-900 p-5 shadow-soft transition-all duration-200 hover:border-slate-300 dark:hover:border-slate-700">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-[#e2e6ec] bg-white dark:border-slate-800 dark:bg-[#0e1525] p-5 shadow-2xs transition-all duration-200 hover:border-navy/20 hover:shadow-card">
                 <div className="flex items-center gap-3.5">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                    <Icone nome="users" className="h-6 w-6" />
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#f6f7f9] text-[#0b1830] dark:bg-slate-800 dark:text-slate-300">
+                    <Icone nome="users" className="h-5 w-5" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                    <h3 className="text-sm font-bold text-[#0b1830] dark:text-slate-100">
                       Minha Família & Moradores da Unidade
                     </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    <p className="text-xs text-[#525d6e] dark:text-slate-400 mt-0.5">
                       Cadastre e gerencie dependentes, contatos de emergência e veículos associados à sua residência.
                     </p>
                   </div>
                 </div>
                 <Link
                   to="/morador/familia"
-                  className="inline-flex items-center gap-1.5 self-start sm:self-center text-xs font-bold text-navy hover:underline dark:text-sky-400 rounded-lg px-4 py-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/80 dark:hover:bg-slate-800 border border-slate-200/60 dark:border-slate-700 transition-colors shrink-0"
+                  className="inline-flex items-center gap-1.5 self-start sm:self-center text-xs font-bold text-navy hover:underline dark:text-sky-400 rounded-xl px-4 py-2 bg-[#f6f7f9] hover:bg-slate-100 dark:bg-slate-800/80 dark:hover:bg-slate-800 border border-[#e2e6ec] dark:border-slate-700 transition-colors shrink-0"
                 >
                   Gerenciar Família <Icone nome="chevronRight" className="h-3.5 w-3.5" />
                 </Link>

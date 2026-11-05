@@ -296,19 +296,23 @@ export default function MoradorChamados() {
         </div>
       </div>
 
-      {/* Abas de Navegação / Filtros */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2 overflow-x-auto">
+      {/* Abas de Navegação / Filtros (Padrão Lettly SaaS) */}
+      <div className="flex items-center gap-2 border-b border-[#e2e6ec] dark:border-slate-800 pb-3 overflow-x-auto">
         <button
           onClick={() => setFiltroAba('ABERTOS')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             filtroAba === 'ABERTOS'
-              ? 'bg-navy-50 text-navy font-semibold ring-1 ring-navy/10 dark:bg-slate-800 dark:text-sky-400'
-              : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800/60'
+              ? 'bg-navy text-white shadow-xs dark:bg-sky-600 dark:text-white'
+              : 'text-slate-600 hover:bg-[#f6f7f9] hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/60'
           }`}
         >
           <span>Em Aberto</span>
           {totalAbertos > 0 && (
-            <span className="px-2 py-0.5 text-xs rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300 font-bold">
+            <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold ${
+              filtroAba === 'ABERTOS'
+                ? 'bg-white/20 text-white'
+                : 'bg-[#fdf0d9] text-[#b26a00] border border-[#f8dcab]'
+            }`}>
               {totalAbertos}
             </span>
           )}
@@ -316,15 +320,19 @@ export default function MoradorChamados() {
 
         <button
           onClick={() => setFiltroAba('CONCLUIDOS')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             filtroAba === 'CONCLUIDOS'
-              ? 'bg-navy-50 text-navy font-semibold ring-1 ring-navy/10 dark:bg-slate-800 dark:text-sky-400'
-              : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800/60'
+              ? 'bg-navy text-white shadow-xs dark:bg-sky-600 dark:text-white'
+              : 'text-slate-600 hover:bg-[#f6f7f9] hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/60'
           }`}
         >
           <span>Concluídos</span>
           {totalConcluidos > 0 && (
-            <span className="px-2 py-0.5 text-xs rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300 font-bold">
+            <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold ${
+              filtroAba === 'CONCLUIDOS'
+                ? 'bg-white/20 text-white'
+                : 'bg-[#e3f4eb] text-[#1e8e5a] border border-[#bfe4d2]'
+            }`}>
               {totalConcluidos}
             </span>
           )}
@@ -332,10 +340,10 @@ export default function MoradorChamados() {
 
         <button
           onClick={() => setFiltroAba('ARQUIVADOS')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             filtroAba === 'ARQUIVADOS'
-              ? 'bg-navy-50 text-navy font-semibold ring-1 ring-navy/10 dark:bg-slate-800 dark:text-sky-400'
-              : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800/60'
+              ? 'bg-navy text-white shadow-xs dark:bg-sky-600 dark:text-white'
+              : 'text-slate-600 hover:bg-[#f6f7f9] hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/60'
           }`}
         >
           <span>Arquivados</span>
@@ -343,10 +351,10 @@ export default function MoradorChamados() {
 
         <button
           onClick={() => setFiltroAba('TODOS')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             filtroAba === 'TODOS'
-              ? 'bg-navy-50 text-navy font-semibold ring-1 ring-navy/10 dark:bg-slate-800 dark:text-sky-400'
-              : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800/60'
+              ? 'bg-navy text-white shadow-xs dark:bg-sky-600 dark:text-white'
+              : 'text-slate-600 hover:bg-[#f6f7f9] hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/60'
           }`}
         >
           <span>Todos ({chamados.length})</span>
@@ -360,14 +368,14 @@ export default function MoradorChamados() {
           <p className="text-sm">Carregando seus chamados...</p>
         </div>
       ) : chamadosFiltrados.length === 0 ? (
-        <div className="py-16 text-center rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 p-8">
+        <div className="py-16 text-center rounded-2xl border-2 border-dashed border-[#e2e6ec] dark:border-slate-800 p-8">
           <div className="mx-auto w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 mb-3">
-            <Icone nome="wrench" className="w-6 h-6" />
+            <Icone nome="wrench" className="w-6 h-6 text-[#1e8e5a]" />
           </div>
-          <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">
+          <h3 className="text-base font-bold text-[#0b1830] dark:text-slate-200">
             Nenhum chamado encontrado nesta aba
           </h3>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-md mx-auto">
+          <p className="text-xs text-[#525d6e] dark:text-slate-400 mt-1 max-w-md mx-auto">
             {filtroAba === 'ABERTOS'
               ? 'Você não possui nenhum chamado em aberto no momento. Tudo parece estar funcionando perfeitamente!'
               : 'Não há registros nesta categoria no momento.'}
@@ -394,36 +402,36 @@ export default function MoradorChamados() {
             return (
               <Cartao
                 key={c.id_chamado}
-                className="flex flex-col justify-between hover:shadow-md transition-shadow cursor-pointer border border-slate-200/80 dark:border-slate-800 p-5 rounded-2xl"
+                className="flex flex-col justify-between hover:shadow-card hover:-translate-y-0.5 transition-all cursor-pointer border border-[#e2e6ec] dark:border-slate-800 bg-white dark:bg-[#0e1525] p-5 rounded-2xl shadow-2xs"
               >
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-3">
                     <span
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold border ${cat.corBadge}`}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${cat.corBadge}`}
                     >
-                      <Icone nome={cat.icone} className="w-3.5 h-3.5" />
+                      <Icone nome={cat.icone} className="w-3 h-3" />
                       {cat.rotulo}
                     </span>
                     <Badge tipo={st.tipoBadge}>{st.rotulo}</Badge>
                   </div>
 
-                  <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-base line-clamp-1 mb-1">
+                  <h3 className="font-bold text-[#0b1830] dark:text-slate-100 text-sm line-clamp-1 mb-1">
                     {c.titulo}
                   </h3>
 
                   {c.local_especifico && (
-                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1 mb-2">
+                    <p className="text-xs font-semibold text-[#525d6e] dark:text-slate-400 flex items-center gap-1 mb-2">
                       <Icone nome="building" className="w-3.5 h-3.5 shrink-0" />
                       <span className="truncate">{c.local_especifico}</span>
                     </p>
                   )}
 
-                  <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2 mb-4 leading-relaxed">
+                  <p className="text-xs text-[#525d6e] dark:text-slate-300 line-clamp-2 mb-4 leading-relaxed">
                     {c.descricao}
                   </p>
 
                   {c.imagem_url && (
-                    <div className="relative mb-3 rounded-lg overflow-hidden h-28 bg-slate-100 dark:bg-slate-800">
+                    <div className="relative mb-3 rounded-xl overflow-hidden h-28 bg-[#f6f7f9] dark:bg-slate-800 border border-[#e2e6ec] dark:border-slate-700">
                       <img
                         src={c.imagem_url}
                         alt="Anexo do chamado"
@@ -433,14 +441,14 @@ export default function MoradorChamados() {
                   )}
                 </div>
 
-                <div className="pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
-                  <span>{dataFormatada}</span>
+                <div className="pt-3 border-t border-[#e2e6ec] dark:border-slate-800/80 flex items-center justify-between text-xs text-[#525d6e] dark:text-slate-400">
+                  <span className="text-[11px] font-medium">{dataFormatada}</span>
                   <button
                     onClick={() => {
                       setChamadoSelecionadoId(c.id_chamado);
                       carregarDetalhes(c.id_chamado);
                     }}
-                    className="inline-flex items-center gap-1.5 font-semibold text-navy hover:text-navy-700 dark:text-sky-400 dark:hover:text-sky-300 transition-colors"
+                    className="inline-flex items-center gap-1.5 font-bold text-navy hover:underline dark:text-sky-400 transition-colors"
                   >
                     <span>{c.total_mensagens > 0 ? `${c.total_mensagens} msg(s)` : 'Ver conversa'}</span>
                     <Icone nome="chevronRight" className="w-3.5 h-3.5" />
