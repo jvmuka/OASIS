@@ -93,3 +93,4 @@ flowchart LR
 * [ ] Validação do Modo Escuro (Dark Mode) em todos os novos componentes.
 * [ ] Execução da suíte de testes automatizada para garantir zero regressões.
 * [ ] Commit e documentação final do Redesign.
+
