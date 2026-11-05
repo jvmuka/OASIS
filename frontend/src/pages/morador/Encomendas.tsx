@@ -127,62 +127,62 @@ export default function MinhasEncomendas() {
         </div>
       )}
 
-      {/* Cartões de Resumo / Estatísticas */}
+      {/* Cartões de Resumo / Estatísticas (Padrão Lettly SaaS) */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Cartao className="flex items-center justify-between p-5 border-l-4 border-l-amber-500">
+        <Cartao className="flex items-center justify-between p-5 border border-[#e2e6ec] dark:border-slate-800 bg-white dark:bg-[#0e1525] rounded-2xl shadow-2xs hover:shadow-card hover:-translate-y-0.5 transition-all">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <p className="text-xs font-semibold uppercase tracking-wider text-[#525d6e] dark:text-slate-400">
               Aguardando Retirada
             </p>
-            <p className="mt-1.5 text-3xl font-extrabold text-amber-600 dark:text-amber-400">
+            <p className="mt-1.5 text-3xl font-extrabold text-[#0b1830] dark:text-white">
               {aguardando.length}
             </p>
-            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+            <p className="mt-0.5 text-xs text-[#525d6e] dark:text-slate-400">
               {aguardando.length > 0 ? 'Disponíveis na guarita' : 'Nenhuma pendência'}
             </p>
           </div>
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400 border border-amber-200 dark:border-amber-800/60">
-            <Icone nome="package" className="h-6 w-6" />
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#fdf0d9] text-[#b26a00] dark:bg-amber-950/60 dark:text-amber-400 border border-[#f8dcab] dark:border-amber-900/60 shadow-2xs">
+            <Icone nome="package" className="h-5 w-5" />
           </div>
         </Cartao>
 
-        <Cartao className="flex items-center justify-between p-5 border-l-4 border-l-emerald-500">
+        <Cartao className="flex items-center justify-between p-5 border border-[#e2e6ec] dark:border-slate-800 bg-white dark:bg-[#0e1525] rounded-2xl shadow-2xs hover:shadow-card hover:-translate-y-0.5 transition-all">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <p className="text-xs font-semibold uppercase tracking-wider text-[#525d6e] dark:text-slate-400">
               Já Retiradas
             </p>
-            <p className="mt-1.5 text-3xl font-extrabold text-emerald-600 dark:text-emerald-400">
+            <p className="mt-1.5 text-3xl font-extrabold text-[#0b1830] dark:text-white">
               {retiradas.length}
             </p>
-            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+            <p className="mt-0.5 text-xs text-[#525d6e] dark:text-slate-400">
               Histórico entregue com sucesso
             </p>
           </div>
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60">
-            <Icone nome="check" className="h-6 w-6" />
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#e3f4eb] text-[#1e8e5a] dark:bg-emerald-950/60 dark:text-emerald-400 border border-[#bfe4d2] dark:border-emerald-900/60 shadow-2xs">
+            <Icone nome="check" className="h-5 w-5" />
           </div>
         </Cartao>
 
-        <Cartao className="flex items-center justify-between p-5 border-l-4 border-l-navy dark:border-l-sky-500">
+        <Cartao className="flex items-center justify-between p-5 border border-[#e2e6ec] dark:border-slate-800 bg-white dark:bg-[#0e1525] rounded-2xl shadow-2xs hover:shadow-card hover:-translate-y-0.5 transition-all">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            <p className="text-xs font-semibold uppercase tracking-wider text-[#525d6e] dark:text-slate-400">
               Total Recebidas
             </p>
-            <p className="mt-1.5 text-3xl font-extrabold text-navy dark:text-sky-400">
+            <p className="mt-1.5 text-3xl font-extrabold text-[#0b1830] dark:text-white">
               {encomendas.length}
             </p>
-            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+            <p className="mt-0.5 text-xs text-[#525d6e] dark:text-slate-400">
               Registradas para sua unidade
             </p>
           </div>
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-navy-50 text-navy dark:bg-slate-800 dark:text-sky-300 border border-navy-100 dark:border-slate-700">
-            <Icone nome="building" className="h-6 w-6" />
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#e8edf7] text-[#2548a0] dark:bg-slate-800 dark:text-sky-300 border border-[#c8d6ed] dark:border-slate-700 shadow-2xs">
+            <Icone nome="building" className="h-5 w-5" />
           </div>
         </Cartao>
       </div>
 
       {/* Barra de Abas e Busca */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 pb-3 dark:border-slate-800">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-[#e2e6ec] pb-3 dark:border-slate-800">
         <div className="flex items-center gap-2 overflow-x-auto">
           <button
             id="tab-aguardando"
@@ -191,19 +191,19 @@ export default function MinhasEncomendas() {
               setAbaAtiva('AGUARDANDO');
               setPagina(1);
             }}
-            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-150 cursor-pointer ${
+            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all cursor-pointer ${
               abaAtiva === 'AGUARDANDO'
-                ? 'bg-amber-500 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+                ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
+                : 'bg-white text-slate-600 border border-[#e2e6ec] hover:bg-[#f6f7f9] dark:bg-[#0e1525] dark:text-slate-300 dark:border-slate-800'
             }`}
           >
             <Icone nome="package" className="h-4 w-4" />
             <span>Aguardando Retirada</span>
             <span
-              className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+              className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
                 abaAtiva === 'AGUARDANDO'
-                  ? 'bg-amber-600 text-white'
-                  : 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-[#fdf0d9] text-[#b26a00] border border-[#f8dcab]'
               }`}
             >
               {aguardando.length}
@@ -217,19 +217,19 @@ export default function MinhasEncomendas() {
               setAbaAtiva('RETIRADAS');
               setPagina(1);
             }}
-            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-150 cursor-pointer ${
+            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all cursor-pointer ${
               abaAtiva === 'RETIRADAS'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+                ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
+                : 'bg-white text-slate-600 border border-[#e2e6ec] hover:bg-[#f6f7f9] dark:bg-[#0e1525] dark:text-slate-300 dark:border-slate-800'
             }`}
           >
             <Icone nome="check" className="h-4 w-4" />
             <span>Já Retiradas</span>
             <span
-              className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+              className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
                 abaAtiva === 'RETIRADAS'
-                  ? 'bg-emerald-700 text-white'
-                  : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-[#e3f4eb] text-[#1e8e5a] border border-[#bfe4d2]'
               }`}
             >
               {retiradas.length}
@@ -243,18 +243,18 @@ export default function MinhasEncomendas() {
               setAbaAtiva('TODAS');
               setPagina(1);
             }}
-            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-150 cursor-pointer ${
+            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all cursor-pointer ${
               abaAtiva === 'TODAS'
                 ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+                : 'bg-white text-slate-600 border border-[#e2e6ec] hover:bg-[#f6f7f9] dark:bg-[#0e1525] dark:text-slate-300 dark:border-slate-800'
             }`}
           >
-            <span>Todas</span>
+            <span>Todas as Encomendas</span>
             <span
-              className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+              className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
                 abaAtiva === 'TODAS'
-                  ? 'bg-navy-700 text-white dark:bg-sky-700'
-                  : 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-[#f6f7f9] text-[#525d6e] border border-[#e2e6ec] dark:bg-slate-800 dark:text-slate-400'
               }`}
             >
               {encomendas.length}

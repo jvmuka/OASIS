@@ -1512,33 +1512,40 @@ export default function Pessoas({
             Pessoas & Unidades
           </Titulo>
 
-          {/* Seletor de Abas: Cadastros Gerais vs Aprovações Pendentes */}
-          <div className="flex flex-wrap gap-2 border-b border-slate-200 dark:border-slate-800">
+          {/* Seletor de Abas: Cadastros Gerais vs Aprovações Pendentes (Padrão Lettly SaaS) */}
+          <div className="flex flex-wrap gap-2 border-b border-[#e2e6ec] dark:border-slate-800 pb-3">
             <button
               onClick={() => setAbaAtiva('pessoas')}
-              className={`pb-2.5 px-3.5 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`rounded-xl px-4 py-2 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                 abaAtiva === 'pessoas'
-                  ? 'border-navy text-navy dark:border-sky-400 dark:text-sky-400'
-                  : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                  ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
+                  : 'bg-white text-slate-600 border border-[#e2e6ec] hover:bg-[#f6f7f9] dark:bg-[#0e1525] dark:text-slate-300 dark:border-slate-800'
               }`}
             >
               <Icone nome="users" className="h-3.5 w-3.5" />
-              Pessoas & Cadastros ({pessoas.length})
+              <span>Pessoas & Cadastros</span>
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                abaAtiva === 'pessoas'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-[#f6f7f9] text-[#525d6e] dark:bg-slate-800 dark:text-slate-400'
+              }`}>
+                {pessoas.length}
+              </span>
             </button>
 
             {!somenteLeitura && (
               <button
                 onClick={() => setAbaAtiva('aprovacoes')}
-                className={`pb-2.5 px-3.5 text-xs font-bold border-b-2 flex items-center gap-1.5 transition-all cursor-pointer ${
+                className={`rounded-xl px-4 py-2 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                   abaAtiva === 'aprovacoes'
-                    ? 'border-amber-500 text-amber-600 dark:border-amber-400 dark:text-amber-400'
-                    : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                    ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
+                    : 'bg-white text-slate-600 border border-[#e2e6ec] hover:bg-[#f6f7f9] dark:bg-[#0e1525] dark:text-slate-300 dark:border-slate-800'
                 }`}
               >
                 <Icone nome="check" className="h-3.5 w-3.5" />
-                Aprovações de Dependentes
+                <span>Aprovações de Dependentes</span>
                 {aprovacoes.length > 0 && (
-                  <span className="rounded-full bg-amber-500 px-1.5 py-0.2 text-[10px] font-bold text-white">
+                  <span className="rounded-full bg-[#fdf0d9] text-[#b26a00] border border-[#f8dcab] px-2 py-0.5 text-[10px] font-bold">
                     {aprovacoes.length}
                   </span>
                 )}
@@ -1547,14 +1554,14 @@ export default function Pessoas({
 
             <button
               onClick={() => setAbaAtiva('estrutura')}
-              className={`pb-2.5 px-3.5 text-xs font-bold border-b-2 flex items-center gap-1.5 transition-all cursor-pointer ${
+              className={`rounded-xl px-4 py-2 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                 abaAtiva === 'estrutura'
-                  ? 'border-purple-600 text-purple-600 dark:border-purple-400 dark:text-purple-400'
-                  : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                  ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
+                  : 'bg-white text-slate-600 border border-[#e2e6ec] hover:bg-[#f6f7f9] dark:bg-[#0e1525] dark:text-slate-300 dark:border-slate-800'
               }`}
             >
               <Icone nome="building" className="h-3.5 w-3.5" />
-              Gestão Estrutural & Vagas
+              <span>Gestão Estrutural & Vagas</span>
             </button>
           </div>
         </>

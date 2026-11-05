@@ -307,10 +307,10 @@ export default function Chaves() {
                 setFiltro('todas');
                 setPagina(1);
               }}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
+              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
                 filtro === 'todas'
                   ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
-                  : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
+                  : 'bg-white text-slate-600 border border-[#e2e6ec] hover:bg-[#f6f7f9] dark:bg-[#0e1525] dark:text-slate-300 dark:border-slate-800'
               }`}
             >
               Todas ({chaves.length})
@@ -321,10 +321,10 @@ export default function Chaves() {
                 setFiltro('disponiveis');
                 setPagina(1);
               }}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
+              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
                 filtro === 'disponiveis'
                   ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
-                  : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
+                  : 'bg-white text-slate-600 border border-[#e2e6ec] hover:bg-[#f6f7f9] dark:bg-[#0e1525] dark:text-slate-300 dark:border-slate-800'
               }`}
             >
               Disponíveis ({totalDisponiveis})
@@ -335,10 +335,10 @@ export default function Chaves() {
                 setFiltro('emprestadas');
                 setPagina(1);
               }}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
+              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
                 filtro === 'emprestadas'
                   ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
-                  : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
+                  : 'bg-white text-slate-600 border border-[#e2e6ec] hover:bg-[#f6f7f9] dark:bg-[#0e1525] dark:text-slate-300 dark:border-slate-800'
               }`}
             >
               Emprestadas ({totalEmprestadas})
@@ -349,12 +349,12 @@ export default function Chaves() {
                 setFiltro('atrasadas');
                 setPagina(1);
               }}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
                 filtro === 'atrasadas'
                   ? 'bg-rose-600 text-white shadow-xs dark:bg-rose-600'
                   : totalAtrasadas > 0
                     ? 'text-rose-600 bg-rose-50 hover:bg-rose-100 dark:text-rose-400 dark:bg-rose-950/40 dark:hover:bg-rose-950/70 border border-rose-200 dark:border-rose-900/60'
-                    : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
+                    : 'bg-white text-slate-600 border border-[#e2e6ec] hover:bg-[#f6f7f9] dark:bg-[#0e1525] dark:text-slate-300 dark:border-slate-800'
               }`}
             >
               <Icone nome="alert" className="h-3 w-3" />

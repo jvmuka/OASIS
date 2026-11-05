@@ -229,12 +229,12 @@ export default function Dependentes() {
                 const ehVinculoTitular = dep.tipo_vinculo === 'PROPRIETARIO' || dep.tipo_vinculo === 'INQUILINO';
 
                 return (
-                  <Cartao key={dep.id_pessoa_unidade} className="relative overflow-hidden flex flex-col justify-between">
+                  <Cartao key={dep.id_pessoa_unidade} className="relative overflow-hidden flex flex-col justify-between border border-[#e2e6ec] dark:border-slate-800 rounded-2xl shadow-2xs hover:shadow-card hover:-translate-y-0.5 transition-all p-5">
                     <div>
                       {/* Topo do Card */}
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3">
-                          <div className={`flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold ${
+                          <div className={`flex h-11 w-11 items-center justify-center rounded-xl text-sm font-bold ${
                             ehVinculoTitular 
                               ? 'bg-navy/10 text-navy dark:bg-sky-950/60 dark:text-sky-300' 
                               : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200'
@@ -278,7 +278,7 @@ export default function Dependentes() {
                       </div>
 
                       {/* Dados adicionais */}
-                      <div className="mt-4 grid grid-cols-2 gap-2 text-xs text-slate-600 dark:text-slate-400 border-t border-slate-100 dark:border-slate-800 pt-3">
+                      <div className="mt-4 grid grid-cols-2 gap-2 text-xs text-slate-600 dark:text-slate-400 border-t border-[#edf1f7] dark:border-slate-800 pt-3">
                         <div>
                           <span className="text-[10px] uppercase font-semibold text-slate-400">CPF</span>
                           <p className="font-mono font-medium text-slate-800 dark:text-slate-200">{formataCPF(dep.cpf)}</p>
@@ -305,7 +305,7 @@ export default function Dependentes() {
                     </div>
 
                     {/* Rodapé do Card com Ações / Código */}
-                    <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800">
+                    <div className="mt-4 pt-3 border-t border-[#edf1f7] dark:border-slate-800">
                       {dep.status_aprovacao === 'PENDENTE' && (
                         <div className="flex items-center gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/40 p-2.5 text-[11px] text-amber-800 dark:text-amber-300">
                           <Icone nome="clock" className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />

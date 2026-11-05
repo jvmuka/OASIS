@@ -138,15 +138,15 @@ export default function Mural() {
         </button>
       </div>
 
-      {/* Abas e Filtros rápidos */}
+      {/* Abas e Filtros rápidos (Padrão Lettly SaaS) */}
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
           onClick={() => mudarFiltro('NAO_LIDOS')}
-          className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+          className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-all cursor-pointer ${
             filtro === 'NAO_LIDOS'
               ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
-              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800'
+              : 'bg-white text-slate-600 border border-[#e2e6ec] hover:bg-[#f6f7f9] dark:bg-[#0e1525] dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800'
           }`}
         >
           <Icone nome="bell" className="h-3.5 w-3.5" />
@@ -156,10 +156,10 @@ export default function Mural() {
         <button
           type="button"
           onClick={() => mudarFiltro('TODOS')}
-          className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+          className={`rounded-xl px-4 py-2 text-xs font-bold transition-all cursor-pointer ${
             filtro === 'TODOS'
               ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
-              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800'
+              : 'bg-white text-slate-600 border border-[#e2e6ec] hover:bg-[#f6f7f9] dark:bg-[#0e1525] dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800'
           }`}
         >
           Todos os Avisos ({avisos.length})
@@ -168,10 +168,10 @@ export default function Mural() {
         <button
           type="button"
           onClick={() => mudarFiltro('ADMINISTRADOR')}
-          className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+          className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-all cursor-pointer ${
             filtro === 'ADMINISTRADOR'
               ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
-              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800'
+              : 'bg-white text-slate-600 border border-[#e2e6ec] hover:bg-[#f6f7f9] dark:bg-[#0e1525] dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800'
           }`}
         >
           <Icone nome="megaphone" className="h-3.5 w-3.5" />
@@ -182,10 +182,10 @@ export default function Mural() {
           <button
             type="button"
             onClick={() => mudarFiltro('ENCOMENDA')}
-            className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+            className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-all cursor-pointer ${
               filtro === 'ENCOMENDA'
-                ? 'bg-amber-600 text-white shadow-xs dark:bg-amber-600'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800'
+                ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
+                : 'bg-white text-slate-600 border border-[#e2e6ec] hover:bg-[#f6f7f9] dark:bg-[#0e1525] dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800'
             }`}
           >
             <Icone nome="package" className="h-3.5 w-3.5" />
@@ -271,34 +271,35 @@ export default function Mural() {
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
                           {isEncomenda && (
-                            <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 dark:bg-amber-950/60 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:text-amber-300">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-[#fdf0d9] border border-[#f8dcab] dark:bg-amber-950/60 px-2.5 py-0.5 text-[10px] font-bold text-[#b26a00] dark:text-amber-300">
                               <Icone nome="package" className="h-3 w-3" />
-                              ENCOMENDA NA PORTARIA
+                              ENCOMENDA
                             </span>
                           )}
                           {a.fixado && !isEncomenda && (
-                            <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 dark:bg-amber-950/60 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:text-amber-300">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-[#fdf0d9] border border-[#f8dcab] dark:bg-amber-950/60 px-2.5 py-0.5 text-[10px] font-bold text-[#b26a00] dark:text-amber-300">
                               <Icone nome="pin" className="h-3 w-3" />
                               FIXADO
                             </span>
                           )}
                           {!a.lido && (
-                            <span className="rounded-md bg-navy dark:bg-sky-600 px-2 py-0.5 text-[10px] font-bold text-white tracking-wider animate-pulse">
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#e8edf7] border border-[#c8d6ed] px-2.5 py-0.5 text-[10px] font-bold text-[#2548a0] dark:bg-sky-950/80 dark:text-sky-300">
+                              <span className="h-1.5 w-1.5 rounded-full bg-[#2548a0] animate-pulse" />
                               NOVO
                             </span>
                           )}
                           {a.lido && !a.lidoInicial && (
-                            <span className="rounded-md bg-emerald-100 dark:bg-emerald-950/60 px-2 py-0.5 text-[10px] font-bold text-emerald-800 dark:text-emerald-300 tracking-wider">
+                            <span className="rounded-full bg-[#e3f4eb] border border-[#bfe4d2] dark:bg-emerald-950/60 px-2.5 py-0.5 text-[10px] font-bold text-[#1e8e5a] dark:text-emerald-300 tracking-wider">
                               LIDO
                             </span>
                           )}
                           {a.anexo_url && (
-                            <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[10px] font-bold text-slate-700 dark:text-slate-300">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-[#f6f7f9] border border-[#e2e6ec] dark:bg-slate-800 px-2.5 py-0.5 text-[10px] font-bold text-[#525d6e] dark:text-slate-300">
                               <Icone nome={a.anexo_tipo === 'PDF' ? 'fileText' : 'paperclip'} className="h-3 w-3 text-navy dark:text-sky-400" />
                               {a.anexo_tipo === 'PDF' ? 'PDF' : 'ANEXO'}
                             </span>
                           )}
-                          <h3 className={`text-base font-bold leading-tight ${a.lido ? 'text-slate-700 dark:text-slate-200' : 'text-navy dark:text-sky-400'}`}>
+                          <h3 className={`text-base font-bold leading-tight ${a.lido ? 'text-slate-700 dark:text-slate-200' : 'text-[#0b1830] dark:text-sky-400'}`}>
                             {a.titulo}
                           </h3>
                         </div>

@@ -171,14 +171,14 @@ export default function Encomendas() {
                       key={t.id}
                       type="button"
                       onClick={() => setTamanho(t.id)}
-                      className={`rounded-xl border p-2 text-center transition-all cursor-pointer ${
+                      className={`rounded-xl border p-2.5 text-center transition-all cursor-pointer ${
                         tamanho === t.id
                           ? 'border-navy bg-navy text-white shadow-xs dark:bg-sky-600 dark:border-sky-500'
-                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700'
+                          : 'border-[#e2e6ec] bg-white text-slate-700 hover:bg-[#f6f7f9] dark:border-slate-800 dark:bg-[#0e1525] dark:text-slate-200 dark:hover:bg-slate-800'
                       }`}
                     >
                       <p className="text-xs font-bold">{t.label}</p>
-                      <p className={`text-[10px] ${tamanho === t.id ? 'text-white/80' : 'text-slate-400 dark:text-slate-400'}`}>
+                      <p className={`text-[10px] mt-0.5 ${tamanho === t.id ? 'text-white/80' : 'text-slate-400 dark:text-slate-400'}`}>
                         {t.desc}
                       </p>
                     </button>
@@ -200,14 +200,14 @@ export default function Encomendas() {
         {/* Listagem de Encomendas */}
         <div className="lg:col-span-7">
           <Cartao>
-            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-[#e2e6ec] dark:border-slate-800 pb-3">
               <div>
                 <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Histórico & Pendências</h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">Controle de pacotes na portaria</p>
               </div>
 
-              {/* Filtros */}
-              <div className="flex gap-1.5">
+              {/* Filtros em Abas Lettly */}
+              <div className="inline-flex rounded-xl bg-[#f6f7f9] dark:bg-[#0e1525] p-1 border border-[#e2e6ec] dark:border-slate-800 gap-1">
                 {(['AGUARDANDO', 'TODAS', 'ENTREGUE'] as const).map(f => (
                   <button
                     key={f}
@@ -216,10 +216,10 @@ export default function Encomendas() {
                       setFiltro(f);
                       setPagina(1);
                     }}
-                    className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition-all cursor-pointer ${
+                    className={`rounded-lg px-3 py-1 text-xs font-bold transition-all cursor-pointer ${
                       filtro === f
-                        ? 'bg-navy text-white dark:bg-sky-600'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+                        ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
+                        : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'
                     }`}
                   >
                     {f === 'AGUARDANDO' ? 'Aguardando' : f === 'TODAS' ? 'Todas' : 'Entregues'}
@@ -240,11 +240,11 @@ export default function Encomendas() {
               />
             ) : (
               <div className="space-y-4">
-                <div className="divide-y divide-slate-100 dark:divide-slate-800 pr-1">
+                <div className="divide-y divide-[#edf1f7] dark:divide-slate-800 pr-1">
                   {encomendasPaginadas.map(e => (
                     <div
                       key={e.id_encomenda}
-                      className="flex flex-col gap-3 py-3.5 sm:flex-row sm:items-center sm:justify-between hover:bg-slate-50/60 dark:hover:bg-slate-800/60 rounded-xl px-2 transition-colors"
+                      className="flex flex-col gap-3 py-3.5 sm:flex-row sm:items-center sm:justify-between hover:bg-[#f6f7f9] dark:hover:bg-slate-800/60 rounded-xl px-2.5 transition-colors"
                     >
                       <div className="flex items-start gap-3">
                         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">

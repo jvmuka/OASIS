@@ -165,14 +165,14 @@ export default function NovaReserva() {
         <div className="space-y-4">
           {/* Se houver áreas de uso livre, exibe abas; caso contrário, esconde as abas */}
           {areasLivres.length > 0 ? (
-            <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
+            <div className="flex items-center gap-2 border-b border-[#e2e6ec] dark:border-slate-800 pb-3">
               <button
                 type="button"
                 onClick={() => setAbaAtiva('com_reserva')}
                 className={`inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
                   abaAtiva === 'com_reserva'
                     ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
-                    : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
+                    : 'bg-white text-slate-600 border border-[#e2e6ec] hover:bg-[#f6f7f9] dark:bg-[#0e1525] dark:text-slate-300 dark:border-slate-800'
                 }`}
               >
                 <Icone nome="calendar" className="h-4 w-4" />
@@ -184,7 +184,7 @@ export default function NovaReserva() {
                 className={`inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
                   abaAtiva === 'livre'
                     ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
-                    : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
+                    : 'bg-white text-slate-600 border border-[#e2e6ec] hover:bg-[#f6f7f9] dark:bg-[#0e1525] dark:text-slate-300 dark:border-slate-800'
                 }`}
               >
                 <Icone nome="sparkles" className="h-4 w-4" />

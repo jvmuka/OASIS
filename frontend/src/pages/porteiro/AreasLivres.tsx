@@ -142,7 +142,7 @@ export default function AreasLivres() {
 
       {/* Cards de Métricas Rápidas */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Cartao className="flex items-center justify-between p-4">
+        <Cartao className="flex items-center justify-between p-5">
           <div>
             <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Total de Áreas Livres</p>
             <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{areas.length}</p>
@@ -152,7 +152,7 @@ export default function AreasLivres() {
           </div>
         </Cartao>
 
-        <Cartao className="flex items-center justify-between p-4">
+        <Cartao className="flex items-center justify-between p-5">
           <div>
             <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Livres Agora</p>
             <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{totalLivres}</p>
@@ -162,7 +162,7 @@ export default function AreasLivres() {
           </div>
         </Cartao>
 
-        <Cartao className="flex items-center justify-between p-4">
+        <Cartao className="flex items-center justify-between p-5">
           <div>
             <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Em Uso no Momento</p>
             <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{totalEmUso}</p>
@@ -189,7 +189,7 @@ export default function AreasLivres() {
             return (
               <Cartao
                 key={a.id_area_comum}
-                className="overflow-hidden p-0 border border-slate-200 dark:border-slate-800 flex flex-col justify-between"
+                className="overflow-hidden p-0 border border-[#e2e6ec] dark:border-slate-800 flex flex-col justify-between shadow-2xs hover:shadow-card hover:-translate-y-0.5 transition-all rounded-2xl"
               >
                 <div>
                   {/* Foto e Badge ao Vivo */}

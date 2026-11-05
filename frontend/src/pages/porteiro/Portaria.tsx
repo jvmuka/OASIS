@@ -45,21 +45,21 @@ function unidadeTexto(bloco: string | null, apartamento: string | null) {
   return bloco ? `Bloco ${bloco}, Apto ${apartamento}` : 'Unidade não vinculada';
 }
 
-/** Cartão de uma área ocupada agora, com destaque visual para reservas em atraso. */
+/** Cartão de uma área ocupada agora no padrão Lettly SaaS, com destaque visual para reservas em atraso. */
 function CartaoOcupacao({ item }: { item: OcupacaoItem }) {
   return (
     <div
-      className={`rounded-xl border p-4 transition-colors ${
+      className={`rounded-2xl border p-5 transition-all shadow-2xs ${
         item.em_atraso
-          ? 'border-red-200 bg-red-50/60 dark:border-rose-900/60 dark:bg-rose-950/30'
-          : 'border-slate-200/80 bg-white dark:border-slate-800 dark:bg-slate-900'
+          ? 'border-[#f5c6c6] bg-[#fbe7e7]/50 dark:border-rose-900/60 dark:bg-rose-950/30'
+          : 'border-[#e2e6ec] bg-white dark:border-slate-800 dark:bg-[#0e1525]'
       }`}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{item.area}</p>
-          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{item.morador}</p>
-          <p className="text-[11px] text-slate-400 dark:text-slate-500">{unidadeTexto(item.bloco, item.apartamento)}</p>
+          <p className="text-sm font-bold text-[#0b1830] dark:text-slate-100 truncate">{item.area}</p>
+          <p className="mt-0.5 text-xs text-[#525d6e] dark:text-slate-400 font-medium">{item.morador}</p>
+          <p className="text-[11px] text-[#525d6e]/80 dark:text-slate-500 mt-0.5">{unidadeTexto(item.bloco, item.apartamento)}</p>
         </div>
         {item.em_atraso ? (
           <Badge tipo="perigo">Em atraso</Badge>
@@ -67,11 +67,11 @@ function CartaoOcupacao({ item }: { item: OcupacaoItem }) {
           <Badge tipo="sucesso">Em uso</Badge>
         )}
       </div>
-      <div className="mt-3 flex items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-2.5 text-xs">
-        <span className="text-slate-500 dark:text-slate-400">
+      <div className="mt-3.5 flex items-center justify-between border-t border-[#e2e6ec] dark:border-slate-800 pt-3 text-xs">
+        <span className="text-[#525d6e] dark:text-slate-400">
           {formatarHora(item.data_hora_inicio)} — {formatarHora(item.data_hora_fim)} · {item.numero_pessoas} pessoa(s)
         </span>
-        <span className={`font-bold ${item.em_atraso ? 'text-red-600 dark:text-rose-400' : 'text-navy dark:text-sky-400'}`}>
+        <span className={`font-bold ${item.em_atraso ? 'text-[#c2383d] dark:text-rose-400' : 'text-navy dark:text-sky-400'}`}>
           {item.em_atraso
             ? `${minutosTexto(item.minutos_atraso || 0)} de atraso`
             : `${minutosTexto(item.minutos_restantes || 0)} restantes`}

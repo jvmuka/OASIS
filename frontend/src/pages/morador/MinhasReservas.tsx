@@ -197,12 +197,12 @@ export default function MinhasReservas() {
             className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer ${
               filtroStatus === 'FUTURAS'
                 ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800'
+                : 'bg-white text-slate-600 border border-[#e2e6ec] hover:bg-[#f6f7f9] dark:bg-[#0e1525] dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800'
             }`}
           >
             <span>Futuras / Ativas</span>
             <span
-              className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+              className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
                 filtroStatus === 'FUTURAS'
                   ? 'bg-white/20 text-white'
                   : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
@@ -218,12 +218,12 @@ export default function MinhasReservas() {
             className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer ${
               filtroStatus === 'HISTORICO'
                 ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800'
+                : 'bg-white text-slate-600 border border-[#e2e6ec] hover:bg-[#f6f7f9] dark:bg-[#0e1525] dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800'
             }`}
           >
             <span>Histórico / Concluídas</span>
             <span
-              className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+              className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
                 filtroStatus === 'HISTORICO'
                   ? 'bg-white/20 text-white'
                   : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
@@ -239,12 +239,12 @@ export default function MinhasReservas() {
             className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer ${
               filtroStatus === 'TODAS'
                 ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
-                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800'
+                : 'bg-white text-slate-600 border border-[#e2e6ec] hover:bg-[#f6f7f9] dark:bg-[#0e1525] dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800'
             }`}
           >
             <span>Todas</span>
             <span
-              className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+              className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
                 filtroStatus === 'TODAS'
                   ? 'bg-white/20 text-white'
                   : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
@@ -265,7 +265,7 @@ export default function MinhasReservas() {
               id="filtro-area"
               value={filtroArea}
               onChange={e => mudarFiltroArea(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs focus:border-navy focus:outline-none focus:ring-2 focus:ring-navy/20 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:focus:border-sky-500 dark:focus:ring-sky-500/20 cursor-pointer"
+              className="rounded-xl border border-[#e2e6ec] bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs focus:border-navy focus:outline-none focus:ring-2 focus:ring-navy/20 dark:border-slate-800 dark:bg-[#0e1525] dark:text-slate-200 dark:focus:border-sky-500 dark:focus:ring-sky-500/20 cursor-pointer"
             >
               <option value="TODAS">Todas as áreas</option>
               {areasDisponiveis.map(area => (
