@@ -221,7 +221,10 @@ export class DbService implements OnModuleInit, OnModuleDestroy {
         CREATE INDEX IF NOT EXISTS idx_area_condominio ON area_comum(id_condominio);
 
         ALTER TABLE aviso ADD COLUMN IF NOT EXISTS id_condominio INTEGER NOT NULL DEFAULT 1 REFERENCES condominio(id_condominio);
+        ALTER TABLE aviso ADD COLUMN IF NOT EXISTS arquivado BOOLEAN NOT NULL DEFAULT FALSE;
+        ALTER TABLE aviso ADD COLUMN IF NOT EXISTS data_hora_arquivamento TIMESTAMP WITH TIME ZONE;
         CREATE INDEX IF NOT EXISTS idx_aviso_condominio ON aviso(id_condominio);
+        CREATE INDEX IF NOT EXISTS idx_aviso_arquivado ON aviso(id_condominio, arquivado);
 
         ALTER TABLE chave ADD COLUMN IF NOT EXISTS id_condominio INTEGER NOT NULL DEFAULT 1 REFERENCES condominio(id_condominio);
         CREATE INDEX IF NOT EXISTS idx_chave_condominio ON chave(id_condominio);

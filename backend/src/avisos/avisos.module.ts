@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Patch, Body, Param, Module, UseGuards, Req, ParseIntPipe, BadRequestException, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Patch, Body, Param, Query, Module, UseGuards, Req, ParseIntPipe, BadRequestException, UseInterceptors, UploadedFile } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { promises as fs } from 'fs';
@@ -46,13 +46,47 @@ export class AvisosController {
     return { anexo_url, anexo_nome, anexo_tipo };
   }
 
-  /** Listagem completa de avisos gerenciados pelo síndico (publicados, agendados e expirados). */
+  /** Listagem completa de avisos gerenciados pelo síndico (publicados, agendados, expirados e arquivados). */
   @Get()
   @Perfis('SINDICO')
-  listarTodos(@Req() req: any) {
+  listarTodos(
+    @Req() req: any,
+    @Query('status') status?: string,
+    @Query('busca') busca?: string,
+    @Query('data_inicio') dataInicio?: string,
+    @Query('data_fim') dataFim?: string,
+  ) {
     const idCondominio = resolverIdCondominio(req);
+    const whereClauses: string[] = ['a.id_condominio = $1'];
+    const params: any[] = [idCondominio];
+
+    const statusFiltro = (status || '').toUpperCase();
+    if (statusFiltro === 'ARQUIVADOS') {
+      whereClauses.push('a.arquivado = TRUE');
+    } else if (statusFiltro === 'TODOS') {
+      // traz tanto ativos quanto arquivados
+    } else {
+      // padrao: apenas ativos (não arquivados)
+      whereClauses.push('a.arquivado = FALSE');
+    }
+
+    if (busca && busca.trim()) {
+      params.push(`%${busca.trim()}%`);
+      whereClauses.push(`(a.titulo ILIKE $${params.length} OR a.conteudo ILIKE $${params.length})`);
+    }
+
+    if (dataInicio && dataInicio.trim()) {
+      params.push(dataInicio.trim());
+      whereClauses.push(`a.data_hora_publicacao >= $${params.length}::timestamp`);
+    }
+
+    if (dataFim && dataFim.trim()) {
+      params.push(`${dataFim.trim()} 23:59:59.999`);
+      whereClauses.push(`a.data_hora_publicacao <= $${params.length}::timestamp`);
+    }
+
     return this.db.query(`
-      SELECT a.id_aviso, a.titulo, a.conteudo, a.escopo, a.fixado,
+      SELECT a.id_aviso, a.titulo, a.conteudo, a.escopo, a.fixado, a.arquivado, a.data_hora_arquivamento,
              a.data_hora_publicacao, a.data_hora_expiracao,
              a.anexo_url, a.anexo_nome, a.anexo_tipo,
              p.nome AS autor,
@@ -85,6 +119,7 @@ export class AvisosController {
                ELSE 'Condomínio Completo'
              END AS destinatario_unidade,
              CASE
+               WHEN a.arquivado = TRUE THEN 'ARQUIVADO'
                WHEN a.data_hora_publicacao > CURRENT_TIMESTAMP THEN 'AGENDADO'
                WHEN a.data_hora_expiracao IS NOT NULL AND a.data_hora_expiracao <= CURRENT_TIMESTAMP THEN 'EXPIRADO'
                ELSE 'PUBLICADO'
@@ -94,11 +129,11 @@ export class AvisosController {
         FROM aviso a
         JOIN perfil pf ON pf.id_perfil = a.id_perfil_autor
         JOIN pessoa p ON p.id_pessoa = pf.id_pessoa
-       WHERE a.id_condominio = $1
-       ORDER BY a.fixado DESC, a.data_hora_publicacao DESC`, [idCondominio]);
+       WHERE ${whereClauses.join(' AND ')}
+       ORDER BY a.fixado DESC, a.data_hora_publicacao DESC`, params);
   }
 
-  /** Mural do usuário logado: apenas avisos cuja data de publicação já chegou e que não expiraram. */
+  /** Mural do usuário logado: apenas avisos cuja data de publicação já chegou, que não expiraram e NÃO foram arquivados. */
   @Get('meus')
   meus(@Req() req: any) {
     const idsPerfis: number[] = (req.user?.perfis || []).map((p: any) => p.id_perfil);
@@ -125,6 +160,7 @@ export class AvisosController {
         JOIN pessoa p ON p.id_pessoa = pf.id_pessoa
         LEFT JOIN aviso_perfil ap ON ap.id_aviso = a.id_aviso AND ap.id_perfil = ANY($1::int[])
        WHERE a.id_condominio = $3
+         AND a.arquivado = FALSE
          AND (
              a.escopo = 'MURAL'
           OR ap.id_perfil = ANY($1::int[])
@@ -141,6 +177,30 @@ export class AvisosController {
         if (x.lido !== y.lido) return x.lido ? 1 : -1;
         return new Date(y.data_hora_publicacao).getTime() - new Date(x.data_hora_publicacao).getTime();
       }));
+  }
+
+  /** Alterna o arquivamento de um aviso (não exibe no mural do morador). */
+  @Patch(':id/arquivar')
+  @Perfis('SINDICO')
+  async alternarArquivar(@Param('id', ParseIntPipe) id: number, @Body() b?: { arquivar?: boolean }) {
+    const avisos = await this.db.query(`SELECT id_aviso, arquivado, titulo FROM aviso WHERE id_aviso = $1`, [id]);
+    if (!avisos.length) throw new BadRequestException('Aviso não encontrado.');
+
+    const novoStatus = b && typeof b.arquivar === 'boolean' ? b.arquivar : !avisos[0].arquivado;
+    const res = await this.db.query(`
+      UPDATE aviso
+         SET arquivado = $1,
+             data_hora_arquivamento = CASE WHEN $1 = TRUE THEN CURRENT_TIMESTAMP ELSE NULL END
+       WHERE id_aviso = $2
+       RETURNING id_aviso, arquivado, data_hora_arquivamento, titulo`, [novoStatus, id]);
+
+    this.syncService.emitir({
+      topico: 'AVISOS',
+      acao: 'ATUALIZADO',
+      detalhes: { id_aviso: id, arquivado: novoStatus, titulo: res[0].titulo },
+    });
+
+    return res[0];
   }
 
   @Patch(':id/lido')

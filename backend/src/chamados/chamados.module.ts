@@ -165,6 +165,8 @@ export class ChamadosController {
     @Query('status') status?: string,
     @Query('categoria') categoria?: string,
     @Query('busca') busca?: string,
+    @Query('data_inicio') dataInicio?: string,
+    @Query('data_fim') dataFim?: string,
   ) {
     const idCondominio = resolverIdCondominio(req);
     let whereClauses: string[] = ['c.id_condominio = $1'];
@@ -178,6 +180,16 @@ export class ChamadosController {
     if (categoria && categoria !== 'TODAS') {
       params.push(categoria);
       whereClauses.push(`c.categoria = $${params.length}`);
+    }
+
+    if (dataInicio && dataInicio.trim()) {
+      params.push(dataInicio.trim());
+      whereClauses.push(`c.data_hora_abertura >= $${params.length}::timestamp`);
+    }
+
+    if (dataFim && dataFim.trim()) {
+      params.push(`${dataFim.trim()} 23:59:59.999`);
+      whereClauses.push(`c.data_hora_abertura <= $${params.length}::timestamp`);
     }
 
     if (busca && busca.trim().length > 0) {
@@ -211,6 +223,7 @@ export class ChamadosController {
              p.email AS autor_email,
              p.celular AS autor_celular,
              (SELECT COUNT(*) FROM chamado_mensagem cm WHERE cm.id_chamado = c.id_chamado)::int AS total_mensagens,
+             (SELECT COUNT(*) FROM chamado_mensagem cm WHERE cm.id_chamado = c.id_chamado AND cm.origem = 'ADMINISTRACAO')::int AS total_respostas_admin,
              (SELECT MAX(data_hora) FROM chamado_mensagem cm WHERE cm.id_chamado = c.id_chamado) AS ultima_mensagem_em
         FROM chamado c
         JOIN unidade u ON u.id_unidade = c.id_unidade

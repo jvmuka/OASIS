@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../../api';
-import { Titulo, Cartao, Botao, Badge, Icone, inputCls, Mensagem } from '../../components/ui';
+import { Titulo, Cartao, Botao, Badge, Icone, inputCls, Mensagem, Paginacao } from '../../components/ui';
 import { useSync } from '../../hooks/useSync';
 
 export interface ChamadoAdmin {
@@ -22,6 +22,7 @@ export interface ChamadoAdmin {
   autor_email?: string;
   autor_celular?: string;
   total_mensagens: number;
+  total_respostas_admin?: number;
   ultima_mensagem_em?: string;
 }
 
@@ -79,7 +80,7 @@ const CATEGORIAS_CONFIG = {
 
 const STATUS_CONFIG = {
   EM_ANALISE: {
-    rotulo: 'Em Análise',
+    rotulo: 'Aguardando Análise',
     tipoBadge: 'aviso' as const,
     corBg: 'bg-amber-500',
   },
@@ -112,10 +113,16 @@ export default function SindicoChamados() {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
 
-  // Filtros
-  const [filtroStatus, setFiltroStatus] = useState<string>('TODAS');
+  // Filtros (Padrão: Apenas chamados não respondidos / aguardando análise)
+  const [filtroStatus, setFiltroStatus] = useState<string>('EM_ANALISE');
   const [filtroCategoria, setFiltroCategoria] = useState<string>('TODAS');
+  const [dataInicio, setDataInicio] = useState('');
+  const [dataFim, setDataFim] = useState('');
   const [termoBusca, setTermoBusca] = useState('');
+
+  // Paginação
+  const [pagina, setPagina] = useState(1);
+  const ITENS_POR_PAGINA = 10;
 
   // Gaveta de Atendimento
   const [chamadoSelecionadoId, setChamadoSelecionadoId] = useState<number | null>(null);
@@ -132,6 +139,8 @@ export default function SindicoChamados() {
       const params = new URLSearchParams();
       if (filtroStatus !== 'TODAS') params.append('status', filtroStatus);
       if (filtroCategoria !== 'TODAS') params.append('categoria', filtroCategoria);
+      if (dataInicio) params.append('data_inicio', dataInicio);
+      if (dataFim) params.append('data_fim', dataFim);
       if (termoBusca.trim()) params.append('busca', termoBusca.trim());
 
       const [lista, estatisticas] = await Promise.all([
@@ -165,8 +174,9 @@ export default function SindicoChamados() {
   };
 
   useEffect(() => {
+    setPagina(1);
     carregarDados();
-  }, [filtroStatus, filtroCategoria, termoBusca]);
+  }, [filtroStatus, filtroCategoria, dataInicio, dataFim, termoBusca]);
 
   // Sincronização em tempo real (SSE)
   useSync('CHAMADOS', () => {
@@ -211,6 +221,29 @@ export default function SindicoChamados() {
     }
   };
 
+  const limparFiltros = () => {
+    setFiltroStatus('EM_ANALISE');
+    setFiltroCategoria('TODAS');
+    setDataInicio('');
+    setDataFim('');
+    setTermoBusca('');
+    setPagina(1);
+  };
+
+  const temFiltroAtivo =
+    filtroStatus !== 'EM_ANALISE' ||
+    filtroCategoria !== 'TODAS' ||
+    Boolean(dataInicio) ||
+    Boolean(dataFim) ||
+    Boolean(termoBusca.trim());
+
+  // Paginação dos chamados na tabela
+  const totalPaginas = Math.ceil(chamados.length / ITENS_POR_PAGINA) || 1;
+  const chamadosPaginados = chamados.slice(
+    (pagina - 1) * ITENS_POR_PAGINA,
+    pagina * ITENS_POR_PAGINA
+  );
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
       <Titulo
@@ -223,13 +256,14 @@ export default function SindicoChamados() {
 
       {erro && <Mensagem tipo="erro" texto={erro} aoFechar={() => setErro('')} />}
 
-      {/* Cartões de Indicadores / Métricas do Topo */}
+      {/* Cartões de Indicadores / Métricas do Topo com Seleção Rápida */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <button
+          type="button"
           onClick={() => setFiltroStatus('EM_ANALISE')}
-          className={`text-left p-4 rounded-2xl border transition-all ${
+          className={`text-left p-4 rounded-2xl border transition-all cursor-pointer ${
             filtroStatus === 'EM_ANALISE'
-              ? 'border-amber-500 bg-amber-50/70 dark:bg-amber-950/30 ring-2 ring-amber-500/30'
+              ? 'border-amber-500 bg-amber-50/70 dark:bg-amber-950/40 ring-2 ring-amber-500/30'
               : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-amber-300'
           }`}
         >
@@ -238,14 +272,15 @@ export default function SindicoChamados() {
             <span className="h-2.5 w-2.5 rounded-full bg-amber-500 animate-pulse" />
           </div>
           <div className="text-2xl font-black text-slate-900 dark:text-slate-100">{stats.EM_ANALISE}</div>
-          <p className="text-[11px] text-slate-400 mt-0.5">Exigem triagem inicial</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">Exigem resposta inicial</p>
         </button>
 
         <button
+          type="button"
           onClick={() => setFiltroStatus('EM_ANDAMENTO')}
-          className={`text-left p-4 rounded-2xl border transition-all ${
+          className={`text-left p-4 rounded-2xl border transition-all cursor-pointer ${
             filtroStatus === 'EM_ANDAMENTO'
-              ? 'border-blue-500 bg-blue-50/70 dark:bg-blue-950/30 ring-2 ring-blue-500/30'
+              ? 'border-blue-500 bg-blue-50/70 dark:bg-blue-950/40 ring-2 ring-blue-500/30'
               : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-blue-300'
           }`}
         >
@@ -258,10 +293,11 @@ export default function SindicoChamados() {
         </button>
 
         <button
+          type="button"
           onClick={() => setFiltroStatus('REALIZADA')}
-          className={`text-left p-4 rounded-2xl border transition-all ${
+          className={`text-left p-4 rounded-2xl border transition-all cursor-pointer ${
             filtroStatus === 'REALIZADA'
-              ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/30 ring-2 ring-emerald-500/30'
+              ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/40 ring-2 ring-emerald-500/30'
               : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-emerald-300'
           }`}
         >
@@ -274,8 +310,9 @@ export default function SindicoChamados() {
         </button>
 
         <button
+          type="button"
           onClick={() => setFiltroStatus('TODAS')}
-          className={`text-left p-4 rounded-2xl border transition-all ${
+          className={`text-left p-4 rounded-2xl border transition-all cursor-pointer ${
             filtroStatus === 'TODAS'
               ? 'border-navy bg-navy-50/70 dark:bg-slate-800 ring-2 ring-navy/20 dark:border-sky-500'
               : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300'
@@ -291,33 +328,33 @@ export default function SindicoChamados() {
       </div>
 
       {/* Barra de Filtros e Busca */}
-      <Cartao className="p-4 rounded-2xl">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <Cartao className="p-4 rounded-2xl space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
           <div>
             <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-              Filtrar por Status
+              Status do Chamado
             </label>
             <select
               value={filtroStatus}
               onChange={(e) => setFiltroStatus(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-navy focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-800 focus:border-navy focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
             >
+              <option value="EM_ANALISE">Aguardando Análise (Padrão)</option>
+              <option value="EM_ANDAMENTO">Em Andamento</option>
+              <option value="REALIZADA">Realizadas</option>
+              <option value="ARQUIVADA">Arquivadas</option>
               <option value="TODAS">Todos os Status</option>
-              <option value="EM_ANALISE">Apenas Em Análise</option>
-              <option value="EM_ANDAMENTO">Apenas Em Andamento</option>
-              <option value="REALIZADA">Apenas Realizadas</option>
-              <option value="ARQUIVADA">Apenas Arquivadas</option>
             </select>
           </div>
 
           <div>
             <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-              Filtrar por Categoria
+              Categoria
             </label>
             <select
               value={filtroCategoria}
               onChange={(e) => setFiltroCategoria(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-navy focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-800 focus:border-navy focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
             >
               <option value="TODAS">Todas as Categorias</option>
               <option value="LIMPEZA">Limpeza</option>
@@ -330,123 +367,235 @@ export default function SindicoChamados() {
 
           <div>
             <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-              Busca por Palavra-Chave
+              Data de Abertura (De)
             </label>
             <input
-              type="text"
-              value={termoBusca}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTermoBusca(e.target.value)}
-              placeholder="Buscar por morador, apto, título..."
-              className={inputCls}
+              type="date"
+              value={dataInicio}
+              onChange={(e) => setDataInicio(e.target.value)}
+              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-800 focus:border-navy focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
             />
           </div>
+
+          <div>
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+              Data de Abertura (Até)
+            </label>
+            <input
+              type="date"
+              value={dataFim}
+              onChange={(e) => setDataFim(e.target.value)}
+              className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-800 focus:border-navy focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+              Buscar Palavra-chave
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                value={termoBusca}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTermoBusca(e.target.value)}
+                placeholder="Morador, apto, título..."
+                className="w-full rounded-xl border border-slate-300 bg-white pl-8 pr-3 py-2 text-xs text-slate-800 focus:border-navy focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+              />
+              <span className="absolute left-2.5 top-2.5 text-slate-400">
+                <Icone nome="search" className="w-3.5 h-3.5" />
+              </span>
+            </div>
+          </div>
         </div>
+
+        {temFiltroAtivo && (
+          <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
+            <span className="text-slate-500">
+              Filtro ativo: {filtroStatus === 'EM_ANALISE' ? 'Aguardando Análise' : filtroStatus}
+              {dataInicio ? ` • a partir de ${new Date(dataInicio + 'T00:00:00').toLocaleDateString('pt-BR')}` : ''}
+              {dataFim ? ` • até ${new Date(dataFim + 'T00:00:00').toLocaleDateString('pt-BR')}` : ''}
+            </span>
+            <button
+              type="button"
+              onClick={limparFiltros}
+              className="font-bold text-sky-600 hover:text-sky-700 dark:text-sky-400 cursor-pointer"
+            >
+              Restaurar filtros padrão
+            </button>
+          </div>
+        )}
       </Cartao>
 
-      {/* Listagem Geral de Chamados */}
-      {carregando ? (
-        <div className="py-16 text-center text-slate-400">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-navy dark:border-sky-400 mb-3" />
-          <p className="text-sm">Carregando fila de chamados...</p>
-        </div>
-      ) : chamados.length === 0 ? (
-        <div className="py-16 text-center rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 p-8">
-          <div className="mx-auto w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 mb-3">
-            <Icone nome="check" className="w-6 h-6 text-emerald-500" />
+      {/* Tabela Padronizada de Chamados */}
+      <Cartao className="p-0 overflow-hidden rounded-2xl">
+        <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/40">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+              {filtroStatus === 'EM_ANALISE'
+                ? 'Chamados Aguardando Análise (Não Respondidos)'
+                : filtroStatus === 'EM_ANDAMENTO'
+                ? 'Chamados Em Andamento'
+                : filtroStatus === 'REALIZADA'
+                ? 'Chamados Concluídos / Realizados'
+                : filtroStatus === 'ARQUIVADA'
+                ? 'Chamados Arquivados'
+                : 'Todos os Chamados Registrados'}
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {chamados.length} ocorrência(s) encontrada(s) no condomínio
+            </p>
           </div>
-          <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">
-            Nenhum chamado encontrado com os filtros selecionados
-          </h3>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Altere os filtros acima para visualizar outros chamados ou aguarde novas ocorrências.
-          </p>
+          <span className="rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+            Página {pagina} de {totalPaginas}
+          </span>
         </div>
-      ) : (
-        <div className="space-y-3">
-          {chamados.map((c) => {
-            const cat = CATEGORIAS_CONFIG[c.categoria] || CATEGORIAS_CONFIG.OUTROS;
-            const st = STATUS_CONFIG[c.status] || STATUS_CONFIG.EM_ANALISE;
-            const dataAbertura = new Date(c.data_hora_abertura).toLocaleDateString('pt-BR', {
-              day: '2-digit',
-              month: 'short',
-              hour: '2-digit',
-              minute: '2-digit',
-            });
 
-            return (
-              <div
-                key={c.id_chamado}
-                onClick={() => {
-                  setChamadoSelecionadoId(c.id_chamado);
-                  carregarDetalhes(c.id_chamado);
-                }}
-                className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 sm:p-5 hover:shadow-md transition-all cursor-pointer flex flex-col md:flex-row md:items-center justify-between gap-4"
-              >
-                <div className="space-y-2 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="px-2.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs flex items-center gap-1 border border-slate-200 dark:border-slate-700">
-                      <Icone nome="building" className="w-3.5 h-3.5 text-navy dark:text-sky-400" />
-                      Bloco {c.bloco} • Apto {c.numero_apartamento}
-                    </span>
+        {carregando ? (
+          <div className="py-16 text-center text-slate-400">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-navy dark:border-sky-400 mb-3" />
+            <p className="text-sm">Carregando fila de chamados...</p>
+          </div>
+        ) : chamados.length === 0 ? (
+          <div className="py-16 text-center p-8">
+            <div className="mx-auto w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 mb-3">
+              <Icone nome="check" className="w-6 h-6 text-emerald-500" />
+            </div>
+            <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">
+              Nenhum chamado encontrado com os filtros selecionados
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-md mx-auto">
+              {filtroStatus === 'EM_ANALISE'
+                ? 'Ótimo trabalho! Todos os chamados do condomínio já foram respondidos ou estão em andamento.'
+                : 'Altere os filtros acima para visualizar outras ocorrências no histórico.'}
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-slate-200/80 dark:border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 bg-slate-50/50 dark:bg-slate-800/30">
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4">Unidade</th>
+                  <th className="py-3 px-4">Solicitante</th>
+                  <th className="py-3 px-4">Categoria & Assunto</th>
+                  <th className="py-3 px-4">Abertura</th>
+                  <th className="py-3 px-4">Interações</th>
+                  <th className="py-3 px-4 text-right">Ação</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {chamadosPaginados.map((c) => {
+                  const cat = CATEGORIAS_CONFIG[c.categoria] || CATEGORIAS_CONFIG.OUTROS;
+                  const st = STATUS_CONFIG[c.status] || STATUS_CONFIG.EM_ANALISE;
+                  const dataAbertura = new Date(c.data_hora_abertura).toLocaleDateString('pt-BR', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  });
 
-                    <span
-                      className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-semibold border ${cat.corBadge}`}
+                  return (
+                    <tr
+                      key={c.id_chamado}
+                      onClick={() => {
+                        setChamadoSelecionadoId(c.id_chamado);
+                        carregarDetalhes(c.id_chamado);
+                      }}
+                      className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors cursor-pointer group"
                     >
-                      <Icone nome={cat.icone} className="w-3.5 h-3.5" />
-                      {cat.rotulo}
-                    </span>
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <Badge tipo={st.tipoBadge}>{st.rotulo}</Badge>
+                      </td>
+                      <td className="py-3.5 px-4 whitespace-nowrap font-bold text-slate-800 dark:text-slate-100">
+                        Bloco {c.bloco} • Apto {c.numero_apartamento}
+                      </td>
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <div className="font-semibold text-slate-800 dark:text-slate-200">{c.autor_nome}</div>
+                        {c.autor_celular && (
+                          <div className="text-[10px] text-slate-400">{c.autor_celular}</div>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4 max-w-xs">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span
+                            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold border ${cat.corBadge}`}
+                          >
+                            <Icone nome={cat.icone} className="w-3 h-3" />
+                            {cat.rotulo}
+                          </span>
+                          {c.imagem_url && (
+                            <span className="inline-flex items-center gap-0.5 text-[10px] text-sky-600 dark:text-sky-400 font-bold bg-sky-50 dark:bg-sky-950/60 px-1 py-0.2 rounded border border-sky-200 dark:border-sky-900">
+                              <Icone nome="eye" className="w-2.5 h-2.5" />
+                              Foto
+                            </span>
+                          )}
+                        </div>
+                        <div className="font-bold text-slate-900 dark:text-slate-100 truncate mt-0.5">
+                          {c.titulo}
+                        </div>
+                        {c.local_especifico && (
+                          <div className="text-[10px] text-slate-400 truncate">
+                            Local: {c.local_especifico}
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4 whitespace-nowrap text-slate-500 dark:text-slate-400">
+                        {dataAbertura}
+                      </td>
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              c.total_mensagens > 0
+                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
+                                : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                            }`}
+                          >
+                            {c.total_mensagens > 0 ? `${c.total_mensagens} msg(s)` : 'Sem resposta'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4 whitespace-nowrap text-right">
+                        <Botao
+                          tamanho="sm"
+                          variante="primario"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setChamadoSelecionadoId(c.id_chamado);
+                            carregarDetalhes(c.id_chamado);
+                          }}
+                          className="text-xs py-1 px-3 shadow-none group-hover:shadow-xs transition-shadow"
+                        >
+                          Atender & Responder
+                        </Botao>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-                    <Badge tipo={st.tipoBadge}>{st.rotulo}</Badge>
-
-                    {c.total_mensagens > 0 && (
-                      <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 text-[11px] font-bold">
-                        {c.total_mensagens} msg(s)
-                      </span>
-                    )}
-                  </div>
-
-                  <div>
-                    <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base">
-                      {c.titulo}
-                    </h3>
-                    <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2 mt-0.5 leading-relaxed">
-                      {c.descricao}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400 pt-1">
-                    <span>
-                      Morador: <strong className="text-slate-700 dark:text-slate-200">{c.autor_nome}</strong>
-                    </span>
-                    {c.local_especifico && <span>Local: {c.local_especifico}</span>}
-                    <span>Aberto em {dataAbertura}</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 shrink-0 self-end md:self-center">
-                  <Botao
-                    variante="primario"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setChamadoSelecionadoId(c.id_chamado);
-                      carregarDetalhes(c.id_chamado);
-                    }}
-                    className="flex items-center gap-1.5 text-xs"
-                  >
-                    <span>Atender & Responder</span>
-                    <Icone nome="chevronRight" className="w-4 h-4" />
-                  </Botao>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+        {/* Rodapé com Paginação */}
+        {chamados.length > 0 && (
+          <div className="p-4 border-t border-slate-100 dark:border-slate-800">
+            <Paginacao
+              paginaAtual={pagina}
+              totalPaginas={totalPaginas}
+              totalRegistros={chamados.length}
+              itensPorPagina={ITENS_POR_PAGINA}
+              onMudarPagina={setPagina}
+            />
+          </div>
+        )}
+      </Cartao>
 
       {/* Gaveta / Modal Lateral de Atendimento do Síndico */}
       {chamadoSelecionadoId !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-end bg-slate-900/50 backdrop-blur-xs">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-2xl h-full shadow-2xl border-l border-slate-200 dark:border-slate-800 flex flex-col">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-2xl h-full shadow-2xl border-l border-slate-200 dark:border-slate-800 flex flex-col animate-slide-left">
             {/* Header da Gaveta */}
             <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/40">
               <div className="flex items-center gap-3">
@@ -463,11 +612,12 @@ export default function SindicoChamados() {
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => {
                   setChamadoSelecionadoId(null);
                   setDetalhes(null);
                 }}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
               >
                 <Icone nome="x" className="w-5 h-5" />
               </button>
@@ -492,20 +642,20 @@ export default function SindicoChamados() {
                         type="button"
                         onClick={() => handleMudarStatus('EM_ANALISE')}
                         disabled={atualizandoStatus || detalhes.status === 'EM_ANALISE'}
-                        className={`px-3 py-2 rounded-lg text-xs font-bold border transition-all ${
+                        className={`px-3 py-2 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
                           detalhes.status === 'EM_ANALISE'
                             ? 'bg-amber-500 text-white border-amber-600 ring-2 ring-amber-500/30'
                             : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-amber-50'
                         }`}
                       >
-                        Em Análise
+                        Aguardando Análise
                       </button>
 
                       <button
                         type="button"
                         onClick={() => handleMudarStatus('EM_ANDAMENTO')}
                         disabled={atualizandoStatus || detalhes.status === 'EM_ANDAMENTO'}
-                        className={`px-3 py-2 rounded-lg text-xs font-bold border transition-all ${
+                        className={`px-3 py-2 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
                           detalhes.status === 'EM_ANDAMENTO'
                             ? 'bg-blue-600 text-white border-blue-700 ring-2 ring-blue-600/30'
                             : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-blue-50'
@@ -518,7 +668,7 @@ export default function SindicoChamados() {
                         type="button"
                         onClick={() => handleMudarStatus('REALIZADA')}
                         disabled={atualizandoStatus || detalhes.status === 'REALIZADA'}
-                        className={`px-3 py-2 rounded-lg text-xs font-bold border transition-all ${
+                        className={`px-3 py-2 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
                           detalhes.status === 'REALIZADA'
                             ? 'bg-emerald-600 text-white border-emerald-700 ring-2 ring-emerald-600/30'
                             : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-emerald-50'
@@ -531,7 +681,7 @@ export default function SindicoChamados() {
                         type="button"
                         onClick={() => handleMudarStatus('ARQUIVADA')}
                         disabled={atualizandoStatus || detalhes.status === 'ARQUIVADA'}
-                        className={`px-3 py-2 rounded-lg text-xs font-bold border transition-all ${
+                        className={`px-3 py-2 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
                           detalhes.status === 'ARQUIVADA'
                             ? 'bg-slate-600 text-white border-slate-700 ring-2 ring-slate-600/30'
                             : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100'
