@@ -40,15 +40,35 @@ export type Sessao = {
   modulosAtivos?: string[];
 };
 
+export const MODULOS_SISTEMA_PADRAO = [
+  'RESERVAS_AREAS',
+  'AREAS_LIVRES',
+  'ENCOMENDAS_PACOTES',
+  'CONTROLE_CHAVES',
+  'MURAL_AVISOS',
+  'CHAMADOS_OCORRENCIAS',
+  'DEPENDENTES_FAMILIA',
+];
+
 export function salvarSessao(token: string, sessao: Sessao) {
+  if (!sessao.modulosAtivos || !sessao.modulosAtivos.length) {
+    sessao.modulosAtivos = [...MODULOS_SISTEMA_PADRAO];
+  }
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(SESSAO_KEY, JSON.stringify(sessao));
+  try {
+    window.dispatchEvent(new Event('oasis_sessao_alterada'));
+  } catch {}
 }
 export function sessaoAtual(): Sessao | null {
   const s = localStorage.getItem(SESSAO_KEY);
   if (!s) return null;
   try {
-    return JSON.parse(s);
+    const sessao: Sessao = JSON.parse(s);
+    if (sessao && (!sessao.modulosAtivos || !sessao.modulosAtivos.length)) {
+      sessao.modulosAtivos = [...MODULOS_SISTEMA_PADRAO];
+    }
+    return sessao;
   } catch {
     // localStorage corrompido: limpa e retorna null para forcar re-login
     localStorage.removeItem(TOKEN_KEY);
