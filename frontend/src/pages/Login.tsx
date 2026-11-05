@@ -7,8 +7,17 @@ import BotaoModoEscuro from '../components/BotaoModoEscuro';
 /** UC01 - Autenticar no Sistema OASIS e Primeiro Acesso via Código */
 export default function Login() {
   const nav = useNavigate();
-  // Modo demonstracao/desenvolvimento: ocultado automaticamente em producao real
-  const modoDemo = import.meta.env.VITE_MODO_DEMO === 'true' || (import.meta.env.DEV && import.meta.env.VITE_MODO_DEMO !== 'false');
+  // Modo demonstracao/desenvolvimento:
+  // - Mantido ativo em localhost / 127.0.0.1 (a menos que VITE_MODO_DEMO seja explicitamente 'false')
+  // - Em producao real / outros dominios, ativado apenas se VITE_MODO_DEMO='true' no .env
+  const isLocalhost = typeof window !== 'undefined' && (
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1' ||
+    window.location.hostname === '[::1]' ||
+    window.location.hostname.endsWith('.local')
+  );
+  const envModoDemo = import.meta.env.VITE_MODO_DEMO;
+  const modoDemo = envModoDemo === 'true' || (envModoDemo !== 'false' && (import.meta.env.DEV || isLocalhost));
   const [aba, setAba] = useState<'login' | 'primeiro_acesso' | 'esqueci_senha'>('login');
 
   // Estado Login Padrão
@@ -54,7 +63,14 @@ export default function Login() {
     setCarregando(true);
     try {
       const r = await api.post<{ token: string } & Sessao>('/auth/login', { email, senha });
-      salvarSessao(r.token, { pessoa: r.pessoa, perfis: r.perfis, unidades: r.unidades, condominio: r.condominio, condominiosDisponiveis: r.condominiosDisponiveis });
+      salvarSessao(r.token, {
+        pessoa: r.pessoa,
+        perfis: r.perfis,
+        unidades: r.unidades,
+        condominio: r.condominio,
+        condominiosDisponiveis: r.condominiosDisponiveis,
+        modulosAtivos: r.modulosAtivos,
+      });
       nav('/');
     } catch (err: any) {
       setErro(err.message || 'Erro ao realizar login.');
@@ -104,7 +120,14 @@ export default function Login() {
         email: emailAtivacao,
         novaSenha,
       });
-      salvarSessao(r.token, { pessoa: r.pessoa, perfis: r.perfis, unidades: r.unidades, condominio: r.condominio, condominiosDisponiveis: r.condominiosDisponiveis });
+      salvarSessao(r.token, {
+        pessoa: r.pessoa,
+        perfis: r.perfis,
+        unidades: r.unidades,
+        condominio: r.condominio,
+        condominiosDisponiveis: r.condominiosDisponiveis,
+        modulosAtivos: r.modulosAtivos,
+      });
       nav('/');
     } catch (err: any) {
       const msg = err.message || 'Erro ao concluir primeiro acesso.';
@@ -164,7 +187,14 @@ export default function Login() {
         codigo: codigoRecuperacao,
         novaSenha: novaSenhaRecuperacao,
       });
-      salvarSessao(r.token, { pessoa: r.pessoa, perfis: r.perfis, unidades: r.unidades, condominio: r.condominio, condominiosDisponiveis: r.condominiosDisponiveis });
+      salvarSessao(r.token, {
+        pessoa: r.pessoa,
+        perfis: r.perfis,
+        unidades: r.unidades,
+        condominio: r.condominio,
+        condominiosDisponiveis: r.condominiosDisponiveis,
+        modulosAtivos: r.modulosAtivos,
+      });
       nav('/');
     } catch (err: any) {
       const msg = err.message || 'Erro ao redefinir senha.';
@@ -188,7 +218,14 @@ export default function Login() {
         email: emailTeste,
         senha: 'Teste@2026',
       });
-      salvarSessao(r.token, { pessoa: r.pessoa, perfis: r.perfis, unidades: r.unidades, condominio: r.condominio, condominiosDisponiveis: r.condominiosDisponiveis });
+      salvarSessao(r.token, {
+        pessoa: r.pessoa,
+        perfis: r.perfis,
+        unidades: r.unidades,
+        condominio: r.condominio,
+        condominiosDisponiveis: r.condominiosDisponiveis,
+        modulosAtivos: r.modulosAtivos,
+      });
       nav('/');
     } catch (err: any) {
       setErro(err.message || 'Erro ao realizar login.');
@@ -332,7 +369,7 @@ export default function Login() {
                   <p className="mb-2 text-center text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                     Acesso Rápido para Teste (1 Clique)
                   </p>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-xs">
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 text-xs">
                     <button
                       id="btn-login-morador"
                       type="button"
@@ -348,8 +385,17 @@ export default function Login() {
                       onClick={() => preencherRapido('ana.souza@teste.com')}
                       className="rounded-lg border border-slate-200 bg-slate-50/70 p-2 text-center font-medium text-slate-700 hover:bg-slate-100 hover:text-navy dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-sky-400 transition-colors cursor-pointer"
                     >
-                      <span className="block font-bold text-navy dark:text-sky-400">Síndica</span>
-                      <span className="text-[10px] text-slate-400 dark:text-slate-500">Ana</span>
+                      <span className="block font-bold text-navy dark:text-sky-400">Síndica Oasis</span>
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500">Ana Souza</span>
+                    </button>
+                    <button
+                      id="btn-login-sindico-solar"
+                      type="button"
+                      onClick={() => preencherRapido('mariana.santos@solar.com')}
+                      className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-2 text-center font-medium text-slate-700 hover:bg-emerald-100 hover:text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300 dark:hover:bg-emerald-900/50 dark:hover:text-emerald-200 transition-colors cursor-pointer"
+                    >
+                      <span className="block font-bold text-emerald-600 dark:text-emerald-400">Síndica Solar</span>
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500">Mariana Santos</span>
                     </button>
                     <button
                       id="btn-login-porteiro"
@@ -364,7 +410,7 @@ export default function Login() {
                       id="btn-login-superadmin"
                       type="button"
                       onClick={() => preencherRapido('superadmin@oasis.com')}
-                      className="rounded-lg border border-sky-200 bg-slate-50/70 p-2 text-center font-medium text-slate-700 hover:bg-slate-100 hover:text-navy dark:border-sky-800 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-sky-400 transition-colors cursor-pointer"
+                      className="col-span-2 sm:col-span-1 rounded-lg border border-sky-200 bg-slate-50/70 p-2 text-center font-medium text-slate-700 hover:bg-slate-100 hover:text-navy dark:border-sky-800 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-sky-400 transition-colors cursor-pointer"
                     >
                       <span className="block font-bold text-sky-600 dark:text-sky-400">Superadmin</span>
                       <span className="text-[10px] text-slate-400 dark:text-slate-500">Master</span>

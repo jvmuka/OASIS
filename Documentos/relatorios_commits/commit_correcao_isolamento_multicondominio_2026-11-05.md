@@ -88,3 +88,4 @@ Foram executadas duas baterias de testes com 100% de sucesso:
 - Build do backend TypeScript: **0 erros**
 - Build do frontend Vite / TypeScript: **0 erros**
 - Containers Docker `oasis-backend`, `oasis-frontend` e `oasis-banco`: **Saudáveis e ativos**
+
