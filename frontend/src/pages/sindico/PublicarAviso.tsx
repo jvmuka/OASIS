@@ -41,7 +41,8 @@ export default function PublicarAviso() {
 
   // Paginação
   const [pagina, setPagina] = useState(1);
-  const ITENS_POR_PAGINA = 10;
+  const ITENS_POR_PAGINA = 6;
+  const [expandido, setExpandido] = useState<number | null>(null);
 
   // Modal Novo Comunicado
   const [modalAberto, setModalAberto] = useState(false);
@@ -53,9 +54,6 @@ export default function PublicarAviso() {
   const [anexo, setAnexo] = useState<{ url: string; nome: string; tipo: 'IMAGEM' | 'PDF' } | null>(null);
   const [enviandoAnexo, setEnviandoAnexo] = useState(false);
   const [salvando, setSalvando] = useState(false);
-
-  // Modal Ver Detalhes
-  const [visualizando, setVisualizando] = useState<AvisoAdmin | null>(null);
 
   // Modal de Confirmação de Arquivamento
   const [avisoParaArquivar, setAvisoParaArquivar] = useState<AvisoAdmin | null>(null);
@@ -406,23 +404,27 @@ export default function PublicarAviso() {
         )}
       </Cartao>
 
-      {/* Tabela Padronizada de Avisos */}
-      <Cartao className="p-0 overflow-hidden rounded-2xl">
-        <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/40">
+      {/* Seção de Comunicados (Cards com Chevron Expansível e Paginação) */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between pb-1">
           <div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+            <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100">
               {abaAtiva === 'ADMINISTRADOR'
-                ? 'Comunicados Oficiais do Administrador'
+                ? 'Comunicados do Administrador'
                 : abaAtiva === 'ENCOMENDA'
-                ? 'Avisos Automáticos de Encomenda'
-                : 'Mural Geral de Avisos'}
+                ? 'Avisos de Encomenda'
+                : 'Mural de Comunicados'}
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              {avisosFiltradosPorAba.length} comunicado(s) listado(s) • Os arquivados não aparecem para os moradores
+              {abaAtiva === 'ADMINISTRADOR'
+                ? 'Comunicados oficiais emitidos pela administração para o mural do condomínio'
+                : abaAtiva === 'ENCOMENDA'
+                ? 'Avisos automáticos gerados pela portaria na chegada de pacotes'
+                : 'Histórico completo de comunicados e publicações para os moradores'}
             </p>
           </div>
-          <span className="rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
-            Página {pagina} de {totalPaginas}
+          <span className="rounded-full bg-slate-100 dark:bg-slate-800 px-3 py-1 text-xs font-semibold text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700">
+            {avisosFiltradosPorAba.length} aviso(s)
           </span>
         </div>
 
@@ -432,7 +434,7 @@ export default function PublicarAviso() {
             <p className="text-sm">Carregando avisos do condomínio...</p>
           </div>
         ) : avisosFiltradosPorAba.length === 0 ? (
-          <div className="py-16 text-center p-8">
+          <div className="py-16 text-center p-8 bg-white dark:bg-slate-900/60 rounded-2xl border border-slate-200/80 dark:border-slate-800">
             <EmptyState
               icone={abaAtiva === 'ENCOMENDA' ? 'package' : 'megaphone'}
               titulo={
@@ -456,179 +458,192 @@ export default function PublicarAviso() {
             />
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-slate-200/80 dark:border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 bg-slate-50/50 dark:bg-slate-800/30">
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">Tipo</th>
-                  <th className="py-3 px-4">Título & Conteúdo</th>
-                  <th className="py-3 px-4">Destinatários</th>
-                  <th className="py-3 px-4">Publicação</th>
-                  <th className="py-3 px-4">Expiração</th>
-                  <th className="py-3 px-4">Leituras</th>
-                  <th className="py-3 px-4 text-right">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {avisosPaginados.map((a) => {
-                  const isEncomenda = a.categoria === 'ENCOMENDA';
-                  const dtPub = new Date(a.data_hora_publicacao).toLocaleDateString('pt-BR', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  });
-                  const dtExp = a.data_hora_expiracao
-                    ? new Date(a.data_hora_expiracao).toLocaleDateString('pt-BR', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        year: 'numeric',
-                      })
-                    : 'Sem expiração';
+          <div className="space-y-3">
+            {avisosPaginados.map((a) => {
+              const eAberto = expandido === a.id_aviso;
+              const dtPub = new Date(a.data_hora_publicacao);
+              const percLidos =
+                a.total_destinatarios > 0
+                  ? Math.round((a.total_lidos / a.total_destinatarios) * 100)
+                  : 0;
+              const isEncomenda = a.categoria === 'ENCOMENDA';
 
-                  const percLidos =
-                    a.total_destinatarios > 0
-                      ? Math.round((a.total_lidos / a.total_destinatarios) * 100)
-                      : 0;
-
-                  return (
-                    <tr
-                      key={a.id_aviso}
-                      className={`hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors group ${
-                        a.arquivado ? 'opacity-70 bg-slate-50/40 dark:bg-slate-900/40' : ''
-                      }`}
+              return (
+                <div
+                  key={a.id_aviso}
+                  className={`rounded-2xl border p-4 shadow-soft transition-all ${
+                    a.arquivado
+                      ? 'border-slate-200/60 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-900/40 opacity-85'
+                      : isEncomenda
+                      ? 'border-amber-200/70 bg-gradient-to-r from-amber-50/20 to-transparent dark:border-amber-900/40 dark:bg-amber-950/10'
+                      : 'border-slate-200/80 bg-white dark:border-slate-800 dark:bg-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div
+                      className="space-y-1.5 flex-1 cursor-pointer select-none"
+                      onClick={() => setExpandido(eAberto ? null : a.id_aviso)}
                     >
-                      <td className="py-3 px-4 whitespace-nowrap">
-                        {a.arquivado ? (
-                          <Badge tipo="neutro">Arquivado</Badge>
-                        ) : a.status === 'PUBLICADO' ? (
-                          <Badge tipo="sucesso">Publicado</Badge>
-                        ) : a.status === 'AGENDADO' ? (
-                          <Badge tipo="info">Agendado</Badge>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {isEncomenda ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-100 dark:bg-amber-950/60 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:text-amber-300">
+                            <Icone nome="package" className="h-3 w-3" />
+                            AVISO DE ENCOMENDA
+                          </span>
                         ) : (
-                          <Badge tipo="aviso">Expirado</Badge>
+                          <>
+                            {a.fixado && (
+                              <span className="inline-flex items-center gap-1 rounded bg-amber-100 dark:bg-amber-950/60 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:text-amber-300">
+                                <Icone nome="pin" className="h-3 w-3" />
+                                FIXADO
+                              </span>
+                            )}
+                            {a.arquivado ? (
+                              <Badge tipo="neutro">ARQUIVADO</Badge>
+                            ) : a.status === 'PUBLICADO' ? (
+                              <Badge tipo="sucesso">PUBLICADO</Badge>
+                            ) : a.status === 'AGENDADO' ? (
+                              <Badge tipo="info">AGENDADO</Badge>
+                            ) : (
+                              <Badge tipo="neutro">EXPIRADO</Badge>
+                            )}
+                          </>
                         )}
-                      </td>
+                        <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                          {a.titulo}
+                        </h4>
+                      </div>
 
-                      <td className="py-3 px-4 whitespace-nowrap">
-                        <div className="flex items-center gap-1.5">
-                          {a.fixado && (
-                            <span className="p-1 rounded bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300" title="Aviso Fixado no topo">
-                              <Icone nome="pin" className="w-3.5 h-3.5" />
-                            </span>
-                          )}
-                          <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                              isEncomenda
-                                ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                                : 'bg-navy-50 text-navy dark:bg-sky-950 dark:text-sky-300'
-                            }`}
-                          >
-                            {isEncomenda ? 'Encomenda' : 'Administrador'}
-                          </span>
-                        </div>
-                      </td>
-
-                      <td className="py-3 px-4 max-w-sm">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="font-bold text-slate-900 dark:text-slate-100 text-xs">
-                            {a.titulo}
-                          </span>
-                          {a.anexo_url && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded bg-sky-50 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300 text-[10px] font-medium border border-sky-200 dark:border-sky-800">
-                              <Icone nome={a.anexo_tipo === 'PDF' ? 'fileText' : 'image'} className="w-2.5 h-2.5" />
-                              {a.anexo_tipo}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5">
-                          {a.conteudo}
-                        </p>
-                      </td>
-
-                      <td className="py-3 px-4 whitespace-nowrap text-slate-600 dark:text-slate-300">
-                        <div className="font-medium">{a.destinatario_nome || 'Todos os Moradores'}</div>
-                        {a.destinatario_unidade && (
-                          <div className="text-[10px] text-slate-400">{a.destinatario_unidade}</div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Publicado em: <b>{dtPub.toLocaleString('pt-BR')}</b> • Por <b>{a.autor}</b>
+                        {a.data_hora_expiracao && (
+                          <span> • Expira em: {new Date(a.data_hora_expiracao).toLocaleString('pt-BR')}</span>
                         )}
-                      </td>
+                        {a.destinatario_nome && a.destinatario_nome !== 'Todos os Moradores' && (
+                          <span> • Para: <b>{a.destinatario_nome} {a.destinatario_unidade ? `(${a.destinatario_unidade})` : ''}</b></span>
+                        )}
+                      </p>
 
-                      <td className="py-3 px-4 whitespace-nowrap text-slate-500 dark:text-slate-400">
-                        {dtPub}
-                      </td>
-
-                      <td className="py-3 px-4 whitespace-nowrap text-slate-500 dark:text-slate-400">
-                        {dtExp}
-                      </td>
-
-                      <td className="py-3 px-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <div className="w-16 bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
-                            <div
-                              className="bg-emerald-500 h-1.5 rounded-full"
-                              style={{ width: `${Math.min(100, percLidos)}%` }}
-                            />
-                          </div>
-                          <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                            {percLidos}%
-                          </span>
+                      {/* Barra de Progresso de Leituras */}
+                      <div className="flex items-center gap-3 pt-1">
+                        <div className="h-1.5 w-28 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-emerald-500 transition-all"
+                            style={{ width: `${Math.min(100, percLidos)}%` }}
+                          />
                         </div>
-                        <span className="text-[10px] text-slate-400">
-                          {a.total_lidos}/{a.total_destinatarios} lidos
+                        <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                          {a.total_lidos} de {a.total_destinatarios} lidos ({percLidos}%)
                         </span>
-                      </td>
+                      </div>
 
-                      <td className="py-3 px-4 whitespace-nowrap text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <Botao
-                            tamanho="sm"
-                            variante="secundario"
-                            onClick={() => setVisualizando(a)}
-                            className="text-xs py-1 px-2.5"
-                            title="Ver conteúdo completo"
+                      {/* Anexo quando o card está recolhido */}
+                      {!eAberto && a.anexo_url && (
+                        <div className="pt-1.5">
+                          <a
+                            href={a.anexo_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/60 px-2.5 py-1 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:border-navy hover:text-navy dark:hover:border-sky-500 dark:hover:text-sky-300 transition-colors"
                           >
-                            <Icone nome="eye" className="w-3.5 h-3.5" />
-                            <span>Ver</span>
-                          </Botao>
-
-                          <button
-                            type="button"
-                            onClick={() => setAvisoParaArquivar(a)}
-                            className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold border transition-colors cursor-pointer ${
-                              a.arquivado
-                                ? 'border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950/60 dark:text-sky-300'
-                                : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700'
-                            }`}
-                            title={a.arquivado ? 'Desarquivar e reativar no mural' : 'Arquivar (oculta dos moradores)'}
-                          >
-                            <Icone nome={a.arquivado ? 'check' : 'box'} className="w-3.5 h-3.5" />
-                            <span>{a.arquivado ? 'Desarquivar' : 'Arquivar'}</span>
-                          </button>
+                            <Icone nome={a.anexo_tipo === 'PDF' ? 'fileText' : 'image'} className="h-3.5 w-3.5 text-navy dark:text-sky-400" />
+                            <span className="truncate max-w-[220px] sm:max-w-xs">
+                              {a.anexo_nome || (a.anexo_tipo === 'PDF' ? 'Documento PDF' : 'Imagem em anexo')}
+                            </span>
+                            <Icone nome="download" className="h-3 w-3 text-slate-400" />
+                          </a>
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+                      )}
+                    </div>
 
-        {/* Rodapé com Paginação */}
-        {avisosFiltradosPorAba.length > 0 && (
-          <div className="p-4 border-t border-slate-100 dark:border-slate-800">
-            <Paginacao
-              paginaAtual={pagina}
-              totalPaginas={totalPaginas}
-              totalRegistros={avisosFiltradosPorAba.length}
-              itensPorPagina={ITENS_POR_PAGINA}
-              onMudarPagina={setPagina}
-            />
+                    {/* Botões de Ação: Chevron para expandir e Caixa/Check para arquivar */}
+                    <div className="flex items-center gap-1 shrink-0 pt-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setExpandido(eAberto ? null : a.id_aviso)}
+                        className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                        title={eAberto ? 'Recolher aviso' : 'Ver conteúdo'}
+                      >
+                        <Icone
+                          nome="chevronDown"
+                          className={`h-4 w-4 transform transition-transform duration-200 ${
+                            eAberto ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setAvisoParaArquivar(a);
+                        }}
+                        className={`rounded-lg p-2 transition-colors cursor-pointer ${
+                          a.arquivado
+                            ? 'text-sky-600 hover:bg-sky-50 hover:text-sky-700 dark:text-sky-400 dark:hover:bg-sky-950/40'
+                            : 'text-slate-400 hover:bg-amber-50 hover:text-amber-600 dark:text-slate-400 dark:hover:bg-amber-950/40 dark:hover:text-amber-300'
+                        }`}
+                        title={
+                          a.arquivado
+                            ? 'Desarquivar comunicado (reativar no mural)'
+                            : 'Arquivar comunicado (ocultar dos moradores)'
+                        }
+                      >
+                        <Icone nome={a.arquivado ? 'check' : 'box'} className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Conteúdo Expandido do Aviso */}
+                  {eAberto && (
+                    <div className="mt-3 border-t border-slate-100 dark:border-slate-800 pt-3 text-xs text-slate-700 dark:text-slate-300 space-y-3 animate-fade-in">
+                      <div className="whitespace-pre-line leading-relaxed text-slate-700 dark:text-slate-200 bg-slate-50/80 dark:bg-slate-800/80 p-3.5 rounded-xl border border-slate-200/70 dark:border-slate-700">
+                        {a.conteudo}
+                      </div>
+
+                      {a.anexo_url && a.anexo_tipo === 'IMAGEM' && (
+                        <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 max-w-md">
+                          <a href={a.anexo_url} target="_blank" rel="noreferrer" className="block group">
+                            <img
+                              src={a.anexo_url}
+                              alt={a.anexo_nome || 'Anexo'}
+                              className="w-full object-cover max-h-72 group-hover:scale-102 transition-transform"
+                            />
+                          </a>
+                        </div>
+                      )}
+
+                      {a.anexo_url && a.anexo_tipo === 'PDF' && (
+                        <a
+                          href={a.anexo_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 py-2 text-xs font-semibold text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/50 transition-colors shadow-xs"
+                        >
+                          <Icone nome="fileText" className="h-4 w-4" />
+                          <span>Visualizar Documento PDF ({a.anexo_nome || 'Baixar'})</span>
+                        </a>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {/* Rodapé com Paginação */}
+            <div className="pt-2">
+              <Paginacao
+                paginaAtual={pagina}
+                totalPaginas={totalPaginas}
+                totalRegistros={avisosFiltradosPorAba.length}
+                itensPorPagina={ITENS_POR_PAGINA}
+                onMudarPagina={setPagina}
+              />
+            </div>
           </div>
         )}
-      </Cartao>
+      </div>
 
       {/* MODAL 1: NOVO COMUNICADO */}
       <Modal
@@ -751,88 +766,7 @@ export default function PublicarAviso() {
         </form>
       </Modal>
 
-      {/* MODAL 2: VISUALIZAR AVISO COMPLETO */}
-      {visualizando && (
-        <Modal
-          aberto={Boolean(visualizando)}
-          fechar={() => setVisualizando(null)}
-          titulo={visualizando.titulo}
-        >
-          <div className="space-y-4">
-            <div className="flex items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                {visualizando.fixado && (
-                  <span className="inline-flex items-center gap-1 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 px-2 py-0.5 text-xs font-bold">
-                    <Icone nome="pin" className="w-3 h-3" />
-                    Fixado
-                  </span>
-                )}
-                {visualizando.arquivado ? (
-                  <Badge tipo="neutro">Arquivado (Oculto)</Badge>
-                ) : (
-                  <Badge tipo={visualizando.status === 'PUBLICADO' ? 'sucesso' : visualizando.status === 'AGENDADO' ? 'info' : 'aviso'}>
-                    {visualizando.status}
-                  </Badge>
-                )}
-              </div>
-              <span className="text-xs text-slate-400">
-                Publicado por: <strong>{visualizando.autor}</strong>
-              </span>
-            </div>
-
-            <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
-              {visualizando.conteudo}
-            </p>
-
-            {visualizando.anexo_url && (
-              <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
-                <span className="block text-xs font-bold uppercase tracking-wider text-slate-400">
-                  Arquivo Anexo:
-                </span>
-                {visualizando.anexo_tipo === 'IMAGEM' ? (
-                  <a
-                    href={visualizando.anexo_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="block rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 max-h-64 group"
-                  >
-                    <img
-                      src={visualizando.anexo_url}
-                      alt={visualizando.anexo_nome || 'Anexo'}
-                      className="w-full h-full object-cover group-hover:scale-102 transition-transform"
-                    />
-                  </a>
-                ) : (
-                  <a
-                    href={visualizando.anexo_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-bold text-sky-600 hover:text-sky-700"
-                  >
-                    <Icone nome="fileText" className="w-4 h-4" />
-                    <span>Visualizar Documento PDF ({visualizando.anexo_nome || 'Baixar'})</span>
-                  </a>
-                )}
-              </div>
-            )}
-
-            <div className="flex items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800">
-              <span>Destinatários: {visualizando.destinatario_nome || 'Todos os Moradores'}</span>
-              <span>
-                Leituras: {visualizando.total_lidos}/{visualizando.total_destinatarios}
-              </span>
-            </div>
-
-            <div className="flex justify-end pt-2">
-              <Botao variante="secundario" onClick={() => setVisualizando(null)}>
-                Fechar
-              </Botao>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {/* MODAL 3: CONFIRMAÇÃO DE ARQUIVAMENTO (EM VEZ DE EXCLUSÃO) */}
+      {/* MODAL 2: CONFIRMAÇÃO DE ARQUIVAMENTO (EM VEZ DE EXCLUSÃO) */}
       {avisoParaArquivar && (
         <ModalConfirmacao
           aberto={Boolean(avisoParaArquivar)}

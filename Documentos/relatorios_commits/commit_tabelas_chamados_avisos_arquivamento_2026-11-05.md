@@ -47,10 +47,10 @@ O usuário solicitou melhorias fundamentais nas telas de gestão de **Chamados &
   - Componente de paginação `<Paginacao />` integrado com limite de 10 chamados por página.
   - Gaveta lateral de atendimento individual com chat e alteração de status mantida com fluidez.
 - **`frontend/src/pages/sindico/PublicarAviso.tsx`**:
-  - Tabela com colunas: *Status*, *Tipo/Fixado*, *Título & Conteúdo*, *Destinatários*, *Publicação*, *Expiração*, *Leituras* e *Ações*.
+  - Cards expansíveis no estilo original com chevron (`setinha`), expandindo em linha o conteúdo do aviso, fotos e documentos PDF.
   - Abas por categoria ("Todos", "Administrador", "Encomenda") e filtros por status ("Ativos", "Arquivados", "Todos") e período de publicação.
-  - Substituição do botão "Excluir" por "Arquivar" / "Desarquivar" com `<ModalConfirmacao>`.
-  - Componente de paginação `<Paginacao />` integrado.
+  - Paginação `<Paginacao />` integrada (6 avisos por página) para evitar listas longas e corridas.
+  - Substituição do botão "Excluir" por "Arquivar" / "Desarquivar" com `<ModalConfirmacao>`, preservando o histórico e ocultando avisos arquivados dos moradores.
 
 ---
 
@@ -65,3 +65,4 @@ O usuário solicitou melhorias fundamentais nas telas de gestão de **Chamados &
     - Filtro por data funcionando.
     - Arquivamento de aviso comprovadamente oculta o comunicado da visão do morador.
     - Síndico localiza o comunicado nos arquivados e pode desarquivar a qualquer momento.
+
