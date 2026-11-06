@@ -377,7 +377,7 @@ export class PortariaController {
    * Areas ocupadas agora (reserva ATIVA em andamento).
    * Desaparece automaticamente assim que a reserva acaba (CURRENT_TIMESTAMP >= data_hora_fim).
    */
-  @Get('ocupacao-agora') @Perfis('PORTEIRO', 'SINDICO')
+  @Get('ocupacao-agora') @Perfis('PORTEIRO', 'SINDICO', 'MORADOR')
   async ocupacaoAgora(@Req() req: any) {
     const idCondominio = resolverIdCondominio(req);
     await this.db.query(
@@ -405,7 +405,7 @@ export class PortariaController {
   }
 
   /** Agenda do dia, mês ou qualquer data com a situacao calculada de cada reserva. */
-  @Get('agenda') @Perfis('PORTEIRO', 'SINDICO')
+  @Get('agenda') @Perfis('PORTEIRO', 'SINDICO', 'MORADOR')
   agenda(@Req() req: any, @Query('data') data?: string, @Query('mes') mes?: string) {
     const idCondominio = resolverIdCondominio(req);
     const paramMes = mes || (data && /^\d{4}-\d{2}$/.test(data) ? data : undefined);
@@ -413,16 +413,17 @@ export class PortariaController {
 
     let whereClause = 'WHERE a.id_condominio = $1';
     const params: any[] = [idCondominio];
+    let dia = '';
 
     if (paramMes) {
       params.push(paramMes);
-      whereClause += ` AND to_char(r.data_hora_inicio, 'YYYY-MM') = ${params.length}`;
+      whereClause += ` AND to_char(r.data_hora_inicio, 'YYYY-MM') = $${params.length}`;
     } else if (!isQualquerData) {
-      const dia = data && /^\d{4}-\d{2}-\d{2}$/.test(data)
+      dia = data && /^\d{4}-\d{2}-\d{2}$/.test(data)
         ? data
         : new Date().toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }).slice(0, 10);
       params.push(dia);
-      whereClause += ` AND r.data_hora_inicio::date = ${params.length}::date`;
+      whereClause += ` AND r.data_hora_inicio::date = $${params.length}::date`;
     }
 
     return this.db.query(`
@@ -443,7 +444,7 @@ export class PortariaController {
        ${whereClause}
        ORDER BY r.data_hora_inicio ${paramMes || isQualquerData ? 'DESC' : 'ASC'}
        LIMIT ${isQualquerData || paramMes ? 200 : 100}`, params).then(reservas => ({
-         data: paramMes || (isQualquerData ? 'TODAS' : params[0]),
+         data: paramMes || (isQualquerData ? 'TODAS' : dia || (params[1] ?? 'HOJE')),
          reservas
        }));
   }
