@@ -40,9 +40,17 @@ async function run() {
   // 1. Fazer Login como Superadmin
   console.log('🔑 Acessando tela de login...');
   await page.goto('http://localhost:5173/login', { waitUntil: 'networkidle2' });
+  await page.evaluate(() => {
+    localStorage.setItem('oasis_theme', 'light');
+    document.documentElement.classList.remove('dark');
+  });
   await page.waitForSelector('#btn-login-superadmin', { timeout: 10000 });
   await page.click('#btn-login-superadmin');
   await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 10000 });
+  await page.evaluate(() => {
+    localStorage.setItem('oasis_theme', 'light');
+    document.documentElement.classList.remove('dark');
+  });
   console.log('✅ Login efetuado com sucesso!');
 
   const resultados = [];

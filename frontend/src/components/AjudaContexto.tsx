@@ -80,6 +80,11 @@ export function BotaoAjudaContexto({ ajudaKey, className = '' }: BotaoAjudaConte
     setModalAberto(false);
     setPassoTour(1);
     setTourAtivo(true);
+    // Volta suavemente para o início da página/aba para que o tour comece do topo
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    if (document.activeElement && 'blur' in document.activeElement) {
+      (document.activeElement as HTMLElement).blur();
+    }
   };
 
   const proximoPassoTour = () => {

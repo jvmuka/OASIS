@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { PassoAjuda } from '../config/ajudaContextoConfig';
 import { Icone } from './ui';
@@ -480,8 +480,15 @@ export function OverlayTourGuiado({
   onAnterior,
   onFinalizar,
 }: TourGuiadoProps) {
-  const [posicaoForcada, setPosicaoForcada] = useState<'topo' | 'rodape' | null>(null);
   const [alvoRect, setAlvoRect] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
+  const [posicaoManual, setPosicaoManual] = useState<{ x: number; y: number } | null>(null);
+  const [arrastando, setArrastando] = useState(false);
+  const dragOffsetRef = useRef<{ offsetX: number; offsetY: number }>({ offsetX: 0, offsetY: 0 });
+
+  // Resetar a posição manual ao trocar de passo para que o balão se ancore automaticamente ao lado do novo elemento
+  useEffect(() => {
+    setPosicaoManual(null);
+  }, [passoAtual]);
 
   // Calcula e acompanha a posição do elemento alvo em tempo real na tela
   useEffect(() => {
@@ -508,7 +515,7 @@ export function OverlayTourGuiado({
 
     calcularPosicao();
 
-    // Rastreia durante o scroll suave inicial até o elemento
+    // Rastreia suavemente durante a transição inicial de rolagem até o elemento
     let frameId: number;
     const tempoInicio = Date.now();
     const animar = () => {
@@ -539,14 +546,97 @@ export function OverlayTourGuiado({
     return () => window.removeEventListener('keydown', handleKey);
   }, [onProximo, onAnterior, onFinalizar]);
 
-  // Posicionamento inteligente automático da barra:
-  // Se o elemento estiver na metade inferior da tela, posiciona a barra no topo
-  // Se o elemento estiver na metade superior, posiciona no rodapé para nunca cobrir o elemento
-  const posAutomatica = alvoRect
-    ? (alvoRect.top > (window.innerHeight / 2) ? 'topo' : 'rodape')
-    : (passoAtual >= 3 ? 'topo' : 'rodape');
+  // Cálculo da posição automática do balão ao lado do elemento onde tem que apertar
+  const balaoWidth = Math.min(380, typeof window !== 'undefined' ? window.innerWidth - 32 : 380);
+  const balaoHeight = 240;
+  const GAP = 16;
 
-  const posEfetiva = posicaoForcada || posAutomatica;
+  let posAuto = { x: 20, y: 100, direcaoSeta: 'nenhuma' as 'esquerda' | 'direita' | 'topo' | 'baixo' | 'nenhuma' };
+
+  if (alvoRect && typeof window !== 'undefined') {
+    const espacoDireita = window.innerWidth - (alvoRect.left + alvoRect.width);
+    const espacoEsquerda = alvoRect.left;
+    const espacoAbaixo = window.innerHeight - (alvoRect.top + alvoRect.height);
+
+    // 1. Tenta colocar à DIREITA do elemento
+    if (espacoDireita >= balaoWidth + GAP + 16) {
+      posAuto.x = alvoRect.left + alvoRect.width + GAP;
+      posAuto.y = Math.max(16, Math.min(alvoRect.top - 10, window.innerHeight - balaoHeight - 16));
+      posAuto.direcaoSeta = 'esquerda';
+    }
+    // 2. Tenta colocar à ESQUERDA do elemento
+    else if (espacoEsquerda >= balaoWidth + GAP + 16) {
+      posAuto.x = alvoRect.left - balaoWidth - GAP;
+      posAuto.y = Math.max(16, Math.min(alvoRect.top - 10, window.innerHeight - balaoHeight - 16));
+      posAuto.direcaoSeta = 'direita';
+    }
+    // 3. Tenta colocar ABAIXO do elemento
+    else if (espacoAbaixo >= balaoHeight + GAP + 16) {
+      posAuto.x = Math.max(16, Math.min(alvoRect.left, window.innerWidth - balaoWidth - 16));
+      posAuto.y = alvoRect.top + alvoRect.height + GAP;
+      posAuto.direcaoSeta = 'topo';
+    }
+    // 4. Coloca ACIMA do elemento
+    else {
+      posAuto.x = Math.max(16, Math.min(alvoRect.left, window.innerWidth - balaoWidth - 16));
+      posAuto.y = Math.max(16, alvoRect.top - balaoHeight - GAP);
+      posAuto.direcaoSeta = 'baixo';
+    }
+  } else if (typeof window !== 'undefined') {
+    posAuto.x = Math.max(16, (window.innerWidth - balaoWidth) / 2);
+    posAuto.y = Math.max(16, window.innerHeight - balaoHeight - 32);
+    posAuto.direcaoSeta = 'nenhuma';
+  }
+
+  const coordenadasFinais = posicaoManual || { x: posAuto.x, y: posAuto.y };
+  const direcaoSetaEfetiva = posicaoManual ? 'nenhuma' : posAuto.direcaoSeta;
+
+  // Lógica de arrastar livremente o balão na tela
+  const iniciarArrasto = (e: React.MouseEvent | React.TouchEvent) => {
+    if ('button' in e && e.button !== 0) return;
+
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+    dragOffsetRef.current = {
+      offsetX: clientX - coordenadasFinais.x,
+      offsetY: clientY - coordenadasFinais.y,
+    };
+    setArrastando(true);
+  };
+
+  useEffect(() => {
+    if (!arrastando) return;
+
+    const onMove = (e: MouseEvent | TouchEvent) => {
+      const clientX = 'touches' in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
+      const clientY = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY;
+
+      let novoX = clientX - dragOffsetRef.current.offsetX;
+      let novoY = clientY - dragOffsetRef.current.offsetY;
+
+      novoX = Math.max(12, Math.min(novoX, window.innerWidth - balaoWidth - 12));
+      novoY = Math.max(12, Math.min(novoY, window.innerHeight - balaoHeight - 12));
+
+      setPosicaoManual({ x: novoX, y: novoY });
+    };
+
+    const onEnd = () => {
+      setArrastando(false);
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onEnd);
+    window.addEventListener('touchmove', onMove);
+    window.addEventListener('touchend', onEnd);
+
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onEnd);
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onEnd);
+    };
+  }, [arrastando, balaoWidth]);
 
   const PADDING = 8;
   const RAIO = 12;
@@ -605,86 +695,125 @@ export function OverlayTourGuiado({
         )}
       </svg>
 
-      {/* 2. Barra de Controle Flutuante com posicionamento dinâmico inteligente */}
+      {/* 2. Balão de Instruções do Tour ancorado ao lado do elemento e arrastável pelo usuário */}
       <div
-        className={`fixed left-1/2 transform -translate-x-1/2 w-full max-w-lg px-4 pointer-events-auto transition-all duration-300 ease-out z-[100] ${
-          posEfetiva === 'topo' ? 'top-6' : 'bottom-6'
-        }`}
+        style={{
+          position: 'fixed',
+          left: `${coordenadasFinais.x}px`,
+          top: `${coordenadasFinais.y}px`,
+          width: `${balaoWidth}px`,
+          maxWidth: 'calc(100vw - 32px)',
+          zIndex: 100,
+          transition: arrastando ? 'none' : 'transform 0.15s ease-out, opacity 0.15s ease-out',
+        }}
+        className="pointer-events-auto relative rounded-2xl border border-[#e2e6ec] bg-white p-4 text-slate-900 shadow-2xl dark:border-slate-800 dark:bg-[#0e1525] dark:text-slate-100 select-none animate-fade-in"
       >
-        <div className="rounded-2xl border border-slate-700 bg-[#0b1830] p-4 text-white shadow-2xl dark:bg-[#0e1525] dark:border-slate-800">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-            <div className="flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[#2548a0] text-xs font-bold text-white">
-                {passoAtual}
-              </span>
-              <h4 className="text-xs font-bold uppercase tracking-wider text-sky-400">
-                Tour Guiado: {titulo}
-              </h4>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-medium text-slate-400">
-                Passo {passoAtual} de {totalPassos}
-              </span>
-              <button
-                type="button"
-                onClick={() => setPosicaoForcada(posEfetiva === 'topo' ? 'rodape' : 'topo')}
-                title={posEfetiva === 'topo' ? 'Mover painel para baixo' : 'Mover painel para o topo'}
-                className="inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-[11px] text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer border border-slate-700"
-              >
-                <Icone nome="chevronDown" className={`h-3 w-3 ${posEfetiva === 'topo' ? '' : 'rotate-180'}`} />
-                <span>{posEfetiva === 'topo' ? 'Rodapé' : 'Topo'}</span>
-              </button>
-            </div>
+        {/* Setas indicadoras de balão apontando para o elemento onde tem que apertar */}
+        {direcaoSetaEfetiva === 'esquerda' && (
+          <div className="absolute -left-2 top-7 h-4 w-4 rotate-45 border-b border-l border-[#e2e6ec] bg-white dark:border-slate-800 dark:bg-[#0e1525]" />
+        )}
+        {direcaoSetaEfetiva === 'direita' && (
+          <div className="absolute -right-2 top-7 h-4 w-4 rotate-45 border-t border-r border-[#e2e6ec] bg-white dark:border-slate-800 dark:bg-[#0e1525]" />
+        )}
+        {direcaoSetaEfetiva === 'topo' && (
+          <div className="absolute left-8 -top-2 h-4 w-4 rotate-45 border-t border-l border-[#e2e6ec] bg-white dark:border-slate-800 dark:bg-[#0e1525]" />
+        )}
+        {direcaoSetaEfetiva === 'baixo' && (
+          <div className="absolute left-8 -bottom-2 h-4 w-4 rotate-45 border-b border-r border-[#e2e6ec] bg-white dark:border-slate-800 dark:bg-[#0e1525]" />
+        )}
+
+        {/* Topo do Balão: Área de Arrastar com indicador visual */}
+        <div
+          onMouseDown={iniciarArrasto}
+          onTouchStart={iniciarArrasto}
+          title="Clique e arraste este balão para qualquer lugar da tela"
+          className="flex items-center justify-between border-b border-[#edf1f7] pb-2.5 mb-2.5 dark:border-slate-800/80 cursor-grab active:cursor-grabbing hover:bg-slate-50 dark:hover:bg-slate-800/40 rounded-lg -mx-1 px-1 py-0.5 transition-colors"
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[#0b1830] text-xs font-bold text-white dark:bg-sky-500 dark:text-slate-950">
+              {passoAtual}
+            </span>
+            <h4 className="text-xs font-bold text-[#0b1830] dark:text-sky-400 truncate">
+              Tour Guiado: {titulo}
+            </h4>
           </div>
-
-          <p className="mt-2.5 text-xs text-slate-200 leading-relaxed font-normal">
-            {descricao}
-          </p>
-
-          {/* Dica de clique interativo automático */}
-          <div className="mt-2 flex items-center gap-1.5 text-[11px] text-sky-300 font-medium">
-            <Icone nome="info" className="h-3.5 w-3.5 shrink-0 text-sky-400" />
-            <span>A área de ação está normal e destacada; clique diretamente nela para interagir ou avance abaixo.</span>
-          </div>
-
-          <div className="mt-4 flex items-center justify-between gap-3 pt-2">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500">
+              Passo {passoAtual} de {totalPassos}
+            </span>
+            <div className="flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1" title="Arrastar balão">
+              <Icone nome="dotsVertical" className="h-3.5 w-3.5" />
+            </div>
             <button
               type="button"
               onClick={onFinalizar}
-              className="text-xs text-slate-400 hover:text-white transition-colors cursor-pointer"
+              title="Encerrar tour (ESC)"
+              className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
             >
-              Pular / Encerrar
+              <Icone nome="x" className="h-3.5 w-3.5" />
             </button>
+          </div>
+        </div>
 
-            <div className="flex items-center gap-2">
-              {passoAtual > 1 && (
-                <button
-                  type="button"
-                  onClick={onAnterior}
-                  className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-bold text-slate-200 hover:bg-slate-700 cursor-pointer"
-                >
-                  ← Anterior
-                </button>
-              )}
-              {passoAtual < totalPassos ? (
-                <button
-                  type="button"
-                  onClick={onProximo}
-                  className="rounded-xl bg-navy px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-navy/90 dark:bg-sky-600 dark:hover:bg-sky-500 transition-transform active:scale-95 cursor-pointer"
-                >
-                  Próximo Passo →
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={onFinalizar}
-                  className="rounded-xl bg-emerald-600 px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-500 transition-transform active:scale-95 cursor-pointer flex items-center gap-1"
-                >
-                  <Icone nome="check" className="h-3.5 w-3.5" />
-                  <span>Concluir Tour</span>
-                </button>
-              )}
-            </div>
+        {/* Descrição do Passo */}
+        <p className="mt-1 text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-normal">
+          {descricao}
+        </p>
+
+        {/* Dica de clique interativo na área normal */}
+        <div className="mt-2.5 flex items-center gap-2 rounded-xl bg-sky-50 dark:bg-sky-950/40 border border-sky-200/80 dark:border-sky-800/60 p-2 text-[11px] text-sky-800 dark:text-sky-300 font-medium">
+          <Icone nome="info" className="h-3.5 w-3.5 shrink-0 text-sky-600 dark:text-sky-400" />
+          <span>A área de ação está normal e destacada; clique diretamente nela para interagir ou avance abaixo.</span>
+        </div>
+
+        {/* Rodapé com Navegação */}
+        <div className="mt-3.5 flex items-center justify-between gap-2 pt-2 border-t border-[#edf1f7] dark:border-slate-800/80">
+          {posicaoManual ? (
+            <button
+              type="button"
+              onClick={() => setPosicaoManual(null)}
+              className="text-[11px] text-sky-600 hover:text-sky-800 dark:text-sky-400 dark:hover:text-sky-300 hover:underline cursor-pointer font-medium"
+            >
+              Colar ao elemento
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onFinalizar}
+              className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
+            >
+              Pular tour
+            </button>
+          )}
+
+          <div className="flex items-center gap-2">
+            {passoAtual > 1 && (
+              <button
+                type="button"
+                onClick={onAnterior}
+                className="rounded-xl border border-[#e2e6ec] bg-[#f6f7f9] px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 cursor-pointer transition-colors"
+              >
+                ← Anterior
+              </button>
+            )}
+            {passoAtual < totalPassos ? (
+              <button
+                type="button"
+                onClick={onProximo}
+                className="rounded-xl bg-[#0b1830] px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-[#152445] dark:bg-sky-500 dark:text-slate-950 dark:hover:bg-sky-400 transition-transform active:scale-95 cursor-pointer"
+              >
+                Próximo Passo →
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onFinalizar}
+                className="rounded-xl bg-emerald-600 px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-500 transition-transform active:scale-95 cursor-pointer flex items-center gap-1"
+              >
+                <Icone nome="check" className="h-3.5 w-3.5" />
+                <span>Concluir</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
