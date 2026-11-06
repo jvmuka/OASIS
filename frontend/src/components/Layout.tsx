@@ -73,14 +73,14 @@ export default function Layout() {
           .join(', ')
       : null;
 
-  // Renderizador de item de menu padronizado (Lettly style: 40px, cantos suaves, icones vibrantes)
+  // Renderizador de item de menu padronizado (Lettly style: botões amplos e confortáveis, 44px, ícones 20px nítidos)
   const item = (to: string, rotulo: string, icone: React.ComponentProps<typeof Icone>['nome']) => (
     <NavLink
       key={to}
       to={to}
       onClick={() => setMenuAberto(false)}
       className={({ isActive }) =>
-        'group flex items-center gap-3 rounded-xl px-3 py-2 text-xs font-semibold transition-all duration-150 ' +
+        'group flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-[13px] font-semibold min-h-[44px] transition-all duration-150 ' +
         (isActive
           ? 'bg-navy text-white shadow-xs font-bold dark:bg-sky-600 dark:text-white'
           : 'text-slate-600 hover:bg-[#f6f7f9] hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/60 dark:hover:text-slate-100')
@@ -90,7 +90,7 @@ export default function Layout() {
         <>
           <Icone
             nome={icone}
-            className={`h-4 w-4 shrink-0 transition-colors ${
+            className={`h-5 w-5 shrink-0 transition-colors ${
               isActive
                 ? 'text-white'
                 : 'text-slate-400 group-hover:text-slate-600 dark:text-slate-500 dark:group-hover:text-slate-300'
@@ -119,10 +119,10 @@ export default function Layout() {
       <button
         type="button"
         onClick={() => alternarSecao(chave)}
-        className="w-full flex items-center justify-between px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 hover:text-slate-700 hover:bg-[#f6f7f9] dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/60 rounded-lg transition-colors cursor-pointer select-none group"
+        className="w-full flex items-center justify-between px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 hover:text-slate-700 hover:bg-[#f6f7f9] dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/60 rounded-lg transition-colors cursor-pointer select-none group"
       >
-        <span className={`flex items-center gap-1.5 ${corBadge || ''}`}>
-          {icone && <Icone nome={icone} className="w-3.5 h-3.5" />}
+        <span className={`flex items-center gap-2 ${corBadge || ''}`}>
+          {icone && <Icone nome={icone} className="w-4 h-4" />}
           <span>{rotulo}</span>
         </span>
         <Icone
@@ -164,9 +164,9 @@ export default function Layout() {
           />
         )}
 
-        {/* SIDEBAR (Lettly Style: 270px, Workspace Switcher, Seções Agrupadas, Perfil Ancorado) */}
+        {/* SIDEBAR (Lettly Style: 305px, Workspace Switcher, Seções Agrupadas, Perfil Ancorado) */}
         <aside
-          className={`fixed inset-y-0 left-0 z-50 w-[270px] shrink-0 border-r border-[#e2e6ec] bg-white flex flex-col justify-between transition-transform duration-200 ease-in-out dark:border-slate-800 dark:bg-[#0e1525] ${
+          className={`fixed inset-y-0 left-0 z-50 w-[305px] shrink-0 border-r border-[#e2e6ec] bg-white flex flex-col justify-between transition-transform duration-200 ease-in-out dark:border-slate-800 dark:bg-[#0e1525] ${
             menuAberto ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
           } lg:sticky lg:top-0 lg:h-screen`}
         >
@@ -196,16 +196,28 @@ export default function Layout() {
               </button>
             </div>
 
-            {/* WORKSPACE SWITCHER CARD (Lettly style) */}
-            <div className="mt-3.5 p-2 rounded-xl bg-[#f6f7f9] dark:bg-slate-800/70 border border-[#e2e6ec] dark:border-slate-700/80">
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-navy dark:bg-sky-600 text-white shadow-2xs font-bold">
-                  <Icone nome="building" className="h-4 w-4" />
+            {/* WORKSPACE SWITCHER CARD (Lettly style - nome completo sem cortes) */}
+            <div className="mt-3.5 p-2.5 rounded-xl bg-[#f6f7f9] dark:bg-slate-800/70 border border-[#e2e6ec] dark:border-slate-700/80">
+              <div className="flex items-start gap-2.5">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-navy dark:bg-sky-600 text-white shadow-2xs font-bold mt-0.5">
+                  <Icone nome="building" className="h-5 w-5" />
                 </div>
 
                 <div className="flex-1 min-w-0">
                   {tipos.includes('SUPERADMIN') ? (
-                    <div className="relative">
+                    <div className="relative group">
+                      <div className="flex items-center justify-between gap-1 pr-1">
+                        <p
+                          className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-slate-100 leading-snug break-words"
+                          title={s.condominio?.nome || 'Condomínio Residencial OASIS'}
+                        >
+                          {s.condominio?.nome || 'Condomínio Residencial OASIS'}
+                        </p>
+                        <Icone
+                          nome="chevronDown"
+                          className="w-3.5 h-3.5 text-slate-400 shrink-0 pointer-events-none group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors"
+                        />
+                      </div>
                       <select
                         value={s.condominio?.id_condominio || 1}
                         onChange={async (e) => {
@@ -213,8 +225,8 @@ export default function Layout() {
                           await alternarCondominio(id);
                           window.location.reload();
                         }}
-                        className="w-full bg-transparent text-xs font-bold text-slate-900 dark:text-slate-100 outline-none cursor-pointer truncate pr-4 focus:ring-0"
-                        title="Alternar condomínio ativo"
+                        className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
+                        title="Clique para alternar o condomínio ativo"
                       >
                         {(
                           s.condominiosDisponiveis || [
@@ -230,16 +242,19 @@ export default function Layout() {
                           </option>
                         ))}
                       </select>
-                      <p className="text-[10px] text-navy dark:text-sky-400 font-semibold leading-tight">
-                        Superadmin • Alternar
+                      <p className="text-[10px] text-navy dark:text-sky-400 font-semibold leading-tight mt-0.5">
+                        Superadmin • Clique para alternar
                       </p>
                     </div>
                   ) : (
                     <div>
-                      <p className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate leading-tight">
-                        {s.condominio?.nome || 'Condomínio OASIS'}
+                      <p
+                        className="text-xs sm:text-[13px] font-bold text-slate-900 dark:text-slate-100 leading-snug break-words"
+                        title={s.condominio?.nome || 'Condomínio Residencial OASIS'}
+                      >
+                        {s.condominio?.nome || 'Condomínio Residencial OASIS'}
                       </p>
-                      <p className="text-[10px] text-slate-400 dark:text-slate-500 leading-tight mt-0.5">
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug mt-0.5 break-words">
                         {textoApto || 'Condomínio Ativo'}
                       </p>
                     </div>
@@ -250,12 +265,12 @@ export default function Layout() {
           </div>
 
           {/* Lista de Navegação Agrupada e Colapsável (Scrollável) */}
-          <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
+          <div className="flex-1 overflow-y-auto px-3.5 py-3 space-y-3.5">
             {/* GRUPO 1: VISÃO GERAL */}
             <div>
               <CabecalhoSecao chave="visaoGeral" rotulo="Visão Geral" />
               {secoesAbertas.visaoGeral && (
-                <div className="space-y-0.5 mt-1">{item(rotaInicial, 'Início', 'home')}</div>
+                <div className="space-y-1 mt-1.5">{item(rotaInicial, 'Início', 'home')}</div>
               )}
             </div>
 
@@ -269,7 +284,7 @@ export default function Layout() {
                   corBadge="text-navy dark:text-sky-400"
                 />
                 {secoesAbertas.superadmin && (
-                  <div className="space-y-0.5 mt-1">
+                  <div className="space-y-1 mt-1.5">
                     {item('/superadmin/condominios', 'Condomínios & Módulos', 'building')}
                     {item('/superadmin/estrutura', 'Estrutura Física & Vagas', 'layers')}
                     {item('/superadmin/pessoas', 'Pessoas & Administradoras', 'users')}
@@ -283,7 +298,7 @@ export default function Layout() {
               <div>
                 <CabecalhoSecao chave="morador" rotulo="Área do Morador" icone="users" />
                 {secoesAbertas.morador && (
-                  <div className="space-y-0.5 mt-1">
+                  <div className="space-y-1 mt-1.5">
                     {temModulo('RESERVAS_AREAS') && item('/morador/reservar', 'Nova Reserva', 'calendar')}
                     {temModulo('RESERVAS_AREAS') && item('/morador/reservas', 'Minhas Reservas', 'clock')}
                     {temModulo('CHAMADOS_OCORRENCIAS') && item('/morador/chamados', 'Abrir Chamado', 'wrench')}
@@ -300,7 +315,7 @@ export default function Layout() {
               <div>
                 <CabecalhoSecao chave="portaria" rotulo="Operações da Portaria" icone="building" />
                 {secoesAbertas.portaria && (
-                  <div className="space-y-0.5 mt-1">
+                  <div className="space-y-1 mt-1.5">
                     {item('/portaria/painel', 'Painel da Portaria', 'building')}
                     {temModulo('AREAS_LIVRES') && item('/portaria/areas-livres', 'Áreas de Uso Livre', 'clock')}
                     {temModulo('ENCOMENDAS_PACOTES') && item('/portaria/encomendas', 'Encomendas & Pacotes', 'package')}
@@ -316,7 +331,7 @@ export default function Layout() {
               <div>
                 <CabecalhoSecao chave="gestaoPredial" rotulo="Gestão Predial" icone="building" />
                 {secoesAbertas.gestaoPredial && (
-                  <div className="space-y-0.5 mt-1">
+                  <div className="space-y-1 mt-1.5">
                     {item('/sindico/painel', 'Painel Geral', 'home')}
                     {temModulo('CHAMADOS_OCORRENCIAS') && item('/sindico/chamados', 'Gestão de Chamados', 'wrench')}
                     {!tipos.includes('PORTEIRO') && item('/portaria/painel', 'Painel da Portaria', 'building')}
@@ -337,7 +352,7 @@ export default function Layout() {
               <div>
                 <CabecalhoSecao chave="comunicacao" rotulo="Comunicação" icone="megaphone" />
                 {secoesAbertas.comunicacao && (
-                  <div className="space-y-0.5 mt-1">{item('/mural', 'Mural do Condomínio', 'pin')}</div>
+                  <div className="space-y-1 mt-1.5">{item('/mural', 'Mural do Condomínio', 'pin')}</div>
                 )}
               </div>
             )}
