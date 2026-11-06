@@ -464,6 +464,7 @@ interface TourGuiadoProps {
   totalPassos: number;
   titulo: string;
   descricao: string;
+  alvoSelector?: string;
   onProximo: () => void;
   onAnterior: () => void;
   onFinalizar: () => void;
@@ -474,11 +475,59 @@ export function OverlayTourGuiado({
   totalPassos,
   titulo,
   descricao,
+  alvoSelector,
   onProximo,
   onAnterior,
   onFinalizar,
 }: TourGuiadoProps) {
   const [posicaoForcada, setPosicaoForcada] = useState<'topo' | 'rodape' | null>(null);
+  const [alvoRect, setAlvoRect] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
+
+  // Calcula e acompanha a posição do elemento alvo em tempo real na tela
+  useEffect(() => {
+    const calcularPosicao = () => {
+      if (!alvoSelector) {
+        setAlvoRect(null);
+        return;
+      }
+      const el = document.querySelector(alvoSelector);
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          setAlvoRect({
+            top: rect.top,
+            left: rect.left,
+            width: rect.width,
+            height: rect.height,
+          });
+          return;
+        }
+      }
+      setAlvoRect(null);
+    };
+
+    calcularPosicao();
+
+    // Rastreia durante o scroll suave inicial até o elemento
+    let frameId: number;
+    const tempoInicio = Date.now();
+    const animar = () => {
+      calcularPosicao();
+      if (Date.now() - tempoInicio < 800) {
+        frameId = requestAnimationFrame(animar);
+      }
+    };
+    frameId = requestAnimationFrame(animar);
+
+    window.addEventListener('scroll', calcularPosicao, { passive: true, capture: true });
+    window.addEventListener('resize', calcularPosicao);
+
+    return () => {
+      cancelAnimationFrame(frameId);
+      window.removeEventListener('scroll', calcularPosicao, true);
+      window.removeEventListener('resize', calcularPosicao);
+    };
+  }, [alvoSelector, passoAtual]);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -490,11 +539,73 @@ export function OverlayTourGuiado({
     return () => window.removeEventListener('keydown', handleKey);
   }, [onProximo, onAnterior, onFinalizar]);
 
-  const posEfetiva = posicaoForcada || (passoAtual >= 4 || passoAtual === totalPassos ? 'topo' : 'rodape');
+  // Posicionamento inteligente automático da barra:
+  // Se o elemento estiver na metade inferior da tela, posiciona a barra no topo
+  // Se o elemento estiver na metade superior, posiciona no rodapé para nunca cobrir o elemento
+  const posAutomatica = alvoRect
+    ? (alvoRect.top > (window.innerHeight / 2) ? 'topo' : 'rodape')
+    : (passoAtual >= 3 ? 'topo' : 'rodape');
+
+  const posEfetiva = posicaoForcada || posAutomatica;
+
+  const PADDING = 8;
+  const RAIO = 12;
 
   return createPortal(
     <div className="fixed inset-0 z-[100] pointer-events-none">
-      {/* Barra de Controle com posicionamento dinâmico inteligente */}
+      {/* 1. Backdrop escuro com recorte (cutout): fora da área escurece, e onde clica fica 100% normal e visível */}
+      <svg
+        className="fixed inset-0 w-full h-full pointer-events-none z-[90] transition-opacity duration-300"
+        style={{ width: '100vw', height: '100vh' }}
+      >
+        <defs>
+          <mask id="tour-spotlight-cutout" maskUnits="userSpaceOnUse">
+            {/* Camada branca = toda a tela escurece */}
+            <rect x="0" y="0" width="100%" height="100%" fill="#ffffff" />
+
+            {/* Recorte preto = buraco transparente onde o elemento original permanece 100% visível e normal */}
+            {alvoRect && (
+              <rect
+                x={Math.max(0, alvoRect.left - PADDING)}
+                y={Math.max(0, alvoRect.top - PADDING)}
+                width={alvoRect.width + PADDING * 2}
+                height={alvoRect.height + PADDING * 2}
+                rx={RAIO}
+                ry={RAIO}
+                fill="#000000"
+              />
+            )}
+          </mask>
+        </defs>
+
+        {/* Retângulo escuro corporativo (Deep Navy #0b1830 com opacidade suave) aplicado com o recorte */}
+        <rect
+          x="0"
+          y="0"
+          width="100%"
+          height="100%"
+          fill="rgba(11, 24, 48, 0.74)"
+          mask="url(#tour-spotlight-cutout)"
+        />
+
+        {/* Borda destacada sutil contornando o elemento ativo para máxima clareza */}
+        {alvoRect && (
+          <rect
+            x={Math.max(0, alvoRect.left - PADDING)}
+            y={Math.max(0, alvoRect.top - PADDING)}
+            width={alvoRect.width + PADDING * 2}
+            height={alvoRect.height + PADDING * 2}
+            rx={RAIO}
+            ry={RAIO}
+            fill="none"
+            stroke="#0284c7"
+            strokeWidth={3}
+            className="animate-pulse"
+          />
+        )}
+      </svg>
+
+      {/* 2. Barra de Controle Flutuante com posicionamento dinâmico inteligente */}
       <div
         className={`fixed left-1/2 transform -translate-x-1/2 w-full max-w-lg px-4 pointer-events-auto transition-all duration-300 ease-out z-[100] ${
           posEfetiva === 'topo' ? 'top-6' : 'bottom-6'
@@ -533,7 +644,7 @@ export function OverlayTourGuiado({
           {/* Dica de clique interativo automático */}
           <div className="mt-2 flex items-center gap-1.5 text-[11px] text-sky-300 font-medium">
             <Icone nome="info" className="h-3.5 w-3.5 shrink-0 text-sky-400" />
-            <span>O elemento correspondente está destacado na tela em azul.</span>
+            <span>A área de ação está normal e destacada; clique diretamente nela para interagir ou avance abaixo.</span>
           </div>
 
           <div className="mt-4 flex items-center justify-between gap-3 pt-2">

@@ -124,6 +124,7 @@ export function BotaoAjudaContexto({ ajudaKey, className = '' }: BotaoAjudaConte
           totalPassos={dadosAjuda.passoAPasso.length}
           titulo={dadosAjuda.passoAPasso[passoTour - 1]?.titulo || 'Passo a Passo'}
           descricao={dadosAjuda.passoAPasso[passoTour - 1]?.descricao || ''}
+          alvoSelector={dadosAjuda.passoAPasso[passoTour - 1]?.alvoSelector}
           onProximo={proximoPassoTour}
           onAnterior={anteriorPassoTour}
           onFinalizar={() => setTourAtivo(false)}

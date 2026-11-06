@@ -102,20 +102,6 @@ input::-ms-clear {
 /* Efeito de destaque para o Tour Guiado na tela real */
 .tour-spotlight-active {
   position: relative !important;
-  z-index: 40 !important;
-  outline: 4px solid #0284c7 !important;
-  outline-offset: 4px !important;
-  box-shadow: 0 0 25px rgba(2, 132, 199, 0.45) !important;
-  animation: tourPulse 1.8s infinite alternate !important;
-}
-
-@keyframes tourPulse {
-  0% {
-    outline-color: #38bdf8;
-    box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
-  }
-  100% {
-    outline-color: #0284c7;
-    box-shadow: 0 0 35px rgba(2, 132, 199, 0.85);
-  }
+  z-index: 95 !important;
+  transition: all 0.2s ease !important;
 }
