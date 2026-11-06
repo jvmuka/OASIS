@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { painelInicial, sessaoAtual, sair, alternarCondominio } from '../api';
 import { useModulos } from '../contexts/ModulosContext';
@@ -8,7 +8,7 @@ import BotaoModoEscuro from './BotaoModoEscuro';
 /**
  * Layout Principal do Sistema OASIS
  * Inspirado no Design System do Lettly (Rental Property Management SaaS)
- * - Sidebar estruturada (270px) com Workspace Switcher e grupos temáticos
+ * - Sidebar estruturada (270px) com Workspace Switcher e grupos temáticos colapsáveis
  * - Topbar limpa com breadcrumbs, status do condomínio e busca
  * - Rodapé com card de perfil de usuário e atalhos rápidos
  */
@@ -18,6 +18,39 @@ export default function Layout() {
   const [menuAberto, setMenuAberto] = useState(false);
   const { temModulo } = useModulos();
   const s = sessaoAtual();
+
+  // Estado para recolher/expandir os grupos de módulos de cada tipo de perfil
+  const [secoesAbertas, setSecoesAbertas] = useState<Record<string, boolean>>({
+    visaoGeral: true,
+    superadmin: true,
+    morador: true,
+    portaria: true,
+    gestaoPredial: true,
+    comunicacao: true,
+  });
+
+  const alternarSecao = (chave: string) => {
+    setSecoesAbertas((prev) => ({
+      ...prev,
+      [chave]: !prev[chave],
+    }));
+  };
+
+  // Garante que o grupo da rota ativa esteja sempre visível e expandido automaticamente
+  useEffect(() => {
+    const p = location.pathname;
+    if (p.startsWith('/superadmin')) {
+      setSecoesAbertas((prev) => ({ ...prev, superadmin: true }));
+    } else if (p.startsWith('/morador')) {
+      setSecoesAbertas((prev) => ({ ...prev, morador: true }));
+    } else if (p.startsWith('/portaria')) {
+      setSecoesAbertas((prev) => ({ ...prev, portaria: true, gestaoPredial: true }));
+    } else if (p.startsWith('/sindico')) {
+      setSecoesAbertas((prev) => ({ ...prev, gestaoPredial: true }));
+    } else if (p.startsWith('/mural')) {
+      setSecoesAbertas((prev) => ({ ...prev, comunicacao: true, morador: true }));
+    }
+  }, [location.pathname]);
 
   if (!s) return null;
   const tipos = s.perfis.map((p) => p.tipo);
@@ -69,6 +102,39 @@ export default function Layout() {
     </NavLink>
   );
 
+  // Cabeçalho de seção interativo (expande e recolhe ao clique)
+  const CabecalhoSecao = ({
+    chave,
+    rotulo,
+    icone,
+    corBadge,
+  }: {
+    chave: string;
+    rotulo: string;
+    icone?: React.ComponentProps<typeof Icone>['nome'];
+    corBadge?: string;
+  }) => {
+    const aberto = secoesAbertas[chave] ?? true;
+    return (
+      <button
+        type="button"
+        onClick={() => alternarSecao(chave)}
+        className="w-full flex items-center justify-between px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 hover:text-slate-700 hover:bg-[#f6f7f9] dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/60 rounded-lg transition-colors cursor-pointer select-none group"
+      >
+        <span className={`flex items-center gap-1.5 ${corBadge || ''}`}>
+          {icone && <Icone nome={icone} className="w-3.5 h-3.5" />}
+          <span>{rotulo}</span>
+        </span>
+        <Icone
+          nome="chevronDown"
+          className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
+            aberto ? 'rotate-0' : '-rotate-90'
+          }`}
+        />
+      </button>
+    );
+  };
+
   // Mapeamento de títulos para o Breadcrumb do Topbar
   const obterTituloPagina = () => {
     const p = location.pathname;
@@ -104,26 +170,27 @@ export default function Layout() {
             menuAberto ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
           } lg:sticky lg:top-0 lg:h-screen`}
         >
-          {/* Topo da Sidebar: Logo + Workspace Switcher */}
+          {/* Topo da Sidebar: Logo Centralizada + Workspace Switcher */}
           <div className="p-4 pb-2 border-b border-slate-100 dark:border-slate-800/80">
-            <div className="flex items-center justify-between">
-              <Link to={rotaInicial} className="flex items-center gap-2 group" title="Ir para o início">
+            <div className="relative flex items-center justify-center py-1">
+              <Link to={rotaInicial} className="flex items-center justify-center group" title="Ir para o início">
                 <img
                   src="/logos/logo-deitada-navy.png"
                   alt="OASIS"
-                  className="h-7 w-auto object-contain dark:hidden transition-transform duration-150 group-hover:scale-[1.02]"
+                  className="h-8 w-auto object-contain dark:hidden transition-transform duration-150 group-hover:scale-[1.02]"
                 />
                 <img
                   src="/logos/logo-deitada-sky.png"
                   alt="OASIS"
-                  className="h-7 w-auto object-contain hidden dark:block transition-transform duration-150 group-hover:scale-[1.02]"
+                  className="h-8 w-auto object-contain hidden dark:block transition-transform duration-150 group-hover:scale-[1.02]"
                 />
               </Link>
 
               <button
                 type="button"
                 onClick={() => setMenuAberto(false)}
-                className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="lg:hidden absolute right-0 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                aria-label="Fechar menu"
               >
                 <Icone nome="x" className="w-5 h-5" />
               </button>
@@ -182,92 +249,96 @@ export default function Layout() {
             </div>
           </div>
 
-            {/* Lista de Navegação Agrupada (Scrollável) */}
-            <div className="flex-1 overflow-y-auto px-3 py-3 space-y-4">
+          {/* Lista de Navegação Agrupada e Colapsável (Scrollável) */}
+          <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
             {/* GRUPO 1: VISÃO GERAL */}
             <div>
-              <p className="px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                Visão Geral
-              </p>
-              <div className="space-y-0.5">{item(rotaInicial, 'Início', 'home')}</div>
+              <CabecalhoSecao chave="visaoGeral" rotulo="Visão Geral" />
+              {secoesAbertas.visaoGeral && (
+                <div className="space-y-0.5 mt-1">{item(rotaInicial, 'Início', 'home')}</div>
+              )}
             </div>
 
             {/* GRUPO 2: SUPERADMIN */}
             {tipos.includes('SUPERADMIN') && (
               <div>
-                <p className="px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 flex items-center gap-1.5">
-                  <Icone nome="shield" className="w-3 h-3" />
-                  Superadmin Master
-                </p>
-                <div className="space-y-0.5">
-                  {item('/superadmin/condominios', 'Condomínios & Módulos', 'building')}
-                  {item('/superadmin/estrutura', 'Estrutura Física & Vagas', 'layers')}
-                  {item('/superadmin/pessoas', 'Pessoas & Administradoras', 'users')}
-                </div>
+                <CabecalhoSecao
+                  chave="superadmin"
+                  rotulo="Superadmin Master"
+                  icone="shield"
+                  corBadge="text-purple-600 dark:text-purple-400"
+                />
+                {secoesAbertas.superadmin && (
+                  <div className="space-y-0.5 mt-1">
+                    {item('/superadmin/condominios', 'Condomínios & Módulos', 'building')}
+                    {item('/superadmin/estrutura', 'Estrutura Física & Vagas', 'layers')}
+                    {item('/superadmin/pessoas', 'Pessoas & Administradoras', 'users')}
+                  </div>
+                )}
               </div>
             )}
 
             {/* GRUPO 3: MORADOR */}
             {tipos.includes('MORADOR') && (
               <div>
-                <p className="px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                  Área do Morador
-                </p>
-                <div className="space-y-0.5">
-                  {temModulo('RESERVAS_AREAS') && item('/morador/reservar', 'Nova Reserva', 'calendar')}
-                  {temModulo('RESERVAS_AREAS') && item('/morador/reservas', 'Minhas Reservas', 'clock')}
-                  {temModulo('CHAMADOS_OCORRENCIAS') && item('/morador/chamados', 'Abrir Chamado', 'wrench')}
-                  {temModulo('ENCOMENDAS_PACOTES') && item('/morador/encomendas', 'Minhas Encomendas', 'package')}
-                  {temModulo('DEPENDENTES_FAMILIA') && item('/morador/familia', 'Minha Família', 'users')}
-                  {temModulo('MURAL_AVISOS') && item('/mural', 'Mural de Avisos', 'pin')}
-                </div>
+                <CabecalhoSecao chave="morador" rotulo="Área do Morador" icone="users" />
+                {secoesAbertas.morador && (
+                  <div className="space-y-0.5 mt-1">
+                    {temModulo('RESERVAS_AREAS') && item('/morador/reservar', 'Nova Reserva', 'calendar')}
+                    {temModulo('RESERVAS_AREAS') && item('/morador/reservas', 'Minhas Reservas', 'clock')}
+                    {temModulo('CHAMADOS_OCORRENCIAS') && item('/morador/chamados', 'Abrir Chamado', 'wrench')}
+                    {temModulo('ENCOMENDAS_PACOTES') && item('/morador/encomendas', 'Minhas Encomendas', 'package')}
+                    {temModulo('DEPENDENTES_FAMILIA') && item('/morador/familia', 'Minha Família', 'users')}
+                    {temModulo('MURAL_AVISOS') && item('/mural', 'Mural de Avisos', 'pin')}
+                  </div>
+                )}
               </div>
             )}
 
             {/* GRUPO 4: PORTARIA */}
             {tipos.includes('PORTEIRO') && (
               <div>
-                <p className="px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                  Operações da Portaria
-                </p>
-                <div className="space-y-0.5">
-                  {item('/portaria/painel', 'Painel da Portaria', 'building')}
-                  {temModulo('AREAS_LIVRES') && item('/portaria/areas-livres', 'Áreas de Uso Livre', 'clock')}
-                  {temModulo('ENCOMENDAS_PACOTES') && item('/portaria/encomendas', 'Encomendas & Pacotes', 'package')}
-                  {temModulo('CONTROLE_CHAVES') && item('/portaria/chaves', 'Controle de Chaves', 'key')}
-                  {item('/sindico/pessoas', 'Pessoas & Cadastros', 'users')}
-                </div>
+                <CabecalhoSecao chave="portaria" rotulo="Operações da Portaria" icone="building" />
+                {secoesAbertas.portaria && (
+                  <div className="space-y-0.5 mt-1">
+                    {item('/portaria/painel', 'Painel da Portaria', 'building')}
+                    {temModulo('AREAS_LIVRES') && item('/portaria/areas-livres', 'Áreas de Uso Livre', 'clock')}
+                    {temModulo('ENCOMENDAS_PACOTES') && item('/portaria/encomendas', 'Encomendas & Pacotes', 'package')}
+                    {temModulo('CONTROLE_CHAVES') && item('/portaria/chaves', 'Controle de Chaves', 'key')}
+                    {item('/sindico/pessoas', 'Pessoas & Cadastros', 'users')}
+                  </div>
+                )}
               </div>
             )}
 
             {/* GRUPO 5: ADMINISTRAÇÃO & GESTÃO PREDIAL */}
             {(tipos.includes('SINDICO') || tipos.includes('ADMINISTRADOR') || tipos.includes('SUPERADMIN')) && (
               <div>
-                <p className="px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                  Gestão Predial
-                </p>
-                <div className="space-y-0.5">
-                  {item('/sindico/painel', 'Painel Geral', 'home')}
-                  {temModulo('CHAMADOS_OCORRENCIAS') && item('/sindico/chamados', 'Gestão de Chamados', 'wrench')}
-                  {!tipos.includes('PORTEIRO') && item('/portaria/painel', 'Painel da Portaria', 'building')}
-                  {!tipos.includes('PORTEIRO') &&
-                    temModulo('AREAS_LIVRES') &&
-                    item('/portaria/areas-livres', 'Áreas de Uso Livre', 'clock')}
-                  {temModulo('CONTROLE_CHAVES') && item('/portaria/chaves', 'Controle de Chaves', 'key')}
-                  {temModulo('RESERVAS_AREAS') && item('/sindico/areas', 'Áreas Comuns', 'building')}
-                  {item('/sindico/pessoas', 'Pessoas & Unidades', 'users')}
-                  {temModulo('MURAL_AVISOS') && item('/sindico/avisos', 'Publicar Avisos', 'megaphone')}
-                </div>
+                <CabecalhoSecao chave="gestaoPredial" rotulo="Gestão Predial" icone="building" />
+                {secoesAbertas.gestaoPredial && (
+                  <div className="space-y-0.5 mt-1">
+                    {item('/sindico/painel', 'Painel Geral', 'home')}
+                    {temModulo('CHAMADOS_OCORRENCIAS') && item('/sindico/chamados', 'Gestão de Chamados', 'wrench')}
+                    {!tipos.includes('PORTEIRO') && item('/portaria/painel', 'Painel da Portaria', 'building')}
+                    {!tipos.includes('PORTEIRO') &&
+                      temModulo('AREAS_LIVRES') &&
+                      item('/portaria/areas-livres', 'Áreas de Uso Livre', 'clock')}
+                    {temModulo('CONTROLE_CHAVES') && item('/portaria/chaves', 'Controle de Chaves', 'key')}
+                    {temModulo('RESERVAS_AREAS') && item('/sindico/areas', 'Áreas Comuns', 'building')}
+                    {item('/sindico/pessoas', 'Pessoas & Unidades', 'users')}
+                    {temModulo('MURAL_AVISOS') && item('/sindico/avisos', 'Publicar Avisos', 'megaphone')}
+                  </div>
+                )}
               </div>
             )}
 
             {/* GRUPO 6: COMUNICAÇÃO GERAL */}
             {!tipos.includes('MORADOR') && temModulo('MURAL_AVISOS') && (
               <div>
-                <p className="px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                  Comunicação
-                </p>
-                <div className="space-y-0.5">{item('/mural', 'Mural do Condomínio', 'pin')}</div>
+                <CabecalhoSecao chave="comunicacao" rotulo="Comunicação" icone="megaphone" />
+                {secoesAbertas.comunicacao && (
+                  <div className="space-y-0.5 mt-1">{item('/mural', 'Mural do Condomínio', 'pin')}</div>
+                )}
               </div>
             )}
           </div>
