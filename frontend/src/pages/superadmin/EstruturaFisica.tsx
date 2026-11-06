@@ -684,7 +684,7 @@ export default function EstruturaFisica({
         </div>
 
         {!somenteLeitura && (
-          <div className="flex items-center gap-2 flex-wrap">
+          <div id="tour-super-estrutura-acoes" className="flex items-center gap-2 flex-wrap">
             <Botao
               variante="primario"
               onClick={() => {
@@ -747,7 +747,7 @@ export default function EstruturaFisica({
 
       {/* Cards de Métricas / Resumo */}
       {dados && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div id="tour-super-estrutura-kpis" className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <Cartao className="flex items-center justify-between p-5 border border-[#e2e6ec] dark:border-slate-800 rounded-2xl shadow-2xs hover:shadow-card hover:-translate-y-0.5 transition-all">
             <div>
               <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Total de Blocos</p>
@@ -805,7 +805,7 @@ export default function EstruturaFisica({
       {/* Navegação entre Blocos (Abas) */}
       {dados && dados.blocos.length > 0 && (
         <div className="space-y-4">
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-[#e2e6ec] dark:border-slate-800">
+          <div id="tour-super-estrutura-blocos" className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-[#e2e6ec] dark:border-slate-800">
             {dados.blocos.map(b => {
               const ativo = blocoSelecionado?.id_bloco === b.id_bloco;
               return (
@@ -967,7 +967,7 @@ export default function EstruturaFisica({
                   }
                 />
               ) : (
-                <div className="space-y-6">
+                <div id="tour-super-estrutura-andares" className="space-y-6">
                   {/* Agrupa as unidades do bloco por andar */}
                   {Array.from(new Set(blocoSelecionado.unidades.map(u => u.andar)))
                     .sort((a, b) => b - a) // Mostra andares superiores no topo

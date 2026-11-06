@@ -224,21 +224,23 @@ export default function PublicarAviso() {
         sub="Crie comunicados oficiais, controle avisos de portaria e consulte o histórico de publicações do mural."
         icone={<Icone nome="megaphone" className="h-5 w-5" />}
         acao={
-          <Botao
-            variante="primario"
-            icone={<Icone nome="plus" className="h-4 w-4" />}
-            onClick={() => {
-              setTitulo('');
-              setConteudo('');
-              setDataPublicacao('');
-              setDataExpiracao('');
-              setFixado(false);
-              setAnexo(null);
-              setModalAberto(true);
-            }}
-          >
-            Novo Comunicado
-          </Botao>
+          <div id="tour-avisos-form">
+            <Botao
+              variante="primario"
+              icone={<Icone nome="plus" className="h-4 w-4" />}
+              onClick={() => {
+                setTitulo('');
+                setConteudo('');
+                setDataPublicacao('');
+                setDataExpiracao('');
+                setFixado(false);
+                setAnexo(null);
+                setModalAberto(true);
+              }}
+            >
+              Novo Comunicado
+            </Botao>
+          </div>
         }
       >
         Mural de Avisos & Comunicados
@@ -247,7 +249,7 @@ export default function PublicarAviso() {
       {msg.t && <Mensagem tipo={msg.tipo} texto={msg.t} aoFechar={() => setMsg({ t: '', tipo: 'ok' })} />}
 
       {/* Abas Superiores de Categoria (Padrão Lettly SaaS) */}
-      <div className="flex flex-wrap gap-2 border-b border-[#e2e6ec] dark:border-slate-800 pb-3">
+      <div id="tour-avisos-alvo" className="flex flex-wrap gap-2 border-b border-[#e2e6ec] dark:border-slate-800 pb-3">
         <button
           type="button"
           onClick={() => {
@@ -405,7 +407,7 @@ export default function PublicarAviso() {
       </Cartao>
 
       {/* Seção de Comunicados (Cards com Chevron Expansível e Paginação) */}
-      <div className="space-y-4">
+      <div id="tour-avisos-enviar" className="space-y-4">
         <div className="flex items-center justify-between pb-1">
           <div>
             <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100">

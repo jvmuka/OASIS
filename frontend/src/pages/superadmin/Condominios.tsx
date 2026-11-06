@@ -236,15 +236,17 @@ export default function CondominiosSuperadmin() {
         sub="Cadastre e gerencie múltiplos condomínios contratantes na arquitetura SaaS do OASIS."
         ajudaKey="/superadmin/condominios"
         acao={
-          <Botao
-            type="button"
-            variante="primario"
-            onClick={abrirModalCriar}
-            className="flex items-center gap-2 shadow-sm"
-          >
-            <Icone nome="plus" className="w-4 h-4" />
-            <span>Novo Condomínio</span>
-          </Botao>
+          <div id="tour-super-condominios-novo">
+            <Botao
+              type="button"
+              variante="primario"
+              onClick={abrirModalCriar}
+              className="flex items-center gap-2 shadow-sm"
+            >
+              <Icone nome="plus" className="w-4 h-4" />
+              <span>Novo Condomínio</span>
+            </Botao>
+          </div>
         }
       >
         Gestão de Condomínios (Multi-Tenancy)
@@ -294,8 +296,8 @@ export default function CondominiosSuperadmin() {
           <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">Nenhum condomínio cadastrado</h3>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {condominios.map((c) => {
+        <div id="tour-super-condominios-cards" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {condominios.map((c, idx) => {
             const ehAtivoNaSessao = c.id_condominio === idCondominioAtivo;
 
             return (
@@ -365,15 +367,17 @@ export default function CondominiosSuperadmin() {
                       <span>Editar</span>
                     </button>
 
-                    <button
-                      type="button"
-                      onClick={() => abrirModalModulos(c)}
-                      className="text-xs font-semibold px-2 py-1 rounded-lg border border-purple-200 dark:border-purple-800 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/40 flex items-center gap-1 transition-colors"
-                      title="Gerenciar módulos habilitados para este condomínio"
-                    >
-                      <Icone nome="wrench" className="w-3.5 h-3.5" />
-                      <span>Módulos</span>
-                    </button>
+                    <div {...(idx === 0 ? { id: 'tour-super-condominios-modulos' } : {})}>
+                      <button
+                        type="button"
+                        onClick={() => abrirModalModulos(c)}
+                        className="text-xs font-semibold px-2 py-1 rounded-lg border border-purple-200 dark:border-purple-800 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/40 flex items-center gap-1 transition-colors"
+                        title="Gerenciar módulos habilitados para este condomínio"
+                      >
+                        <Icone nome="wrench" className="w-3.5 h-3.5" />
+                        <span>Módulos</span>
+                      </button>
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-2">

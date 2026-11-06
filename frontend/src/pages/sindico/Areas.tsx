@@ -1241,36 +1241,38 @@ export default function Areas() {
             >
               Agendar Manutenção
             </Botao>
-            <Botao
-              variante="primario"
-              icone={<Icone nome="plus" className="h-4 w-4" />}
-              onClick={() => {
-                setForm({
-                  nome: '',
-                  descricao: '',
-                  capacidade: 10,
-                  tipo_acesso: 'LIVRE',
-                  tipo_uso: 'RESERVAVEL',
-                  duracao_slot_min: 60,
-                  antecedencia_minima_horas: 24,
-                  antecedencia_maxima_dias: 30,
-                  prazo_cancelamento_horas: 24,
-                  limite_reservas_semana: 2,
-                  tipo_limite_reserva: 'SEMANAL',
-                  max_unidades_simultaneas: 1,
-                  modalidade: 'HORARIOS',
-                  reserva_por_dia: false,
-                  requer_reserva: true,
-                  valor: 0,
-                  exige_chave: false,
-                  codigo_chave: '',
-                });
-                if (fileInputCriar.current) fileInputCriar.current.value = '';
-                setModalCriarAberto(true);
-              }}
-            >
-              Cadastrar Espaço
-            </Botao>
+            <div id="tour-sindico-areas-nova">
+              <Botao
+                variante="primario"
+                icone={<Icone nome="plus" className="h-4 w-4" />}
+                onClick={() => {
+                  setForm({
+                    nome: '',
+                    descricao: '',
+                    capacidade: 10,
+                    tipo_acesso: 'LIVRE',
+                    tipo_uso: 'RESERVAVEL',
+                    duracao_slot_min: 60,
+                    antecedencia_minima_horas: 24,
+                    antecedencia_maxima_dias: 30,
+                    prazo_cancelamento_horas: 24,
+                    limite_reservas_semana: 2,
+                    tipo_limite_reserva: 'SEMANAL',
+                    max_unidades_simultaneas: 1,
+                    modalidade: 'HORARIOS',
+                    reserva_por_dia: false,
+                    requer_reserva: true,
+                    valor: 0,
+                    exige_chave: false,
+                    codigo_chave: '',
+                  });
+                  if (fileInputCriar.current) fileInputCriar.current.value = '';
+                  setModalCriarAberto(true);
+                }}
+              >
+                Cadastrar Espaço
+              </Botao>
+            </div>
           </div>
         }
       >
@@ -1287,7 +1289,8 @@ export default function Areas() {
       </div>
 
       {/* Tabela de Áreas Ativas em Largura Total */}
-      <Cartao>
+      <div id="tour-sindico-areas-lista">
+        <Cartao>
         <div className="mb-4 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
           <div>
             <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Espaços Cadastrados</h3>
@@ -1350,6 +1353,7 @@ export default function Areas() {
           onMudarPagina={setPaginaAtivas}
         />
       </Cartao>
+      </div>
 
       {/* Bloco de Áreas Inativas: esmaecido, deixando claro que os dados foram preservados */}
       {areasInativas.length > 0 && (
@@ -1398,7 +1402,8 @@ export default function Areas() {
       )}
 
       {/* Tabela de Manutenções e Bloqueios Agendados */}
-      <Cartao>
+      <div id="tour-sindico-areas-regras">
+        <Cartao>
         <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
           <div>
             <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
@@ -1591,6 +1596,7 @@ export default function Areas() {
           onMudarPagina={setPaginaBloqueios}
         />
       </Cartao>
+      </div>
 
       {/* Modal de Agendamento de Manutenção (Design System UI/UX Pro Max) */}
       <Modal

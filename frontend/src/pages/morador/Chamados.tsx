@@ -267,6 +267,7 @@ export default function MoradorChamados() {
         ajudaKey="/morador/chamados"
         acao={
           <Botao
+            id="tour-chamados-btn-novo"
             variante="primario"
             onClick={abrirModalNovo}
             className="flex items-center gap-2 shadow-sm"
@@ -297,7 +298,7 @@ export default function MoradorChamados() {
       </div>
 
       {/* Abas de Navegação / Filtros (Padrão Lettly SaaS) */}
-      <div className="flex items-center gap-2 border-b border-[#e2e6ec] dark:border-slate-800 pb-3 overflow-x-auto">
+      <div id="tour-chamados-kpis" className="flex items-center gap-2 border-b border-[#e2e6ec] dark:border-slate-800 pb-3 overflow-x-auto">
         <button
           onClick={() => setFiltroAba('ABERTOS')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
@@ -388,7 +389,7 @@ export default function MoradorChamados() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div id="tour-chamados-lista" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {chamadosFiltrados.map((c) => {
             const cat = CATEGORIAS_CONFIG[c.categoria] || CATEGORIAS_CONFIG.OUTROS;
             const st = STATUS_CONFIG[c.status] || STATUS_CONFIG.EM_ANALISE;

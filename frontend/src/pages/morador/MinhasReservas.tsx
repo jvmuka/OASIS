@@ -190,7 +190,7 @@ export default function MinhasReservas() {
       {/* Barra de Filtros: Status e Área Comum */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         {/* Abas de Status com contadores */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div id="tour-minhas-reservas-ativas" className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => mudarFiltroStatus('FUTURAS')}
@@ -307,7 +307,7 @@ export default function MinhasReservas() {
           />
         ) : (
           <div className="space-y-3">
-            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+            <div id="tour-minhas-reservas-historico" className="divide-y divide-slate-100 dark:divide-slate-800">
               {reservasPaginadas.map(r => {
                 const st = obterStatusReserva(r);
                 return (
@@ -337,6 +337,7 @@ export default function MinhasReservas() {
 
                       {st.podeCancelar && (
                         <Botao
+                          id="tour-minhas-reservas-cancelar"
                           variante="perigo"
                           tamanho="sm"
                           icone={<Icone nome="trash" className="h-3.5 w-3.5" />}

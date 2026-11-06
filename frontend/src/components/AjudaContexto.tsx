@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
 import { obterAjudaPorRota, AjudaTela } from '../config/ajudaContextoConfig';
 import { Icone } from './ui';
-import { SimuladorAnimadoReserva, OverlayTourGuiado } from './GuiaInterativoReserva';
+import { SimuladorAnimadoUniversal, OverlayTourGuiado } from './GuiaInterativoReserva';
 
 interface BotaoAjudaContextoProps {
   ajudaKey?: string;
@@ -112,8 +112,9 @@ export function BotaoAjudaContexto({ ajudaKey, className = '' }: BotaoAjudaConte
       {modalAberto && (
         <ModalAjudaContexto
           dados={dadosAjuda}
+          rota={location.pathname}
           fechar={() => setModalAberto(false)}
-          onIniciarTour={dadosAjuda.temTourAnimado ? iniciarTour : undefined}
+          onIniciarTour={dadosAjuda.passoAPasso && dadosAjuda.passoAPasso.length > 0 ? iniciarTour : undefined}
         />
       )}
 
@@ -134,11 +135,12 @@ export function BotaoAjudaContexto({ ajudaKey, className = '' }: BotaoAjudaConte
 
 interface ModalAjudaContextoProps {
   dados: AjudaTela;
+  rota?: string;
   fechar: () => void;
   onIniciarTour?: () => void;
 }
 
-export function ModalAjudaContexto({ dados, fechar, onIniciarTour }: ModalAjudaContextoProps) {
+export function ModalAjudaContexto({ dados, rota = '', fechar, onIniciarTour }: ModalAjudaContextoProps) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') fechar();
@@ -207,10 +209,10 @@ export function ModalAjudaContexto({ dados, fechar, onIniciarTour }: ModalAjudaC
             <p className="leading-relaxed">{dados.resumo}</p>
           </div>
 
-          {/* Se a tela possuir Guia Animado, exibe o Simulador Interativo */}
-          {dados.temTourAnimado && (
+          {/* Simulador Interativo Universal */}
+          {dados.passoAPasso && dados.passoAPasso.length > 0 && (
             <div className="space-y-3">
-              <SimuladorAnimadoReserva />
+              <SimuladorAnimadoUniversal passos={dados.passoAPasso} tituloTela={dados.titulo} rota={rota} />
               {onIniciarTour && (
                 <button
                   type="button"

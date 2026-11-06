@@ -391,8 +391,8 @@ export default function Chaves() {
         />
       ) : (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {chavesPaginadas.map(c => {
+          <div id="tour-chaves-painel" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {chavesPaginadas.map((c, idx) => {
             const disponivel = c.status === 'DISPONIVEL';
             const atrasada = !disponivel && !!c.alerta_24h;
             return (
@@ -501,29 +501,33 @@ export default function Chaves() {
                 {/* Ações */}
                 <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end">
                   {disponivel ? (
-                    <Botao
-                      variante="claro"
-                      tamanho="sm"
-                      className="w-full justify-center"
-                      icone={<Icone nome="key" className="h-3.5 w-3.5" />}
-                      onClick={() => {
-                        setEmprestando(c);
-                        setSolicitante('');
-                      }}
-                    >
-                      Emprestar Chave
-                    </Botao>
-                  ) : (
-                    c.id_entrega_chave && (
+                    <div id="tour-chaves-emprestar" className="w-full">
                       <Botao
-                        variante="sucesso"
+                        variante="claro"
                         tamanho="sm"
                         className="w-full justify-center"
-                        icone={<Icone nome="check" className="h-3.5 w-3.5" />}
-                        onClick={() => devolver(c.id_entrega_chave!, c.codigo)}
+                        icone={<Icone nome="key" className="h-3.5 w-3.5" />}
+                        onClick={() => {
+                          setEmprestando(c);
+                          setSolicitante('');
+                        }}
                       >
-                        Registrar Devolução
+                        Emprestar Chave
                       </Botao>
+                    </div>
+                  ) : (
+                    c.id_entrega_chave && (
+                      <div id="tour-chaves-devolver" className="w-full">
+                        <Botao
+                          variante="sucesso"
+                          tamanho="sm"
+                          className="w-full justify-center"
+                          icone={<Icone nome="check" className="h-3.5 w-3.5" />}
+                          onClick={() => devolver(c.id_entrega_chave!, c.codigo)}
+                        >
+                          Registrar Devolução
+                        </Botao>
+                      </div>
                     )
                   )}
                 </div>

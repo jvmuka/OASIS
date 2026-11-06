@@ -217,7 +217,7 @@ export default function PainelAdmin() {
           </Titulo>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
+        <div id="tour-sindico-chamados-alerta" className="flex items-center gap-2.5 flex-wrap">
           {/* Seletor de Mês de Análise */}
           <div className="flex items-center gap-1.5 rounded-xl border border-[#e2e6ec] bg-white px-3 py-1.5 shadow-2xs dark:border-slate-800 dark:bg-[#0e1525]">
             <Icone nome="calendar" className="h-4 w-4 text-[#525d6e] dark:text-slate-400" />
@@ -277,7 +277,7 @@ export default function PainelAdmin() {
       </div>
 
       {/* 1. Super Cards de Indicadores Operacionais (Padrão Lettly SaaS) */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div id="tour-sindico-kpis" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {kpis.map(k => (
           <Link
             key={k.titulo}
@@ -318,7 +318,7 @@ export default function PainelAdmin() {
       </div>
 
       {/* 2. Grid de Gráficos Analíticos Principais */}
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div id="tour-sindico-ocupacao" className="grid gap-6 lg:grid-cols-3">
         {/* Gráfico de Evolução Mensal (Ocupa 2 colunas) */}
         <div className="lg:col-span-2">
           <Cartao className="p-6">

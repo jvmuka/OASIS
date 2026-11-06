@@ -1455,36 +1455,39 @@ export default function Pessoas({
     <div className={embutido ? 'space-y-4' : 'space-y-6'}>
       {!embutido && (
         <>
-          <Titulo ajudaKey="/sindico/pessoas"
+          <Titulo
+            ajudaKey={abaAtiva === 'aprovacoes' ? '/sindico/pessoas/aprovacoes' : abaAtiva === 'estrutura' ? '/superadmin/estrutura' : '/sindico/pessoas'}
             sub="Controle de moradores, relações familiares, gestão de inquilinos, síndicos e portaria."
             icone={<Icone nome="users" className="h-5 w-5" />}
             acao={
               !somenteLeitura && abaAtiva !== 'estrutura' ? (
                 <div className="flex items-center gap-2 flex-wrap">
-                  <Botao
-                    variante="primario"
-                    icone={<Icone nome="plus" className="h-4 w-4" />}
-                    onClick={() => {
-                      setForm({
-                        nome: '',
-                        email: '',
-                        cpf: '',
-                        data_nascimento: '',
-                        celular: '',
-                        id_unidade: '',
-                        tipo_vinculo: '',
-                        perfis: [],
-                        id_responsavel: '',
-                        grau_parentesco: 'FILHO',
-                        reside: true,
-                        tipo_servico: '',
-                      });
-                      setErroCadastro(null);
-                      setModalAberto(true);
-                    }}
-                  >
-                    Cadastrar Usuário / Morador
-                  </Botao>
+                  <div id="tour-pessoas-btn-novo">
+                    <Botao
+                      variante="primario"
+                      icone={<Icone nome="plus" className="h-4 w-4" />}
+                      onClick={() => {
+                        setForm({
+                          nome: '',
+                          email: '',
+                          cpf: '',
+                          data_nascimento: '',
+                          celular: '',
+                          id_unidade: '',
+                          tipo_vinculo: '',
+                          perfis: [],
+                          id_responsavel: '',
+                          grau_parentesco: 'FILHO',
+                          reside: true,
+                          tipo_servico: '',
+                        });
+                        setErroCadastro(null);
+                        setModalAberto(true);
+                      }}
+                    >
+                      Cadastrar Usuário / Morador
+                    </Botao>
+                  </div>
                   <Botao
                     variante="claro"
                     icone={<Icone nome="shield" className="h-4 w-4" />}
@@ -1513,7 +1516,7 @@ export default function Pessoas({
           </Titulo>
 
           {/* Seletor de Abas: Cadastros Gerais vs Aprovações Pendentes (Padrão Lettly SaaS) */}
-          <div className="flex flex-wrap gap-2 border-b border-[#e2e6ec] dark:border-slate-800 pb-3">
+          <div id="tour-pessoas-abas" className="flex flex-wrap gap-2 border-b border-[#e2e6ec] dark:border-slate-800 pb-3">
             <button
               onClick={() => setAbaAtiva('pessoas')}
               className={`rounded-xl px-4 py-2 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
@@ -1648,7 +1651,7 @@ export default function Pessoas({
             </div>
 
             {/* Painel de Filtros Segmentados */}
-            <div className="mt-1 rounded-xl bg-slate-50/70 dark:bg-slate-850 border border-slate-200/80 dark:border-slate-800 p-3 space-y-2.5">
+            <div id="tour-pessoas-filtros" className="mt-1 rounded-xl bg-slate-50/70 dark:bg-slate-850 border border-slate-200/80 dark:border-slate-800 p-3 space-y-2.5">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
                 {/* 1. Nome ou E-mail */}
                 <div className="relative">
@@ -1839,7 +1842,7 @@ export default function Pessoas({
             />
           ) : (
             <>
-              <div className="overflow-x-auto min-h-[300px] pb-16">
+              <div id="tour-pessoas-tabela" className="overflow-x-auto min-h-[300px] pb-16">
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-slate-200/80 dark:border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400">
@@ -2283,13 +2286,13 @@ export default function Pessoas({
               descricao="Todas as solicitações de dependentes foram avaliadas."
             />
           ) : (
-            <div className="space-y-3">
-              {aprovacoesPaginadas.map(ap => (
+            <div id="tour-aprovacoes-lista" className="space-y-3">
+              {aprovacoesPaginadas.map((ap, idx) => (
                 <div
                   key={ap.id_pessoa_unidade}
                   className="rounded-xl border border-amber-200 bg-amber-50/40 dark:border-amber-900/40 dark:bg-amber-950/20 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
                 >
-                  <div>
+                  <div {...(idx === 0 ? { id: 'tour-aprovacoes-detalhes' } : {})}>
                     <div className="flex items-center gap-2">
                       <span className="rounded bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-300">
                         {formatarParentesco(ap.grau_parentesco)}
@@ -2306,7 +2309,7 @@ export default function Pessoas({
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div {...(idx === 0 ? { id: 'tour-aprovacoes-botoes' } : {})} className="flex items-center gap-2">
                     <Botao
                       variante="claro"
                       tamanho="sm"

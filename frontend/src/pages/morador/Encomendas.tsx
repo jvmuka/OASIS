@@ -128,7 +128,7 @@ export default function MinhasEncomendas() {
       )}
 
       {/* Cartões de Resumo / Estatísticas (Padrão Lettly SaaS) */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div id="tour-encomendas-kpis" className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Cartao className="flex items-center justify-between p-5 border border-[#e2e6ec] dark:border-slate-800 bg-white dark:bg-[#0e1525] rounded-2xl shadow-2xs hover:shadow-card hover:-translate-y-0.5 transition-all">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-[#525d6e] dark:text-slate-400">
@@ -182,7 +182,7 @@ export default function MinhasEncomendas() {
       </div>
 
       {/* Barra de Abas e Busca */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-[#e2e6ec] pb-3 dark:border-slate-800">
+      <div id="tour-encomendas-lista" className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-[#e2e6ec] pb-3 dark:border-slate-800">
         <div className="flex items-center gap-2 overflow-x-auto">
           <button
             id="tab-aguardando"
@@ -320,7 +320,7 @@ export default function MinhasEncomendas() {
         />
       ) : (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div id="tour-encomendas-historico" className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             {listaPaginada.map(enc => {
               const tamInfo = ROTULO_TAMANHO[enc.tamanho] || ROTULO_TAMANHO.MEDIO;
               const isPendente = enc.status === 'AGUARDANDO_RETIRADA';

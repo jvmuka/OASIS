@@ -493,7 +493,7 @@ export default function PessoasSuperadmin() {
           </div>
 
           {/* Painel de Filtros Segmentados */}
-          <div className="mt-1 rounded-xl bg-slate-50/70 dark:bg-slate-850 border border-slate-200/80 dark:border-slate-800 p-3 space-y-2.5">
+          <div id="tour-super-pessoas-busca" className="mt-1 rounded-xl bg-slate-50/70 dark:bg-slate-850 border border-slate-200/80 dark:border-slate-800 p-3 space-y-2.5">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
               {/* 1. Nome ou E-mail */}
               <div className="relative">
@@ -636,7 +636,7 @@ export default function PessoasSuperadmin() {
             }
           />
         ) : (
-          <div className="overflow-x-auto min-h-[350px] pb-16">
+          <div id="tour-super-pessoas-tabela" className="overflow-x-auto min-h-[350px] pb-16">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-slate-200/80 dark:border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400">
@@ -649,7 +649,7 @@ export default function PessoasSuperadmin() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {pessoasPaginadas.map(p => {
+                {pessoasPaginadas.map((p, idx) => {
                   const uAtiva = p.unidades && p.unidades[0];
                   const isDependente = uAtiva && uAtiva.tipo_vinculo === 'DEPENDENTE';
                   const isTitular = uAtiva && (uAtiva.tipo_vinculo === 'PROPRIETARIO' || uAtiva.tipo_vinculo === 'INQUILINO');
@@ -819,7 +819,7 @@ export default function PessoasSuperadmin() {
 
                       {/* 6. Governança Soberana */}
                       <td className="py-3 px-3 text-right">
-                        <div className="flex items-center justify-end gap-2 flex-wrap">
+                        <div {...(idx === 0 ? { id: 'tour-super-pessoas-papeis' } : {})} className="flex items-center justify-end gap-2 flex-wrap">
                           {/* Botão de Dar / Remover Administração */}
                           {!ehSuperadmin && (
                             ehSindico ? (

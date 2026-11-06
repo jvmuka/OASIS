@@ -139,7 +139,7 @@ export default function Mural() {
       </div>
 
       {/* Abas e Filtros rápidos (Padrão Lettly SaaS) */}
-      <div className="flex flex-wrap gap-2">
+      <div id="tour-mural-filtros" className="flex flex-wrap gap-2">
         <button
           type="button"
           onClick={() => mudarFiltro('NAO_LIDOS')}
@@ -234,8 +234,8 @@ export default function Mural() {
           )}
         </Cartao>
       ) : (
-        <div className="space-y-3.5">
-          {avisosPaginados.map(a => {
+        <div id="tour-mural-cards" className="space-y-3.5">
+          {avisosPaginados.map((a, idx) => {
             const eAberto = aberto === a.id_aviso;
             const isEncomenda = a.categoria === 'ENCOMENDA';
             return (
@@ -269,7 +269,7 @@ export default function Mural() {
                         />
                       </div>
                       <div>
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2" {...(idx === 0 ? { id: 'tour-mural-lido' } : {})}>
                           {isEncomenda && (
                             <span className="inline-flex items-center gap-1 rounded-full bg-[#fdf0d9] border border-[#f8dcab] dark:bg-amber-950/60 px-2.5 py-0.5 text-[10px] font-bold text-[#b26a00] dark:text-amber-300">
                               <Icone nome="package" className="h-3 w-3" />

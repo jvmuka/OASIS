@@ -124,7 +124,7 @@ export default function Encomendas() {
 
       <div className="grid gap-6 lg:grid-cols-12">
         {/* Formulário de Registro */}
-        <div className="lg:col-span-5">
+        <div id="tour-portaria-encomenda-nova" className="lg:col-span-5">
           <Cartao>
             <div className="mb-4 border-b border-slate-100 dark:border-slate-800 pb-3">
               <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
@@ -239,9 +239,9 @@ export default function Encomendas() {
                 }
               />
             ) : (
-              <div className="space-y-4">
+              <div id="tour-portaria-encomenda-lista" className="space-y-4">
                 <div className="divide-y divide-[#edf1f7] dark:divide-slate-800 pr-1">
-                  {encomendasPaginadas.map(e => (
+                  {encomendasPaginadas.map((e, idx) => (
                     <div
                       key={e.id_encomenda}
                       className="flex flex-col gap-3 py-3.5 sm:flex-row sm:items-center sm:justify-between hover:bg-[#f6f7f9] dark:hover:bg-slate-800/60 rounded-xl px-2.5 transition-colors"
@@ -274,14 +274,16 @@ export default function Encomendas() {
                         </Badge>
 
                         {e.status === 'AGUARDANDO_RETIRADA' && (
-                          <Botao
-                            variante="claro"
-                            tamanho="sm"
-                            icone={<Icone nome="check" className="h-3.5 w-3.5" />}
-                            onClick={() => setRetirando(e)}
-                          >
-                            Dar Baixa
-                          </Botao>
+                          <div {...(idx === 0 ? { id: 'tour-portaria-encomenda-entregar' } : {})}>
+                            <Botao
+                              variante="claro"
+                              tamanho="sm"
+                              icone={<Icone nome="check" className="h-3.5 w-3.5" />}
+                              onClick={() => setRetirando(e)}
+                            >
+                              Dar Baixa
+                            </Botao>
+                          </div>
                         )}
                       </div>
                     </div>

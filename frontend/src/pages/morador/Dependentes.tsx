@@ -172,14 +172,20 @@ export default function Dependentes() {
         icone={<Icone nome="users" className="h-5 w-5" />}
         sub="Pessoas e familiares vinculados à sua residência."
         acao={
-          ehTitular ? (
-            <Botao
-              icone={<Icone nome="plus" className="h-4 w-4" />}
-              onClick={() => setModalAberto(true)}
-            >
-              Cadastrar Dependente
-            </Botao>
-          ) : undefined
+          <div id="tour-familia-btn-novo">
+            {ehTitular ? (
+              <Botao
+                icone={<Icone nome="plus" className="h-4 w-4" />}
+                onClick={() => setModalAberto(true)}
+              >
+                Cadastrar Dependente
+              </Botao>
+            ) : (
+              <span className="text-xs text-slate-400 font-medium italic">
+                Apenas titular pode cadastrar dependentes
+              </span>
+            )}
+          </div>
         }
       >
         Minha Família & Dependentes
@@ -215,7 +221,7 @@ export default function Dependentes() {
         />
       ) : (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div id="tour-familia-lista" className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {(() => {
               const ITENS_POR_PAGINA = 20;
               const totalPaginas = Math.ceil(dependentes.length / ITENS_POR_PAGINA) || 1;
@@ -305,7 +311,7 @@ export default function Dependentes() {
                     </div>
 
                     {/* Rodapé do Card com Ações / Código */}
-                    <div className="mt-4 pt-3 border-t border-[#edf1f7] dark:border-slate-800">
+                    <div id="tour-familia-status" className="mt-4 pt-3 border-t border-[#edf1f7] dark:border-slate-800">
                       {dep.status_aprovacao === 'PENDENTE' && (
                         <div className="flex items-center gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/40 p-2.5 text-[11px] text-amber-800 dark:text-amber-300">
                           <Icone nome="clock" className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />

@@ -238,16 +238,18 @@ export default function Portaria() {
         sub="Ocupação das áreas comuns, agenda do dia e consulta de moradores para controle de acesso."
         icone={<Icone nome="building" className="h-5 w-5" />}
         acao={
-          <Botao
-            variante="primario"
-            icone={<Icone nome="plus" className="h-4 w-4" />}
-            onClick={() => {
-              setErroVisitante(null);
-              setModalVisitanteAberto(true);
-            }}
-          >
-            Cadastrar Visitante / Prestador
-          </Botao>
+          <div id="tour-portaria-registro">
+            <Botao
+              variante="primario"
+              icone={<Icone nome="plus" className="h-4 w-4" />}
+              onClick={() => {
+                setErroVisitante(null);
+                setModalVisitanteAberto(true);
+              }}
+            >
+              Cadastrar Visitante / Prestador
+            </Botao>
+          </div>
         }
       >
         Painel da Portaria
@@ -258,7 +260,8 @@ export default function Portaria() {
       )}
 
       {/* Bloco A: Agora no condomínio */}
-      <Cartao>
+      <div id="tour-portaria-ocupacao">
+        <Cartao>
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
           <div>
             <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
@@ -308,6 +311,7 @@ export default function Portaria() {
           </div>
         )}
       </Cartao>
+      </div>
 
       {/* Bloco B: Agenda do dia */}
       <Cartao>
@@ -619,6 +623,7 @@ export default function Portaria() {
       </Cartao>
 
       {/* Bloco C: Busca unificada de pessoas, contatos, unidades e atividades */}
+      <div id="tour-portaria-busca">
       {cadastroAberto ? (
         <div className="space-y-2">
           <div className="flex justify-end">
@@ -662,6 +667,7 @@ export default function Portaria() {
           </div>
         </Cartao>
       )}
+      </div>
 
       {/* Modal: Cadastro de Visitante / Prestador de Serviço */}
       <Modal

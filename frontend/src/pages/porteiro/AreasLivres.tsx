@@ -182,8 +182,8 @@ export default function AreasLivres() {
         />
       ) : (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
-            {areas.slice((pagina - 1) * ITENS_POR_PAGINA, pagina * ITENS_POR_PAGINA).map(a => {
+          <div id="tour-areaslivres-cards" className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+            {areas.slice((pagina - 1) * ITENS_POR_PAGINA, pagina * ITENS_POR_PAGINA).map((a, idx) => {
             const emUso = a.status_livre === 'EM_USO';
 
             return (
@@ -241,7 +241,7 @@ export default function AreasLivres() {
                       )}
                     </div>
 
-                    <div className="rounded-xl border border-slate-100 bg-slate-50/70 dark:border-slate-800/80 dark:bg-slate-800/40 p-3 space-y-2 text-xs">
+                    <div {...(idx === 0 ? { id: 'tour-areaslivres-detalhes' } : {})} className="rounded-xl border border-slate-100 bg-slate-50/70 dark:border-slate-800/80 dark:bg-slate-800/40 p-3 space-y-2 text-xs">
                       <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
                         <Icone nome="clock" className="h-3.5 w-3.5 text-slate-400 shrink-0" />
                         <span>Funcionamento: <b>{formatarDiasSemana(a.horarios)}</b></span>
@@ -283,7 +283,7 @@ export default function AreasLivres() {
 
                 {/* Ações Rápidas do Porteiro */}
                 <div className="p-4 pt-0 border-t border-slate-100 dark:border-slate-800/60 mt-2">
-                  <div className="pt-3">
+                  <div {...(idx === 0 ? { id: 'tour-areaslivres-alternar' } : {})} className="pt-3">
                     {emUso ? (
                       <Botao
                         variante="sucesso"

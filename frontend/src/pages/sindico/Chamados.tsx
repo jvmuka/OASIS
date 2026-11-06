@@ -257,7 +257,7 @@ export default function SindicoChamados() {
       {erro && <Mensagem tipo="erro" texto={erro} aoFechar={() => setErro('')} />}
 
       {/* Cartões de Indicadores / Métricas do Topo com Seleção Rápida (Padrão Lettly SaaS) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div id="tour-sindico-chamados-triagem" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Em Análise */}
         <button
           type="button"
@@ -506,7 +506,7 @@ export default function SindicoChamados() {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div id="tour-sindico-chamados-tabela" className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-slate-200/80 dark:border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 bg-slate-50/50 dark:bg-slate-800/30">
@@ -594,6 +594,7 @@ export default function SindicoChamados() {
                       </td>
                       <td className="py-3.5 px-4 whitespace-nowrap text-right">
                         <Botao
+                          id={chamadosPaginados[0]?.id_chamado === c.id_chamado ? 'tour-sindico-chamados-atender' : undefined}
                           tamanho="sm"
                           variante="primario"
                           onClick={(e) => {

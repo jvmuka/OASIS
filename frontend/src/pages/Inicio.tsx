@@ -682,7 +682,7 @@ export default function Inicio() {
           {minhasChaves.length > 0 && (() => {
             const temChaveAtrasada = minhasChaves.some(ch => ch.alerta_24h);
             return (
-              <div className={`rounded-2xl border p-4 shadow-sm animate-fade-in ${
+              <div id="tour-inicio-atividades" className={`rounded-2xl border p-4 shadow-sm animate-fade-in ${
                 temChaveAtrasada
                   ? 'border-rose-300/90 bg-gradient-to-r from-rose-50/95 via-red-50/80 to-rose-50/95 dark:border-rose-700/80 dark:from-rose-950/40 dark:via-red-950/20 dark:to-rose-950/40'
                   : 'border-amber-300/90 bg-gradient-to-r from-amber-50/95 via-orange-50/70 to-amber-50/95 dark:border-amber-700/80 dark:from-amber-950/40 dark:via-orange-950/20 dark:to-amber-950/40'
@@ -791,12 +791,12 @@ export default function Inicio() {
 
           {perfilPrincipal === 'MORADOR' ? (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div id="tour-inicio-cards" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {cardsMorador}
               </div>
 
               {/* Card complementar: Minha Família & Moradores da Unidade */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-[#e2e6ec] bg-white dark:border-slate-800 dark:bg-[#0e1525] p-5 shadow-2xs transition-all duration-200 hover:border-navy/20 hover:shadow-card">
+              <div id="tour-inicio-atalhos" className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-[#e2e6ec] bg-white dark:border-slate-800 dark:bg-[#0e1525] p-5 shadow-2xs transition-all duration-200 hover:border-navy/20 hover:shadow-card">
                 <div className="flex items-center gap-3.5">
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#f6f7f9] text-[#0b1830] dark:bg-slate-800 dark:text-slate-300">
                     <Icone nome="users" className="h-5 w-5" />
@@ -820,9 +820,9 @@ export default function Inicio() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">{cardsResumo}</div>
+              <div id="tour-inicio-cards" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">{cardsResumo}</div>
 
-              <div>
+              <div id="tour-inicio-atalhos">
                 <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   Acesso Rápido
                 </h2>
