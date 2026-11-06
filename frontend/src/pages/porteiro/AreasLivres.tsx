@@ -197,11 +197,10 @@ export default function AreasLivres() {
                     {a.imagem_url ? (
                       <img src={a.imagem_url} alt={a.nome} className="h-full w-full object-cover" />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 text-slate-400">
+                      <div className="flex h-full w-full items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-400">
                         <Icone nome="building" className="h-10 w-10" />
                       </div>
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900/70 via-transparent to-transparent" />
 
                     {/* Status ao Vivo */}
                     <div className="absolute top-3 right-3">

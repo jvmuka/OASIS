@@ -232,7 +232,7 @@ export default function SeletorMorador({
                             : 'bg-navy-50 text-navy dark:bg-slate-700 dark:text-sky-400'
                         }`}
                       >
-                        {ehPrestador ? '🔧' : nomeExibicao.charAt(0).toUpperCase()}
+                        {ehPrestador ? <Icone nome="wrench" className="h-3.5 w-3.5" /> : nomeExibicao.charAt(0).toUpperCase()}
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 flex-wrap">

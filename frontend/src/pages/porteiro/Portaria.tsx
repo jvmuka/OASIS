@@ -795,7 +795,7 @@ export default function Portaria() {
                 .filter(u => u.bloco === 'Prédio' || u.numero_apartamento === 'Geral')
                 .map(u => (
                   <option key={u.id_unidade} value={u.id_unidade}>
-                    🏢 Prédio / Condomínio (Áreas Comuns)
+                    Prédio / Condomínio (Áreas Comuns)
                   </option>
                 ))}
               {unidadesCondominio

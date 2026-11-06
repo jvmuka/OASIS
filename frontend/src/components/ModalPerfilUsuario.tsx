@@ -229,7 +229,7 @@ export function ModalPerfilUsuario({
               <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
                 <span className="font-bold text-xs text-slate-800 dark:text-slate-200">
                   {bloco === 'Prédio' || apartamento === 'Geral'
-                    ? '🏢 Prédio / Condomínio (Áreas Comuns)'
+                    ? 'Prédio / Condomínio (Áreas Comuns)'
                     : `Bloco ${bloco || '-'} - Apartamento ${apartamento || '-'}`}
                 </span>
                 <span className="rounded bg-navy-50 text-navy dark:bg-slate-700 dark:text-sky-400 px-2 py-0.5 text-[10px] font-bold uppercase">
@@ -310,7 +310,10 @@ export function ModalPerfilUsuario({
                           {dep.data_nascimento ? `${calcularIdade(dep.data_nascimento)} anos` : ''}
                         </p>
                       </div>
-                      <span className="text-slate-400 text-xs font-semibold">Ver ➔</span>
+                      <div className="flex items-center gap-1 text-slate-400 text-xs font-semibold">
+                        <span>Ver</span>
+                        <Icone nome="chevronRight" className="h-3.5 w-3.5" />
+                      </div>
                     </div>
                   ))}
                 </div>

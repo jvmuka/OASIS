@@ -230,11 +230,10 @@ export default function NovaReserva() {
                           {a.imagem_url ? (
                             <img src={a.imagem_url} alt={a.nome} className="h-full w-full object-cover" />
                           ) : (
-                            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 text-slate-400">
+                            <div className="flex h-full w-full items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-400">
                               <Icone nome="building" className="h-10 w-10" />
                             </div>
                           )}
-                          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/70 via-transparent to-transparent" />
                           
                           {/* Badge de Ocupação ou Penalidade */}
                           {penalizado ? (
@@ -358,11 +357,10 @@ export default function NovaReserva() {
                             }`}
                           />
                         ) : (
-                          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 text-slate-400">
+                          <div className="flex h-full w-full items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-400">
                             <Icone nome="building" className="h-10 w-10" />
                           </div>
                         )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent" />
 
                         {/* Indicador de ocupação ou bloqueio por penalidade */}
                         {penalizado ? (
@@ -468,8 +466,8 @@ export default function NovaReserva() {
                             Máx. {a.limite_reservas_semana}x/{a.tipo_limite_reserva === 'DIARIO' ? 'dia' : a.tipo_limite_reserva === 'MENSAL' ? 'mês' : 'sem'}
                           </span>
                           {(a.max_unidades_simultaneas ?? 1) > 1 && (
-                            <span className="rounded-md bg-sky-50 text-sky-800 border border-sky-200/80 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-800/80 px-2 py-0.5 font-bold">
-                              👥 Até {a.max_unidades_simultaneas} unid./horário
+                            <span className="rounded-md bg-sky-50 text-sky-800 border border-sky-200/80 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-800/80 px-2 py-0.5 font-bold inline-flex items-center gap-1">
+                              <Icone nome="users" className="h-3.5 w-3.5" /> Até {a.max_unidades_simultaneas} unid./horário
                             </span>
                           )}
                         </div>
@@ -548,7 +546,7 @@ export default function NovaReserva() {
                 <Icone nome="alert" className="h-5 w-5 text-red-600 dark:text-rose-400 shrink-0 mt-0.5" />
                 <div className="space-y-1 leading-relaxed">
                   <span className="text-sm font-bold text-red-800 dark:text-rose-300 block">
-                    🚫 Acesso Bloqueado por Penalidade Condominial (RN03)
+                    Acesso Bloqueado por Penalidade Condominial (RN03)
                   </span>
                   <p>
                     Seu usuário está temporariamente suspenso de realizar reservas para este espaço.
@@ -798,8 +796,9 @@ export default function NovaReserva() {
                                   </span>
                                 )}
                                 {antecedenciaMinima && (
-                                  <span className="block text-[11px] font-medium text-amber-800 dark:text-amber-300 mt-0.5">
-                                    ⚠️ {motivoAntecedencia}
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-800 dark:text-amber-300 mt-0.5">
+                                    <Icone nome="alert" className="h-3.5 w-3.5" />
+                                    {motivoAntecedencia}
                                   </span>
                                 )}
                               </div>

@@ -1898,7 +1898,7 @@ export default function Areas() {
           </Campo>
 
           {/* Resumo Visual em Tempo Real */}
-          <div className="rounded-xl border border-amber-300/80 bg-gradient-to-r from-amber-50/80 to-orange-50/60 dark:border-amber-800/80 dark:from-amber-950/40 dark:to-orange-950/20 p-3.5 text-xs text-amber-950 dark:text-amber-200 flex items-start gap-3">
+          <div className="rounded-xl border border-amber-200 bg-amber-50 dark:border-amber-900/60 dark:bg-amber-950/30 p-3.5 text-xs text-amber-950 dark:text-amber-200 flex items-start gap-3">
             <div className="rounded-lg bg-amber-500/20 p-1.5 text-amber-600 dark:text-amber-400 shrink-0">
               <Icone nome="wrench" className="h-4 w-4" />
             </div>
@@ -2276,7 +2276,7 @@ export default function Areas() {
 
               {(form.max_unidades_simultaneas || 1) > 1 && (
                 <div className="rounded-lg bg-sky-50 dark:bg-sky-950/50 border border-sky-200 dark:border-sky-800 p-2.5 text-[11px] text-sky-800 dark:text-sky-300 flex items-start gap-2">
-                  <span className="text-base leading-none">👥</span>
+                  <Icone nome="users" className="h-4 w-4 shrink-0 text-sky-600 dark:text-sky-400 mt-0.5" />
                   <div>
                     <b>Reserva Compartilhada ({form.max_unidades_simultaneas} unidades):</b> Quando 1 unidade reservar, o horário continuará disponível para outra unidade com indicação de vagas restantes. Se a soma de pessoas atingir a capacidade de {form.capacidade} pessoas, o horário será bloqueado automaticamente.
                   </div>
@@ -2773,7 +2773,7 @@ export default function Areas() {
 
                 {(editando.max_unidades_simultaneas || 1) > 1 && (
                   <div className="rounded-lg bg-sky-50 dark:bg-sky-950/50 border border-sky-200 dark:border-sky-800 p-2.5 text-[11px] text-sky-800 dark:text-sky-300 flex items-start gap-2">
-                    <span className="text-base leading-none">👥</span>
+                    <Icone nome="users" className="h-4 w-4 shrink-0 text-sky-600 dark:text-sky-400 mt-0.5" />
                     <div>
                       <b>Reserva Compartilhada ({editando.max_unidades_simultaneas} unidades):</b> Quando 1 unidade reservar, o horário continuará disponível para outra unidade com indicação de vagas restantes. Se a soma de pessoas atingir a capacidade de {editando.capacidade} pessoas, o horário será bloqueado automaticamente.
                     </div>

@@ -425,7 +425,7 @@ export function GraficoBarrasAreas({ dados }: { dados: ItemAreaRanking[] }) {
 
             <div className="h-3 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800 p-0.5">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-navy via-brand-blue to-sky-400 dark:from-sky-600 dark:via-cyan-500 dark:to-teal-400 transition-all duration-500 group-hover:opacity-90 shadow-2xs"
+                className="h-full rounded-full bg-navy dark:bg-sky-500 transition-all duration-500 group-hover:opacity-90 shadow-2xs"
                 style={{ width: `${percBarra}%` }}
               />
             </div>

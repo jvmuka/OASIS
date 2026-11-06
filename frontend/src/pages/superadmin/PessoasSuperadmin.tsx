@@ -712,7 +712,7 @@ export default function PessoasSuperadmin() {
                                 }`}
                               >
                                 {u.bloco === 'Prédio' || u.apartamento === 'Geral'
-                                  ? '🏢 Prédio / Áreas Comuns'
+                                  ? 'Prédio / Áreas Comuns'
                                   : `Bl. ${u.bloco} - Apto ${u.apartamento}`}
                               </span>
                             ))}
@@ -802,7 +802,8 @@ export default function PessoasSuperadmin() {
                               className="inline-flex items-center gap-1 rounded-md bg-red-100 text-red-700 dark:bg-rose-950/60 dark:text-rose-300 border border-red-200 dark:border-rose-900/60 px-1.5 py-0.5 text-[10px] font-bold"
                               title="Usuário com restrição ativa para áreas comuns"
                             >
-                              🚫 {p.total_bloqueios_ativos} Penalidade(s)
+                              <Icone nome="alert" className="h-3 w-3" />
+                              {p.total_bloqueios_ativos} Penalidade(s)
                             </span>
                           ) : null}
                           {p.codigo_ativacao && (
@@ -960,8 +961,9 @@ export default function PessoasSuperadmin() {
         titulo={`Edição Soberana: ${pessoaEditando?.nome || ''}`}
       >
         <form onSubmit={handleSalvarEdicao} className="space-y-4 text-sm">
-          <p className="text-xs text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40 p-2.5 rounded-lg border border-purple-200 dark:border-purple-800/50">
-            🛡️ Como Superadmin, você possui permissão soberana para retificar dados cadastrais, e-mails de acesso e contatos.
+          <p className="text-xs text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40 p-2.5 rounded-lg border border-purple-200 dark:border-purple-800/50 flex items-start gap-2">
+            <Icone nome="shield" className="h-4 w-4 shrink-0 text-purple-600 dark:text-purple-400 mt-0.5" />
+            <span>Como Superadmin, você possui permissão soberana para retificar dados cadastrais, e-mails de acesso e contatos.</span>
           </p>
 
           <div>

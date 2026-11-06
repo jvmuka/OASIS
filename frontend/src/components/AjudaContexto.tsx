@@ -167,26 +167,27 @@ export function ModalAjudaContexto({ dados, rota = '', fechar, onIniciarTour }: 
         onClick={(e) => e.stopPropagation()}
       >
         {/* Cabeçalho */}
-        <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4 dark:border-slate-800 shrink-0">
+        <div className="flex items-start justify-between gap-4 border-b border-[#e2e6ec] pb-4 dark:border-slate-800 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-indigo-600 text-white shadow-soft">
-              <span className="text-xl font-black">?</span>
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#0b1830] dark:bg-sky-600 text-white shadow-2xs">
+              <span className="text-xl font-bold">?</span>
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-bold tracking-wider text-sky-800 uppercase dark:bg-sky-950 dark:text-sky-300">
+                <span className="rounded-full bg-[#e8edf7] border border-[#c8d6ed] px-2.5 py-0.5 text-[10px] font-bold tracking-wider text-[#2548a0] uppercase dark:bg-sky-950 dark:text-sky-300">
                   Como Usar o Sistema
                 </span>
                 {dados.temTourAnimado && (
-                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-extrabold tracking-wider text-amber-800 dark:bg-amber-950 dark:text-amber-300 animate-pulse">
-                    ★ Com Animação Interativa
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[#f6f7f9] border border-[#e2e6ec] dark:bg-slate-800 dark:border-slate-700 px-2 py-0.5 text-[10px] font-bold text-slate-700 dark:text-slate-300">
+                    <Icone nome="sparkles" className="h-3 w-3 text-sky-600 dark:text-sky-400" />
+                    <span>Demonstração Interativa</span>
                   </span>
                 )}
               </div>
-              <h2 className="mt-1 text-xl font-bold text-slate-900 dark:text-slate-100">
+              <h2 className="mt-1 text-lg font-bold text-[#0b1830] dark:text-slate-100">
                 {dados.titulo}
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-[#525d6e] dark:text-slate-400">
                 {dados.subtitulo}
               </p>
             </div>
@@ -205,8 +206,8 @@ export function ModalAjudaContexto({ dados, rota = '', fechar, onIniciarTour }: 
         {/* Conteúdo com rolagem interna suave */}
         <div className="mt-4 flex-1 overflow-y-auto pr-1 space-y-6">
           {/* Card de Resumo */}
-          <div className="rounded-xl border border-sky-100 bg-sky-50/70 p-4 text-sm text-sky-900 dark:border-sky-900/40 dark:bg-sky-950/30 dark:text-sky-200">
-            <p className="leading-relaxed">{dados.resumo}</p>
+          <div className="rounded-xl border border-[#e2e6ec] bg-[#f6f7f9] p-4 text-xs sm:text-sm text-[#0b1830] dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-200">
+            <p className="leading-relaxed font-medium">{dados.resumo}</p>
           </div>
 
           {/* Simulador Interativo Universal */}
@@ -217,9 +218,9 @@ export function ModalAjudaContexto({ dados, rota = '', fechar, onIniciarTour }: 
                 <button
                   type="button"
                   onClick={onIniciarTour}
-                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 px-4 py-2.5 text-xs font-black text-white shadow-md hover:from-sky-600 hover:to-indigo-700 transition-transform active:scale-[0.99] cursor-pointer"
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#0b1830] hover:bg-[#14264a] dark:bg-sky-600 dark:hover:bg-sky-500 px-4 py-2.5 text-xs font-bold text-white shadow-2xs transition-colors cursor-pointer border border-transparent"
                 >
-                  <span>👆</span>
+                  <Icone nome="eye" className="h-4 w-4 text-sky-300" />
                   <span>Ver Onde Clicar na Tela Real (Iniciar Demonstração Guiada)</span>
                 </button>
               )}
@@ -229,26 +230,24 @@ export function ModalAjudaContexto({ dados, rota = '', fechar, onIniciarTour }: 
           {/* Passo a Passo Ilustrado */}
           {dados.passoAPasso && dados.passoAPasso.length > 0 && (
             <div>
-              <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-sky-500 text-[10px] font-bold text-white">
-                  ✓
-                </span>
-                Passo a Passo Detalhado
+              <h3 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#0b1830] dark:text-slate-200">
+                <Icone nome="check" className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                <span>Passo a Passo Detalhado</span>
               </h3>
-              <div className="mt-3 space-y-3">
+              <div className="mt-3 space-y-2.5">
                 {dados.passoAPasso.map((p) => (
                   <div
                     key={p.passo}
-                    className="flex items-start gap-3 rounded-xl border border-slate-100 bg-slate-50/60 p-3.5 transition-colors hover:border-slate-200 dark:border-slate-800 dark:bg-slate-800/40 dark:hover:border-slate-700"
+                    className="flex items-start gap-3 rounded-xl border border-[#e2e6ec] bg-white p-3.5 transition-colors hover:border-slate-300 dark:border-slate-800 dark:bg-slate-800/50 dark:hover:border-slate-700"
                   >
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-navy text-xs font-bold text-white dark:bg-sky-600">
+                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[#0b1830] text-xs font-bold text-white dark:bg-sky-600">
                       {p.passo}
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                      <h4 className="text-xs sm:text-sm font-bold text-[#0b1830] dark:text-slate-100">
                         {p.titulo}
                       </h4>
-                      <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                      <p className="mt-0.5 text-xs text-[#525d6e] dark:text-slate-300 leading-relaxed font-normal">
                         {p.descricao}
                       </p>
                     </div>
@@ -261,20 +260,18 @@ export function ModalAjudaContexto({ dados, rota = '', fechar, onIniciarTour }: 
           {/* Dicas Úteis */}
           {dados.dicas && dados.dicas.length > 0 && (
             <div>
-              <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white">
-                  ★
-                </span>
-                Dicas Importantes
+              <h3 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#0b1830] dark:text-slate-200">
+                <Icone nome="info" className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+                <span>Dicas Importantes</span>
               </h3>
               <ul className="mt-3 space-y-2">
                 {dados.dicas.map((dica, idx) => (
                   <li
                     key={idx}
-                    className="flex items-start gap-2.5 rounded-lg border border-amber-100 bg-amber-50/50 p-2.5 text-xs text-amber-900 dark:border-amber-950/50 dark:bg-amber-950/20 dark:text-amber-200"
+                    className="flex items-start gap-2.5 rounded-xl border border-[#e2e6ec] bg-[#f6f7f9] p-3 text-xs text-[#0b1830] dark:border-slate-800 dark:bg-slate-800/40 dark:text-slate-300"
                   >
-                    <span className="text-amber-500 font-bold shrink-0 mt-0.5">•</span>
-                    <span className="leading-relaxed">{dica}</span>
+                    <span className="text-navy dark:text-sky-400 font-bold shrink-0 mt-0.5">•</span>
+                    <span className="leading-relaxed font-normal">{dica}</span>
                   </li>
                 ))}
               </ul>
@@ -284,11 +281,9 @@ export function ModalAjudaContexto({ dados, rota = '', fechar, onIniciarTour }: 
           {/* Dúvidas Frequentes */}
           {dados.duvidasFrequentes && dados.duvidasFrequentes.length > 0 && (
             <div>
-              <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-bold text-white">
-                  ?
-                </span>
-                Perguntas Frequentes
+              <h3 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#0b1830] dark:text-slate-200">
+                <Icone nome="search" className="h-4 w-4 text-navy dark:text-sky-400" />
+                <span>Perguntas Frequentes</span>
               </h3>
               <div className="mt-3 space-y-2.5">
                 {dados.duvidasFrequentes.map((df, idx) => (

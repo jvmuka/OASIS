@@ -1235,7 +1235,7 @@ export default function EstruturaFisica({
       <Modal
         aberto={modalLoteAberto}
         fechar={() => setModalLoteAberto(false)}
-        titulo="⚡ Gerador Estrutural em Lote de Blocos e Apartamentos"
+        titulo="Gerador Estrutural em Lote de Blocos e Apartamentos"
       >
         <form onSubmit={handleGerarLote} className="space-y-4 text-sm">
           <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -2285,7 +2285,7 @@ export default function EstruturaFisica({
                                 onClick={() => abrirPerfilUsuario(r.id_pessoa)}
                                 className="text-xs font-semibold text-navy dark:text-sky-400 hover:underline shrink-0 cursor-pointer"
                               >
-                                Ver ➔
+                                Ver
                               </button>
                             </div>
                           ))}

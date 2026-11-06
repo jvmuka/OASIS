@@ -529,7 +529,7 @@ export default function PainelAdmin() {
                 {agendamentosPaginados.map((r, i) => (
                   <div key={r.id_reserva || i} className="flex items-center justify-between py-3.5 first:pt-0 last:pb-0">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-navy/10 to-brand-blue/15 text-xs font-black text-navy dark:from-sky-950 dark:to-cyan-950 dark:text-sky-400 border border-slate-200/50 dark:border-slate-800">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-xs font-black text-navy dark:bg-slate-800 dark:text-sky-400 border border-slate-200 dark:border-slate-700">
                         {r.nome.charAt(0)}
                       </div>
                       <div className="truncate">
@@ -587,7 +587,7 @@ export default function PainelAdmin() {
       </div>
 
       {/* 4. Barra de Atalhos Rápidos para o Administrador */}
-      <div className="rounded-2xl border border-slate-200/80 bg-gradient-to-r from-slate-50 via-white to-slate-50 p-5 dark:border-slate-800 dark:from-slate-900 dark:via-slate-900 dark:to-slate-950">
+      <div className="rounded-2xl border border-[#e2e6ec] bg-white p-5 shadow-2xs dark:border-slate-800 dark:bg-[#0b1830]">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-navy text-white shadow-xs dark:bg-sky-500 dark:text-slate-950">

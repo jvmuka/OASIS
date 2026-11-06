@@ -682,10 +682,10 @@ export default function Inicio() {
           {minhasChaves.length > 0 && (() => {
             const temChaveAtrasada = minhasChaves.some(ch => ch.alerta_24h);
             return (
-              <div id="tour-inicio-atividades" className={`rounded-2xl border p-4 shadow-sm animate-fade-in ${
+              <div id="tour-inicio-atividades" className={`rounded-2xl border p-4 shadow-2xs animate-fade-in ${
                 temChaveAtrasada
-                  ? 'border-rose-300/90 bg-gradient-to-r from-rose-50/95 via-red-50/80 to-rose-50/95 dark:border-rose-700/80 dark:from-rose-950/40 dark:via-red-950/20 dark:to-rose-950/40'
-                  : 'border-amber-300/90 bg-gradient-to-r from-amber-50/95 via-orange-50/70 to-amber-50/95 dark:border-amber-700/80 dark:from-amber-950/40 dark:via-orange-950/20 dark:to-amber-950/40'
+                  ? 'border-rose-200 bg-rose-50 dark:border-rose-900/60 dark:bg-rose-950/30'
+                  : 'border-amber-200 bg-amber-50 dark:border-amber-900/60 dark:bg-amber-950/30'
               }`}>
                 <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3 ${
                   temChaveAtrasada ? 'border-rose-200/80 dark:border-rose-800/60' : 'border-amber-200/80 dark:border-amber-800/60'

@@ -181,9 +181,7 @@ export default function Dependentes() {
                 Cadastrar Dependente
               </Botao>
             ) : (
-              <span className="text-xs text-slate-400 font-medium italic">
-                Apenas titular pode cadastrar dependentes
-              </span>
+              <span className="text-xs text-slate-400 italic">Visualização de dependentes</span>
             )}
           </div>
         }
@@ -240,11 +238,10 @@ export default function Dependentes() {
                       {/* Topo do Card */}
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3">
-                          <div className={`flex h-11 w-11 items-center justify-center rounded-xl text-sm font-bold ${
-                            ehVinculoTitular 
-                              ? 'bg-navy/10 text-navy dark:bg-sky-950/60 dark:text-sky-300' 
+                          <div className={`flex h-11 w-11 items-center justify-center rounded-xl text-sm font-bold ${ehVinculoTitular
+                              ? 'bg-navy/10 text-navy dark:bg-sky-950/60 dark:text-sky-300'
                               : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200'
-                          }`}>
+                            }`}>
                             {dep.nome.slice(0, 2).toUpperCase()}
                           </div>
                           <div>

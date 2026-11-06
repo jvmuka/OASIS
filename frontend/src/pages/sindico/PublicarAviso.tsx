@@ -477,7 +477,7 @@ export default function PublicarAviso() {
                     a.arquivado
                       ? 'border-slate-200/60 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-900/40 opacity-85'
                       : isEncomenda
-                      ? 'border-amber-200/70 bg-gradient-to-r from-amber-50/20 to-transparent dark:border-amber-900/40 dark:bg-amber-950/10'
+                      ? 'border-amber-200 bg-amber-50/40 dark:border-amber-900/60 dark:bg-amber-950/20'
                       : 'border-slate-200/80 bg-white dark:border-slate-800 dark:bg-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700'
                   }`}
                 >

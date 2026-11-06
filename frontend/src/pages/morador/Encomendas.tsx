@@ -23,10 +23,10 @@ export type EncomendaMorador = {
   para_mim: boolean;
 };
 
-const ROTULO_TAMANHO: Record<string, { rotulo: string; icone: string; cor: string }> = {
-  PEQUENO: { rotulo: 'Pequeno (Envelope/Saco)', icone: '✉️', cor: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300' },
-  MEDIO: { rotulo: 'Médio (Caixa Padrão)', icone: '📦', cor: 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300' },
-  GRANDE: { rotulo: 'Grande (Volume / Eletro)', icone: '🏷️', cor: 'bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300' },
+const ROTULO_TAMANHO: Record<string, { rotulo: string; icone: 'box' | 'package'; cor: string }> = {
+  PEQUENO: { rotulo: 'Pequeno (Envelope/Saco)', icone: 'box', cor: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300' },
+  MEDIO: { rotulo: 'Médio (Caixa Padrão)', icone: 'package', cor: 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300' },
+  GRANDE: { rotulo: 'Grande (Volume / Eletro)', icone: 'box', cor: 'bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300' },
 };
 
 export default function MinhasEncomendas() {
@@ -338,9 +338,9 @@ export default function MinhasEncomendas() {
                     {/* Topo do Cartão: Status e Tamanho */}
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
-                        <span className="text-xl" role="img" aria-label="pacote">
-                          {tamInfo.icone}
-                        </span>
+                        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                          <Icone nome={tamInfo.icone} className="h-4 w-4" />
+                        </div>
                         <span
                           className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${tamInfo.cor}`}
                         >
@@ -447,10 +447,11 @@ export default function MinhasEncomendas() {
                         : 'bg-slate-50/60 border-slate-100 text-slate-500 dark:bg-slate-900/40 dark:border-slate-800 dark:text-slate-400'
                     }`}
                   >
-                    <span className="font-medium">
+                    <span className="font-medium flex items-center gap-1.5">
+                      <Icone nome={isPendente ? 'info' : 'check'} className="h-3.5 w-3.5" />
                       {isPendente
-                        ? '📍 Disponível para retirada na guarita'
-                        : '✓ Entrega finalizada'}
+                        ? 'Disponível para retirada na guarita'
+                        : 'Entrega finalizada'}
                     </span>
                     <span className="text-[11px] text-slate-400 dark:text-slate-500">
                       Cód. #{enc.id_encomenda}

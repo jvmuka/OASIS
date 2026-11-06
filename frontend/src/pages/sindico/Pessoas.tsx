@@ -113,7 +113,7 @@ function obterTextoOcupacaoUnidade(u: Unidade): string {
       : u.inquilino
       ? `Inq: ${u.inquilino}`
       : `${ocupantes} morador(es)`;
-    return `(⚠️ Ocupado • ${detalhes})`;
+    return `(Ocupado • ${detalhes})`;
   }
   return '(Disponível / Vago)';
 }
@@ -1977,7 +1977,7 @@ export default function Pessoas({
                                   }`}
                                 >
                                   {u.bloco === 'Prédio' || u.apartamento === 'Geral'
-                                    ? '🏢 Prédio / Áreas Comuns'
+                                    ? 'Prédio / Áreas Comuns'
                                     : `Bl. ${u.bloco} - Apto ${u.apartamento}`}
                                 </span>
                               ))}
@@ -2068,7 +2068,8 @@ export default function Pessoas({
                                 className="inline-flex items-center gap-1 rounded-md bg-red-100 text-red-700 dark:bg-rose-950/60 dark:text-rose-300 border border-red-200 dark:border-rose-900/60 px-1.5 py-0.5 text-[10px] font-bold"
                                 title="Usuário com penalidade / restrição ativa para áreas comuns"
                               >
-                                🚫 {p.total_bloqueios_ativos} Penalidade{p.total_bloqueios_ativos > 1 ? 's' : ''}
+                                <Icone nome="alert" className="h-3 w-3" />
+                                {p.total_bloqueios_ativos} Penalidade{p.total_bloqueios_ativos > 1 ? 's' : ''}
                               </span>
                             ) : null}
                             {p.codigo_ativacao && (
@@ -2595,26 +2596,26 @@ export default function Pessoas({
                         </p>
                         <div className="pt-1.5 text-[11px] space-y-1 border-t border-amber-200 dark:border-amber-900/60">
                           {!st.podeProprietario && (
-                            <p className="text-amber-900 dark:text-amber-300 flex items-center gap-1">
-                              <span>🚫</span>
+                            <p className="text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
+                              <Icone nome="alert" className="h-3.5 w-3.5 shrink-0 text-amber-700 dark:text-amber-400" />
                               <span><b>Proprietário (Titular)</b> indisponível: este apartamento já possui proprietário titular cadastrado.</span>
                             </p>
                           )}
                           {!st.podeInquilino && (
-                            <p className="text-amber-900 dark:text-amber-300 flex items-center gap-1">
-                              <span>🚫</span>
+                            <p className="text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
+                              <Icone nome="alert" className="h-3.5 w-3.5 shrink-0 text-amber-700 dark:text-amber-400" />
                               <span><b>Inquilino</b> indisponível: {st.motivoInquilino}.</span>
                             </p>
                           )}
                           {st.podeInquilino && !st.podeProprietario && (
-                            <p className="text-emerald-800 dark:text-emerald-300 font-medium flex items-center gap-1">
-                              <span>✓</span>
+                            <p className="text-emerald-800 dark:text-emerald-300 font-medium flex items-center gap-1.5">
+                              <Icone nome="check" className="h-3.5 w-3.5 shrink-0 text-emerald-700 dark:text-emerald-400" />
                               <span><b>Inquilino</b> permitido: o proprietário não reside no imóvel e não há inquilino titular cadastrado.</span>
                             </p>
                           )}
                           {!st.podeProprietario && !st.podeInquilino && (
-                            <p className="text-indigo-900 dark:text-indigo-300 font-semibold flex items-center gap-1">
-                              <span>ℹ️</span>
+                            <p className="text-indigo-900 dark:text-indigo-300 font-semibold flex items-center gap-1.5">
+                              <Icone nome="info" className="h-3.5 w-3.5 shrink-0 text-indigo-700 dark:text-indigo-400" />
                               <span>Como já existem titulares no imóvel, vincule este morador como <b>Dependente Familiar</b>.</span>
                             </p>
                           )}
@@ -2744,8 +2745,8 @@ export default function Pessoas({
                                 {op.titulo}
                               </span>
                               {moradorObrigatorio && (
-                                <span className="rounded bg-emerald-200/90 text-emerald-900 dark:bg-emerald-900/80 dark:text-emerald-200 px-1.5 py-0.5 text-[9px] font-extrabold uppercase">
-                                  🔒 Vinculado
+                                <span className="rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 text-[9px] font-bold uppercase inline-flex items-center gap-1">
+                                  <Icone nome="check" className="h-2.5 w-2.5" /> Vinculado
                                 </span>
                               )}
                               {moradorSemUnidade && (
@@ -2973,7 +2974,7 @@ export default function Pessoas({
                     .filter(u => u.bloco === 'Prédio' || u.numero_apartamento === 'Geral')
                     .map(u => (
                       <option key={u.id_unidade} value={u.id_unidade}>
-                        🏢 Prédio / Condomínio (Áreas Comuns)
+                        Prédio / Condomínio (Áreas Comuns)
                       </option>
                     ))}
                   {unidades
@@ -3063,7 +3064,7 @@ export default function Pessoas({
                 <span>Nome Completo</span>
                 {ehMoradorEdicao && (
                   <span className="text-[10px] text-slate-400 dark:text-slate-500 font-normal">
-                    🔒 Bloqueado
+                    (Bloqueado)
                   </span>
                 )}
               </span>
@@ -3091,7 +3092,7 @@ export default function Pessoas({
                   <span>CPF</span>
                   {ehMoradorEdicao && (
                     <span className="text-[10px] text-slate-400 dark:text-slate-500 font-normal">
-                      🔒 Bloqueado
+                      (Bloqueado)
                     </span>
                   )}
                 </span>
@@ -3119,7 +3120,7 @@ export default function Pessoas({
                   <span>Data de Nascimento {formEdicao.perfis.every(pf => pf === 'VISITANTE' || pf === 'PRESTADOR_SERVICO') ? '(Opcional)' : ''}</span>
                   {ehMoradorEdicao && (
                     <span className="text-[10px] text-slate-400 dark:text-slate-500 font-normal">
-                      🔒 Bloqueado
+                      (Bloqueado)
                     </span>
                   )}
                 </span>
@@ -3148,7 +3149,7 @@ export default function Pessoas({
                   <span>{formEdicao.perfis.every(pf => pf === 'VISITANTE' || pf === 'PRESTADOR_SERVICO') ? 'E-mail (Opcional)' : 'E-mail de Login'}</span>
                   {ehMoradorEdicao && (
                     <span className="text-[10px] text-slate-400 dark:text-slate-500 font-normal">
-                      🔒 Bloqueado
+                      (Bloqueado)
                     </span>
                   )}
                 </span>
@@ -3288,38 +3289,38 @@ export default function Pessoas({
                     </p>
                     <div className="pt-1.5 text-[11px] space-y-1 border-t border-amber-200 dark:border-amber-900/60">
                       {st.ehProprioProprietario && (
-                        <p className="text-emerald-800 dark:text-emerald-300 font-medium flex items-center gap-1">
-                          <span>👤</span>
+                        <p className="text-emerald-800 dark:text-emerald-300 font-medium flex items-center gap-1.5">
+                          <Icone nome="user" className="h-3.5 w-3.5 shrink-0 text-emerald-700 dark:text-emerald-400" />
                           <span>Você está editando o <b>Proprietário Titular</b> desta unidade.</span>
                         </p>
                       )}
                       {!st.podeProprietario && !st.ehProprioProprietario && (
-                        <p className="text-amber-900 dark:text-amber-300 flex items-center gap-1">
-                          <span>🚫</span>
+                        <p className="text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
+                          <Icone nome="alert" className="h-3.5 w-3.5 shrink-0 text-amber-700 dark:text-amber-400" />
                           <span><b>Proprietário (Titular)</b> indisponível: este apartamento já possui proprietário titular cadastrado.</span>
                         </p>
                       )}
                       {st.ehProprioInquilino && (
-                        <p className="text-emerald-800 dark:text-emerald-300 font-medium flex items-center gap-1">
-                          <span>👤</span>
+                        <p className="text-emerald-800 dark:text-emerald-300 font-medium flex items-center gap-1.5">
+                          <Icone nome="user" className="h-3.5 w-3.5 shrink-0 text-emerald-700 dark:text-emerald-400" />
                           <span>Você está editando o <b>Inquilino Titular</b> desta locação.</span>
                         </p>
                       )}
                       {!st.podeInquilino && !st.ehProprioInquilino && (
-                        <p className="text-amber-900 dark:text-amber-300 flex items-center gap-1">
-                          <span>🚫</span>
+                        <p className="text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
+                          <Icone nome="alert" className="h-3.5 w-3.5 shrink-0 text-amber-700 dark:text-amber-400" />
                           <span><b>Inquilino</b> indisponível: {st.motivoInquilino}.</span>
                         </p>
                       )}
                       {st.podeInquilino && !st.ehProprioInquilino && !st.ehProprioProprietario && (
-                        <p className="text-emerald-800 dark:text-emerald-300 font-medium flex items-center gap-1">
-                          <span>✓</span>
+                        <p className="text-emerald-800 dark:text-emerald-300 font-medium flex items-center gap-1.5">
+                          <Icone nome="check" className="h-3.5 w-3.5 shrink-0 text-emerald-700 dark:text-emerald-400" />
                           <span><b>Inquilino</b> permitido: o proprietário não reside no imóvel e não há inquilino titular cadastrado.</span>
                         </p>
                       )}
                       {!st.podeProprietario && !st.podeInquilino && !st.ehProprioProprietario && !st.ehProprioInquilino && (
-                        <p className="text-indigo-900 dark:text-indigo-300 font-semibold flex items-center gap-1">
-                          <span>ℹ️</span>
+                        <p className="text-indigo-900 dark:text-indigo-300 font-semibold flex items-center gap-1.5">
+                          <Icone nome="info" className="h-3.5 w-3.5 shrink-0 text-indigo-700 dark:text-indigo-400" />
                           <span>Como já existem titulares no imóvel, vincule este morador como <b>Dependente Familiar</b>.</span>
                         </p>
                       )}
@@ -3458,13 +3459,13 @@ export default function Pessoas({
                             {op.titulo}
                           </span>
                           {bloqueadoAdmin && (
-                            <span className="rounded bg-amber-200/90 text-amber-900 dark:bg-amber-900/80 dark:text-amber-200 px-1.5 py-0.5 text-[9px] font-extrabold uppercase">
-                              🔒 Obrigatório
+                            <span className="rounded bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800 px-1.5 py-0.5 text-[9px] font-bold uppercase inline-flex items-center gap-1">
+                              <Icone nome="shield" className="h-2.5 w-2.5" /> Obrigatório
                             </span>
                           )}
                           {moradorObrigatorio && (
-                            <span className="rounded bg-emerald-200/90 text-emerald-900 dark:bg-emerald-900/80 dark:text-emerald-200 px-1.5 py-0.5 text-[9px] font-extrabold uppercase">
-                              🔒 Vinculado
+                            <span className="rounded bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 text-[9px] font-bold uppercase inline-flex items-center gap-1">
+                              <Icone nome="check" className="h-2.5 w-2.5" /> Vinculado
                             </span>
                           )}
                           {moradorSemUnidade && (
