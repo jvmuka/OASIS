@@ -493,7 +493,7 @@ export default function EstruturaFisica({
     if (temSindico) {
       return {
         papel: 'Administrador',
-        badgeCls: 'bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200/80 dark:border-purple-800/60',
+        badgeCls: 'bg-navy-50 text-navy dark:bg-navy-950/60 dark:text-sky-300 border border-navy-200/80 dark:border-navy-800/60',
       };
     }
     if (temPorteiro) {
@@ -562,7 +562,7 @@ export default function EstruturaFisica({
                 </span>
 
                 {m.tipo_vinculo === 'DEPENDENTE' && m.grau_parentesco && (
-                  <span className="text-[10px] px-2 py-0.5 rounded-md bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 font-medium">
+                  <span className="text-[10px] px-2 py-0.5 rounded-md bg-sky-50 dark:bg-sky-950/70 text-sky-700 dark:text-sky-300 font-medium border border-sky-200/60 dark:border-sky-800/60">
                     {formatarParentesco(m.grau_parentesco)}
                   </span>
                 )}
@@ -588,7 +588,7 @@ export default function EstruturaFisica({
               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer shadow-2xs shrink-0"
               title="Ver Perfil Completo do Usuário"
             >
-              <Icone nome="user" className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+              <Icone nome="user" className="w-3.5 h-3.5 text-navy dark:text-sky-400" />
               Ver Perfil
             </button>
 
@@ -665,12 +665,12 @@ export default function EstruturaFisica({
           <div className="flex items-center gap-2 mb-1">
             <Titulo ajudaKey="/superadmin/estrutura">Gestão Estrutural & Vagas</Titulo>
             {!somenteLeitura ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 px-2.5 py-0.5 text-xs font-bold ring-1 ring-purple-600/20">
+              <span className="inline-flex items-center gap-1 rounded-full bg-navy-50 dark:bg-sky-950/60 text-navy dark:text-sky-300 px-2.5 py-0.5 text-xs font-bold border border-navy/20 dark:border-sky-800/60">
                 <Icone nome="shield" className="w-3.5 h-3.5" />
                 Superadmin
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 rounded-full bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 px-2.5 py-0.5 text-xs font-bold ring-1 ring-purple-500/20">
+              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2.5 py-0.5 text-xs font-bold border border-slate-200 dark:border-slate-700">
                 <Icone nome="eye" className="w-3.5 h-3.5" />
                 Modo Visualização
               </span>
@@ -702,9 +702,8 @@ export default function EstruturaFisica({
                 });
                 setModalLoteAberto(true);
               }}
-              className="!bg-gradient-to-r !from-purple-600 !to-indigo-600 hover:!from-purple-700 hover:!to-indigo-700 !text-white shadow-md shadow-purple-500/20"
+              icone={<Icone nome="sparkles" className="w-4 h-4 mr-1" />}
             >
-              <Icone nome="sparkles" className="w-4 h-4 mr-1.5" />
               Gerador Estrutural em Lote
             </Botao>
 
@@ -715,8 +714,8 @@ export default function EstruturaFisica({
                 setFormBloco({ nome: '', descricao: '' });
                 setModalBlocoAberto(true);
               }}
+              icone={<Icone nome="plus" className="w-4 h-4 mr-1" />}
             >
-              <Icone nome="plus" className="w-4 h-4 mr-1" />
               Novo Bloco
             </Botao>
 
@@ -736,8 +735,8 @@ export default function EstruturaFisica({
                 });
                 setModalUnidadeAberto(true);
               }}
+              icone={<Icone nome="plus" className="w-4 h-4 mr-1" />}
             >
-              <Icone nome="plus" className="w-4 h-4 mr-1" />
               Novo Apartamento
             </Botao>
           </div>
@@ -749,74 +748,82 @@ export default function EstruturaFisica({
       {/* Cards de Métricas / Resumo */}
       {dados && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-xs font-semibold mb-1">
-              <Icone nome="building" className="w-4 h-4 text-purple-500" />
-              Total de Blocos
+          <Cartao className="flex items-center justify-between p-5 border border-[#e2e6ec] dark:border-slate-800 rounded-2xl shadow-2xs hover:shadow-card hover:-translate-y-0.5 transition-all">
+            <div>
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Total de Blocos</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-0.5">
+                {dados.resumo.total_blocos}
+              </p>
             </div>
-            <p className="text-2xl font-black text-slate-900 dark:text-slate-100">
-              {dados.resumo.total_blocos}
-            </p>
-          </div>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-navy-50 text-navy dark:bg-sky-950/60 dark:text-sky-400">
+              <Icone nome="building" className="h-5 w-5" />
+            </div>
+          </Cartao>
 
-          <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-xs font-semibold mb-1">
-              <Icone nome="layers" className="w-4 h-4 text-indigo-500" />
-              Total de Unidades
+          <Cartao className="flex items-center justify-between p-5 border border-[#e2e6ec] dark:border-slate-800 rounded-2xl shadow-2xs hover:shadow-card hover:-translate-y-0.5 transition-all">
+            <div>
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Total de Unidades</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-0.5">
+                {dados.resumo.total_unidades}
+              </p>
             </div>
-            <p className="text-2xl font-black text-slate-900 dark:text-slate-100">
-              {dados.resumo.total_unidades}
-            </p>
-          </div>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-50 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300">
+              <Icone nome="layers" className="h-5 w-5" />
+            </div>
+          </Cartao>
 
-          <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-xs font-semibold mb-1">
-              <Icone nome="car" className="w-4 h-4 text-sky-500" />
-              Vagas de Garagem
+          <Cartao className="flex items-center justify-between p-5 border border-[#e2e6ec] dark:border-slate-800 rounded-2xl shadow-2xs hover:shadow-card hover:-translate-y-0.5 transition-all">
+            <div>
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Vagas de Garagem</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-0.5">
+                {dados.resumo.total_vagas}
+              </p>
             </div>
-            <p className="text-2xl font-black text-slate-900 dark:text-slate-100">
-              {dados.resumo.total_vagas}
-            </p>
-          </div>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400">
+              <Icone nome="car" className="h-5 w-5" />
+            </div>
+          </Cartao>
 
-          <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-xs font-semibold mb-1">
-              <Icone nome="sparkles" className="w-4 h-4 text-emerald-500" />
-              Área Total Garagens
+          <Cartao className="flex items-center justify-between p-5 border border-[#e2e6ec] dark:border-slate-800 rounded-2xl shadow-2xs hover:shadow-card hover:-translate-y-0.5 transition-all">
+            <div>
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Área Total Garagens</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-0.5">
+                {Number(dados.resumo.metragem_total_garagens || 0).toLocaleString('pt-BR', {
+                  minimumFractionDigits: 1,
+                  maximumFractionDigits: 2,
+                })}{' '}
+                <span className="text-xs font-normal text-slate-400">m²</span>
+              </p>
             </div>
-            <p className="text-2xl font-black text-slate-900 dark:text-slate-100">
-              {Number(dados.resumo.metragem_total_garagens || 0).toLocaleString('pt-BR', {
-                minimumFractionDigits: 1,
-                maximumFractionDigits: 2,
-              })}{' '}
-              <span className="text-xs font-normal text-slate-500">m²</span>
-            </p>
-          </div>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400">
+              <Icone nome="sparkles" className="h-5 w-5" />
+            </div>
+          </Cartao>
         </div>
       )}
 
       {/* Navegação entre Blocos (Abas) */}
       {dados && dados.blocos.length > 0 && (
         <div className="space-y-4">
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-200 dark:border-slate-800">
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-[#e2e6ec] dark:border-slate-800">
             {dados.blocos.map(b => {
               const ativo = blocoSelecionado?.id_bloco === b.id_bloco;
               return (
                 <button
                   key={b.id_bloco}
                   onClick={() => setBlocoAtivoId(b.id_bloco)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all shrink-0 cursor-pointer ${
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
                     ativo
-                      ? 'bg-purple-600 text-white shadow-sm shadow-purple-500/25 ring-2 ring-purple-600/30'
-                      : 'bg-white text-slate-600 hover:bg-slate-100 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800'
+                      ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
+                      : 'bg-white text-slate-600 border border-[#e2e6ec] hover:bg-[#f6f7f9] dark:bg-[#0e1525] dark:text-slate-300 dark:border-slate-800'
                   }`}
                 >
                   <Icone nome="building" className="w-4 h-4" />
                   <span>{b.nome}</span>
                   <span
-                    className={`ml-1 text-xs px-2 py-0.5 rounded-full ${
+                    className={`ml-1 text-[10px] px-2 py-0.5 rounded-full font-bold ${
                       ativo
-                        ? 'bg-purple-700/80 text-purple-100'
+                        ? 'bg-white/20 text-white'
                         : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
                     }`}
                   >
@@ -829,12 +836,12 @@ export default function EstruturaFisica({
 
           {/* Detalhes do Bloco Selecionado */}
           {blocoSelecionado && (
-            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 mb-5 border-b border-slate-100 dark:border-slate-800/80">
+            <div className="rounded-2xl border border-[#e2e6ec] bg-white p-6 shadow-2xs dark:border-slate-800 dark:bg-[#0e1525]">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 mb-5 border-b border-[#edf1f7] dark:border-slate-800">
                 <div>
                   <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                     <span>{blocoSelecionado.nome}</span>
-                    <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
+                    <span className="text-xs font-medium text-slate-400 dark:text-slate-500">
                       ({blocoSelecionado.total_unidades} apartamentos cadastrados)
                     </span>
                   </h3>
@@ -860,8 +867,8 @@ export default function EstruturaFisica({
                         });
                         setModalUnidadeAberto(true);
                       }}
+                      icone={<Icone nome="plus" className="w-3.5 h-3.5 mr-1" />}
                     >
-                      <Icone nome="plus" className="w-3.5 h-3.5 mr-1" />
                       Novo Apartamento
                     </Botao>
 
@@ -882,9 +889,8 @@ export default function EstruturaFisica({
                         });
                         setModalAndarAberto(true);
                       }}
-                      className="hover:!text-purple-600 hover:!border-purple-300"
+                      icone={<Icone nome="layers" className="w-3.5 h-3.5 mr-1" />}
                     >
-                      <Icone nome="layers" className="w-3.5 h-3.5 mr-1" />
                       Novo Andar
                     </Botao>
 
@@ -893,8 +899,8 @@ export default function EstruturaFisica({
                       tamanho="sm"
                       onClick={() => handleSincronizarAndares(blocoSelecionado.id_bloco)}
                       title="Organiza todos os apartamentos em andares de 4 unidades cada pela numeração"
+                      icone={<Icone nome="filter" className="w-3.5 h-3.5 mr-1" />}
                     >
-                      <Icone nome="filter" className="w-3.5 h-3.5 mr-1" />
                       Organizar Andares
                     </Botao>
 
@@ -910,8 +916,8 @@ export default function EstruturaFisica({
                         });
                         setModalBlocoAberto(true);
                       }}
+                      icone={<Icone nome="edit" className="w-3.5 h-3.5 mr-1" />}
                     >
-                      <Icone nome="edit" className="w-3.5 h-3.5 mr-1" />
                       Editar Bloco
                     </Botao>
 
@@ -926,8 +932,8 @@ export default function EstruturaFisica({
                           mensagem: `Esta ação só será permitida se o bloco não contiver apartamentos cadastrados. Deseja prosseguir?`,
                         });
                       }}
+                      icone={<Icone nome="trash" className="w-3.5 h-3.5 mr-1" />}
                     >
-                      <Icone nome="trash" className="w-3.5 h-3.5 mr-1" />
                       Excluir
                     </Botao>
                   </div>
@@ -969,11 +975,11 @@ export default function EstruturaFisica({
                       const aptosAndar = blocoSelecionado.unidades.filter(u => u.andar === andar);
                       return (
                         <div key={andar} className="space-y-3">
-                          <div className="flex items-center justify-between gap-2 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 pb-1.5 border-b border-slate-100 dark:border-slate-800">
+                          <div className="flex items-center justify-between gap-2 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 pb-2 border-b border-[#edf1f7] dark:border-slate-800">
                             <div className="flex items-center gap-2">
-                              <Icone nome="layers" className="w-3.5 h-3.5 text-purple-500" />
-                              <span>{formatarNomeAndar(andar)}</span>
-                              <span className="text-[11px] font-normal text-slate-400">
+                              <Icone nome="layers" className="w-4 h-4 text-navy dark:text-sky-400" />
+                              <span className="text-slate-900 dark:text-slate-100">{formatarNomeAndar(andar)}</span>
+                              <span className="text-[11px] font-medium text-slate-400">
                                 ({aptosAndar.length} {aptosAndar.length === 1 ? 'apartamento' : 'apartamentos'})
                               </span>
                             </div>
@@ -992,9 +998,9 @@ export default function EstruturaFisica({
                                     });
                                     setModalUnidadeAberto(true);
                                   }}
-                                  className="text-[11px] font-semibold text-purple-600 hover:text-purple-700 dark:text-purple-400 hover:underline flex items-center gap-1 cursor-pointer"
+                                  className="text-xs font-bold text-navy hover:text-navy/80 dark:text-sky-400 hover:underline flex items-center gap-1 cursor-pointer"
                                 >
-                                  <Icone nome="plus" className="w-3 h-3" />
+                                  <Icone nome="plus" className="w-3.5 h-3.5" />
                                   Apto no {formatarNomeAndar(andar)}
                                 </button>
 
@@ -1007,10 +1013,10 @@ export default function EstruturaFisica({
                                     });
                                     setModalMudarAndarAberto(true);
                                   }}
-                                  className="text-[11px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:underline flex items-center gap-1 cursor-pointer"
+                                  className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:underline flex items-center gap-1 cursor-pointer"
                                   title="Mudar o número do andar para todos os apartamentos deste andar"
                                 >
-                                  <Icone nome="edit" className="w-3 h-3" />
+                                  <Icone nome="edit" className="w-3.5 h-3.5" />
                                   Mudar Andar
                                 </button>
                               </div>
@@ -1021,19 +1027,19 @@ export default function EstruturaFisica({
                             {aptosAndar.map(u => (
                               <div
                                 key={u.id_unidade}
-                                className="rounded-xl border border-slate-200/90 bg-slate-50/60 dark:border-slate-800 dark:bg-slate-900/60 p-4 transition-all hover:border-purple-300 dark:hover:border-purple-800 hover:shadow-xs"
+                                className="rounded-2xl border border-[#e2e6ec] bg-white dark:border-slate-800 dark:bg-[#0e1525] p-5 shadow-2xs hover:shadow-card hover:-translate-y-0.5 transition-all"
                               >
                                 {/* Header do Card do Apto - Clicável para abrir os detalhes de moradores */}
-                                <div className="flex items-start justify-between gap-2 pb-2.5 mb-2.5 border-b border-slate-200/60 dark:border-slate-800/60">
+                                <div className="flex items-start justify-between gap-2 pb-3 mb-3 border-b border-[#edf1f7] dark:border-slate-800">
                                   <div
                                     onClick={() => abrirModalUnidade(u)}
-                                    className="cursor-pointer group flex-1 select-none transition-colors rounded-lg -m-1 p-1 hover:bg-purple-50/70 dark:hover:bg-purple-950/30"
+                                    className="cursor-pointer group flex-1 select-none transition-colors rounded-xl -m-1 p-1 hover:bg-[#f6f7f9] dark:hover:bg-slate-800/50"
                                     title="Clique no apartamento para ver os perfis e moradores vinculados"
                                   >
                                     <div className="flex items-center gap-2">
-                                      <span className="text-base font-black text-slate-900 dark:text-slate-100 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors flex items-center gap-1.5">
+                                      <span className="text-base font-extrabold text-slate-900 dark:text-slate-100 group-hover:text-navy dark:group-hover:text-sky-400 transition-colors flex items-center gap-1.5">
                                         Apto {u.numero_apartamento}
-                                        <Icone nome="users" className="w-3.5 h-3.5 text-slate-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 opacity-60 group-hover:opacity-100 transition-all" />
+                                        <Icone nome="users" className="w-3.5 h-3.5 text-slate-400 group-hover:text-navy dark:group-hover:text-sky-400 opacity-60 group-hover:opacity-100 transition-all" />
                                       </span>
                                       {u.total_moradores > 0 ? (
                                         <Badge tipo="sucesso">
@@ -1043,7 +1049,7 @@ export default function EstruturaFisica({
                                         <Badge tipo="neutro">Vago</Badge>
                                       )}
                                     </div>
-                                    <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                                       {u.proprietario ? (
                                         <p className="truncate group-hover:text-slate-700 dark:group-hover:text-slate-200">
                                           <span className="font-semibold text-slate-700 dark:text-slate-300">Prop:</span> {u.proprietario}
@@ -1053,7 +1059,7 @@ export default function EstruturaFisica({
                                           <span className="font-semibold text-slate-700 dark:text-slate-300">Inq:</span> {u.inquilino}
                                         </p>
                                       ) : (
-                                        <p className="italic text-slate-400 group-hover:text-purple-600 dark:group-hover:text-purple-400">
+                                        <p className="italic text-slate-400 group-hover:text-navy dark:group-hover:text-sky-400">
                                           Sem moradores vinculados (Clique para detalhes)
                                         </p>
                                       )}
@@ -1065,7 +1071,7 @@ export default function EstruturaFisica({
                                     <button
                                       onClick={() => abrirModalUnidade(u)}
                                       title="Ver Perfis e Moradores Vinculados"
-                                      className="p-1 rounded-md text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/40 cursor-pointer"
+                                      className="p-1.5 rounded-lg text-slate-400 hover:text-navy dark:hover:text-sky-400 hover:bg-[#f6f7f9] dark:hover:bg-slate-800 transition-colors cursor-pointer"
                                     >
                                       <Icone nome="users" className="w-3.5 h-3.5" />
                                     </button>
@@ -1084,7 +1090,7 @@ export default function EstruturaFisica({
                                             setModalUnidadeAberto(true);
                                           }}
                                           title="Editar Apartamento"
-                                          className="p-1 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800 cursor-pointer"
+                                          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                                         >
                                           <Icone nome="edit" className="w-3.5 h-3.5" />
                                         </button>
@@ -1099,7 +1105,7 @@ export default function EstruturaFisica({
                                             });
                                           }}
                                           title="Excluir Apartamento"
-                                          className="p-1 rounded-md text-slate-400 hover:text-red-600 dark:hover:text-rose-400 hover:bg-red-50 dark:hover:bg-rose-950/40 cursor-pointer"
+                                          className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 dark:hover:text-rose-400 hover:bg-red-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
                                         >
                                           <Icone nome="trash" className="w-3.5 h-3.5" />
                                         </button>
@@ -1112,8 +1118,8 @@ export default function EstruturaFisica({
                                 <div className="space-y-2">
                                   <div className="flex items-center justify-between text-[11px] font-bold text-slate-600 dark:text-slate-300">
                                     <span className="flex items-center gap-1.5">
-                                      <Icone nome="car" className="w-3.5 h-3.5 text-sky-500" />
-                                      Vagas de Carro ({u.vagas.length})
+                                      <Icone nome="car" className="w-3.5 h-3.5 text-navy dark:text-sky-400" />
+                                      Vagas de Garagem ({u.vagas.length})
                                     </span>
 
                                     {!somenteLeitura && (
@@ -1131,7 +1137,7 @@ export default function EstruturaFisica({
                                           });
                                           setModalVagaAberto(true);
                                         }}
-                                        className="text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-0.5 text-[10px] font-semibold cursor-pointer"
+                                        className="text-navy dark:text-sky-400 hover:underline flex items-center gap-0.5 text-[10px] font-bold cursor-pointer"
                                       >
                                         <Icone nome="plus" className="w-3 h-3" />
                                         Adicionar Vaga
@@ -1140,7 +1146,7 @@ export default function EstruturaFisica({
                                   </div>
 
                                   {u.vagas.length === 0 ? (
-                                    <p className="text-[11px] text-slate-400 italic bg-white/70 dark:bg-slate-800/40 p-2 rounded-lg border border-slate-200/50 dark:border-slate-800/50">
+                                    <p className="text-[11px] text-slate-400 italic bg-[#f6f7f9] dark:bg-slate-800/40 p-2.5 rounded-xl border border-[#e2e6ec] dark:border-slate-800">
                                       Nenhuma vaga vinculada a este apartamento.
                                     </p>
                                   ) : (
@@ -1148,17 +1154,17 @@ export default function EstruturaFisica({
                                       {u.vagas.map(v => (
                                         <div
                                           key={v.id_vaga}
-                                          className="flex items-center justify-between gap-2 p-2 rounded-lg bg-white dark:bg-slate-800/90 border border-slate-200/70 dark:border-slate-700/60 text-xs"
+                                          className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-[#f6f7f9] dark:bg-slate-800/70 border border-[#e2e6ec] dark:border-slate-700/60 text-xs"
                                         >
                                           <div className="min-w-0">
                                             <div className="flex items-center gap-1.5 flex-wrap">
-                                              <span className="font-bold text-slate-800 dark:text-slate-200">
+                                              <span className="font-bold text-slate-900 dark:text-slate-100">
                                                 {v.identificacao}
                                               </span>
-                                              <span className="px-1.5 py-0.5 rounded-md bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 font-bold text-[10px] border border-purple-200 dark:border-purple-800/60">
+                                              <span className="px-2 py-0.5 rounded-md bg-navy-50 dark:bg-sky-950/60 text-navy dark:text-sky-300 font-bold text-[10px] border border-navy/20 dark:border-sky-800/60">
                                                 {Number(v.metragem_m2 || 0).toFixed(2)} m²
                                               </span>
-                                              <span className="px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px]">
+                                              <span className="px-2 py-0.5 rounded-md bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] font-medium border border-[#e2e6ec] dark:border-slate-600">
                                                 {v.coberta ? 'Coberta' : 'Descoberta'}
                                               </span>
                                             </div>
@@ -1247,7 +1253,7 @@ export default function EstruturaFisica({
                 placeholder="Ex: Bloco D, Torre Sul"
                 value={formLote.nome_bloco}
                 onChange={e => setFormLote({ ...formLote, nome_bloco: e.target.value })}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-navy focus:ring-1 focus:ring-navy focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-sky-500"
               />
             </div>
 
@@ -1260,13 +1266,13 @@ export default function EstruturaFisica({
                 placeholder="Ex: Prédio Residencial"
                 value={formLote.descricao}
                 onChange={e => setFormLote({ ...formLote, descricao: e.target.value })}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-navy focus:ring-1 focus:ring-navy focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-sky-500"
               />
             </div>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-purple-50/70 dark:bg-purple-950/30 border border-purple-200/80 dark:border-purple-800/60 space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-purple-800 dark:text-purple-300 flex items-center gap-1.5">
+          <div className="p-3.5 rounded-xl bg-[#f6f7f9] dark:bg-slate-800/60 border border-[#e2e6ec] dark:border-slate-700 space-y-3">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-navy dark:text-sky-400 flex items-center gap-1.5">
               <Icone nome="layers" className="w-3.5 h-3.5" />
               Configuração de Andares e Apartamentos
             </h4>
@@ -1308,7 +1314,7 @@ export default function EstruturaFisica({
                     type="checkbox"
                     checked={formLote.incluir_terreo}
                     onChange={e => setFormLote({ ...formLote, incluir_terreo: e.target.checked })}
-                    className="rounded text-purple-600 focus:ring-purple-500 h-4 w-4"
+                    className="rounded text-navy focus:ring-navy h-4 w-4"
                   />
                   Incluir Térreo Residencial
                 </label>
@@ -1350,7 +1356,7 @@ export default function EstruturaFisica({
                   required
                   value={formLote.metragem_padrao_vaga}
                   onChange={e => setFormLote({ ...formLote, metragem_padrao_vaga: Number(e.target.value) })}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold text-purple-700 dark:text-purple-300 dark:border-slate-700 dark:bg-slate-800"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold text-slate-800 dark:text-slate-200 dark:border-slate-700 dark:bg-slate-800"
                 />
               </div>
 
@@ -1375,7 +1381,7 @@ export default function EstruturaFisica({
                     type="checkbox"
                     checked={formLote.coberta_padrao_vaga}
                     onChange={e => setFormLote({ ...formLote, coberta_padrao_vaga: e.target.checked })}
-                    className="rounded text-purple-600 focus:ring-purple-500 h-4 w-4"
+                    className="rounded text-navy focus:ring-navy h-4 w-4"
                   />
                   Vagas Cobertas
                 </label>
@@ -1386,7 +1392,7 @@ export default function EstruturaFisica({
           {/* Prévia do Resultado */}
           <div className="rounded-xl bg-slate-100 dark:bg-slate-800/70 p-3 text-xs text-slate-700 dark:text-slate-300 flex items-center justify-between">
             <span className="font-semibold">Prévia da Geração:</span>
-            <span className="font-mono text-purple-700 dark:text-purple-300 font-bold">
+            <span className="font-mono text-navy dark:text-sky-400 font-bold">
               {calculoPreviaLote.andares} andares • {calculoPreviaLote.aptos} aptos • {calculoPreviaLote.vagas} vagas ({calculoPreviaLote.areaTotal.toFixed(1)} m²)
             </span>
           </div>
@@ -1399,7 +1405,6 @@ export default function EstruturaFisica({
               variante="primario"
               type="submit"
               disabled={processando}
-              className="!bg-gradient-to-r !from-purple-600 !to-indigo-600 !text-white"
             >
               {processando ? 'Gerando...' : 'Confirmar e Gerar Bloco'}
             </Botao>
@@ -1426,7 +1431,7 @@ export default function EstruturaFisica({
               onClick={() => setAbaEdicaoBloco('dados')}
               className={`pb-2.5 px-3 text-xs font-bold border-b-2 transition-all cursor-pointer ${
                 abaEdicaoBloco === 'dados'
-                  ? 'border-purple-600 text-purple-600 dark:border-purple-400 dark:text-purple-400'
+                  ? 'border-navy text-navy dark:border-sky-400 dark:text-sky-400'
                   : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
               }`}
             >
@@ -1437,7 +1442,7 @@ export default function EstruturaFisica({
               onClick={() => setAbaEdicaoBloco('andares')}
               className={`pb-2.5 px-3 text-xs font-bold border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
                 abaEdicaoBloco === 'andares'
-                  ? 'border-purple-600 text-purple-600 dark:border-purple-400 dark:text-purple-400'
+                  ? 'border-navy text-navy dark:border-sky-400 dark:text-sky-400'
                   : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
               }`}
             >
@@ -1489,12 +1494,12 @@ export default function EstruturaFisica({
 
         {blocoEditando && abaEdicaoBloco === 'andares' && (
           <div className="space-y-4 text-sm">
-            <div className="rounded-xl border border-purple-200 bg-purple-50/70 p-3.5 dark:border-purple-900/50 dark:bg-purple-950/30">
-              <div className="flex items-center justify-between text-xs font-bold text-purple-900 dark:text-purple-200 mb-1">
+            <div className="rounded-xl border border-[#e2e6ec] bg-[#f6f7f9] p-3.5 dark:border-slate-700 dark:bg-slate-800/60">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-900 dark:text-slate-100 mb-1">
                 <span>Estrutura do Bloco</span>
-                <span>{blocoEditando.total_unidades} apartamentos</span>
+                <span className="text-navy dark:text-sky-400 font-bold">{blocoEditando.total_unidades} apartamentos</span>
               </div>
-              <p className="text-xs text-purple-700 dark:text-purple-300">
+              <p className="text-xs text-slate-600 dark:text-slate-400">
                 Padrão do condomínio: <strong>4 apartamentos por andar</strong>, onde o prefixo numérico identifica o andar (ex: apto 51..54 = 5º andar; 101..104 = 10º andar).
               </p>
             </div>
@@ -1502,7 +1507,7 @@ export default function EstruturaFisica({
             <div className="flex flex-col gap-2">
               <Botao
                 variante="primario"
-                className="w-full justify-center !bg-purple-600 hover:!bg-purple-700 text-white"
+                className="w-full justify-center"
                 onClick={() => {
                   const maxAndar = blocoEditando.unidades.length > 0
                     ? Math.max(...blocoEditando.unidades.map(u => u.andar))
@@ -1614,7 +1619,7 @@ export default function EstruturaFisica({
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
               />
               {/^\d{2,}$/.test(formUnidade.numero_apartamento) && (
-                <p className="text-[11px] text-purple-600 dark:text-purple-400 mt-1 flex items-center gap-1 font-medium">
+                <p className="text-[11px] text-navy dark:text-sky-400 mt-1 flex items-center gap-1 font-medium">
                   <Icone nome="layers" className="w-3 h-3" />
                   Andar detectado: {Math.floor(parseInt(formUnidade.numero_apartamento, 10) / 10)}º Andar
                 </p>
@@ -1676,7 +1681,7 @@ export default function EstruturaFisica({
                 required
                 value={formNovoAndar.andar}
                 onChange={e => setFormNovoAndar({ ...formNovoAndar, andar: Number(e.target.value) })}
-                className="w-full rounded-lg border border-purple-300 dark:border-purple-800 px-3 py-2 text-sm font-bold text-purple-700 dark:text-purple-300 dark:bg-slate-800"
+                className="w-full rounded-lg border border-[#e2e6ec] dark:border-slate-700 px-3 py-2 text-sm font-bold text-slate-800 dark:text-slate-200 dark:bg-slate-800"
               />
             </div>
 
@@ -1728,14 +1733,14 @@ export default function EstruturaFisica({
             </div>
           </div>
 
-          <div className="rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-900/60 p-3 text-xs text-purple-900 dark:text-purple-200">
-            <span className="font-bold">Prévia dos Apartamentos a Serem Criados:</span>
-            <p className="mt-1 font-mono font-semibold">
+          <div className="rounded-xl bg-[#f6f7f9] dark:bg-slate-800/60 border border-[#e2e6ec] dark:border-slate-700 p-3.5 text-xs text-slate-700 dark:text-slate-300">
+            <span className="font-bold text-slate-900 dark:text-slate-100">Prévia dos Apartamentos a Serem Criados:</span>
+            <p className="mt-1 font-mono font-bold text-navy dark:text-sky-400">
               {Array.from({ length: formNovoAndar.aptos_por_andar }, (_, i) =>
                 formNovoAndar.andar === 0 ? `T-0${i + 1}` : `${formNovoAndar.andar}${i + 1}`
               ).join(', ')}
             </p>
-            <p className="text-[11px] text-purple-700 dark:text-purple-300 mt-1">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
               Total: {formNovoAndar.aptos_por_andar} apartamentos no {formatarNomeAndar(formNovoAndar.andar)} com {formNovoAndar.aptos_por_andar * formNovoAndar.vagas_por_apto} vaga(s) de {formNovoAndar.metragem_vaga} m² cada.
             </p>
           </div>
@@ -1751,7 +1756,7 @@ export default function EstruturaFisica({
             >
               Cancelar
             </Botao>
-            <Botao variante="primario" type="submit" disabled={processando} className="!bg-purple-600 hover:!bg-purple-700 text-white">
+            <Botao variante="primario" type="submit" disabled={processando}>
               {processando ? 'Gerando Andar...' : `Gerar ${formatarNomeAndar(formNovoAndar.andar)}`}
             </Botao>
           </div>
@@ -1787,7 +1792,7 @@ export default function EstruturaFisica({
               onChange={e =>
                 setAndarRenomeando(prev => prev ? { ...prev, novo_andar: Number(e.target.value) } : null)
               }
-              className="w-full rounded-lg border border-purple-300 dark:border-purple-800 px-3 py-2 text-sm font-bold text-purple-700 dark:text-purple-300 dark:bg-slate-800"
+              className="w-full rounded-lg border border-[#e2e6ec] dark:border-slate-700 px-3 py-2 text-sm font-bold text-slate-800 dark:text-slate-200 dark:bg-slate-800"
             />
           </div>
 
@@ -1842,7 +1847,7 @@ export default function EstruturaFisica({
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-purple-700 dark:text-purple-300 mb-1">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                 Metragem Útil (m²) *
               </label>
               <input
@@ -1852,7 +1857,7 @@ export default function EstruturaFisica({
                 required
                 value={formVaga.metragem_m2}
                 onChange={e => setFormVaga({ ...formVaga, metragem_m2: Number(e.target.value) })}
-                className="w-full rounded-lg border border-purple-300 dark:border-purple-800 px-3 py-2 text-sm font-bold text-purple-700 dark:text-purple-300 dark:bg-slate-800"
+                className="w-full rounded-lg border border-[#e2e6ec] dark:border-slate-700 px-3 py-2 text-sm font-bold text-slate-800 dark:text-slate-200 dark:bg-slate-800"
               />
             </div>
           </div>
@@ -1894,7 +1899,7 @@ export default function EstruturaFisica({
                 type="checkbox"
                 checked={formVaga.coberta}
                 onChange={e => setFormVaga({ ...formVaga, coberta: e.target.checked })}
-                className="rounded text-purple-600 focus:ring-purple-500 h-4 w-4"
+                className="rounded text-navy focus:ring-navy h-4 w-4"
               />
               Vaga Coberta
             </label>
@@ -1953,9 +1958,9 @@ export default function EstruturaFisica({
         {unidadeDetalhesMoradores && (
           <div className="space-y-4">
             {/* Cabeçalho informativo do apartamento */}
-            <div className="rounded-xl bg-purple-50/70 dark:bg-purple-950/30 border border-purple-200/70 dark:border-purple-800/50 p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="rounded-2xl bg-[#f6f7f9] dark:bg-slate-800/60 border border-[#e2e6ec] dark:border-slate-700 p-4 flex flex-wrap items-center justify-between gap-3 text-xs">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center font-black text-sm shadow-xs shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-navy dark:bg-sky-600 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
                   {unidadeDetalhesMoradores.numero_apartamento}
                 </div>
                 <div>
@@ -2001,15 +2006,19 @@ export default function EstruturaFisica({
               <button
                 type="button"
                 onClick={() => setAbaUnidadeDetalhes('moradores')}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                   abaUnidadeDetalhes === 'moradores'
-                    ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300'
-                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                    ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
+                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
               >
                 <Icone nome="users" className="w-3.5 h-3.5" />
                 <span>Moradores & Perfis</span>
-                <span className="px-1.5 py-0.2 rounded-full bg-white dark:bg-slate-800 text-[10px] font-bold">
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                  abaUnidadeDetalhes === 'moradores'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                }`}>
                   {unidadeDetalhesMoradores.moradores?.length || 0}
                 </span>
               </button>
@@ -2022,16 +2031,20 @@ export default function EstruturaFisica({
                     carregarAtividadesUnidade(unidadeDetalhesMoradores.id_unidade);
                   }
                 }}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                   abaUnidadeDetalhes === 'atividades'
-                    ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300'
-                    : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                    ? 'bg-navy text-white shadow-xs dark:bg-sky-600'
+                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
               >
                 <Icone nome="calendar" className="w-3.5 h-3.5" />
                 <span>Atividades & Reservas do Apto</span>
                 {atividadesUnidade && (
-                  <span className="px-1.5 py-0.2 rounded-full bg-white dark:bg-slate-800 text-[10px] font-bold">
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                    abaUnidadeDetalhes === 'atividades'
+                      ? 'bg-white/20 text-white'
+                      : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                  }`}>
                     {atividadesUnidade.total_reservas}
                   </span>
                 )}
@@ -2104,11 +2117,11 @@ export default function EstruturaFisica({
                       if (deps.length === 0) return null;
                       return (
                         <div className="space-y-2">
-                          <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-purple-700 dark:text-purple-400 pt-1">
+                          <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-sky-700 dark:text-sky-400 pt-1">
                             <Icone nome="users" className="w-3.5 h-3.5" />
                             <span>Dependentes</span>
                           </div>
-                          {deps.map(m => renderCardMorador(m, 'border-purple-200/80 bg-purple-50/30 dark:border-purple-900/40 dark:bg-purple-950/20'))}
+                          {deps.map(m => renderCardMorador(m, 'border-sky-200/80 bg-sky-50/30 dark:border-sky-900/40 dark:bg-sky-950/20'))}
                         </div>
                       );
                     })()}
@@ -2270,7 +2283,7 @@ export default function EstruturaFisica({
                               <button
                                 type="button"
                                 onClick={() => abrirPerfilUsuario(r.id_pessoa)}
-                                className="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:underline shrink-0 cursor-pointer"
+                                className="text-xs font-semibold text-navy dark:text-sky-400 hover:underline shrink-0 cursor-pointer"
                               >
                                 Ver ➔
                               </button>

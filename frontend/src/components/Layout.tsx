@@ -230,7 +230,7 @@ export default function Layout() {
                           </option>
                         ))}
                       </select>
-                      <p className="text-[10px] text-purple-600 dark:text-purple-400 font-semibold leading-tight">
+                      <p className="text-[10px] text-navy dark:text-sky-400 font-semibold leading-tight">
                         Superadmin • Alternar
                       </p>
                     </div>
@@ -266,7 +266,7 @@ export default function Layout() {
                   chave="superadmin"
                   rotulo="Superadmin Master"
                   icone="shield"
-                  corBadge="text-purple-600 dark:text-purple-400"
+                  corBadge="text-navy dark:text-sky-400"
                 />
                 {secoesAbertas.superadmin && (
                   <div className="space-y-0.5 mt-1">

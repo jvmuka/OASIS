@@ -520,9 +520,9 @@ export default function Inicio() {
         valor="Blocos & Vagas"
         legenda="Gerenciar blocos, andares, aptos e garagens com m²"
         icone="building"
-        cor="bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-950/40 dark:text-purple-400 dark:border-purple-800"
+        cor="bg-navy-50 text-navy border-navy/20 dark:bg-sky-950/40 dark:text-sky-400 dark:border-sky-800"
         acao={
-          <Link to="/superadmin/estrutura" className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-purple-600 hover:underline dark:text-purple-400">
+          <Link to="/superadmin/estrutura" className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-navy hover:underline dark:text-sky-400">
             Acessar Estrutura <Icone nome="chevronRight" className="h-3 w-3" />
           </Link>
         }
@@ -634,7 +634,7 @@ export default function Inicio() {
           tipos.includes('SUPERADMIN') ? (
             <Link
               to="/superadmin/estrutura"
-              className="inline-flex items-center gap-1.5 rounded-xl border border-purple-200 bg-purple-50 px-3.5 py-2 text-xs font-bold text-purple-700 shadow-soft hover:bg-purple-100 dark:border-purple-800 dark:bg-purple-950/60 dark:text-purple-300 transition-all cursor-pointer"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-navy/20 bg-navy-50 px-3.5 py-2 text-xs font-bold text-navy shadow-soft hover:bg-navy-100 dark:border-sky-800 dark:bg-sky-950/60 dark:text-sky-300 transition-all cursor-pointer"
             >
               <Icone nome="shield" className="h-4 w-4" />
               Painel Superadmin <Icone nome="chevronRight" className="h-3.5 w-3.5" />

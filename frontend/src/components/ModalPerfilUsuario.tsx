@@ -47,7 +47,7 @@ function obterPapelUsuario(p: any): {
   if (temSindico) {
     return {
       papel: 'Administrador',
-      badgeCls: 'bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200/80 dark:border-purple-800/60',
+      badgeCls: 'bg-navy-50 text-navy dark:bg-navy-950/60 dark:text-sky-300 border border-navy-200/80 dark:border-navy-800/60',
     };
   }
   if (temPorteiro) {
@@ -241,8 +241,8 @@ export function ModalPerfilUsuario({
 
           {/* SE FOR DEPENDENTE: EXIBE TITULAR RESPONSÁVEL SUPERIOR */}
           {responsavel && (
-            <div className="rounded-xl border border-purple-200 bg-purple-50/50 dark:border-purple-900/50 dark:bg-purple-950/30 p-3.5 space-y-2">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-purple-700 dark:text-purple-300 flex items-center gap-1.5">
+            <div className="rounded-xl border border-sky-200 bg-sky-50/50 dark:border-sky-900/50 dark:bg-sky-950/30 p-3.5 space-y-2">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-sky-700 dark:text-sky-300 flex items-center gap-1.5">
                 <Icone nome="users" className="h-3.5 w-3.5" />
                 Usuário Superior / Titular Responsável
               </p>
@@ -301,7 +301,7 @@ export function ModalPerfilUsuario({
                           <span className="font-bold text-xs text-slate-800 dark:text-slate-200">
                             {dep.nome}
                           </span>
-                          <span className="rounded bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 px-1.5 py-0.2 text-[9px] font-bold">
+                          <span className="rounded bg-sky-100 dark:bg-sky-900/50 text-sky-700 dark:text-sky-300 px-1.5 py-0.2 text-[9px] font-bold">
                             {formatarParentesco(dep.grau_parentesco)}
                           </span>
                         </div>
