@@ -240,13 +240,13 @@ export default function Login() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-100 via-slate-50 to-navy-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 p-4 transition-colors duration-200">
+    <div className="relative flex min-h-screen items-center justify-center bg-[#f6f7f9] dark:bg-[#0b1830] p-4 transition-colors duration-200">
       <div className="absolute top-4 right-4">
         <BotaoModoEscuro />
       </div>
 
       <div className="w-full max-w-md animate-scale-in">
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-6 sm:p-8 shadow-card dark:border-slate-800 dark:bg-slate-900 dark:shadow-2xl">
+        <div className="rounded-2xl border border-[#e2e6ec] bg-white p-6 sm:p-8 shadow-card dark:border-slate-800 dark:bg-[#0e1525] dark:shadow-2xl">
           {/* Logo e Cabeçalho */}
           <div className="mb-6 text-center">
             <div className="mx-auto flex items-center justify-center">
@@ -268,13 +268,13 @@ export default function Login() {
 
           {/* Abas Alternadoras */}
           {aba !== 'esqueci_senha' && (
-            <div className="mb-6 flex rounded-xl bg-slate-100 dark:bg-slate-800 p-1">
+            <div className="mb-6 flex rounded-xl bg-[#f6f7f9] dark:bg-slate-800/80 p-1 border border-[#e2e6ec] dark:border-slate-700/80">
               <button
                 type="button"
                 onClick={() => { setAba('login'); setErro(''); setErroSenha(''); setErroConfirmacao(''); }}
                 className={`flex-1 rounded-lg py-2 text-xs font-bold transition-all cursor-pointer ${aba === 'login'
-                    ? 'bg-white dark:bg-slate-900 text-navy dark:text-sky-400 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+                    ? 'bg-navy dark:bg-sky-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
                   }`}
               >
                 Entrar com Senha
@@ -283,8 +283,8 @@ export default function Login() {
                 type="button"
                 onClick={() => { setAba('primeiro_acesso'); setErro(''); setErroSenha(''); setErroConfirmacao(''); }}
                 className={`flex-1 rounded-lg py-2 text-xs font-bold transition-all cursor-pointer ${aba === 'primeiro_acesso'
-                    ? 'bg-white dark:bg-slate-900 text-navy dark:text-sky-400 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+                    ? 'bg-navy dark:bg-sky-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
                   }`}
               >
                 Primeiro Acesso (Código)

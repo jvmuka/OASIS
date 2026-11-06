@@ -316,9 +316,9 @@ export default function Layout() {
                 type="button"
                 onClick={() => setMenuAberto(true)}
                 className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#e2e6ec] text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 lg:hidden cursor-pointer"
-                aria-label="Abrir menu"
+                aria-label="Abrir menu lateral"
               >
-                <Icone nome="filter" className="h-4 w-4" />
+                <Icone nome="menu" className="h-4 w-4" />
               </button>
 
               <div>
