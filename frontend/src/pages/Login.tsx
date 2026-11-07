@@ -31,7 +31,8 @@ export default function Login() {
   const [emailAtivacao, setEmailAtivacao] = useState('');
   const [dadosValidacao, setDadosValidacao] = useState<{
     valido: boolean;
-    pessoa: { id_pessoa: number; nome: string; email: string };
+    pessoa: { id_pessoa: number; nome: string; email: string; cpf?: string };
+    email_ofuscado?: string;
     unidade: { bloco: string; apartamento: string; vinculo: string; parentesco?: string } | null;
   } | null>(null);
   const [novaSenha, setNovaSenha] = useState('');
@@ -39,6 +40,7 @@ export default function Login() {
 
   // Estado Esqueci Minha Senha
   const [emailRecuperacao, setEmailRecuperacao] = useState('');
+  const [emailOfuscadoRecuperacao, setEmailOfuscadoRecuperacao] = useState('');
   const [etapaRecuperacao, setEtapaRecuperacao] = useState<1 | 2>(1);
   const [codigoRecuperacao, setCodigoRecuperacao] = useState('');
   const [codigoDevRecuperacao, setCodigoDevRecuperacao] = useState('');
@@ -62,7 +64,7 @@ export default function Login() {
     setErro('');
     setCarregando(true);
     try {
-      const r = await api.post<{ token: string } & Sessao>('/auth/login', { email, senha });
+      const r = await api.post<{ token: string } & Sessao>('/auth/login', { identificador: email, senha });
       salvarSessao(r.token, {
         pessoa: r.pessoa,
         perfis: r.perfis,
@@ -86,11 +88,11 @@ export default function Login() {
     try {
       const r = await api.post<any>('/auth/validar-codigo', {
         codigo: codigoAtivacao,
-        email: emailAtivacao,
+        identificador: emailAtivacao,
       });
       setDadosValidacao(r);
     } catch (err: any) {
-      setErro(err.message || 'Código ou e-mail inválidos.');
+      setErro(err.message || 'Código ou E-mail/CPF inválidos.');
     } finally {
       setCarregando(false);
     }
@@ -117,7 +119,7 @@ export default function Login() {
     try {
       const r = await api.post<{ token: string } & Sessao>('/auth/primeiro-acesso', {
         codigo: codigoAtivacao,
-        email: emailAtivacao,
+        identificador: emailAtivacao,
         novaSenha,
       });
       salvarSessao(r.token, {
@@ -145,14 +147,18 @@ export default function Login() {
     e.preventDefault();
     setErro('');
     setSucessoRecuperacao('');
+    setEmailOfuscadoRecuperacao('');
     setCarregando(true);
     try {
-      const res = await api.post<{ ok: boolean; mensagem: string; codigo_dev?: string }>('/auth/esqueci-senha', {
-        email: emailRecuperacao,
+      const res = await api.post<{ ok: boolean; mensagem: string; codigo_dev?: string; email_ofuscado?: string }>('/auth/esqueci-senha', {
+        identificador: emailRecuperacao,
       });
       if (res.codigo_dev) {
         setCodigoDevRecuperacao(res.codigo_dev);
         setCodigoRecuperacao(res.codigo_dev);
+      }
+      if (res.email_ofuscado) {
+        setEmailOfuscadoRecuperacao(res.email_ofuscado);
       }
       setSucessoRecuperacao(res.mensagem || 'Código de recuperação gerado com sucesso.');
       setEtapaRecuperacao(2);
@@ -183,7 +189,7 @@ export default function Login() {
     setCarregando(true);
     try {
       const r = await api.post<{ token: string } & Sessao>('/auth/redefinir-senha', {
-        email: emailRecuperacao,
+        identificador: emailRecuperacao,
         codigo: codigoRecuperacao,
         novaSenha: novaSenhaRecuperacao,
       });
@@ -295,14 +301,14 @@ export default function Login() {
           {/* ABA 1: LOGIN TRADICIONAL */}
           {aba === 'login' && (
             <form onSubmit={entrar} className="space-y-4">
-              <Campo rotulo="E-mail de Acesso" obrigatorio>
+              <Campo rotulo="E-mail ou CPF" obrigatorio>
                 <div className="relative">
                   <input
                     className={inputCls + ' pl-9 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100 dark:placeholder-slate-500 dark:focus:border-sky-500 dark:focus:ring-sky-500/20'}
-                    type="email"
+                    type="text"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
-                    placeholder="seu.email@condominio.com"
+                    placeholder="seu.email@condominio.com ou 000.000.000-00"
                     required
                   />
                   <span className="absolute left-3 top-2.5 text-slate-400 dark:text-slate-500">
@@ -445,14 +451,14 @@ export default function Login() {
                     </div>
                   </Campo>
 
-                  <Campo rotulo="Seu E-mail Cadastrado" obrigatorio>
+                  <Campo rotulo="Seu E-mail ou CPF Cadastrado" obrigatorio>
                     <div className="relative">
                       <input
                         className={inputCls + ' pl-9'}
-                        type="email"
+                        type="text"
                         value={emailAtivacao}
                         onChange={e => setEmailAtivacao(e.target.value)}
-                        placeholder="seu.email@condominio.com"
+                        placeholder="seu.email@condominio.com ou 000.000.000-00"
                         required
                       />
                       <span className="absolute left-3 top-2.5 text-slate-400">
@@ -492,6 +498,11 @@ export default function Login() {
                           <p className="text-[11px] text-slate-600 dark:text-slate-300">
                             Bl. {dadosValidacao.unidade.bloco} - Apto {dadosValidacao.unidade.apartamento} ({dadosValidacao.unidade.vinculo}
                             {dadosValidacao.unidade.parentesco ? ` • ${dadosValidacao.unidade.parentesco}` : ''})
+                          </p>
+                        )}
+                        {dadosValidacao.email_ofuscado && (
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                            E-mail cadastrado: <span className="font-semibold text-slate-700 dark:text-slate-200">{dadosValidacao.email_ofuscado}</span>
                           </p>
                         )}
                       </div>
@@ -607,7 +618,7 @@ export default function Login() {
                   <h2 className="text-sm font-bold text-navy dark:text-sky-400">Recuperar Senha</h2>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     {etapaRecuperacao === 1
-                      ? 'Informe seu e-mail para receber o código'
+                      ? 'Informe seu e-mail ou CPF para receber o código'
                       : 'Defina a nova senha da sua conta'}
                   </p>
                 </div>
@@ -629,14 +640,14 @@ export default function Login() {
 
               {etapaRecuperacao === 1 ? (
                 <form onSubmit={solicitarCodigoRecuperacao} className="space-y-4">
-                  <Campo rotulo="E-mail Cadastrado" obrigatorio>
+                  <Campo rotulo="E-mail ou CPF Cadastrado" obrigatorio>
                     <div className="relative">
                       <input
                         className={inputCls + ' pl-9 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100 dark:placeholder-slate-500'}
-                        type="email"
+                        type="text"
                         value={emailRecuperacao}
                         onChange={e => setEmailRecuperacao(e.target.value)}
-                        placeholder="seu.email@condominio.com"
+                        placeholder="seu.email@condominio.com ou 000.000.000-00"
                         required
                         autoFocus
                       />

@@ -3,6 +3,7 @@ import * as crypto from 'crypto';
 import { DbService } from '../db/db.service';
 import { JwtAuthGuard, PerfilGuard, Perfis, perfilDoUsuario, ModuloGuard, ExigeModulo, resolverIdCondominio } from '../auth/guards';
 import { SyncService } from '../sync/sync.service';
+import { EmailService } from '../email/email.service';
 
 /** Gera um codigo de ativacao criptograficamente seguro (8 caracteres alfanumericos maiusculos). */
 function gerarCodigoAtivacao(): string {
@@ -17,7 +18,11 @@ function gerarCodigoAtivacao(): string {
 @Controller('cadastros')
 @UseGuards(JwtAuthGuard, ModuloGuard, PerfilGuard)
 export class CadastrosController {
-  constructor(private db: DbService, private sync: SyncService) {}
+  constructor(
+    private db: DbService,
+    private sync: SyncService,
+    private emailService: EmailService,
+  ) {}
 
   // ------------------------- blocos e unidades -------------------------
   @Get('blocos')
@@ -538,6 +543,14 @@ export class CadastrosController {
           [codigoGerado, p.id_pessoa, idPerfilGerador || null]);
       }
 
+      if (codigoGerado && p.email) {
+        this.emailService.enviarCodigoPrimeiroAcesso({
+          para: p.email,
+          nome: p.nome,
+          codigo: codigoGerado,
+        }).catch(() => {});
+      }
+
       const resultado = {
         ...p,
         perfil,
@@ -546,6 +559,39 @@ export class CadastrosController {
       this.sync.emitir({ topico: 'PESSOAS', acao: 'CRIADO', idPessoaAlvo: p.id_pessoa, detalhes: { id_pessoa: p.id_pessoa } });
       return resultado;
     });
+  }
+
+  @Post('pessoas/:id/reenviar-codigo') @Perfis('SINDICO')
+  async reenviarCodigoPrimeiroAcesso(@Param('id', ParseIntPipe) id: number) {
+    const pessoas = await this.db.query(
+      `SELECT id_pessoa, nome, email, cpf, status_conta, ativo FROM pessoa WHERE id_pessoa = $1`, [id]);
+    if (!pessoas.length) throw new BadRequestException('Pessoa não encontrada.');
+    const p = pessoas[0];
+    if (!p.email) throw new BadRequestException('Pessoa não possui e-mail cadastrado.');
+
+    const codigoExistente = await this.db.query(
+      `SELECT codigo FROM codigo_primeiro_acesso WHERE id_pessoa = $1 AND status = 'DISPONIVEL' ORDER BY id_codigo DESC LIMIT 1`,
+      [id]);
+
+    let codigo = codigoExistente[0]?.codigo;
+    if (!codigo) {
+      codigo = gerarCodigoAtivacao();
+      await this.db.query(
+        `INSERT INTO codigo_primeiro_acesso (codigo, id_pessoa, status) VALUES ($1, $2, 'DISPONIVEL')`,
+        [codigo, id]);
+    }
+
+    await this.emailService.enviarCodigoPrimeiroAcesso({
+      para: p.email,
+      nome: p.nome,
+      codigo,
+    });
+
+    return {
+      ok: true,
+      mensagem: `Código de ativação enviado com sucesso para ${p.email}.`,
+      codigo,
+    };
   }
 
   // ------------------------- Moderação de Dependentes -------------------------

@@ -1,12 +1,27 @@
 import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { DbService } from '../db/db.service';
+import { EmailService, ofuscarEmail } from '../email/email.service';
 import * as crypto from 'crypto';
 
 /** Numero de iteracoes atual do PBKDF2 (OWASP recomenda >= 600k para SHA-512; 100k e um balanco pratico). */
 const PBKDF2_ITERACOES = 100_000;
 /** Numero de iteracoes legado usado anteriormente (apenas para migracao gradual). */
 const PBKDF2_ITERACOES_LEGADO = 1000;
+
+/**
+ * Normaliza o identificador recebido (pode ser e-mail ou CPF, com ou sem pontuação).
+ * Se contiver 11 dígitos numéricos, extrai o CPF desformatado.
+ */
+export function normalizarIdentificador(identificador: string): { email: string; cpf: string | null } {
+  const limpo = (identificador || '').trim();
+  const apenasDigitos = limpo.replace(/\D/g, '');
+  const cpf = apenasDigitos.length === 11 ? apenasDigitos : null;
+  return {
+    email: limpo.toLowerCase(),
+    cpf,
+  };
+}
 
 export function hashSenha(senha: string): string {
   const salt = crypto.randomBytes(16).toString('hex');
@@ -68,68 +83,82 @@ function gerarCodigoRecuperacao(): string {
 
 @Injectable()
 export class AuthService {
-  constructor(private db: DbService, private jwt: JwtService) {}
+  constructor(
+    private db: DbService,
+    private jwt: JwtService,
+    private emailService: EmailService,
+  ) {}
 
-  async login(email: string, senha: string) {
-    if (!email || !senha) throw new UnauthorizedException('Informe e-mail e senha.');
+  async login(identificador: string, senha: string) {
+    if (!identificador || !senha) throw new UnauthorizedException('Informe seu e-mail ou CPF e a senha.');
+
+    const { email, cpf } = normalizarIdentificador(identificador);
 
     const pessoas = await this.db.query(
-      `SELECT id_pessoa, nome, email, senha_hash, status_conta, ativo FROM pessoa WHERE email = $1`, [email]);
+      `SELECT id_pessoa, nome, email, cpf, senha_hash, status_conta, ativo 
+         FROM pessoa 
+        WHERE (LOWER(email) = LOWER($1) OR ($2::text IS NOT NULL AND cpf = $2))`,
+      [email, cpf],
+    );
     if (!pessoas.length || !pessoas[0].ativo)
-      throw new UnauthorizedException('E-mail ou senha invalidos.');
+      throw new UnauthorizedException('E-mail/CPF ou senha inválidos.');
     const pessoa = pessoas[0];
 
     if (pessoa.status_conta === 'BLOQUEADO')
-      throw new UnauthorizedException('Conta bloqueada pela administracao.');
+      throw new UnauthorizedException('Conta bloqueada pela administração.');
 
     const devSenha = process.env.DEV_SENHA;
     const isProd = process.env.NODE_ENV === 'production';
     const ehSenhaDev = !isProd && Boolean(devSenha) && senha === devSenha;
 
-    // Se possui senha personalizada salva, valida via hash; senao ou adicionalmente, permite senha DEV padrao
+    // Se possui senha personalizada salva, valida via hash; senão ou adicionalmente, permite senha DEV padrão
     if (pessoa.senha_hash) {
       const resultado = verificarSenha(senha, pessoa.senha_hash);
       if (!resultado && !ehSenhaDev) {
-        throw new UnauthorizedException('E-mail ou senha invalidos.');
+        throw new UnauthorizedException('E-mail/CPF ou senha inválidos.');
       }
-      // Migracao gradual ou sincronizacao via senha DEV
+      // Migração gradual ou sincronização via senha DEV
       if (resultado === 'legado' || (!resultado && ehSenhaDev)) {
         const novoHash = hashSenha(senha);
         await this.db.query(`UPDATE pessoa SET senha_hash = $1 WHERE id_pessoa = $2`, [novoHash, pessoa.id_pessoa]);
       }
     } else {
       if (!ehSenhaDev) {
-        throw new UnauthorizedException('E-mail ou senha invalidos.');
+        throw new UnauthorizedException('E-mail/CPF ou senha inválidos.');
       }
     }
 
     return this.gerarSessaoParaPessoa(pessoa.id_pessoa);
   }
 
-  async validarCodigo(codigo: string, email: string) {
-    if (!codigo || !email) throw new BadRequestException('Informe o codigo e o e-mail.');
+  async validarCodigo(codigo: string, identificador: string) {
+    if (!codigo || !identificador) throw new BadRequestException('Informe o código de ativação e o e-mail ou CPF.');
+
+    const { email, cpf } = normalizarIdentificador(identificador);
 
     const codigos = await this.db.query(`
       SELECT c.id_codigo, c.codigo, c.status, c.data_expiracao,
-             p.id_pessoa, p.nome, p.email, p.status_conta,
+             p.id_pessoa, p.nome, p.email, p.cpf, p.status_conta,
              u.numero_apartamento, b.nome AS bloco, pu.tipo_vinculo, pu.grau_parentesco
         FROM codigo_primeiro_acesso c
         JOIN pessoa p ON p.id_pessoa = c.id_pessoa
         LEFT JOIN pessoa_unidade pu ON pu.id_pessoa = p.id_pessoa AND pu.data_fim_ocupacao IS NULL
         LEFT JOIN unidade u ON u.id_unidade = pu.id_unidade
         LEFT JOIN bloco b ON b.id_bloco = u.id_bloco
-       WHERE UPPER(c.codigo) = UPPER($1) AND LOWER(p.email) = LOWER($2)`,
-      [codigo.trim(), email.trim()]);
+       WHERE UPPER(c.codigo) = UPPER($1) 
+         AND (LOWER(p.email) = LOWER($2) OR ($3::text IS NOT NULL AND p.cpf = $3))`,
+      [codigo.trim(), email, cpf]);
 
-    if (!codigos.length) throw new BadRequestException('Codigo de ativacao ou e-mail incorretos.');
+    if (!codigos.length) throw new BadRequestException('Código de ativação ou E-mail/CPF incorretos.');
     const c = codigos[0];
 
-    if (c.status !== 'DISPONIVEL') throw new BadRequestException(`Este codigo ja foi utilizado ou esta inativo (${c.status}).`);
-    if (new Date(c.data_expiracao) < new Date()) throw new BadRequestException('Este codigo de ativacao expirou.');
+    if (c.status !== 'DISPONIVEL') throw new BadRequestException(`Este código já foi utilizado ou está inativo (${c.status}).`);
+    if (new Date(c.data_expiracao) < new Date()) throw new BadRequestException('Este código de ativação expirou.');
 
     return {
       valido: true,
-      pessoa: { id_pessoa: c.id_pessoa, nome: c.nome, email: c.email },
+      pessoa: { id_pessoa: c.id_pessoa, nome: c.nome, email: c.email, cpf: c.cpf },
+      email_ofuscado: ofuscarEmail(c.email),
       unidade: c.numero_apartamento ? {
         bloco: c.bloco,
         apartamento: c.numero_apartamento,
@@ -139,24 +168,27 @@ export class AuthService {
     };
   }
 
-  async primeiroAcesso(codigo: string, email: string, novaSenha: string) {
-    if (!codigo || !email || !novaSenha) throw new BadRequestException('Todos os campos sao obrigatorios.');
+  async primeiroAcesso(codigo: string, identificador: string, novaSenha: string) {
+    if (!codigo || !identificador || !novaSenha) throw new BadRequestException('Todos os campos são obrigatórios.');
     const { erro, avisos } = validarForcaSenha(novaSenha);
     if (erro) throw new BadRequestException(erro);
 
+    const { email, cpf } = normalizarIdentificador(identificador);
+
     const resultado = await this.db.transacao(async client => {
       const res = await client.query(`
-        SELECT c.id_codigo, c.id_pessoa, c.status, c.data_expiracao, p.email
+        SELECT c.id_codigo, c.id_pessoa, c.status, c.data_expiracao, p.email, p.nome
           FROM codigo_primeiro_acesso c
           JOIN pessoa p ON p.id_pessoa = c.id_pessoa
-         WHERE UPPER(c.codigo) = UPPER($1) AND LOWER(p.email) = LOWER($2)
-         FOR UPDATE`, [codigo.trim(), email.trim()]);
+         WHERE UPPER(c.codigo) = UPPER($1) 
+           AND (LOWER(p.email) = LOWER($2) OR ($3::text IS NOT NULL AND p.cpf = $3))
+         FOR UPDATE`, [codigo.trim(), email, cpf]);
 
-      if (!res.rows.length) throw new BadRequestException('Codigo ou e-mail invalidos.');
+      if (!res.rows.length) throw new BadRequestException('Código ou E-mail/CPF inválidos.');
       const c = res.rows[0];
 
-      if (c.status !== 'DISPONIVEL') throw new BadRequestException('Este codigo ja foi utilizado ou cancelado.');
-      if (new Date(c.data_expiracao) < new Date()) throw new BadRequestException('Este codigo expirou.');
+      if (c.status !== 'DISPONIVEL') throw new BadRequestException('Este código já foi utilizado ou cancelado.');
+      if (new Date(c.data_expiracao) < new Date()) throw new BadRequestException('Este código expirou.');
 
       const hash = hashSenha(novaSenha);
 
@@ -174,32 +206,39 @@ export class AuthService {
           [c.id_codigo]);
       }
 
+      // Dispara e-mail de confirmação / boas-vindas com conta ativada em segundo plano
+      if (c.email) {
+        this.emailService.enviarBoasVindasContaAtivada({ para: c.email, nome: c.nome }).catch(() => {});
+      }
+
       return this.gerarSessaoParaPessoa(c.id_pessoa);
     });
 
-    // Retorna avisos de senha fraca (nao bloqueantes) junto com a sessao
+    // Retorna avisos de senha fraca (não bloqueantes) junto com a sessão
     if (avisos.length > 0) {
-      return { ...resultado, aviso_senha: 'Sua senha e considerada fraca. ' + avisos.join(' ') };
+      return { ...resultado, aviso_senha: 'Sua senha é considerada fraca. ' + avisos.join(' ') };
     }
     return resultado;
   }
 
-  async solicitarRecuperacaoSenha(email: string) {
-    if (!email || !email.trim()) {
-      throw new BadRequestException('Informe o seu e-mail cadastrado.');
+  async solicitarRecuperacaoSenha(identificador: string) {
+    if (!identificador || !identificador.trim()) {
+      throw new BadRequestException('Informe o seu e-mail ou CPF cadastrado.');
     }
 
-    const emailLimpo = email.trim().toLowerCase();
+    const { email, cpf } = normalizarIdentificador(identificador);
     const pessoas = await this.db.query(
-      `SELECT id_pessoa, nome, email, status_conta, ativo FROM pessoa WHERE LOWER(email) = $1`,
-      [emailLimpo]
+      `SELECT id_pessoa, nome, email, cpf, status_conta, ativo 
+         FROM pessoa 
+        WHERE (LOWER(email) = LOWER($1) OR ($2::text IS NOT NULL AND cpf = $2))`,
+      [email, cpf],
     );
 
     if (!pessoas.length || !pessoas[0].ativo) {
-      // Retorno padrao para evitar enumeracao de usuarios, mas claro
+      // Retorno padrão para evitar enumeração de usuários, mas claro
       return {
         ok: true,
-        mensagem: 'Se o e-mail informado estiver cadastrado, você receberá o código de recuperação.',
+        mensagem: 'Se os dados informados estiverem cadastrados, você receberá o código de recuperação no seu e-mail.',
       };
     }
 
@@ -208,7 +247,7 @@ export class AuthService {
       throw new BadRequestException('Esta conta está bloqueada pela administração.');
     }
 
-    // Invalida eventuais codigos de recuperacao anteriores ainda disponiveis
+    // Invalida eventuais códigos de recuperação anteriores ainda disponíveis
     await this.db.query(
       `UPDATE codigo_primeiro_acesso
           SET status = 'CANCELADO'
@@ -220,37 +259,54 @@ export class AuthService {
 
     const codigo = gerarCodigoRecuperacao();
 
-    // Validade de 2 horas para recuperacao
+    // Validade de 2 horas para recuperação
     await this.db.query(
       `INSERT INTO codigo_primeiro_acesso (codigo, id_pessoa, status, tipo, data_expiracao)
        VALUES ($1, $2, 'DISPONIVEL', 'RECUPERACAO', CURRENT_TIMESTAMP + INTERVAL '2 hours')`,
       [codigo, pessoa.id_pessoa]
     );
 
+    // Dispara o e-mail de recuperação
+    if (pessoa.email) {
+      await this.emailService.enviarCodigoRecuperacaoSenha({
+        para: pessoa.email,
+        nome: pessoa.nome,
+        codigo,
+      });
+    }
+
+    const emailOfuscado = ofuscarEmail(pessoa.email);
+
     return {
       ok: true,
-      mensagem: 'Código de recuperação gerado com sucesso. Verifique seu e-mail.',
+      mensagem: emailOfuscado
+        ? `Código de recuperação enviado para o e-mail ${emailOfuscado}.`
+        : 'Código de recuperação gerado com sucesso. Verifique seu e-mail.',
+      email_ofuscado: emailOfuscado,
       ...((process.env.NODE_ENV !== 'production' && Boolean(process.env.DEV_SENHA)) ? { codigo_dev: codigo } : {}),
     };
   }
 
-  async redefinirSenhaComCodigo(codigo: string, email: string, novaSenha: string) {
-    if (!codigo || !email || !novaSenha) {
+  async redefinirSenhaComCodigo(codigo: string, identificador: string, novaSenha: string) {
+    if (!codigo || !identificador || !novaSenha) {
       throw new BadRequestException('Todos os campos são obrigatórios.');
     }
     const { erro, avisos } = validarForcaSenha(novaSenha);
     if (erro) throw new BadRequestException(erro);
 
+    const { email, cpf } = normalizarIdentificador(identificador);
+
     const resultado = await this.db.transacao(async client => {
       const res = await client.query(`
-        SELECT c.id_codigo, c.id_pessoa, c.status, c.data_expiracao, p.email
+        SELECT c.id_codigo, c.id_pessoa, c.status, c.data_expiracao, p.email, p.nome
           FROM codigo_primeiro_acesso c
           JOIN pessoa p ON p.id_pessoa = c.id_pessoa
-         WHERE UPPER(c.codigo) = UPPER($1) AND LOWER(p.email) = LOWER($2)
-         FOR UPDATE`, [codigo.trim(), email.trim().toLowerCase()]);
+         WHERE UPPER(c.codigo) = UPPER($1) 
+           AND (LOWER(p.email) = LOWER($2) OR ($3::text IS NOT NULL AND p.cpf = $3))
+         FOR UPDATE`, [codigo.trim(), email, cpf]);
 
       if (!res.rows.length) {
-        throw new BadRequestException('Código de recuperação ou e-mail inválidos.');
+        throw new BadRequestException('Código de recuperação ou E-mail/CPF inválidos.');
       }
       const c = res.rows[0];
 
@@ -285,6 +341,11 @@ export class AuthService {
             WHERE id_codigo = $1`,
           [c.id_codigo]
         );
+      }
+
+      // Dispara e-mail de confirmação de senha alterada em segundo plano
+      if (c.email) {
+        this.emailService.enviarConfirmacaoSenhaAlterada({ para: c.email, nome: c.nome }).catch(() => {});
       }
 
       return this.gerarSessaoParaPessoa(c.id_pessoa);

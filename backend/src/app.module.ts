@@ -12,6 +12,7 @@ import { RelatoriosModule } from './relatorios/relatorios.module';
 import { SuperadminModule } from './superadmin/superadmin.module';
 import { SyncModule } from './sync/sync.module';
 import { ChamadosModule } from './chamados/chamados.module';
+import { EmailModule } from './email/email.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { ChamadosModule } from './chamados/chamados.module';
       limit: 180,   // maximo 180 requisicoes por minuto por IP (permite navegacao fluida no SPA)
     }]),
     DbModule,
+    EmailModule,
     SyncModule,
     AuthModule,
     CadastrosModule,
