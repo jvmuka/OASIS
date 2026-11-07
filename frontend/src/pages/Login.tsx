@@ -43,7 +43,6 @@ export default function Login() {
   const [emailOfuscadoRecuperacao, setEmailOfuscadoRecuperacao] = useState('');
   const [etapaRecuperacao, setEtapaRecuperacao] = useState<1 | 2>(1);
   const [codigoRecuperacao, setCodigoRecuperacao] = useState('');
-  const [codigoDevRecuperacao, setCodigoDevRecuperacao] = useState('');
   const [novaSenhaRecuperacao, setNovaSenhaRecuperacao] = useState('');
   const [confirmarSenhaRecuperacao, setConfirmarSenhaRecuperacao] = useState('');
   const [mostrarSenhaRecuperacao, setMostrarSenhaRecuperacao] = useState(false);
@@ -150,17 +149,14 @@ export default function Login() {
     setEmailOfuscadoRecuperacao('');
     setCarregando(true);
     try {
-      const res = await api.post<{ ok: boolean; mensagem: string; codigo_dev?: string; email_ofuscado?: string }>('/auth/esqueci-senha', {
+      const res = await api.post<{ ok: boolean; mensagem: string; email_ofuscado?: string }>('/auth/esqueci-senha', {
         identificador: emailRecuperacao,
       });
-      if (res.codigo_dev) {
-        setCodigoDevRecuperacao(res.codigo_dev);
-        setCodigoRecuperacao(res.codigo_dev);
-      }
+      setCodigoRecuperacao('');
       if (res.email_ofuscado) {
         setEmailOfuscadoRecuperacao(res.email_ofuscado);
       }
-      setSucessoRecuperacao(res.mensagem || 'Código de recuperação gerado com sucesso.');
+      setSucessoRecuperacao(res.mensagem || 'Código de recuperação enviado para o seu e-mail.');
       setEtapaRecuperacao(2);
     } catch (err: any) {
       setErro(err.message || 'Erro ao solicitar recuperação de senha.');
@@ -668,23 +664,6 @@ export default function Login() {
                 </form>
               ) : (
                 <form onSubmit={concluirRecuperacao} className="space-y-4">
-                  {modoDemo && codigoDevRecuperacao && (
-                    <div className="rounded-xl border border-sky-200 bg-sky-50/80 dark:border-sky-800/50 dark:bg-sky-950/40 p-3 text-xs">
-                      <p className="font-semibold text-sky-900 dark:text-sky-300">Ambiente de Demonstração:</p>
-                      <p className="mt-0.5 text-slate-600 dark:text-slate-300">
-                        Código de recuperação:{' '}
-                        <button
-                          type="button"
-                          onClick={() => setCodigoRecuperacao(codigoDevRecuperacao)}
-                          className="font-mono font-bold text-sky-700 dark:text-sky-400 underline cursor-pointer hover:text-sky-900"
-                          title="Clique para preencher automaticamente"
-                        >
-                          {codigoDevRecuperacao}
-                        </button>
-                      </p>
-                    </div>
-                  )}
-
                   <Campo rotulo="Código de Recuperação" obrigatorio>
                     <div className="relative">
                       <input

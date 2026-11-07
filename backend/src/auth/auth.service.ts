@@ -280,10 +280,9 @@ export class AuthService {
     return {
       ok: true,
       mensagem: emailOfuscado
-        ? `Código de recuperação enviado para o e-mail ${emailOfuscado}.`
+        ? `Código de recuperação enviado para o e-mail ${emailOfuscado}. Verifique sua caixa de entrada.`
         : 'Código de recuperação gerado com sucesso. Verifique seu e-mail.',
       email_ofuscado: emailOfuscado,
-      ...((process.env.NODE_ENV !== 'production' && Boolean(process.env.DEV_SENHA)) ? { codigo_dev: codigo } : {}),
     };
   }
 

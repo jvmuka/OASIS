@@ -49,6 +49,12 @@ services:
       JWT_SECRET: ${JWT_SECRET:?Defina JWT_SECRET no arquivo .env (minimo 32 caracteres)}
       DEV_SENHA: ${DEV_SENHA:-Teste@2026}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-OASIS Residencial <nao-responda@oasiscondominio.com.br>}
     ports:
       - "3000:3000"
     volumes:
