@@ -6,6 +6,7 @@ import { Icone, Badge } from './ui';
 import BotaoModoEscuro from './BotaoModoEscuro';
 
 const STORAGE_SECOES_KEY = 'oasis_sidebar_secoes';
+const STORAGE_SIDEBAR_VISIVEL_KEY = 'oasis_sidebar_visivel';
 
 /**
  * Layout Principal do Sistema OASIS
@@ -17,9 +18,28 @@ const STORAGE_SECOES_KEY = 'oasis_sidebar_secoes';
 export default function Layout() {
   const nav = useNavigate();
   const location = useLocation();
-  const [menuAberto, setMenuAberto] = useState(false);
   const { temModulo } = useModulos();
   const s = sessaoAtual();
+
+  // Controle de visibilidade da sidebar inteira (efeito gaveta para desktop e mobile)
+  const [sidebarAberta, setSidebarAberta] = useState(() => {
+    try {
+      const salvo = localStorage.getItem(STORAGE_SIDEBAR_VISIVEL_KEY);
+      return salvo !== null ? JSON.parse(salvo) : true;
+    } catch {
+      return true;
+    }
+  });
+
+  const alternarSidebar = () => {
+    setSidebarAberta((prev: boolean) => {
+      const novo = !prev;
+      try {
+        localStorage.setItem(STORAGE_SIDEBAR_VISIVEL_KEY, JSON.stringify(novo));
+      } catch {}
+      return novo;
+    });
+  };
 
   // Estado para recolher/expandir as gavetas de módulos da sidebar (com persistência no localStorage)
   const [secoesAbertas, setSecoesAbertas] = useState<Record<string, boolean>>(() => {
@@ -119,7 +139,11 @@ export default function Layout() {
     <NavLink
       key={to}
       to={to}
-      onClick={() => setMenuAberto(false)}
+      onClick={() => {
+        if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+          setSidebarAberta(false);
+        }
+      }}
       className={({ isActive }) =>
         'group flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-[13px] font-semibold min-h-[44px] transition-all duration-150 ' +
         (isActive
@@ -217,22 +241,24 @@ export default function Layout() {
     <div className="min-h-screen bg-[#f6f7f9] dark:bg-[#0b1830] flex flex-col font-sans text-slate-800 dark:text-slate-100 transition-colors duration-200">
       <div className="flex flex-1">
         {/* Backdrop Mobile */}
-        {menuAberto && (
+        {sidebarAberta && (
           <div
             className="fixed inset-0 z-40 bg-slate-950/50 backdrop-blur-xs lg:hidden transition-opacity"
-            onClick={() => setMenuAberto(false)}
+            onClick={() => setSidebarAberta(false)}
           />
         )}
 
-        {/* SIDEBAR (Lettly Style: 305px, Workspace Switcher, Seções Agrupadas, Perfil Ancorado) */}
+        {/* SIDEBAR GAVETA (Lettly Style: 305px, Gaveta Retrátil com Transição Fluida no Desktop e Mobile) */}
         <aside
-          className={`fixed inset-y-0 left-0 z-50 w-[305px] shrink-0 border-r border-[#e2e6ec] bg-white flex flex-col justify-between transition-transform duration-200 ease-in-out dark:border-slate-800 dark:bg-[#0e1525] ${
-            menuAberto ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-          } lg:sticky lg:top-0 lg:h-screen`}
+          className={`fixed inset-y-0 left-0 z-50 w-[305px] shrink-0 border-r border-[#e2e6ec] bg-white flex flex-col justify-between transition-all duration-300 ease-in-out dark:border-slate-800 dark:bg-[#0e1525] lg:sticky lg:top-0 lg:h-screen ${
+            sidebarAberta
+              ? 'translate-x-0 lg:ml-0'
+              : '-translate-x-full lg:-ml-[305px] pointer-events-none'
+          }`}
         >
-          {/* Topo da Sidebar: Logo Centralizada + Workspace Switcher */}
+          {/* Topo da Sidebar: Logo Centralizada + Botão para Recolher Gaveta */}
           <div className="p-4 pb-2 border-b border-slate-100 dark:border-slate-800/80">
-            <div className="relative flex items-center justify-center py-1">
+            <div className="relative flex items-center justify-between py-1">
               <Link to={rotaInicial} className="flex items-center justify-center group" title="Ir para o início">
                 <img
                   src="/logos/logo-deitada-navy.png"
@@ -246,13 +272,15 @@ export default function Layout() {
                 />
               </Link>
 
+              {/* Botão para fechar a gaveta (acessível em todas as telas) */}
               <button
                 type="button"
-                onClick={() => setMenuAberto(false)}
-                className="lg:hidden absolute right-0 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-                aria-label="Fechar menu"
+                onClick={alternarSidebar}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                title="Recolher barra lateral"
+                aria-label="Recolher barra lateral"
               >
-                <Icone nome="x" className="w-5 h-5" />
+                <Icone nome="chevronLeft" className="w-5 h-5" />
               </button>
             </div>
 
@@ -432,11 +460,13 @@ export default function Layout() {
           {/* TOPBAR (Lettly Style: Breadcrumb, Status e Ações Rápidas) */}
           <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-[#e2e6ec] bg-white/90 px-4 sm:px-6 backdrop-blur-md dark:border-slate-800 dark:bg-[#0e1525]/90">
             <div className="flex items-center gap-3">
+              {/* Botão Gaveta: Alterna a barra lateral com clique no desktop e mobile */}
               <button
                 type="button"
-                onClick={() => setMenuAberto(true)}
-                className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#e2e6ec] text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 lg:hidden cursor-pointer"
-                aria-label="Abrir menu lateral"
+                onClick={alternarSidebar}
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#e2e6ec] text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 cursor-pointer transition-colors shadow-2xs"
+                title={sidebarAberta ? 'Ocultar menu lateral' : 'Mostrar menu lateral'}
+                aria-label="Alternar menu lateral"
               >
                 <Icone nome="menu" className="h-4 w-4" />
               </button>
