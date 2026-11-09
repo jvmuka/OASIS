@@ -14,12 +14,12 @@ Documentos/
 ├── AGENTS.md                              <- Diretrizes para agentes de IA e automação
 │
 ├── padroes/                               <- [NOVO] Normas, Design System e Guias de Qualidade
-├── banco_de_dados/                        <- [NOVO] Dicionário de Dados e Arquitetura do Banco
-│   └── manual_banco_de_dados.md           <- Dicionário completo de 21 tabelas, 20 ENUMs, ER Mermaid e RN01..RN17
-│
-
+│   ├── guia_orquestracao_agentes_e_chats.md <- Guia de orquestração de chats (Front vs Back), planos e subagentes
 │   ├── padrao_ux_ui.md                    <- Guia completo de UI/UX, Design System, Tabelas, Filtros e Modais
 │   └── diretrizes_desenvolvimento.md      <- Padrões de engenharia, arquitetura em 3 camadas e commits
+│
+├── banco_de_dados/                        <- [NOVO] Dicionário de Dados e Arquitetura do Banco
+│   └── manual_banco_de_dados.md           <- Dicionário completo de 21 tabelas, 20 ENUMs, ER Mermaid e RN01..RN17
 │
 ├── infraestrutura/                        <- Manuais operacionais, Docker e Cloud (Produção)
 │   ├── guia_vps_producao_oracle.md        <- [NOVO] Manual de produção: VPS Oracle, Nginx, SSL e operação
@@ -93,6 +93,7 @@ Para garantir consistência e evitar que novas telas sejam criadas com comportam
 
 Para diretrizes de desenvolvimento, regras de arquitetura em três camadas e fluxo de versionamento:
 
+- 👉 **[`Documentos/padroes/guia_orquestracao_agentes_e_chats.md`](padroes/guia_orquestracao_agentes_e_chats.md)**: Manual operacional de divisão entre chats especializados (Frontend/UX vs. Backend/Infra), execução de planos de implementação e trabalho com subagentes (`/teamwork`).
 - 👉 **[`Documentos/padroes/diretrizes_desenvolvimento.md`](padroes/diretrizes_desenvolvimento.md)**: Padrões de desenvolvimento, convenções de código, integridade no banco de dados e governança de commits.
 - 👉 **[`Documentos/AGENTS.md`](AGENTS.md)**: Regras operacionais para agentes automatizados, formatação de relatórios de commit e rastreabilidade.
 
