@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, salvarSessao, Sessao } from '../api';
 import { Botao, Campo, inputCls, Mensagem, Icone } from '../components/ui';
@@ -57,6 +57,14 @@ export default function Login() {
   // Erros inline específicos dos campos de senha
   const [erroSenha, setErroSenha] = useState('');
   const [erroConfirmacao, setErroConfirmacao] = useState('');
+
+  // Garante que o Primeiro Acesso permaneça sempre em modo claro
+  useEffect(() => {
+    if (aba === 'primeiro_acesso') {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('oasis_theme', 'light');
+    }
+  }, [aba]);
 
   async function entrar(e: React.FormEvent) {
     e.preventDefault();
@@ -261,10 +269,12 @@ export default function Login() {
         aria-hidden="true"
       />
 
-      {/* Alternador de Modo Escuro no topo direito */}
-      <div className="fixed top-5 right-5 z-20">
-        <BotaoModoEscuro />
-      </div>
+      {/* Alternador de Modo Escuro no topo direito (oculto no Primeiro Acesso) */}
+      {aba !== 'primeiro_acesso' && (
+        <div className="fixed top-5 right-5 z-20">
+          <BotaoModoEscuro />
+        </div>
+      )}
 
       {/* Cartão Centralizado de Login */}
       <div className="relative z-10 w-full max-w-[420px] animate-scale-in">

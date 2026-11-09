@@ -6,7 +6,8 @@ export function useModoEscuro() {
     if (typeof window !== 'undefined') {
       const salvo = localStorage.getItem('oasis_theme');
       if (salvo) return salvo === 'dark';
-      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+      // Primeiro acesso ao sistema: sempre inicia em modo claro por padrão
+      return false;
     }
     return false;
   });
