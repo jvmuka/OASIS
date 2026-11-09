@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api, sessaoAtual } from '../../api';
-import { Titulo, Cartao, Botao, Badge, Icone, inputCls, Mensagem } from '../../components/ui';
+import { Titulo, Cartao, Botao, Badge, Icone, inputCls, Mensagem, Paginacao } from '../../components/ui';
 import { useSync } from '../../hooks/useSync';
 
 export interface Chamado {
@@ -106,6 +106,13 @@ export default function MoradorChamados() {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
   const [filtroAba, setFiltroAba] = useState<'ABERTOS' | 'CONCLUIDOS' | 'ARQUIVADOS' | 'TODOS'>('ABERTOS');
+  const [pagina, setPagina] = useState(1);
+  const ITENS_POR_PAGINA = 9;
+
+  const mudarFiltroAba = (novaAba: 'ABERTOS' | 'CONCLUIDOS' | 'ARQUIVADOS' | 'TODOS') => {
+    setFiltroAba(novaAba);
+    setPagina(1);
+  };
 
   // Modal Novo Chamado
   const [modalAberto, setModalAberto] = useState(false);
@@ -256,6 +263,13 @@ export default function MoradorChamados() {
     return true;
   });
 
+  const totalPaginas = Math.ceil(chamadosFiltrados.length / ITENS_POR_PAGINA) || 1;
+  const paginaValida = Math.min(Math.max(1, pagina), totalPaginas);
+  const chamadosPaginados = chamadosFiltrados.slice(
+    (paginaValida - 1) * ITENS_POR_PAGINA,
+    paginaValida * ITENS_POR_PAGINA
+  );
+
   const totalAbertos = chamados.filter((c) => c.status === 'EM_ANALISE' || c.status === 'EM_ANDAMENTO').length;
   const totalConcluidos = chamados.filter((c) => c.status === 'REALIZADA').length;
 
@@ -300,7 +314,7 @@ export default function MoradorChamados() {
       {/* Abas de Navegação / Filtros (Padrão Lettly SaaS) */}
       <div id="tour-chamados-kpis" className="flex items-center gap-2 border-b border-[#e2e6ec] dark:border-slate-800 pb-3 overflow-x-auto">
         <button
-          onClick={() => setFiltroAba('ABERTOS')}
+          onClick={() => mudarFiltroAba('ABERTOS')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             filtroAba === 'ABERTOS'
               ? 'bg-navy text-white shadow-xs dark:bg-sky-600 dark:text-white'
@@ -320,7 +334,7 @@ export default function MoradorChamados() {
         </button>
 
         <button
-          onClick={() => setFiltroAba('CONCLUIDOS')}
+          onClick={() => mudarFiltroAba('CONCLUIDOS')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             filtroAba === 'CONCLUIDOS'
               ? 'bg-navy text-white shadow-xs dark:bg-sky-600 dark:text-white'
@@ -340,7 +354,7 @@ export default function MoradorChamados() {
         </button>
 
         <button
-          onClick={() => setFiltroAba('ARQUIVADOS')}
+          onClick={() => mudarFiltroAba('ARQUIVADOS')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             filtroAba === 'ARQUIVADOS'
               ? 'bg-navy text-white shadow-xs dark:bg-sky-600 dark:text-white'
@@ -351,7 +365,7 @@ export default function MoradorChamados() {
         </button>
 
         <button
-          onClick={() => setFiltroAba('TODOS')}
+          onClick={() => mudarFiltroAba('TODOS')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             filtroAba === 'TODOS'
               ? 'bg-navy text-white shadow-xs dark:bg-sky-600 dark:text-white'
@@ -389,75 +403,85 @@ export default function MoradorChamados() {
           )}
         </div>
       ) : (
-        <div id="tour-chamados-lista" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {chamadosFiltrados.map((c) => {
-            const cat = CATEGORIAS_CONFIG[c.categoria] || CATEGORIAS_CONFIG.OUTROS;
-            const st = STATUS_CONFIG[c.status] || STATUS_CONFIG.EM_ANALISE;
-            const dataFormatada = new Date(c.data_hora_abertura).toLocaleDateString('pt-BR', {
-              day: '2-digit',
-              month: 'short',
-              hour: '2-digit',
-              minute: '2-digit',
-            });
+        <div className="space-y-4">
+          <div id="tour-chamados-lista" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {chamadosPaginados.map((c) => {
+              const cat = CATEGORIAS_CONFIG[c.categoria] || CATEGORIAS_CONFIG.OUTROS;
+              const st = STATUS_CONFIG[c.status] || STATUS_CONFIG.EM_ANALISE;
+              const dataFormatada = new Date(c.data_hora_abertura).toLocaleDateString('pt-BR', {
+                day: '2-digit',
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit',
+              });
 
-            return (
-              <Cartao
-                key={c.id_chamado}
-                className="flex flex-col justify-between hover:shadow-card hover:-translate-y-0.5 transition-all cursor-pointer border border-[#e2e6ec] dark:border-slate-800 bg-white dark:bg-[#0e1525] p-5 rounded-2xl shadow-2xs"
-              >
-                <div>
-                  <div className="flex items-center justify-between gap-2 mb-3">
-                    <span
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${cat.corBadge}`}
-                    >
-                      <Icone nome={cat.icone} className="w-3 h-3" />
-                      {cat.rotulo}
-                    </span>
-                    <Badge tipo={st.tipoBadge}>{st.rotulo}</Badge>
+              return (
+                <Cartao
+                  key={c.id_chamado}
+                  className="flex flex-col justify-between hover:shadow-card hover:-translate-y-0.5 transition-all cursor-pointer border border-[#e2e6ec] dark:border-slate-800 bg-white dark:bg-[#0e1525] p-5 rounded-2xl shadow-2xs"
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${cat.corBadge}`}
+                      >
+                        <Icone nome={cat.icone} className="w-3 h-3" />
+                        {cat.rotulo}
+                      </span>
+                      <Badge tipo={st.tipoBadge}>{st.rotulo}</Badge>
+                    </div>
+
+                    <h3 className="font-bold text-[#0b1830] dark:text-slate-100 text-sm line-clamp-1 mb-1">
+                      {c.titulo}
+                    </h3>
+
+                    {c.local_especifico && (
+                      <p className="text-xs font-semibold text-[#525d6e] dark:text-slate-400 flex items-center gap-1 mb-2">
+                        <Icone nome="building" className="w-3.5 h-3.5 shrink-0" />
+                        <span className="truncate">{c.local_especifico}</span>
+                      </p>
+                    )}
+
+                    <p className="text-xs text-[#525d6e] dark:text-slate-300 line-clamp-2 mb-4 leading-relaxed">
+                      {c.descricao}
+                    </p>
+
+                    {c.imagem_url && (
+                      <div className="relative mb-3 rounded-xl overflow-hidden h-28 bg-[#f6f7f9] dark:bg-slate-800 border border-[#e2e6ec] dark:border-slate-700">
+                        <img
+                          src={c.imagem_url}
+                          alt="Anexo do chamado"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    )}
                   </div>
 
-                  <h3 className="font-bold text-[#0b1830] dark:text-slate-100 text-sm line-clamp-1 mb-1">
-                    {c.titulo}
-                  </h3>
+                  <div className="pt-3 border-t border-[#e2e6ec] dark:border-slate-800/80 flex items-center justify-between text-xs text-[#525d6e] dark:text-slate-400">
+                    <span className="text-[11px] font-medium">{dataFormatada}</span>
+                    <button
+                      onClick={() => {
+                        setChamadoSelecionadoId(c.id_chamado);
+                        carregarDetalhes(c.id_chamado);
+                      }}
+                      className="inline-flex items-center gap-1.5 font-bold text-navy hover:underline dark:text-sky-400 transition-colors"
+                    >
+                      <span>{c.total_mensagens > 0 ? `${c.total_mensagens} msg(s)` : 'Ver conversa'}</span>
+                      <Icone nome="chevronRight" className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </Cartao>
+              );
+            })}
+          </div>
 
-                  {c.local_especifico && (
-                    <p className="text-xs font-semibold text-[#525d6e] dark:text-slate-400 flex items-center gap-1 mb-2">
-                      <Icone nome="building" className="w-3.5 h-3.5 shrink-0" />
-                      <span className="truncate">{c.local_especifico}</span>
-                    </p>
-                  )}
-
-                  <p className="text-xs text-[#525d6e] dark:text-slate-300 line-clamp-2 mb-4 leading-relaxed">
-                    {c.descricao}
-                  </p>
-
-                  {c.imagem_url && (
-                    <div className="relative mb-3 rounded-xl overflow-hidden h-28 bg-[#f6f7f9] dark:bg-slate-800 border border-[#e2e6ec] dark:border-slate-700">
-                      <img
-                        src={c.imagem_url}
-                        alt="Anexo do chamado"
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  )}
-                </div>
-
-                <div className="pt-3 border-t border-[#e2e6ec] dark:border-slate-800/80 flex items-center justify-between text-xs text-[#525d6e] dark:text-slate-400">
-                  <span className="text-[11px] font-medium">{dataFormatada}</span>
-                  <button
-                    onClick={() => {
-                      setChamadoSelecionadoId(c.id_chamado);
-                      carregarDetalhes(c.id_chamado);
-                    }}
-                    className="inline-flex items-center gap-1.5 font-bold text-navy hover:underline dark:text-sky-400 transition-colors"
-                  >
-                    <span>{c.total_mensagens > 0 ? `${c.total_mensagens} msg(s)` : 'Ver conversa'}</span>
-                    <Icone nome="chevronRight" className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </Cartao>
-            );
-          })}
+          <Paginacao
+            paginaAtual={paginaValida}
+            totalPaginas={totalPaginas}
+            totalRegistros={chamadosFiltrados.length}
+            itensPorPagina={ITENS_POR_PAGINA}
+            onMudarPagina={setPagina}
+          />
         </div>
       )}
 

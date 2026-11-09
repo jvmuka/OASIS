@@ -20,7 +20,7 @@ type Aviso = {
   anexo_tipo?: 'IMAGEM' | 'PDF' | null;
 };
 
-const ITENS_POR_PAGINA = 20;
+const ITENS_POR_PAGINA = 8;
 
 /** UC05 - Mural de Avisos com comunicados da administração (UI/UX Pro Max) */
 export default function Mural() {
@@ -98,9 +98,10 @@ export default function Mural() {
     });
 
   const totalPaginas = Math.ceil(avisosFiltrados.length / ITENS_POR_PAGINA) || 1;
+  const paginaValida = Math.min(Math.max(1, pagina), totalPaginas);
   const avisosPaginados = avisosFiltrados.slice(
-    (pagina - 1) * ITENS_POR_PAGINA,
-    pagina * ITENS_POR_PAGINA
+    (paginaValida - 1) * ITENS_POR_PAGINA,
+    paginaValida * ITENS_POR_PAGINA
   );
 
   const mudarFiltro = (novoFiltro: 'NAO_LIDOS' | 'TODOS' | 'ADMINISTRADOR' | 'ENCOMENDA') => {
@@ -382,7 +383,7 @@ export default function Mural() {
           })}
 
           <Paginacao
-            paginaAtual={pagina}
+            paginaAtual={paginaValida}
             totalPaginas={totalPaginas}
             totalRegistros={avisosFiltrados.length}
             itensPorPagina={ITENS_POR_PAGINA}

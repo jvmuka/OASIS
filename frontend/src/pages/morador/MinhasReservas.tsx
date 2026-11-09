@@ -14,7 +14,7 @@ type Reserva = {
   prazo_cancelamento_horas: number;
 };
 
-const ITENS_POR_PAGINA = 20;
+const ITENS_POR_PAGINA = 8;
 
 /** UC04 - Listar e cancelar as reservas do morador logado (UI/UX Pro Max) */
 export default function MinhasReservas() {
@@ -155,9 +155,10 @@ export default function MinhasReservas() {
     });
 
   const totalPaginas = Math.ceil(reservasFiltradas.length / ITENS_POR_PAGINA) || 1;
+  const paginaValida = Math.min(Math.max(1, pagina), totalPaginas);
   const reservasPaginadas = reservasFiltradas.slice(
-    (pagina - 1) * ITENS_POR_PAGINA,
-    pagina * ITENS_POR_PAGINA
+    (paginaValida - 1) * ITENS_POR_PAGINA,
+    paginaValida * ITENS_POR_PAGINA
   );
 
   const mudarFiltroStatus = (f: 'FUTURAS' | 'HISTORICO' | 'TODAS') => {
@@ -359,7 +360,7 @@ export default function MinhasReservas() {
             </div>
 
             <Paginacao
-              paginaAtual={pagina}
+              paginaAtual={paginaValida}
               totalPaginas={totalPaginas}
               totalRegistros={reservasFiltradas.length}
               itensPorPagina={ITENS_POR_PAGINA}

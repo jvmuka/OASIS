@@ -221,7 +221,7 @@ export default function Dependentes() {
         <div className="space-y-4">
           <div id="tour-familia-lista" className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {(() => {
-              const ITENS_POR_PAGINA = 20;
+              const ITENS_POR_PAGINA = 8;
               const totalPaginas = Math.ceil(dependentes.length / ITENS_POR_PAGINA) || 1;
               const dependentesPaginados = dependentes.slice(
                 (pagina - 1) * ITENS_POR_PAGINA,
@@ -374,9 +374,9 @@ export default function Dependentes() {
 
           <Paginacao
             paginaAtual={pagina}
-            totalPaginas={Math.ceil(dependentes.length / 20) || 1}
+            totalPaginas={Math.ceil(dependentes.length / 8) || 1}
             totalRegistros={dependentes.length}
-            itensPorPagina={20}
+            itensPorPagina={8}
             onMudarPagina={setPagina}
           />
         </div>

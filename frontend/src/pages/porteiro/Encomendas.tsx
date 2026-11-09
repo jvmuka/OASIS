@@ -108,7 +108,7 @@ export default function Encomendas() {
       return new Date(b.data_hora_recebimento).getTime() - new Date(a.data_hora_recebimento).getTime();
     });
 
-  const ITENS_POR_PAGINA = 20;
+  const ITENS_POR_PAGINA = 10;
   const totalPaginas = Math.ceil(encomendasFiltradas.length / ITENS_POR_PAGINA);
   const paginaValida = Math.min(Math.max(1, pagina), Math.max(1, totalPaginas));
   const encomendasPaginadas = encomendasFiltradas.slice((paginaValida - 1) * ITENS_POR_PAGINA, paginaValida * ITENS_POR_PAGINA);
