@@ -1,6 +1,6 @@
 import { useSync } from '../../hooks/useSync';
 import { useEffect, useRef, useState } from 'react';
-import { api } from '../../api';
+import { api, sessaoAtual } from '../../api';
 import { Botao, Campo, Cartao, inputCls, Mensagem, Titulo, Icone, Badge, Modal, EmptyState, ModalConfirmacao, Paginacao } from '../../components/ui';
 import { IMAGEM_MAX_BYTES, IMAGEM_MAX_MB, IMAGEM_TIPOS_ACEITOS, IMAGEM_EXTENSOES_ACEITAS } from '../../constants';
 import type { Area, BloqueioArea, DependenciasArea, DiaSemana, JanelaHorario, HorarioForm, ConflitoTurnoInfo } from '../../types/areas';
@@ -443,10 +443,15 @@ export default function Areas() {
   const [horariosCriar, setHorariosCriar] = useState<HorarioForm[]>(criarHorariosPadrao);
   const [horariosEditar, setHorariosEditar] = useState<HorarioForm[]>(criarHorariosPadrao);
 
+  // Usuário logado e perfil
+  const sessao = sessaoAtual();
+  const isSuperadmin = (sessao?.perfis || []).some((p: any) => p.tipo === 'SUPERADMIN');
+
   // Ciclo de vida das áreas: inativação (reversível) x exclusão (permanente e condicional)
   const [verificandoAreaId, setVerificandoAreaId] = useState<number | null>(null);
   const [excluirPermitida, setExcluirPermitida] = useState<Area | null>(null);
   const [excluirBloqueada, setExcluirBloqueada] = useState<{ area: Area; dep: Dependencias } | null>(null);
+  const [excluirSoberana, setExcluirSoberana] = useState<{ area: Area; dep: Dependencias } | null>(null);
   const [inativarConfirmar, setInativarConfirmar] = useState<{ area: Area; dep: Dependencias } | null>(null);
   const [reativarConfirmar, setReativarConfirmar] = useState<Area | null>(null);
   const [processandoCicloVida, setProcessandoCicloVida] = useState(false);
@@ -797,6 +802,8 @@ export default function Areas() {
       const dep = await api.get<Dependencias>(`/areas/${a.id_area_comum}/dependencias`);
       if (dep.pode_excluir) {
         setExcluirPermitida(a);
+      } else if (isSuperadmin) {
+        setExcluirSoberana({ area: a, dep });
       } else {
         setExcluirBloqueada({ area: a, dep });
       }
@@ -814,6 +821,21 @@ export default function Areas() {
       await api.delete(`/areas/${excluirPermitida.id_area_comum}`);
       setMsg({ t: `Área "${excluirPermitida.nome}" excluída permanentemente.`, tipo: 'ok' });
       setExcluirPermitida(null);
+      carregarAreas();
+    } catch (err: any) {
+      setMsg({ t: err.message, tipo: 'erro' });
+    } finally {
+      setProcessandoCicloVida(false);
+    }
+  }
+
+  async function confirmarExclusaoSoberana() {
+    if (!excluirSoberana) return;
+    setProcessandoCicloVida(true);
+    try {
+      await api.delete(`/areas/${excluirSoberana.area.id_area_comum}?forcar=true`);
+      setMsg({ t: `Área "${excluirSoberana.area.nome}" e todos os registros vinculados foram excluídos soberanamente.`, tipo: 'ok' });
+      setExcluirSoberana(null);
       carregarAreas();
     } catch (err: any) {
       setMsg({ t: err.message, tipo: 'erro' });
@@ -2015,7 +2037,7 @@ export default function Areas() {
         carregando={processandoCicloVida}
       />
 
-      {/* Modal de Exclusão Recusada (há dependências): explica o motivo e oferece a inativação */}
+      {/* Modal de Exclusão Recusada (para Síndicos comuns quando há dependências): explica o motivo e oferece a inativação */}
       <ModalConfirmacao
         aberto={!!excluirBloqueada}
         fechar={() => setExcluirBloqueada(null)}
@@ -2060,6 +2082,48 @@ export default function Areas() {
             )}
           </>
         }
+      />
+
+      {/* Modal de Exclusão Soberana para Superadmin (com dependências no banco de dados) */}
+      <ModalConfirmacao
+        aberto={!!excluirSoberana}
+        fechar={() => setExcluirSoberana(null)}
+        confirmar={confirmarExclusaoSoberana}
+        titulo="Exclusão Soberana de Área Comum"
+        mensagem={
+          excluirSoberana && (
+            <div className="space-y-3 text-left">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 px-2.5 py-0.5 text-xs font-bold ring-1 ring-purple-600/20">
+                  <Icone nome="shield" className="w-3.5 h-3.5" />
+                  Permissão Soberana de Superadmin
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-300">
+                A área <b className="text-slate-900 dark:text-slate-100">{excluirSoberana.area.nome}</b> possui registros vinculados no banco que impedem a exclusão por administradores comuns:
+              </p>
+              <ul className="list-inside list-disc space-y-0.5 text-xs text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-lg border border-slate-200/60 dark:border-slate-700/60">
+                {descreverImpedimentos(excluirSoberana.dep).map((item, i) => (
+                  <li key={i}>{item}</li>
+                ))}
+              </ul>
+              <div className="rounded-xl border border-rose-200 bg-rose-50/80 dark:border-rose-900/60 dark:bg-rose-950/40 p-3 text-xs text-rose-800 dark:text-rose-200">
+                <p className="font-semibold flex items-center gap-1.5 mb-1">
+                  <Icone nome="alert" className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+                  Atenção: Ação Irreversível
+                </p>
+                <p className="text-[11px] leading-relaxed text-rose-700 dark:text-rose-300">
+                  Como Superadmin, você pode excluir esta área definitivamente. Todas as reservas, histórico de chaves, bloqueios e utensílios vinculados serão <b>removidos em cascata</b>.
+                </p>
+              </div>
+            </div>
+          )
+        }
+        textoBotaoConfirmar="Excluir Definitivamente (Superadmin)"
+        textoBotaoCancelar="Cancelar"
+        variante="perigo"
+        icone="trash"
+        carregando={processandoCicloVida}
       />
 
       {/* Modal de Confirmação de Inativação */}

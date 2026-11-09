@@ -337,7 +337,7 @@ export class CadastrosController {
     }
   ) {
     const tiposUsuario = (req.user?.perfis || []).map((pf: any) => pf.tipo);
-    const ehSindico = tiposUsuario.includes('SINDICO') || tiposUsuario.includes('ADMINISTRADOR');
+    const ehSindico = tiposUsuario.includes('SINDICO') || tiposUsuario.includes('ADMINISTRADOR') || tiposUsuario.includes('SUPERADMIN');
     const idPerfilGerador = ehSindico
       ? perfilDoUsuario(req.user, 'SINDICO')
       : perfilDoUsuario(req.user, 'PORTEIRO');

@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { api, sessaoAtual } from '../../api';
 import {
   Botao,
+  Campo,
   Cartao,
   inputCls,
   Mensagem,
@@ -208,6 +209,33 @@ export default function PessoasSuperadmin() {
   const [confirmacaoExclusao, setConfirmacaoExclusao] = useState<PessoaGlobal | null>(null);
   const [processando, setProcessando] = useState(false);
 
+  // Estados de Cadastro de Nova Pessoa (Superadmin)
+  const [modalCadastroAberto, setModalCadastroAberto] = useState(false);
+  const [unidadesDisponiveis, setUnidadesDisponiveis] = useState<UnidadeItem[]>([]);
+  const [salvandoCadastro, setSalvandoCadastro] = useState(false);
+  const [erroCadastro, setErroCadastro] = useState<string | null>(null);
+  const [codigoGeradoSucesso, setCodigoGeradoSucesso] = useState<{
+    codigo: string;
+    nome: string;
+    email: string;
+  } | null>(null);
+
+  const FORM_INICIAL_CADASTRO = {
+    nome: '',
+    email: '',
+    cpf: '',
+    celular: '',
+    data_nascimento: '',
+    papel: 'MORADOR',
+    id_unidade: '',
+    tipo_vinculo: 'PROPRIETARIO',
+    reside: true,
+    id_responsavel: '',
+    grau_parentesco: 'FILHO',
+    tipo_servico: '',
+  };
+  const [formCadastro, setFormCadastro] = useState(FORM_INICIAL_CADASTRO);
+
   const sessao = sessaoAtual();
   const idUsuarioLogado = sessao?.pessoa?.id_pessoa;
 
@@ -233,7 +261,98 @@ export default function PessoasSuperadmin() {
 
   useEffect(() => {
     carregar();
+    // Carrega unidades para seleção em novos cadastros
+    api.get<any[]>('/cadastros/unidades')
+      .then(res => {
+        setUnidadesDisponiveis(res || []);
+      })
+      .catch(() => {});
   }, []);
+
+  async function handleCadastrarPessoa(e: React.FormEvent) {
+    e.preventDefault();
+    setErroCadastro(null);
+
+    const cpfLimpo = formCadastro.cpf.replace(/\D/g, '');
+    if (cpfLimpo.length !== 11) {
+      setErroCadastro('O CPF deve conter exatamente 11 dígitos.');
+      return;
+    }
+
+    if (!formCadastro.nome.trim()) {
+      setErroCadastro('O nome completo é obrigatório.');
+      return;
+    }
+
+    const exigeUnidade = formCadastro.papel === 'MORADOR' || formCadastro.papel === 'SINDICO_MORADOR';
+    if (exigeUnidade && (!formCadastro.id_unidade || Number(formCadastro.id_unidade) <= 0)) {
+      setErroCadastro('Para o papel de Morador, selecione o bloco e apartamento vinculado.');
+      return;
+    }
+
+    if (formCadastro.papel === 'PRESTADOR_SERVICO' && !formCadastro.tipo_servico.trim()) {
+      setErroCadastro('Informe a especialidade ou serviço prestado (ex: Eletricista, Encanador).');
+      return;
+    }
+
+    let perfis: string[] = [];
+    let tipoVinculo = formCadastro.tipo_vinculo;
+    if (formCadastro.papel === 'MORADOR') {
+      perfis = ['MORADOR'];
+    } else if (formCadastro.papel === 'SINDICO') {
+      perfis = ['SINDICO'];
+      tipoVinculo = formCadastro.id_unidade ? formCadastro.tipo_vinculo : '';
+    } else if (formCadastro.papel === 'SINDICO_MORADOR') {
+      perfis = ['SINDICO', 'MORADOR'];
+    } else if (formCadastro.papel === 'PORTEIRO') {
+      perfis = ['PORTEIRO'];
+      tipoVinculo = '';
+    } else if (formCadastro.papel === 'VISITANTE') {
+      perfis = ['VISITANTE'];
+      tipoVinculo = 'VISITANTE';
+    } else if (formCadastro.papel === 'PRESTADOR_SERVICO') {
+      perfis = ['PRESTADOR_SERVICO'];
+      tipoVinculo = 'PRESTADOR_SERVICO';
+    }
+
+    setSalvandoCadastro(true);
+    try {
+      const payload: any = {
+        nome: formCadastro.nome.trim(),
+        cpf: cpfLimpo,
+        email: formCadastro.email.trim() || undefined,
+        celular: formCadastro.celular.trim() || undefined,
+        data_nascimento: formCadastro.data_nascimento || undefined,
+        perfis,
+        id_unidade: formCadastro.id_unidade ? Number(formCadastro.id_unidade) : undefined,
+        tipo_vinculo: tipoVinculo || undefined,
+        reside: exigeUnidade ? formCadastro.reside : false,
+        id_responsavel: (tipoVinculo === 'DEPENDENTE' && formCadastro.id_responsavel) ? Number(formCadastro.id_responsavel) : undefined,
+        grau_parentesco: tipoVinculo === 'DEPENDENTE' ? formCadastro.grau_parentesco : undefined,
+        tipo_servico: formCadastro.tipo_servico ? formCadastro.tipo_servico.trim() : undefined,
+      };
+
+      const res = await api.post<{ ok: boolean; codigo_ativacao?: string; id_pessoa: number }>('/cadastros/pessoas', payload);
+
+      if (res.codigo_ativacao) {
+        setCodigoGeradoSucesso({
+          codigo: res.codigo_ativacao,
+          nome: formCadastro.nome.trim(),
+          email: formCadastro.email.trim(),
+        });
+      } else {
+        setMsg({ t: `Pessoa "${formCadastro.nome.trim()}" cadastrada com sucesso!`, tipo: 'ok' });
+      }
+
+      setFormCadastro({ ...FORM_INICIAL_CADASTRO });
+      setModalCadastroAberto(false);
+      await carregar();
+    } catch (err: any) {
+      setErroCadastro(err.message || 'Erro ao cadastrar pessoa.');
+    } finally {
+      setSalvandoCadastro(false);
+    }
+  }
 
   // Filtragem local avançada e instantânea
   const pessoasFiltradas = useMemo(() => {
@@ -423,6 +542,18 @@ export default function PessoasSuperadmin() {
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
             Painel soberano de administração de usuários, atribuição de administradoras e exclusão irrestrita sem bloqueios de histórico.
           </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Botao
+            variante="primario"
+            icone={<Icone nome="plus" className="h-4 w-4" />}
+            onClick={() => {
+              setErroCadastro(null);
+              setModalCadastroAberto(true);
+            }}
+          >
+            Cadastrar Nova Pessoa
+          </Botao>
         </div>
       </div>
 
@@ -1076,6 +1207,277 @@ export default function PessoasSuperadmin() {
         textoBotaoConfirmar="Sim, Excluir Definitivamente"
         variante="perigo"
       />
+
+      {/* MODAL: CADASTRO DE NOVA PESSOA (SUPERADMIN) */}
+      <Modal
+        aberto={modalCadastroAberto}
+        fechar={() => {
+          if (!salvandoCadastro) {
+            setModalCadastroAberto(false);
+            setErroCadastro(null);
+          }
+        }}
+        titulo="Cadastrar Nova Pessoa no Condomínio"
+        largura="max-w-2xl"
+        rodape={
+          <>
+            <Botao
+              type="button"
+              variante="claro"
+              disabled={salvandoCadastro}
+              onClick={() => {
+                setModalCadastroAberto(false);
+                setErroCadastro(null);
+              }}
+            >
+              Cancelar
+            </Botao>
+            <Botao
+              type="submit"
+              form="form-cadastro-superadmin"
+              variante="primario"
+              carregando={salvandoCadastro}
+            >
+              Concluir Cadastro
+            </Botao>
+          </>
+        }
+      >
+        <form id="form-cadastro-superadmin" onSubmit={handleCadastrarPessoa} className="space-y-4 text-sm">
+          <div className="rounded-xl border border-purple-200 bg-purple-50/80 dark:border-purple-900/60 dark:bg-purple-950/40 p-3 text-xs text-purple-800 dark:text-purple-300 flex items-start gap-2">
+            <Icone nome="shield" className="h-4 w-4 shrink-0 text-purple-600 dark:text-purple-400 mt-0.5" />
+            <span>
+              Como Superadmin, você pode cadastrar qualquer perfil no condomínio: Moradores, Administradoras/Síndicos, Porteiros, Visitantes ou Prestadores de Serviço.
+            </span>
+          </div>
+
+          {erroCadastro && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300 flex items-start gap-2">
+              <Icone nome="alert" className="h-4 w-4 shrink-0 text-rose-600 dark:text-rose-400 mt-0.5" />
+              <span>{erroCadastro}</span>
+            </div>
+          )}
+
+          {/* Dados Pessoais */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Nome Completo *
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="Ex: Carlos Silva"
+                className={inputCls}
+                value={formCadastro.nome}
+                onChange={e => setFormCadastro({ ...formCadastro, nome: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                CPF (11 dígitos) *
+              </label>
+              <input
+                type="text"
+                required
+                maxLength={14}
+                placeholder="000.000.000-00"
+                className={inputCls}
+                value={formCadastro.cpf}
+                onChange={e => setFormCadastro({ ...formCadastro, cpf: mascararCPF(e.target.value) })}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                E-mail (Login e Notificações)
+              </label>
+              <input
+                type="email"
+                placeholder="exemplo@email.com"
+                className={inputCls}
+                value={formCadastro.email}
+                onChange={e => setFormCadastro({ ...formCadastro, email: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Celular / WhatsApp
+              </label>
+              <input
+                type="text"
+                maxLength={15}
+                placeholder="(00) 00000-0000"
+                className={inputCls}
+                value={formCadastro.celular}
+                onChange={e => setFormCadastro({ ...formCadastro, celular: mascararCelular(e.target.value) })}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Data de Nascimento
+              </label>
+              <input
+                type="date"
+                className={inputCls}
+                value={formCadastro.data_nascimento}
+                onChange={e => setFormCadastro({ ...formCadastro, data_nascimento: e.target.value })}
+              />
+            </div>
+          </div>
+
+          {/* Papel / Função */}
+          <div className="border-t border-slate-100 dark:border-slate-800 pt-3">
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
+              Papel / Função no Sistema *
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {[
+                { valor: 'MORADOR', label: 'Morador', desc: 'Residente vinculado a apartamento' },
+                { valor: 'SINDICO', label: 'Administradora / Síndico', desc: 'Gestão completa do condomínio' },
+                { valor: 'SINDICO_MORADOR', label: 'Síndico & Morador', desc: 'Administra e reside' },
+                { valor: 'PORTEIRO', label: 'Portaria', desc: 'Encomendas e acessos' },
+                { valor: 'VISITANTE', label: 'Visitante', desc: 'Acesso sem login' },
+                { valor: 'PRESTADOR_SERVICO', label: 'Prestador de Serviço', desc: 'Manutenção / Obras' },
+              ].map(opcao => (
+                <button
+                  key={opcao.valor}
+                  type="button"
+                  onClick={() => setFormCadastro({ ...formCadastro, papel: opcao.valor })}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    formCadastro.papel === opcao.valor
+                      ? 'border-purple-600 bg-purple-50/70 dark:border-purple-500 dark:bg-purple-950/40 text-purple-900 dark:text-purple-200 ring-2 ring-purple-600/20'
+                      : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-800/60 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  <p className="font-bold text-xs">{opcao.label}</p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">{opcao.desc}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Unidade e Vínculo (se Morador ou Síndico & Morador) */}
+          {(formCadastro.papel === 'MORADOR' || formCadastro.papel === 'SINDICO_MORADOR' || formCadastro.papel === 'SINDICO' || formCadastro.papel === 'VISITANTE') && (
+            <div className="border-t border-slate-100 dark:border-slate-800 pt-3 space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Apartamento / Unidade {(formCadastro.papel === 'MORADOR' || formCadastro.papel === 'SINDICO_MORADOR') ? '*' : '(Opcional)'}
+                  </label>
+                  <select
+                    className={inputCls}
+                    value={formCadastro.id_unidade}
+                    onChange={e => setFormCadastro({ ...formCadastro, id_unidade: e.target.value })}
+                    required={formCadastro.papel === 'MORADOR' || formCadastro.papel === 'SINDICO_MORADOR'}
+                  >
+                    <option value="">Selecione uma unidade...</option>
+                    {unidadesDisponiveis.map(u => (
+                      <option key={u.id_unidade} value={u.id_unidade}>
+                        Bloco {u.bloco} — Apartamento {u.apartamento}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {(formCadastro.papel === 'MORADOR' || formCadastro.papel === 'SINDICO_MORADOR') && (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Tipo de Vínculo *
+                    </label>
+                    <select
+                      className={inputCls}
+                      value={formCadastro.tipo_vinculo}
+                      onChange={e => setFormCadastro({ ...formCadastro, tipo_vinculo: e.target.value })}
+                    >
+                      <option value="PROPRIETARIO">Proprietário</option>
+                      <option value="INQUILINO">Inquilino</option>
+                      <option value="DEPENDENTE">Dependente / Familiar</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {/* Se Dependente: Parentesco */}
+              {formCadastro.tipo_vinculo === 'DEPENDENTE' && (formCadastro.papel === 'MORADOR' || formCadastro.papel === 'SINDICO_MORADOR') && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 dark:bg-slate-800/40 p-3 rounded-xl border border-slate-200/60 dark:border-slate-700/60">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Grau de Parentesco *
+                    </label>
+                    <select
+                      className={inputCls}
+                      value={formCadastro.grau_parentesco}
+                      onChange={e => setFormCadastro({ ...formCadastro, grau_parentesco: e.target.value })}
+                    >
+                      <option value="CONJUGE">Cônjuge</option>
+                      <option value="FILHO">Filho(a)</option>
+                      <option value="PAI_MAE">Pai / Mãe</option>
+                      <option value="OUTRO">Outro Familiar</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Se Prestador de Serviço */}
+          {formCadastro.papel === 'PRESTADOR_SERVICO' && (
+            <div className="border-t border-slate-100 dark:border-slate-800 pt-3">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Especialidade / Serviço Prestado *
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="Ex: Eletricista, Encanador, Pintor, Manutenção Predial..."
+                className={inputCls}
+                value={formCadastro.tipo_servico}
+                onChange={e => setFormCadastro({ ...formCadastro, tipo_servico: e.target.value })}
+              />
+            </div>
+          )}
+        </form>
+      </Modal>
+
+      {/* Modal de Sucesso com Código de Primeiro Acesso */}
+      {codigoGeradoSucesso && (
+        <Modal
+          aberto={true}
+          fechar={() => setCodigoGeradoSucesso(null)}
+          titulo="Pessoa Cadastrada com Sucesso!"
+          largura="max-w-md"
+          rodape={
+            <Botao
+              type="button"
+              variante="primario"
+              onClick={() => setCodigoGeradoSucesso(null)}
+            >
+              Concluir
+            </Botao>
+          }
+        >
+          <div className="space-y-3 text-center py-2">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400">
+              <Icone nome="check" className="h-6 w-6" />
+            </div>
+            <h4 className="font-bold text-slate-900 dark:text-slate-100 text-base">
+              {codigoGeradoSucesso.nome}
+            </h4>
+            <p className="text-xs text-slate-600 dark:text-slate-400">
+              O usuário foi criado com sucesso no sistema.
+            </p>
+            {codigoGeradoSucesso.email && (
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                O código de ativação do primeiro acesso foi enviado para <b>{codigoGeradoSucesso.email}</b>.
+              </p>
+            )}
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

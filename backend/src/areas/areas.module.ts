@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Req, Module, UseGuards, ParseIntPipe, UseInterceptors, UploadedFile, BadRequestException, Logger } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, Req, Module, UseGuards, ParseIntPipe, UseInterceptors, UploadedFile, BadRequestException, Logger } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import 'multer';
@@ -242,15 +242,18 @@ export class AreasController {
   }
 
   /**
-   * Exclui definitivamente uma area comum, apenas quando nao houver reserva, chave ou
-   * bloqueio (area/perfil) associados - essas tabelas nao tem ON DELETE CASCADE de proposito,
-   * para preservar historico. Quando ha qualquer dependencia, a exclusao e recusada e o
-   * sindico e orientado a usar a inativacao (RESTRICOES: nao altera regras do banco).
+   * Exclui uma área comum.
+   * Síndicos comuns: apenas se não houver dependências (reservas, chaves, bloqueios).
+   * Superadmin: permissão para forçar exclusão soberana (?forcar=true), limpando dependências em cascata.
    */
   @Delete(':id') @Perfis('SINDICO')
-  async excluir(@Param('id', ParseIntPipe) id: number) {
+  async excluir(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Query('forcar') forcar?: string) {
+    const tipos = (req.user?.perfis || []).map((p: any) => p.tipo);
+    const isSuperadmin = tipos.includes('SUPERADMIN');
+    const deveForcar = isSuperadmin && (forcar === 'true' || forcar === '1');
+
     const resultado = await this.db.transacao(async c => {
-      const area = await c.query(`SELECT imagem_url FROM area_comum WHERE id_area_comum = $1`, [id]);
+      const area = await c.query(`SELECT imagem_url, nome FROM area_comum WHERE id_area_comum = $1`, [id]);
       if (!area.rows.length) throw new BadRequestException('Área inexistente.');
 
       const dep = await c.query(`
@@ -258,7 +261,8 @@ export class AreasController {
           (SELECT COUNT(*) FROM reserva WHERE id_area_comum = $1)::int AS reservas_total,
           (SELECT COUNT(*) FROM chave WHERE id_area_comum = $1)::int AS chaves,
           (SELECT COUNT(*) FROM bloqueio_area WHERE id_area_comum = $1)::int AS bloqueios_area,
-          (SELECT COUNT(*) FROM bloqueio_perfil WHERE id_area_comum = $1)::int AS bloqueios_perfil`,
+          (SELECT COUNT(*) FROM bloqueio_perfil WHERE id_area_comum = $1)::int AS bloqueios_perfil,
+          (SELECT COUNT(*) FROM chamado WHERE id_area_comum = $1)::int AS chamados`,
         [id]).then(r => r.rows[0]);
 
       const partes: string[] = [];
@@ -266,22 +270,46 @@ export class AreasController {
       if (dep.chaves > 0) partes.push(`${dep.chaves} chave(s)`);
       if (dep.bloqueios_area > 0) partes.push(`${dep.bloqueios_area} bloqueio(s) de manutenção/interdição`);
       if (dep.bloqueios_perfil > 0) partes.push(`${dep.bloqueios_perfil} bloqueio(s) de morador`);
+      if (dep.chamados > 0) partes.push(`${dep.chamados} chamado(s)`);
 
       if (partes.length > 0) {
-        throw new BadRequestException(
-          `Não é possível excluir esta área: existem ${partes.join(', ')} vinculado(s) a ela. ` +
-          `Utilize a opção de inativar para removê-la da listagem dos moradores sem perder o histórico.`);
+        if (!deveForcar) {
+          throw new BadRequestException(
+            `Não é possível excluir esta área: existem ${partes.join(', ')} vinculado(s) a ela. ` +
+            `Utilize a opção de inativar para removê-la da listagem dos moradores sem perder o histórico.`);
+        }
+
+        // EXCLUSÃO SOBERANA (SUPERADMIN com ?forcar=true):
+        // 1. Desvincula chamados vinculados à área (id_area_comum -> NULL)
+        await c.query(`UPDATE chamado SET id_area_comum = NULL WHERE id_area_comum = $1`, [id]);
+
+        // 2. Remove bloqueios disciplinares vinculados à área
+        await c.query(`DELETE FROM bloqueio_perfil WHERE id_area_comum = $1`, [id]);
+
+        // 3. Remove bloqueios de área (manutenções/interdições)
+        await c.query(`DELETE FROM bloqueio_area WHERE id_area_comum = $1`, [id]);
+
+        // 4. Remove reservas da área
+        await c.query(`DELETE FROM reserva WHERE id_area_comum = $1`, [id]);
+
+        // 5. Remove histórico de movimentação de chaves e chaves da área
+        await c.query(`DELETE FROM entrega_chave WHERE id_chave IN (SELECT id_chave FROM chave WHERE id_area_comum = $1)`, [id]);
+        await c.query(`DELETE FROM chave WHERE id_area_comum = $1`, [id]);
       }
 
+      // Remove utensílios e horários cadastrados para a área
+      await c.query(`DELETE FROM area_utensilio WHERE id_area_comum = $1`, [id]);
+      await c.query(`DELETE FROM area_horario WHERE id_area_comum = $1`, [id]);
+
       await c.query(`DELETE FROM area_comum WHERE id_area_comum = $1`, [id]);
-      return { imagem_url: area.rows[0].imagem_url as string | null };
+      return { imagem_url: area.rows[0].imagem_url as string | null, nome: area.rows[0].nome as string };
     });
 
     if (resultado.imagem_url) {
       await fs.unlink(`.${resultado.imagem_url}`).catch(() => {});
     }
     this.sync.emitir({ topico: 'AREAS_LIVRES', acao: 'EXCLUIDO', detalhes: { id_area_comum: id } });
-    return { ok: true, id_area_comum: id };
+    return { ok: true, id_area_comum: id, forcar: deveForcar };
   }
 
   @Post() @Perfis('SINDICO')
