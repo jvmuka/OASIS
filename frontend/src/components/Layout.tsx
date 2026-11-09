@@ -1,14 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { painelInicial, sessaoAtual, sair, alternarCondominio } from '../api';
 import { useModulos } from '../contexts/ModulosContext';
 import { Icone, Badge } from './ui';
 import BotaoModoEscuro from './BotaoModoEscuro';
 
+const STORAGE_SECOES_KEY = 'oasis_sidebar_secoes';
+
 /**
  * Layout Principal do Sistema OASIS
  * Inspirado no Design System do Lettly (Rental Property Management SaaS)
- * - Sidebar estruturada (270px) com Workspace Switcher e grupos temáticos colapsáveis
+ * - Sidebar estruturada (305px) com Workspace Switcher e gavetas colapsáveis com animação fluida
  * - Topbar limpa com breadcrumbs, status do condomínio e busca
  * - Rodapé com card de perfil de usuário e atalhos rápidos
  */
@@ -19,36 +21,75 @@ export default function Layout() {
   const { temModulo } = useModulos();
   const s = sessaoAtual();
 
-  // Estado para recolher/expandir os grupos de módulos de cada tipo de perfil
-  const [secoesAbertas, setSecoesAbertas] = useState<Record<string, boolean>>({
-    visaoGeral: true,
-    superadmin: true,
-    morador: true,
-    portaria: true,
-    gestaoPredial: true,
-    comunicacao: true,
+  // Estado para recolher/expandir as gavetas de módulos da sidebar (com persistência no localStorage)
+  const [secoesAbertas, setSecoesAbertas] = useState<Record<string, boolean>>(() => {
+    try {
+      const salvo = localStorage.getItem(STORAGE_SECOES_KEY);
+      if (salvo) {
+        return JSON.parse(salvo);
+      }
+    } catch {
+      // fallback
+    }
+    return {
+      visaoGeral: true,
+      superadmin: true,
+      morador: true,
+      portaria: true,
+      gestaoPredial: true,
+      comunicacao: true,
+    };
   });
 
   const alternarSecao = (chave: string) => {
-    setSecoesAbertas((prev) => ({
-      ...prev,
-      [chave]: !prev[chave],
-    }));
+    setSecoesAbertas((prev) => {
+      const novo = {
+        ...prev,
+        [chave]: !prev[chave],
+      };
+      try {
+        localStorage.setItem(STORAGE_SECOES_KEY, JSON.stringify(novo));
+      } catch {
+        // silencioso
+      }
+      return novo;
+    });
   };
 
-  // Garante que o grupo da rota ativa esteja sempre visível e expandido automaticamente
+  // Garante que o grupo da rota ativa seja expandido quando o usuário navega entre páginas
+  const ultimaRotaRef = useRef(location.pathname);
   useEffect(() => {
     const p = location.pathname;
-    if (p.startsWith('/superadmin')) {
-      setSecoesAbertas((prev) => ({ ...prev, superadmin: true }));
-    } else if (p.startsWith('/morador')) {
-      setSecoesAbertas((prev) => ({ ...prev, morador: true }));
-    } else if (p.startsWith('/portaria')) {
-      setSecoesAbertas((prev) => ({ ...prev, portaria: true, gestaoPredial: true }));
-    } else if (p.startsWith('/sindico')) {
-      setSecoesAbertas((prev) => ({ ...prev, gestaoPredial: true }));
-    } else if (p.startsWith('/mural')) {
-      setSecoesAbertas((prev) => ({ ...prev, comunicacao: true, morador: true }));
+    if (ultimaRotaRef.current !== p) {
+      ultimaRotaRef.current = p;
+      setSecoesAbertas((prev) => {
+        let mudou = false;
+        const novo = { ...prev };
+        if (p.startsWith('/superadmin') && !novo.superadmin) {
+          novo.superadmin = true;
+          mudou = true;
+        } else if (p.startsWith('/morador') && !novo.morador) {
+          novo.morador = true;
+          mudou = true;
+        } else if (p.startsWith('/portaria') && (!novo.portaria || !novo.gestaoPredial)) {
+          novo.portaria = true;
+          novo.gestaoPredial = true;
+          mudou = true;
+        } else if (p.startsWith('/sindico') && !novo.gestaoPredial) {
+          novo.gestaoPredial = true;
+          mudou = true;
+        } else if (p.startsWith('/mural') && !novo.comunicacao && !novo.morador) {
+          novo.comunicacao = true;
+          mudou = true;
+        }
+        if (mudou) {
+          try {
+            localStorage.setItem(STORAGE_SECOES_KEY, JSON.stringify(novo));
+          } catch {}
+          return novo;
+        }
+        return prev;
+      });
     }
   }, [location.pathname]);
 
@@ -102,36 +143,54 @@ export default function Layout() {
     </NavLink>
   );
 
-  // Cabeçalho de seção interativo (expande e recolhe ao clique)
-  const CabecalhoSecao = ({
+  // Componente de gaveta/acordeão da sidebar com animação fluida CSS Grid
+  const SecaoGaveta = ({
     chave,
     rotulo,
     icone,
     corBadge,
+    children,
   }: {
     chave: string;
     rotulo: string;
     icone?: React.ComponentProps<typeof Icone>['nome'];
     corBadge?: string;
+    children: React.ReactNode;
   }) => {
     const aberto = secoesAbertas[chave] ?? true;
     return (
-      <button
-        type="button"
-        onClick={() => alternarSecao(chave)}
-        className="w-full flex items-center justify-between px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 hover:text-slate-700 hover:bg-[#f6f7f9] dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/60 rounded-lg transition-colors cursor-pointer select-none group"
-      >
-        <span className={`flex items-center gap-2 ${corBadge || ''}`}>
-          {icone && <Icone nome={icone} className="w-4 h-4" />}
-          <span>{rotulo}</span>
-        </span>
-        <Icone
-          nome="chevronDown"
-          className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
-            aberto ? 'rotate-0' : '-rotate-90'
+      <div className="transition-all">
+        <button
+          type="button"
+          onClick={() => alternarSecao(chave)}
+          aria-expanded={aberto}
+          className="w-full flex items-center justify-between px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 hover:text-slate-700 hover:bg-[#f6f7f9] dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/60 rounded-xl transition-all duration-200 cursor-pointer select-none group"
+        >
+          <span className={`flex items-center gap-2 ${corBadge || ''}`}>
+            {icone && <Icone nome={icone} className="w-4 h-4 transition-transform group-hover:scale-105" />}
+            <span>{rotulo}</span>
+          </span>
+          <Icone
+            nome="chevronDown"
+            className={`w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200 transition-transform duration-300 ease-in-out ${
+              aberto ? 'rotate-0' : '-rotate-90'
+            }`}
+          />
+        </button>
+
+        {/* Efeito Gaveta: Transição suave de altura e opacidade via CSS Grid */}
+        <div
+          className={`grid transition-all duration-300 ease-in-out ${
+            aberto
+              ? 'grid-rows-[1fr] opacity-100 mt-1.5'
+              : 'grid-rows-[0fr] opacity-0 mt-0 pointer-events-none'
           }`}
-        />
-      </button>
+        >
+          <div className="overflow-hidden space-y-1">
+            {children}
+          </div>
+        </div>
+      </div>
     );
   };
 
@@ -267,94 +326,68 @@ export default function Layout() {
           {/* Lista de Navegação Agrupada e Colapsável (Scrollável) */}
           <div className="flex-1 overflow-y-auto px-3.5 py-3 space-y-3.5">
             {/* GRUPO 1: VISÃO GERAL */}
-            <div>
-              <CabecalhoSecao chave="visaoGeral" rotulo="Visão Geral" />
-              {secoesAbertas.visaoGeral && (
-                <div className="space-y-1 mt-1.5">{item(rotaInicial, 'Início', 'home')}</div>
-              )}
-            </div>
+            <SecaoGaveta chave="visaoGeral" rotulo="Visão Geral">
+              {item(rotaInicial, 'Início', 'home')}
+            </SecaoGaveta>
 
             {/* GRUPO 2: SUPERADMIN */}
             {tipos.includes('SUPERADMIN') && (
-              <div>
-                <CabecalhoSecao
-                  chave="superadmin"
-                  rotulo="Superadmin Master"
-                  icone="shield"
-                  corBadge="text-navy dark:text-sky-400"
-                />
-                {secoesAbertas.superadmin && (
-                  <div className="space-y-1 mt-1.5">
-                    {item('/superadmin/condominios', 'Condomínios & Módulos', 'building')}
-                    {item('/superadmin/estrutura', 'Estrutura Física & Vagas', 'layers')}
-                    {item('/superadmin/pessoas', 'Pessoas & Administradoras', 'users')}
-                  </div>
-                )}
-              </div>
+              <SecaoGaveta
+                chave="superadmin"
+                rotulo="Superadmin Master"
+                icone="shield"
+                corBadge="text-navy dark:text-sky-400"
+              >
+                {item('/superadmin/condominios', 'Condomínios & Módulos', 'building')}
+                {item('/superadmin/estrutura', 'Estrutura Física & Vagas', 'layers')}
+                {item('/superadmin/pessoas', 'Pessoas & Administradoras', 'users')}
+              </SecaoGaveta>
             )}
 
             {/* GRUPO 3: MORADOR */}
             {tipos.includes('MORADOR') && (
-              <div>
-                <CabecalhoSecao chave="morador" rotulo="Área do Morador" icone="users" />
-                {secoesAbertas.morador && (
-                  <div className="space-y-1 mt-1.5">
-                    {temModulo('RESERVAS_AREAS') && item('/morador/reservar', 'Nova Reserva', 'calendar')}
-                    {temModulo('RESERVAS_AREAS') && item('/morador/reservas', 'Minhas Reservas', 'clock')}
-                    {temModulo('CHAMADOS_OCORRENCIAS') && item('/morador/chamados', 'Abrir Chamado', 'wrench')}
-                    {temModulo('ENCOMENDAS_PACOTES') && item('/morador/encomendas', 'Minhas Encomendas', 'package')}
-                    {temModulo('DEPENDENTES_FAMILIA') && item('/morador/familia', 'Minha Família', 'users')}
-                    {temModulo('MURAL_AVISOS') && item('/mural', 'Mural de Avisos', 'pin')}
-                  </div>
-                )}
-              </div>
+              <SecaoGaveta chave="morador" rotulo="Área do Morador" icone="users">
+                {temModulo('RESERVAS_AREAS') && item('/morador/reservar', 'Nova Reserva', 'calendar')}
+                {temModulo('RESERVAS_AREAS') && item('/morador/reservas', 'Minhas Reservas', 'clock')}
+                {temModulo('CHAMADOS_OCORRENCIAS') && item('/morador/chamados', 'Abrir Chamado', 'wrench')}
+                {temModulo('ENCOMENDAS_PACOTES') && item('/morador/encomendas', 'Minhas Encomendas', 'package')}
+                {temModulo('DEPENDENTES_FAMILIA') && item('/morador/familia', 'Minha Família', 'users')}
+                {temModulo('MURAL_AVISOS') && item('/mural', 'Mural de Avisos', 'pin')}
+              </SecaoGaveta>
             )}
 
             {/* GRUPO 4: PORTARIA */}
             {tipos.includes('PORTEIRO') && (
-              <div>
-                <CabecalhoSecao chave="portaria" rotulo="Operações da Portaria" icone="building" />
-                {secoesAbertas.portaria && (
-                  <div className="space-y-1 mt-1.5">
-                    {item('/portaria/painel', 'Painel da Portaria', 'building')}
-                    {temModulo('AREAS_LIVRES') && item('/portaria/areas-livres', 'Áreas de Uso Livre', 'clock')}
-                    {temModulo('ENCOMENDAS_PACOTES') && item('/portaria/encomendas', 'Encomendas & Pacotes', 'package')}
-                    {temModulo('CONTROLE_CHAVES') && item('/portaria/chaves', 'Controle de Chaves', 'key')}
-                    {item('/sindico/pessoas', 'Pessoas & Cadastros', 'users')}
-                  </div>
-                )}
-              </div>
+              <SecaoGaveta chave="portaria" rotulo="Operações da Portaria" icone="building">
+                {item('/portaria/painel', 'Painel da Portaria', 'building')}
+                {temModulo('AREAS_LIVRES') && item('/portaria/areas-livres', 'Áreas de Uso Livre', 'clock')}
+                {temModulo('ENCOMENDAS_PACOTES') && item('/portaria/encomendas', 'Encomendas & Pacotes', 'package')}
+                {temModulo('CONTROLE_CHAVES') && item('/portaria/chaves', 'Controle de Chaves', 'key')}
+                {item('/sindico/pessoas', 'Pessoas & Cadastros', 'users')}
+              </SecaoGaveta>
             )}
 
             {/* GRUPO 5: ADMINISTRAÇÃO & GESTÃO CONDOMINIAL */}
             {(tipos.includes('SINDICO') || tipos.includes('ADMINISTRADOR') || tipos.includes('SUPERADMIN')) && (
-              <div>
-                <CabecalhoSecao chave="gestaoPredial" rotulo="Gestão Condominial" icone="building" />
-                {secoesAbertas.gestaoPredial && (
-                  <div className="space-y-1 mt-1.5">
-                    {item('/sindico/painel', 'Painel Geral', 'home')}
-                    {temModulo('CHAMADOS_OCORRENCIAS') && item('/sindico/chamados', 'Gestão de Chamados', 'wrench')}
-                    {!tipos.includes('PORTEIRO') && item('/portaria/painel', 'Painel da Portaria', 'building')}
-                    {!tipos.includes('PORTEIRO') &&
-                      temModulo('AREAS_LIVRES') &&
-                      item('/portaria/areas-livres', 'Áreas de Uso Livre', 'clock')}
-                    {temModulo('CONTROLE_CHAVES') && item('/portaria/chaves', 'Controle de Chaves', 'key')}
-                    {temModulo('RESERVAS_AREAS') && item('/sindico/areas', 'Áreas Comuns', 'building')}
-                    {item('/sindico/pessoas', 'Pessoas & Unidades', 'users')}
-                    {temModulo('MURAL_AVISOS') && item('/sindico/avisos', 'Publicar Avisos', 'megaphone')}
-                  </div>
-                )}
-              </div>
+              <SecaoGaveta chave="gestaoPredial" rotulo="Gestão Condominial" icone="building">
+                {item('/sindico/painel', 'Painel Geral', 'home')}
+                {temModulo('CHAMADOS_OCORRENCIAS') && item('/sindico/chamados', 'Gestão de Chamados', 'wrench')}
+                {!tipos.includes('PORTEIRO') && item('/portaria/painel', 'Painel da Portaria', 'building')}
+                {!tipos.includes('PORTEIRO') &&
+                  temModulo('AREAS_LIVRES') &&
+                  item('/portaria/areas-livres', 'Áreas de Uso Livre', 'clock')}
+                {temModulo('CONTROLE_CHAVES') && item('/portaria/chaves', 'Controle de Chaves', 'key')}
+                {temModulo('RESERVAS_AREAS') && item('/sindico/areas', 'Áreas Comuns', 'building')}
+                {item('/sindico/pessoas', 'Pessoas & Unidades', 'users')}
+                {temModulo('MURAL_AVISOS') && item('/sindico/avisos', 'Publicar Avisos', 'megaphone')}
+              </SecaoGaveta>
             )}
 
             {/* GRUPO 6: COMUNICAÇÃO GERAL */}
             {!tipos.includes('MORADOR') && temModulo('MURAL_AVISOS') && (
-              <div>
-                <CabecalhoSecao chave="comunicacao" rotulo="Comunicação" icone="megaphone" />
-                {secoesAbertas.comunicacao && (
-                  <div className="space-y-1 mt-1.5">{item('/mural', 'Mural do Condomínio', 'pin')}</div>
-                )}
-              </div>
+              <SecaoGaveta chave="comunicacao" rotulo="Comunicação" icone="megaphone">
+                {item('/mural', 'Mural do Condomínio', 'pin')}
+              </SecaoGaveta>
             )}
           </div>
 
