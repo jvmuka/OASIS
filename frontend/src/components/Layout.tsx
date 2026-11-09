@@ -164,15 +164,15 @@ export default function Layout() {
           type="button"
           onClick={() => alternarSecao(chave)}
           aria-expanded={aberto}
-          className="w-full flex items-center justify-between px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 hover:text-slate-700 hover:bg-[#f6f7f9] dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800/60 rounded-xl transition-all duration-200 cursor-pointer select-none group"
+          className="w-full flex items-center justify-between px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-slate-500 hover:text-slate-900 hover:bg-[#f0f2f5] dark:text-slate-400 dark:hover:text-slate-100 dark:hover:bg-slate-800/80 rounded-xl transition-all duration-150 cursor-pointer select-none group"
         >
           <span className={`flex items-center gap-2 ${corBadge || ''}`}>
-            {icone && <Icone nome={icone} className="w-4 h-4 transition-transform group-hover:scale-105" />}
+            {icone && <Icone nome={icone} className="w-4 h-4 transition-transform group-hover:scale-110" />}
             <span>{rotulo}</span>
           </span>
           <Icone
             nome="chevronDown"
-            className={`w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200 transition-transform duration-300 ease-in-out ${
+            className={`w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 transition-transform duration-300 ease-in-out ${
               aberto ? 'rotate-0' : '-rotate-90'
             }`}
           />
@@ -185,8 +185,9 @@ export default function Layout() {
               ? 'grid-rows-[1fr] opacity-100 mt-1.5'
               : 'grid-rows-[0fr] opacity-0 mt-0 pointer-events-none'
           }`}
+          style={{ gridTemplateRows: aberto ? '1fr' : '0fr' }}
         >
-          <div className="overflow-hidden space-y-1">
+          <div className="min-h-0 overflow-hidden space-y-1">
             {children}
           </div>
         </div>
