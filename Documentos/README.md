@@ -65,7 +65,10 @@ Documentos/
 ├── relatorios_commits/                    <- Relatórios detalhados de cada commit enviado ao repositório
 │   └── commit_*.md
 │
-└── Logos/ e Fontes/                       <- Ativos da identidade visual da marca OASIS
+└── ux/ui/                                 <- Ativos de Design, Identidade Visual e UI
+    ├── Fontes/                            <- Tipografia institucional (Runiga.otf)
+    ├── Logos/                             <- Arquivos e variações do logotipo oficial OASIS
+    └── imagens/                           <- Padrões de textura, backgrounds e imagens de interface
 ```
 
 ---
@@ -144,7 +147,8 @@ A pasta [`relatorios_commits/`](relatorios_commits/) reúne os relatórios gerad
 
 ---
 
-## 7. 🎨 Identidade Visual e Ativos
+## 7. 🎨 Identidade Visual e Ativos (UX/UI)
 
-- **Logotipos**: [`Logos/`](Logos/) — Arquivos PNG do logotipo da marca OASIS (versão horizontal, quadrada e guia de aplicação).
-- **Tipografia Institucional**: [`Fontes/`](Fontes/) — Fonte tipográfica oficial utilizada no branding do projeto (`Runiga.otf`).
+- **Logotipos**: [`ux/ui/Logos/`](ux/ui/Logos/) — Arquivos PNG do logotipo da marca OASIS (versão horizontal, quadrada e guia de aplicação).
+- **Tipografia Institucional**: [`ux/ui/Fontes/`](ux/ui/Fontes/) — Fonte tipográfica oficial utilizada no branding do projeto (`Runiga.otf`).
+- **Texturas e Backgrounds**: [`ux/ui/imagens/`](ux/ui/imagens/) — Imagens e texturas de fundo da aplicação (ex: `white-wave-seamless-pattern-background.jpg` utilizado com 15% de opacidade no login).

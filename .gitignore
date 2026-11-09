@@ -16,5 +16,6 @@ build/
 backend/uploads/
 # scripts e temporarios locais
 scratch/
+screenshots_testes/
 # pacote de entrega gerado por gerar_entrega.ps1
 OASIS_entrega.zip
