@@ -119,15 +119,19 @@ Instruções para deploy, gerenciamento e controle do ambiente Docker Compose e 
 
 ## 5. 📋 Planos de Implementação
 
-### ⏳ Planos Pendentes (Futuras Evoluções)
+### ⏳ Planos Pendentes (Futuras Evoluções / Em Andamento)
 | Documento | Escopo / Objetivo |
 | :--- | :--- |
+| [`planos_pendentes/plano_painel_geral_dashboard_e_relatorios_pdf.md`](planos_pendentes/plano_painel_geral_dashboard_e_relatorios_pdf.md) | Reformulação do Painel Geral Administrativo no padrão Lettly SaaS, acompanhado de suíte completa de relatórios PDF (Executivo Mensal e Cobrança de Áreas Comuns para Administradora) e exportação CSV *(Backend concluído ✅ | Frontend em andamento)*. |
 | [`planos_pendentes/plano_integracao_whatsapp_oficial.md`](planos_pendentes/plano_integracao_whatsapp_oficial.md) | Integração com a API Oficial do WhatsApp Cloud da Meta para notificações automáticas de chegada de encomendas e publicação de avisos com templates auditados. |
-| [`planos_pendentes/estudo_arquitetura_multicondominio.md`](planos_pendentes/estudo_arquitetura_multicondominio.md) | Estudo arquitetural minucioso e plano de implementação para múltiplos condomínios (*Multi-Tenancy*), comparando Row-Level/RLS, Contêineres, Tablespaces e Particionamento Declarativo de Tabelas. |
 
 ### ✅ Planos Já Executados e Validados
 | Documento | Data / Conclusão | Funcionalidades Entregues |
 | :--- | :---: | :--- |
+| [`planos_executados/plano_redesign_ux_ui_lettly.md`](planos_executados/plano_redesign_ux_ui_lettly.md) | 06/11/2026 | Redesign completo de interface e experiência visual baseado no padrão Lettly SaaS (Cards modernos com bordas sutis, Dark/Light mode aperfeiçoado, Sidebar retrátil tipo gaveta e tipografia Runiga). |
+| [`planos_executados/plano_implementacao_multicondominio.md`](planos_executados/plano_implementacao_multicondominio.md) | 05/11/2026 | Implementação completa da arquitetura Multi-Tenancy (tabela `condominio`, chave estrangeira `id_condominio` nas entidades, isolamento por tenant, header `x-condominio-id` e seletor no frontend). |
+| [`planos_executados/estudo_arquitetura_multicondominio.md`](planos_executados/estudo_arquitetura_multicondominio.md) | 04/11/2026 | Estudo arquitetural minucioso e comparativo técnico de estratégias Multi-Tenancy para o ecossistema OASIS (Row-Level Security vs Shared Database / Separate Schemas). |
+| [`planos_executados/plano_modulos_funcionais_condominio.md`](planos_executados/plano_modulos_funcionais_condominio.md) | 05/11/2026 | Sistema de ativação/desativação dinâmica de módulos funcionais por condomínio (`modulo_sistema` e `condominio_modulo`) com sincronismo em tempo real. |
 | [`planos_executados/plano_deploy_vps_producao_e_ambiente_demo.md`](planos_executados/plano_deploy_vps_producao_e_ambiente_demo.md) | 04/11/2026 | Deploy em produção na VPS Oracle Cloud (Always Free) com domínio `oasiscondo.com.br`, HTTPS/SSL via Certbot, segregação de ambientes via `VITE_MODO_DEMO` e `NODE_ENV`, atalho de Superadmin e higienização do banco para início dos cadastros reais. |
 | [`planos_executados/plano_sincronicidade_e_help_contexto.md`](planos_executados/plano_sincronicidade_e_help_contexto.md) | 04/11/2026 | Sistema de sincronismo de dados em tempo real (SSE/polling) e componente de ajuda contextual interativa (`AjudaContexto`, `GuiaInterativoReserva`). |
 | [`planos_executados/plano_gestao_estrutural_administrador.md`](planos_executados/plano_gestao_estrutural_administrador.md) | 16/10/2026 | Visualização estrutural de blocos, andares, apartamentos e vagas na tela do Administrador (somente leitura), modal unificado de perfil de usuário com botão de edição e alinhamento de ações. |

@@ -105,3 +105,4 @@ Este plano estabelece a reformulação completa do **Painel Geral Administrativo
 
 #### Etapa F4: Ações de Download e Pré-visualização
 * Conectar o clique dos botões de exportação aos novos endpoints do backend (`/relatorios/pdf/geral`, `/relatorios/pdf/cobranca-areas` e `/relatorios/csv/cobranca-areas`) usando `fetch` com `Authorization: Bearer <token>` e gerando o Blob/download no navegador.
+
