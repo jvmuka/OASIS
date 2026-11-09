@@ -258,7 +258,7 @@ export default function Layout() {
         >
           {/* Topo da Sidebar: Logo Centralizada + Botão para Recolher Gaveta */}
           <div className="p-4 pb-2 border-b border-slate-100 dark:border-slate-800/80">
-            <div className="relative flex items-center justify-between py-1">
+            <div className="relative flex items-center justify-center py-1">
               <Link to={rotaInicial} className="flex items-center justify-center group" title="Ir para o início">
                 <img
                   src="/logos/logo-deitada-navy.png"
@@ -272,11 +272,11 @@ export default function Layout() {
                 />
               </Link>
 
-              {/* Botão para fechar a gaveta (acessível em todas as telas) */}
+              {/* Botão para fechar a gaveta (ancorado à direita sem deslocar a logo centralizada) */}
               <button
                 type="button"
                 onClick={alternarSidebar}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                className="absolute right-0 top-1/2 -translate-y-1/2 p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 title="Recolher barra lateral"
                 aria-label="Recolher barra lateral"
               >
