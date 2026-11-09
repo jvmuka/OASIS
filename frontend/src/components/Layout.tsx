@@ -326,10 +326,10 @@ export default function Layout() {
               </div>
             )}
 
-            {/* GRUPO 5: ADMINISTRAÇÃO & GESTÃO PREDIAL */}
+            {/* GRUPO 5: ADMINISTRAÇÃO & GESTÃO CONDOMINIAL */}
             {(tipos.includes('SINDICO') || tipos.includes('ADMINISTRADOR') || tipos.includes('SUPERADMIN')) && (
               <div>
-                <CabecalhoSecao chave="gestaoPredial" rotulo="Gestão Predial" icone="building" />
+                <CabecalhoSecao chave="gestaoPredial" rotulo="Gestão Condominial" icone="building" />
                 {secoesAbertas.gestaoPredial && (
                   <div className="space-y-1 mt-1.5">
                     {item('/sindico/painel', 'Painel Geral', 'home')}
