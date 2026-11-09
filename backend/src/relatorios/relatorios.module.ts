@@ -101,17 +101,22 @@ export class RelatoriosController {
       uf: 'PR',
     };
 
-    // 4. Lista dos últimos 12 meses disponíveis
+    // 4. Lista dos meses disponíveis (últimos 12 meses + próximos 3 meses + meses com histórico)
     const mesesSeries = await this.db.query(`
-      SELECT to_char(m, 'YYYY-MM') AS valor,
+      SELECT DISTINCT
+             to_char(m, 'YYYY-MM') AS valor,
              to_char(m, 'MM') AS mes_num,
              to_char(m, 'YYYY') AS ano
-        FROM generate_series(
-          date_trunc('month', CURRENT_DATE) - INTERVAL '11 months',
-          date_trunc('month', CURRENT_DATE),
-          '1 month'::interval
-        ) m
-       ORDER BY m DESC`);
+        FROM (
+          SELECT generate_series(
+            date_trunc('month', CURRENT_DATE) - INTERVAL '11 months',
+            date_trunc('month', CURRENT_DATE) + INTERVAL '3 months',
+            '1 month'::interval
+          ) AS m
+          UNION
+          SELECT DISTINCT date_trunc('month', data_hora_inicio) AS m FROM reserva WHERE data_hora_inicio IS NOT NULL
+        ) u
+       ORDER BY valor DESC`);
 
     const mesesDisponiveis = mesesSeries.map((row: any) => ({
       valor: row.valor,

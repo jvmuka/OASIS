@@ -23,6 +23,7 @@ export default function MinhasReservas() {
   const [carregando, setCarregando] = useState(true);
   const [filtroStatus, setFiltroStatus] = useState<'FUTURAS' | 'HISTORICO' | 'TODAS'>('FUTURAS');
   const [filtroArea, setFiltroArea] = useState<string>('TODAS');
+  const [filtroMes, setFiltroMes] = useState<string>('TODOS');
   const [pagina, setPagina] = useState(1);
   const [cancelando, setCancelando] = useState<Reserva | null>(null);
   const [processando, setProcessando] = useState(false);
@@ -119,6 +120,39 @@ export default function MinhasReservas() {
   // Áreas comuns disponíveis para filtro
   const areasDisponiveis = Array.from(new Set(reservas.map(r => r.area))).filter(Boolean).sort();
 
+  // Meses únicos disponíveis para filtro a partir dos agendamentos
+  const mesesDisponiveis = Array.from(
+    new Set(
+      reservas
+        .filter(r => r.data_hora_inicio)
+        .map(r => {
+          const d = new Date(r.data_hora_inicio);
+          const ano = d.getFullYear();
+          const mes = String(d.getMonth() + 1).padStart(2, '0');
+          return `${ano}-${mes}`;
+        })
+    )
+  ).sort().reverse();
+
+  const formatarMesRotulo = (chave: string) => {
+    const [ano, mes] = chave.split('-');
+    const MESES: Record<string, string> = {
+      '01': 'Janeiro',
+      '02': 'Fevereiro',
+      '03': 'Março',
+      '04': 'Abril',
+      '05': 'Maio',
+      '06': 'Junho',
+      '07': 'Julho',
+      '08': 'Agosto',
+      '09': 'Setembro',
+      '10': 'Outubro',
+      '11': 'Novembro',
+      '12': 'Dezembro',
+    };
+    return `${MESES[mes] || mes}/${ano}`;
+  };
+
   // Contadores para os botões de filtro
   const totalFuturas = reservas.filter(r => obterStatusReserva(r).isAtivaOuFutura).length;
   const totalHistorico = reservas.filter(r => !obterStatusReserva(r).isAtivaOuFutura).length;
@@ -134,6 +168,15 @@ export default function MinhasReservas() {
     })
     .filter(r => {
       if (filtroArea !== 'TODAS') return r.area === filtroArea;
+      return true;
+    })
+    .filter(r => {
+      if (filtroMes !== 'TODOS') {
+        const d = new Date(r.data_hora_inicio);
+        const ano = d.getFullYear();
+        const mes = String(d.getMonth() + 1).padStart(2, '0');
+        return `${ano}-${mes}` === filtroMes;
+      }
       return true;
     })
     .sort((a, b) => {
@@ -168,6 +211,11 @@ export default function MinhasReservas() {
 
   const mudarFiltroArea = (area: string) => {
     setFiltroArea(area);
+    setPagina(1);
+  };
+
+  const mudarFiltroMes = (mes: string) => {
+    setFiltroMes(mes);
     setPagina(1);
   };
 
@@ -256,27 +304,66 @@ export default function MinhasReservas() {
           </button>
         </div>
 
-        {/* Filtro por Área Comum */}
-        {areasDisponiveis.length > 0 && (
-          <div className="flex items-center gap-2">
-            <label htmlFor="filtro-area" className="text-xs font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">
-              Área:
-            </label>
-            <select
-              id="filtro-area"
-              value={filtroArea}
-              onChange={e => mudarFiltroArea(e.target.value)}
-              className="rounded-xl border border-[#e2e6ec] bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs focus:border-navy focus:outline-none focus:ring-2 focus:ring-navy/20 dark:border-slate-800 dark:bg-[#0e1525] dark:text-slate-200 dark:focus:border-sky-500 dark:focus:ring-sky-500/20 cursor-pointer"
+        {/* Filtros por Mês e por Área Comum */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Filtro por Mês */}
+          {mesesDisponiveis.length > 0 && (
+            <div className="flex items-center gap-2">
+              <label htmlFor="filtro-mes" className="text-xs font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                Mês:
+              </label>
+              <select
+                id="filtro-mes"
+                value={filtroMes}
+                onChange={e => mudarFiltroMes(e.target.value)}
+                className="rounded-xl border border-[#e2e6ec] bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs focus:border-navy focus:outline-none focus:ring-2 focus:ring-navy/20 dark:border-slate-800 dark:bg-[#0e1525] dark:text-slate-200 dark:focus:border-sky-500 dark:focus:ring-sky-500/20 cursor-pointer"
+              >
+                <option value="TODOS">Todos os meses</option>
+                {mesesDisponiveis.map(m => (
+                  <option key={m} value={m}>
+                    {formatarMesRotulo(m)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Filtro por Área Comum */}
+          {areasDisponiveis.length > 0 && (
+            <div className="flex items-center gap-2">
+              <label htmlFor="filtro-area" className="text-xs font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                Área:
+              </label>
+              <select
+                id="filtro-area"
+                value={filtroArea}
+                onChange={e => mudarFiltroArea(e.target.value)}
+                className="rounded-xl border border-[#e2e6ec] bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs focus:border-navy focus:outline-none focus:ring-2 focus:ring-navy/20 dark:border-slate-800 dark:bg-[#0e1525] dark:text-slate-200 dark:focus:border-sky-500 dark:focus:ring-sky-500/20 cursor-pointer"
+              >
+                <option value="TODAS">Todas as áreas</option>
+                {areasDisponiveis.map(area => (
+                  <option key={area} value={area}>
+                    {area}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {(filtroMes !== 'TODOS' || filtroArea !== 'TODAS') && (
+            <button
+              type="button"
+              onClick={() => {
+                setFiltroMes('TODOS');
+                setFiltroArea('TODAS');
+                setPagina(1);
+              }}
+              className="text-xs font-bold text-sky-600 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300 transition-colors cursor-pointer"
             >
-              <option value="TODAS">Todas as áreas</option>
-              {areasDisponiveis.map(area => (
-                <option key={area} value={area}>
-                  {area}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+              Limpar filtros
+            </button>
+          )}
+        </div>
       </div>
 
       <Cartao>
@@ -290,7 +377,9 @@ export default function MinhasReservas() {
             icone="calendar"
             titulo="Nenhuma reserva encontrada"
             descricao={
-              filtroArea !== 'TODAS'
+              filtroMes !== 'TODOS'
+                ? `Você não possui reservas para o mês selecionado (${formatarMesRotulo(filtroMes)}).`
+                : filtroArea !== 'TODAS'
                 ? `Você não possui reservas para a área "${filtroArea}" no filtro selecionado.`
                 : filtroStatus === 'FUTURAS'
                 ? 'Você não possui reservas futuras ativas no momento.'

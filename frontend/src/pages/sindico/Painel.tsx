@@ -197,6 +197,23 @@ export default function PainelAdmin() {
       .finally(() => setCarregando(false));
   };
 
+  const navegarMes = (direcao: -1 | 1) => {
+    if (!mesSelecionado) return;
+    const [anoStr, mesStr] = mesSelecionado.split('-');
+    let ano = parseInt(anoStr, 10);
+    let mes = parseInt(mesStr, 10) + direcao;
+    if (mes < 1) {
+      mes = 12;
+      ano -= 1;
+    } else if (mes > 12) {
+      mes = 1;
+      ano += 1;
+    }
+    const novo = `${ano}-${String(mes).padStart(2, '0')}`;
+    setMesSelecionado(novo);
+    carregar(novo);
+  };
+
   useEffect(() => {
     carregar();
   }, []);
@@ -407,27 +424,45 @@ export default function PainelAdmin() {
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
-          {/* Seletor de Mês de Análise */}
-          <div className="flex items-center gap-2 rounded-xl border border-[#e2e6ec] bg-white px-3.5 py-2 shadow-2xs dark:border-slate-800 dark:bg-[#0e1525]">
-            <Icone nome="calendar" className="h-4 w-4 text-[#525d6e] dark:text-slate-400" />
-            <span className="text-[11px] font-bold text-[#525d6e] dark:text-slate-400 uppercase tracking-wider hidden sm:inline">
-              Período:
-            </span>
-            <select
-              value={mesSelecionado}
-              onChange={e => {
-                const novoMes = e.target.value;
-                setMesSelecionado(novoMes);
-                carregar(novoMes);
-              }}
-              className="bg-transparent text-xs font-bold text-[#0b1830] focus:outline-hidden dark:text-slate-100 cursor-pointer pr-1"
+          {/* Seletor de Mês de Análise com Navegação Rápida */}
+          <div className="flex items-center gap-1 rounded-xl border border-[#e2e6ec] bg-white p-1 shadow-2xs dark:border-slate-800 dark:bg-[#0e1525]">
+            <button
+              type="button"
+              title="Mês Anterior"
+              onClick={() => navegarMes(-1)}
+              className="p-1.5 rounded-lg text-slate-500 hover:text-navy hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800 transition-colors cursor-pointer"
             >
-              {d.meses_disponiveis.map(m => (
-                <option key={m.valor} value={m.valor} className="dark:bg-slate-900">
-                  {m.rotulo}
-                </option>
-              ))}
-            </select>
+              <Icone nome="chevronLeft" className="h-4 w-4" />
+            </button>
+            <div className="flex items-center gap-1.5 px-1.5">
+              <Icone nome="calendar" className="h-4 w-4 text-[#525d6e] dark:text-slate-400" />
+              <span className="text-[11px] font-bold text-[#525d6e] dark:text-slate-400 uppercase tracking-wider hidden sm:inline">
+                Mês:
+              </span>
+              <select
+                value={mesSelecionado}
+                onChange={e => {
+                  const novoMes = e.target.value;
+                  setMesSelecionado(novoMes);
+                  carregar(novoMes);
+                }}
+                className="bg-transparent text-xs font-bold text-[#0b1830] focus:outline-hidden dark:text-slate-100 cursor-pointer pr-1"
+              >
+                {d.meses_disponiveis.map(m => (
+                  <option key={m.valor} value={m.valor} className="dark:bg-slate-900">
+                    {m.rotulo}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="button"
+              title="Próximo Mês"
+              onClick={() => navegarMes(1)}
+              className="p-1.5 rounded-lg text-slate-500 hover:text-navy hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            >
+              <Icone nome="chevronRight" className="h-4 w-4" />
+            </button>
           </div>
 
           {/* BOTÃO DROPDOWN EXPORTAR RELATÓRIOS (PDF / CSV) */}
