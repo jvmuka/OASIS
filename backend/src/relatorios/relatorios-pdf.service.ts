@@ -376,7 +376,7 @@ export class RelatoriosPdfService {
         const margemAntiga = doc.page.margins.bottom;
         doc.page.margins.bottom = 0;
 
-        const yRodape = 798;
+        const yRodape = 795;
         doc.strokeColor('#E2E8F0').lineWidth(0.5).moveTo(MARGEM_ESQ, yRodape).lineTo(MARGEM_ESQ + LARGURA_UTIL, yRodape).stroke();
         doc.font('Helvetica').fontSize(6.5).fillColor('#94A3B8')
           .text(`OASIS Gestão Condominial • Relatório Executivo Mensal • Emitido em ${dados.data_emissao}`, MARGEM_ESQ, yRodape + 4, { lineBreak: false });
@@ -466,19 +466,19 @@ export class RelatoriosPdfService {
       doc.font('Helvetica-Bold').fontSize(8).fillColor('#475569')
         .text(`UNIDADES IMPACTADAS: ${dados.total_unidades}`, MARGEM_ESQ + 395, y + 9);
 
-      // 4. Tabela de Lançamentos com larguras calibradas
+      // 4. Tabela de Lançamentos com larguras rigorosamente calibradas (largura total: 523pt)
       y += 36;
       const desenharCabecalhoTabela = (yPos: number) => {
-        doc.rect(MARGEM_ESQ, yPos, LARGURA_UTIL, 16).fill('#1E293B');
-        doc.font('Helvetica-Bold').fontSize(7).fillColor('#FFFFFF');
-        doc.text('UNIDADE', MARGEM_ESQ + 6, yPos + 4, { width: 50 });
-        doc.text('MORADOR SOLICITANTE', MARGEM_ESQ + 62, yPos + 4, { width: 125 });
-        doc.text('CPF', MARGEM_ESQ + 192, yPos + 4, { width: 75 });
-        doc.text('ESPAÇO RESERVADO', MARGEM_ESQ + 272, yPos + 4, { width: 95 });
-        doc.text('DATA DO EVENTO', MARGEM_ESQ + 372, yPos + 4, { width: 55, align: 'center' });
-        doc.text('HORÁRIO', MARGEM_ESQ + 432, yPos + 4, { width: 40, align: 'center' });
-        doc.text('TAXA (R$)', MARGEM_ESQ + 472, yPos + 4, { width: 45, align: 'right' });
-        return yPos + 16;
+        doc.rect(MARGEM_ESQ, yPos, LARGURA_UTIL, 18).fill('#1E293B');
+        doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#FFFFFF');
+        doc.text('UNIDADE', MARGEM_ESQ + 8, yPos + 5, { width: 55 });
+        doc.text('MORADOR SOLICITANTE', MARGEM_ESQ + 68, yPos + 5, { width: 125 });
+        doc.text('CPF', MARGEM_ESQ + 198, yPos + 5, { width: 75 });
+        doc.text('ESPAÇO RESERVADO', MARGEM_ESQ + 278, yPos + 5, { width: 95 });
+        doc.text('DATA DO EVENTO', MARGEM_ESQ + 378, yPos + 5, { width: 65, align: 'center' });
+        doc.text('HORÁRIO', MARGEM_ESQ + 448, yPos + 5, { width: 45, align: 'center' });
+        doc.text('TAXA (R$)', MARGEM_ESQ + 498, yPos + 5, { width: 55, align: 'right' });
+        return yPos + 18;
       };
 
       y = desenharCabecalhoTabela(y);
@@ -486,7 +486,7 @@ export class RelatoriosPdfService {
       if (!dados.itens || dados.itens.length === 0) {
         doc.rect(MARGEM_ESQ, y, LARGURA_UTIL, 24).fill('#F8FAFC');
         doc.font('Helvetica-Oblique').fontSize(8).fillColor('#64748B')
-          .text('Nenhum evento tarifado concluído no período apurado até o momento.', MARGEM_ESQ + 12, y + 8);
+          .text('Nenhum evento tarifado realizado no período apurado até o momento.', MARGEM_ESQ + 12, y + 8);
         y += 24;
       } else {
         // Agrupa por Bloco para criar subtotais organizados
@@ -497,7 +497,7 @@ export class RelatoriosPdfService {
           itensPorBloco[blocoKey].push(item);
         });
 
-        const ALTURA_LINHA = 14;
+        const ALTURA_LINHA = 16;
         let linhaIndex = 0;
 
         for (const bloco of Object.keys(itensPorBloco).sort()) {
@@ -505,19 +505,19 @@ export class RelatoriosPdfService {
           let subtotalBloco = 0;
 
           // Se faltar espaço para cabeçalho do bloco + 2 linhas, salta página
-          if (y > 700) {
+          if (y > 690) {
             doc.addPage();
             y = desenharCabecalhoTabela(36);
           }
 
           // Faixa de cabeçalho do Bloco
-          doc.rect(MARGEM_ESQ, y, LARGURA_UTIL, 14).fill('#E2E8F0');
+          doc.rect(MARGEM_ESQ, y, LARGURA_UTIL, 15).fill('#E2E8F0');
           doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0B1830')
-            .text(`BLOCO: ${bloco.toUpperCase()} (${itensBloco.length} lançamento${itensBloco.length > 1 ? 's' : ''})`, MARGEM_ESQ + 8, y + 3);
-          y += 14;
+            .text(`BLOCO: ${bloco.toUpperCase()} (${itensBloco.length} lançamento${itensBloco.length > 1 ? 's' : ''})`, MARGEM_ESQ + 8, y + 3.5);
+          y += 15;
 
           for (const item of itensBloco) {
-            if (y > 720) {
+            if (y > 710) {
               doc.addPage();
               y = desenharCabecalhoTabela(36);
             }
@@ -525,48 +525,48 @@ export class RelatoriosPdfService {
             const bg = linhaIndex % 2 === 0 ? '#FFFFFF' : '#F8FAFC';
             doc.rect(MARGEM_ESQ, y, LARGURA_UTIL, ALTURA_LINHA).fill(bg);
 
-            doc.font('Helvetica-Bold').fontSize(7).fillColor('#0F172A')
-              .text(`Apto ${item.apartamento}`, MARGEM_ESQ + 6, y + 3, { width: 50 });
-            doc.font('Helvetica').fontSize(7).fillColor('#334155')
-              .text(item.morador_nome, MARGEM_ESQ + 62, y + 3, { width: 125, ellipsis: true });
-            doc.font('Helvetica').fontSize(6.5).fillColor('#64748B')
-              .text(item.morador_cpf || '---', MARGEM_ESQ + 192, y + 3, { width: 75 });
-            doc.font('Helvetica-Bold').fontSize(7).fillColor('#0B1830')
-              .text(item.area_nome, MARGEM_ESQ + 272, y + 3, { width: 95, ellipsis: true });
-            doc.font('Helvetica').fontSize(7).fillColor('#334155')
-              .text(item.data_evento, MARGEM_ESQ + 372, y + 3, { width: 55, align: 'center' });
+            doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0F172A')
+              .text(`Apto ${item.apartamento}`, MARGEM_ESQ + 8, y + 4, { width: 55 });
+            doc.font('Helvetica').fontSize(7.5).fillColor('#334155')
+              .text(item.morador_nome, MARGEM_ESQ + 68, y + 4, { width: 125, ellipsis: true });
+            doc.font('Helvetica').fontSize(7).fillColor('#64748B')
+              .text(item.morador_cpf || '---', MARGEM_ESQ + 198, y + 4, { width: 75 });
+            doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0B1830')
+              .text(item.area_nome, MARGEM_ESQ + 278, y + 4, { width: 95, ellipsis: true });
+            doc.font('Helvetica').fontSize(7.5).fillColor('#334155')
+              .text(item.data_evento, MARGEM_ESQ + 378, y + 4, { width: 65, align: 'center' });
 
             const horarioFormatado = item.horario_inicio && item.horario_fim
-              ? `${item.horario_inicio}-${item.horario_fim}`
+              ? `${item.horario_inicio} às ${item.horario_fim}`
               : item.horario_inicio || '---';
-            doc.font('Helvetica').fontSize(6.5).fillColor('#475569')
-              .text(horarioFormatado, MARGEM_ESQ + 432, y + 3, { width: 40, align: 'center' });
+            doc.font('Helvetica').fontSize(7).fillColor('#475569')
+              .text(horarioFormatado, MARGEM_ESQ + 448, y + 4, { width: 45, align: 'center' });
 
-            doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0F172A')
-              .text(this.formatarMoeda(item.valor_taxa), MARGEM_ESQ + 460, y + 3, { width: 57, align: 'right' });
+            doc.font('Helvetica-Bold').fontSize(8).fillColor('#0F172A')
+              .text(this.formatarMoeda(item.valor_taxa), MARGEM_ESQ + 498, y + 4, { width: 55, align: 'right' });
 
             subtotalBloco += Number(item.valor_taxa || 0);
             linhaIndex++;
             y += ALTURA_LINHA;
           }
 
-          // Subtotal do Bloco com largura suficiente para não quebrar linha
-          doc.rect(MARGEM_ESQ, y, LARGURA_UTIL, 14).fill('#F1F5F9');
-          doc.font('Helvetica-Bold').fontSize(7).fillColor('#475569')
-            .text(`Subtotal Bloco ${bloco}:`, MARGEM_ESQ + 300, y + 3, { width: 150, align: 'right' });
-          doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0B1830')
-            .text(this.formatarMoeda(subtotalBloco), MARGEM_ESQ + 450, y + 3, { width: 67, align: 'right' });
-          y += 14;
+          // Subtotal do Bloco com largura suficiente para nunca quebrar linha
+          doc.rect(MARGEM_ESQ, y, LARGURA_UTIL, 16).fill('#F1F5F9');
+          doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#475569')
+            .text(`Subtotal Bloco ${bloco}:`, MARGEM_ESQ + 280, y + 4, { width: 180, align: 'right' });
+          doc.font('Helvetica-Bold').fontSize(8).fillColor('#0B1830')
+            .text(this.formatarMoeda(subtotalBloco), MARGEM_ESQ + 470, y + 4, { width: 83, align: 'right' });
+          y += 16;
         }
 
         // Linha de Total Geral Consolidado
-        y += 4;
-        doc.rect(MARGEM_ESQ, y, LARGURA_UTIL, 18).fill('#0B1830');
-        doc.font('Helvetica-Bold').fontSize(8).fillColor('#FFFFFF')
-          .text('TOTAL GERAL A SER COBRADO EM BOLETO:', MARGEM_ESQ + 12, y + 5);
-        doc.font('Helvetica-Bold').fontSize(9.5).fillColor('#4ADE80')
-          .text(this.formatarMoeda(dados.total_geral), MARGEM_ESQ + 320, y + 4.5, { width: 197, align: 'right' });
-        y += 24;
+        y += 6;
+        doc.rect(MARGEM_ESQ, y, LARGURA_UTIL, 20).fill('#0B1830');
+        doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#FFFFFF')
+          .text('TOTAL GERAL A SER COBRADO EM BOLETO:', MARGEM_ESQ + 12, y + 6);
+        doc.font('Helvetica-Bold').fontSize(10).fillColor('#4ADE80')
+          .text(this.formatarMoeda(dados.total_geral), MARGEM_ESQ + 320, y + 5, { width: 233, align: 'right' });
+        y += 20;
       }
 
       // 5. Termo de Envio e Protocolo Contábil
@@ -574,27 +574,35 @@ export class RelatoriosPdfService {
         doc.addPage();
         y = 40;
       } else {
-        y += 10;
+        y += 14;
       }
 
-      doc.rect(MARGEM_ESQ, y, LARGURA_UTIL, 75).fillAndStroke('#FFFFFF', '#CBD5E1');
+      doc.rect(MARGEM_ESQ, y, LARGURA_UTIL, 70).fillAndStroke('#FFFFFF', '#CBD5E1');
       doc.font('Helvetica-Bold').fontSize(8).fillColor('#0B1830')
-        .text('TERMO DE CONFERÊNCIA E PROTOCOLO DE FATURAMENTO', MARGEM_ESQ + 10, y + 8);
+        .text('TERMO DE CONFERÊNCIA E PROTOCOLO DE FATURAMENTO', MARGEM_ESQ + 12, y + 8);
 
       doc.font('Helvetica').fontSize(7).fillColor('#475569')
-        .text('Encaminho para a Administradora de Condomínio o presente demonstrativo contendo todos os lançamentos de taxas de uso de áreas comuns apurados na competência, para inclusão nos boletos da cota condominial.', MARGEM_ESQ + 10, y + 20, { width: LARGURA_UTIL - 20 });
+        .text('Encaminho para a Administradora de Condomínio o presente demonstrativo contendo todos os lançamentos de taxas de uso de áreas comuns apurados na competência, para inclusão nos boletos da cota condominial.', MARGEM_ESQ + 12, y + 20, { width: LARGURA_UTIL - 24 });
 
-      const yAssinaturas = y + 44;
-      const larguraAssinatura = (LARGURA_UTIL - 40) / 2;
+      const yAssinaturas = y + 42;
+      const larguraAssinatura = (LARGURA_UTIL - 48) / 2;
 
-      // Síndico
-      doc.strokeColor('#94A3B8').lineWidth(0.8).moveTo(MARGEM_ESQ + 15, yAssinaturas + 16).lineTo(MARGEM_ESQ + 15 + larguraAssinatura, yAssinaturas + 16).stroke();
-      doc.font('Helvetica-Bold').fontSize(7).fillColor('#0B1830').text('Síndico(a) / Gestor Responsável', MARGEM_ESQ + 15, yAssinaturas + 19, { width: larguraAssinatura, align: 'center' });
+      // Linha Síndico
+      doc.strokeColor('#94A3B8').lineWidth(0.8)
+        .moveTo(MARGEM_ESQ + 16, yAssinaturas + 12)
+        .lineTo(MARGEM_ESQ + 16 + larguraAssinatura, yAssinaturas + 12)
+        .stroke();
+      doc.font('Helvetica-Bold').fontSize(7).fillColor('#0B1830')
+        .text('Síndico(a) / Gestor Responsável', MARGEM_ESQ + 16, yAssinaturas + 15, { width: larguraAssinatura, align: 'center' });
 
-      // Administradora
-      const xAssinatura2 = MARGEM_ESQ + larguraAssinatura + 30;
-      doc.strokeColor('#94A3B8').lineWidth(0.8).moveTo(xAssinatura2, yAssinaturas + 16).lineTo(xAssinatura2 + larguraAssinatura, yAssinaturas + 16).stroke();
-      doc.font('Helvetica-Bold').fontSize(7).fillColor('#0B1830').text('Recebido pela Administradora / Data: ___/___/______', xAssinatura2, yAssinaturas + 19, { width: larguraAssinatura, align: 'center' });
+      // Linha Administradora
+      const xAssinatura2 = MARGEM_ESQ + 16 + larguraAssinatura + 16;
+      doc.strokeColor('#94A3B8').lineWidth(0.8)
+        .moveTo(xAssinatura2, yAssinaturas + 12)
+        .lineTo(xAssinatura2 + larguraAssinatura, yAssinaturas + 12)
+        .stroke();
+      doc.font('Helvetica-Bold').fontSize(7).fillColor('#0B1830')
+        .text('Recebido pela Administradora / Data: ___/___/______', xAssinatura2, yAssinaturas + 15, { width: larguraAssinatura, align: 'center' });
 
       // 6. Rodapé em todas as páginas (sem criar páginas adicionais)
       const totalPaginas = doc.bufferedPageRange().count;
@@ -603,7 +611,7 @@ export class RelatoriosPdfService {
         const margemAntiga = doc.page.margins.bottom;
         doc.page.margins.bottom = 0;
 
-        const yRodape = 798;
+        const yRodape = 795;
         doc.strokeColor('#E2E8F0').lineWidth(0.5).moveTo(MARGEM_ESQ, yRodape).lineTo(MARGEM_ESQ + LARGURA_UTIL, yRodape).stroke();
         doc.font('Helvetica').fontSize(6.5).fillColor('#94A3B8')
           .text(`OASIS Gestão Condominial • Demonstrativo de Cobrança de Áreas • Emitido em ${dados.data_emissao}`, MARGEM_ESQ, yRodape + 4, { lineBreak: false });
