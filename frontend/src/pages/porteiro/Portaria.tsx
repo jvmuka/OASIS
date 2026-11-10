@@ -228,6 +228,22 @@ export default function Portaria() {
     carregarAgenda(dataAgenda);
   }, [dataAgenda]);
 
+  useEffect(() => {
+    const onTourEtapa = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (!detail || (detail.rota !== '/portaria/painel' && detail.rota !== '/portaria' && detail.rota !== 'portaria-painel')) return;
+      if (detail.passo === 1 || detail.passo === 2) {
+        setModalVisitanteAberto(false);
+      } else if (detail.passo === 3) {
+        setModalVisitanteAberto(false);
+        setCadastroAberto(true);
+      }
+    };
+
+    window.addEventListener('oasis:tour-etapa', onTourEtapa);
+    return () => window.removeEventListener('oasis:tour-etapa', onTourEtapa);
+  }, []);
+
 
   // Exibe apenas reservas atualmente em andamento (desaparece assim que o horário de término chega)
   const ocupacaoAtiva = ocupacao.filter(o => !o.em_atraso && new Date(o.data_hora_fim) > new Date());

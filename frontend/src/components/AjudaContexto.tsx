@@ -18,27 +18,62 @@ export function BotaoAjudaContexto({ ajudaKey, className = '' }: BotaoAjudaConte
 
   const dadosAjuda: AjudaTela | null = obterAjudaPorRota(location.pathname, ajudaKey);
 
-  // Efeito para destacar elementos durante o Tour Guiado na tela real
+  // Efeito para disparar ações de etapa, rolar e destacar elementos durante o Tour Guiado
   useEffect(() => {
     if (!tourAtivo || !dadosAjuda?.passoAPasso) return;
 
+    const rotaAtiva = ajudaKey || location.pathname;
+    window.dispatchEvent(
+      new CustomEvent('oasis:tour-etapa', {
+        detail: {
+          rota: rotaAtiva,
+          passo: passoTour,
+          total: dadosAjuda.passoAPasso.length,
+        },
+      })
+    );
+
     const passoInfo = dadosAjuda.passoAPasso[passoTour - 1];
-    if (passoInfo?.alvoSelector) {
+    let ultimoElDestacado: Element | null = null;
+
+    const aplicarDestaque = () => {
+      if (!passoInfo?.alvoSelector) return;
       const el = localizarElementoTour(passoInfo.alvoSelector);
-      if (el) {
+      if (el && el !== ultimoElDestacado) {
+        if (ultimoElDestacado) {
+          ultimoElDestacado.classList.remove('tour-spotlight-active');
+        }
+        ultimoElDestacado = el;
         try {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
           el.classList.add('tour-spotlight-active');
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         } catch {}
       }
-    }
+    };
+
+    aplicarDestaque();
+    const t1 = window.setTimeout(aplicarDestaque, 60);
+    const t2 = window.setTimeout(aplicarDestaque, 250);
+    const t3 = window.setTimeout(aplicarDestaque, 600);
 
     return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+      window.clearTimeout(t3);
       document.querySelectorAll('.tour-spotlight-active').forEach((el) => {
         el.classList.remove('tour-spotlight-active');
       });
     };
-  }, [tourAtivo, passoTour, dadosAjuda]);
+  }, [tourAtivo, passoTour, dadosAjuda, ajudaKey, location.pathname]);
+
+  const finalizarTour = (motivo: 'concluir' | 'cancelar' = 'cancelar') => {
+    setTourAtivo(false);
+    window.dispatchEvent(
+      new CustomEvent('oasis:tour-encerrar', {
+        detail: { rota: ajudaKey || location.pathname, motivo },
+      })
+    );
+  };
 
   // Escuta cliques reais do usuário na tela para avançar o tour automaticamente
   useEffect(() => {
@@ -50,7 +85,7 @@ export function BotaoAjudaContexto({ ajudaKey, className = '' }: BotaoAjudaConte
         if (dadosAjuda?.passoAPasso && passoTour < dadosAjuda.passoAPasso.length) {
           setPassoTour((p) => p + 1);
         } else {
-          setTourAtivo(false);
+          finalizarTour('concluir');
         }
       } else if (passoConcluido && passoConcluido > 0) {
         setPassoTour(Math.min(dadosAjuda?.passoAPasso?.length || 4, passoConcluido + 1));
@@ -58,7 +93,7 @@ export function BotaoAjudaContexto({ ajudaKey, className = '' }: BotaoAjudaConte
     };
 
     const handleConcluir = () => {
-      setTourAtivo(false);
+      finalizarTour('concluir');
     };
 
     const handleVoltarInicio = () => {
@@ -74,7 +109,7 @@ export function BotaoAjudaContexto({ ajudaKey, className = '' }: BotaoAjudaConte
       window.removeEventListener('oasis:tour-concluir', handleConcluir);
       window.removeEventListener('oasis:tour-voltar-inicio', handleVoltarInicio);
     };
-  }, [tourAtivo, passoTour, dadosAjuda]);
+  }, [tourAtivo, passoTour, dadosAjuda, ajudaKey, location.pathname]);
 
   if (!dadosAjuda) return null;
 
@@ -93,7 +128,7 @@ export function BotaoAjudaContexto({ ajudaKey, className = '' }: BotaoAjudaConte
     if (dadosAjuda?.passoAPasso && passoTour < dadosAjuda.passoAPasso.length) {
       setPassoTour((p) => p + 1);
     } else {
-      setTourAtivo(false);
+      finalizarTour('concluir');
     }
   };
 
@@ -134,7 +169,7 @@ export function BotaoAjudaContexto({ ajudaKey, className = '' }: BotaoAjudaConte
           alvoSelector={dadosAjuda.passoAPasso[passoTour - 1]?.alvoSelector}
           onProximo={proximoPassoTour}
           onAnterior={anteriorPassoTour}
-          onFinalizar={() => setTourAtivo(false)}
+          onFinalizar={(motivo) => finalizarTour(motivo || 'cancelar')}
         />
       )}
     </>

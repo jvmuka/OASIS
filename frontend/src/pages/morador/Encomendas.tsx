@@ -1,5 +1,5 @@
 import { useSync } from '../../hooks/useSync';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../../api';
 import { Badge, Botao, Cartao, EmptyState, Icone, Titulo, Paginacao } from '../../components/ui';
 import { formatarDataHora } from '../../utils/data';
@@ -57,6 +57,30 @@ export default function MinhasEncomendas() {
 
   const aguardando = encomendas.filter(e => e.status === 'AGUARDANDO_RETIRADA');
   const retiradas = encomendas.filter(e => e.status === 'RETIRADA');
+
+  const estadoTourRef = useRef({ aguardandoLen: aguardando.length, retiradasLen: retiradas.length });
+  estadoTourRef.current = { aguardandoLen: aguardando.length, retiradasLen: retiradas.length };
+
+  useEffect(() => {
+    const onTourEtapa = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (!detail || (detail.rota !== '/morador/encomendas' && detail.rota !== 'encomendas-morador')) return;
+      const { aguardandoLen, retiradasLen } = estadoTourRef.current;
+
+      if (detail.passo === 1 || detail.passo === 2) {
+        setBusca('');
+        setAbaAtiva(aguardandoLen > 0 ? 'AGUARDANDO' : 'TODAS');
+        setPagina(1);
+      } else if (detail.passo === 3) {
+        setBusca('');
+        setAbaAtiva(retiradasLen > 0 ? 'RETIRADAS' : 'TODAS');
+        setPagina(1);
+      }
+    };
+
+    window.addEventListener('oasis:tour-etapa', onTourEtapa);
+    return () => window.removeEventListener('oasis:tour-etapa', onTourEtapa);
+  }, []);
 
   const listaFiltrada = encomendas
     .filter(e => {

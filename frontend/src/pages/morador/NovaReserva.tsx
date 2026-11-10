@@ -1,5 +1,5 @@
 import { useSync } from '../../hooks/useSync';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api, sessaoAtual } from '../../api';
 import { Botao, Campo, Cartao, inputCls, Mensagem, Titulo, Icone, Badge, EmptyState, ModalConfirmacao } from '../../components/ui';
 import Calendario from '../../components/Calendario';
@@ -138,6 +138,180 @@ export default function NovaReserva() {
     setMsg({ t: '', tipo: 'ok' });
     carregarAreas();
   }
+
+  const estadoTourRef = useRef({
+    areasComReserva,
+    area,
+    data,
+    grade,
+    slot,
+  });
+  estadoTourRef.current = {
+    areasComReserva,
+    area,
+    data,
+    grade,
+    slot,
+  };
+  const passoPendenteRef = useRef<number | null>(null);
+  const selecionouAreaViaTourRef = useRef(false);
+
+  useEffect(() => {
+    function obterCandidatasData(areaAlvo: Area): string[] {
+      const hoje = new Date();
+      const antMinHoras = areaAlvo.antecedencia_minima_horas ?? areaAlvo.antecedencia_minima_dias * 24;
+      const min = new Date(hoje);
+      min.setHours(min.getHours() + antMinHoras);
+      const max = new Date(hoje);
+      max.setDate(max.getDate() + Math.max(0, areaAlvo.antecedencia_maxima_dias));
+
+      const allowedDows =
+        areaAlvo.horarios && areaAlvo.horarios.length > 0
+          ? areaAlvo.horarios.map(h => DOW_MAP[h.dia_semana]).filter((x): x is number => x !== undefined)
+          : null;
+
+      const cursor = new Date(min.getFullYear(), min.getMonth(), min.getDate());
+      const limit = new Date(max.getFullYear(), max.getMonth(), max.getDate());
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const lista: string[] = [];
+
+      let guard = 0;
+      while (cursor <= limit && guard < 120) {
+        if (!allowedDows || allowedDows.includes(cursor.getDay())) {
+          lista.push(`${cursor.getFullYear()}-${pad(cursor.getMonth() + 1)}-${pad(cursor.getDate())}`);
+          if (lista.length >= 10) break;
+        }
+        cursor.setDate(cursor.getDate() + 1);
+        guard++;
+      }
+      return lista;
+    }
+
+    function encontrarSlotElegivel(areaAlvo: Area, dataStr: string, slotsList: Slot[]): Slot | null {
+      const agora = new Date();
+      const antMinHoras = areaAlvo.antecedencia_minima_horas ?? (areaAlvo.antecedencia_minima_dias ? areaAlvo.antecedencia_minima_dias * 24 : 0);
+      return (
+        slotsList.find(sl => {
+          const dh = new Date(`${dataStr}T${sl.inicio}:00`);
+          const diffH = (dh.getTime() - agora.getTime()) / (1000 * 60 * 60);
+          return sl.status === 'LIVRE' && dh > agora && (antMinHoras <= 0 || diffH >= antMinHoras);
+        }) || null
+      );
+    }
+
+    async function prepararDataEHorarios(areaAlvo: Area, selecionarSlotNoFinal: boolean) {
+      const candidatas = obterCandidatasData(areaAlvo);
+      if (candidatas.length === 0) return;
+
+      setCarregandoGrade(true);
+      try {
+        let dataEscolhida = candidatas[0];
+        let gradeEscolhida: Grade | null = null;
+
+        for (const cand of candidatas.slice(0, 5)) {
+          try {
+            const res = await api.get<Grade>(`/reservas/disponibilidade?area=${areaAlvo.id_area_comum}&data=${cand}`);
+            if (!gradeEscolhida) {
+              dataEscolhida = cand;
+              gradeEscolhida = res;
+            }
+            if (encontrarSlotElegivel(areaAlvo, cand, res.slots || [])) {
+              dataEscolhida = cand;
+              gradeEscolhida = res;
+              break;
+            }
+          } catch {}
+        }
+
+        if (passoPendenteRef.current && passoPendenteRef.current < 3) return;
+
+        setData(dataEscolhida);
+        setGrade(gradeEscolhida);
+        if (gradeEscolhida && (selecionarSlotNoFinal || passoPendenteRef.current === 4)) {
+          const livre = encontrarSlotElegivel(areaAlvo, dataEscolhida, gradeEscolhida.slots || []);
+          if (livre) setSlot(livre);
+        } else {
+          setSlot(null);
+        }
+      } finally {
+        setCarregandoGrade(false);
+      }
+    }
+
+    const onTourEtapa = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (!detail || (detail.rota !== '/morador/reservar' && detail.rota !== '/morador/nova-reserva' && detail.rota !== 'nova-reserva')) {
+        return;
+      }
+
+      const passo: number = detail.passo;
+      passoPendenteRef.current = passo;
+      const atual = estadoTourRef.current;
+
+      if (passo === 1) {
+        setAbaAtiva('com_reserva');
+        if (atual.area) {
+          voltar();
+          selecionouAreaViaTourRef.current = false;
+        }
+        return;
+      }
+
+      const areaDisponivel =
+        atual.area ||
+        atual.areasComReserva.find(a => !a.penalidade_usuario?.bloqueado) ||
+        atual.areasComReserva[0] ||
+        null;
+
+      if (!areaDisponivel) return;
+
+      setAbaAtiva('com_reserva');
+      if (!atual.area) {
+        setArea(areaDisponivel);
+        setPessoas(Math.min(1, areaDisponivel.capacidade));
+        selecionouAreaViaTourRef.current = true;
+      }
+
+      if (passo === 2) {
+        return;
+      }
+
+      if (passo === 3) {
+        if (!atual.data || !atual.grade) {
+          prepararDataEHorarios(areaDisponivel, false);
+        }
+        return;
+      }
+
+      if (passo === 4) {
+        if (!atual.data || !atual.grade) {
+          prepararDataEHorarios(areaDisponivel, true);
+        } else if (!atual.slot) {
+          const livre = encontrarSlotElegivel(areaDisponivel, atual.data, atual.grade.slots || []);
+          if (livre) setSlot(livre);
+        }
+      }
+    };
+
+    const onTourEncerrar = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (!detail || (detail.rota !== '/morador/reservar' && detail.rota !== '/morador/nova-reserva' && detail.rota !== 'nova-reserva')) {
+        return;
+      }
+      passoPendenteRef.current = null;
+      if (detail.motivo === 'cancelar' && selecionouAreaViaTourRef.current) {
+        voltar();
+        selecionouAreaViaTourRef.current = false;
+      }
+    };
+
+    window.addEventListener('oasis:tour-etapa', onTourEtapa);
+    window.addEventListener('oasis:tour-encerrar', onTourEncerrar);
+    return () => {
+      window.removeEventListener('oasis:tour-etapa', onTourEtapa);
+      window.removeEventListener('oasis:tour-encerrar', onTourEncerrar);
+    };
+  }, []);
 
   const taxaNumero = area ? Number(area.valor || 0) : 0;
 

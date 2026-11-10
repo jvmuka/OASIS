@@ -1,5 +1,5 @@
 import { useSync } from '../../hooks/useSync';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../../api';
 import { Botao, Campo, Cartao, inputCls, Mensagem, Titulo, Icone, Badge, EmptyState, Modal, Paginacao } from '../../components/ui';
 import SeletorMorador from '../../components/SeletorMorador';
@@ -112,6 +112,35 @@ export default function Encomendas() {
   const totalPaginas = Math.ceil(encomendasFiltradas.length / ITENS_POR_PAGINA);
   const paginaValida = Math.min(Math.max(1, pagina), Math.max(1, totalPaginas));
   const encomendasPaginadas = encomendasFiltradas.slice((paginaValida - 1) * ITENS_POR_PAGINA, paginaValida * ITENS_POR_PAGINA);
+
+  const estadoTourRef = useRef({ lista, encomendasFiltradas });
+  estadoTourRef.current = { lista, encomendasFiltradas };
+
+  useEffect(() => {
+    const onTourEtapa = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (!detail || (detail.rota !== '/portaria/encomendas' && detail.rota !== 'portaria-encomendas')) return;
+      const { lista: todas, encomendasFiltradas: filtradas } = estadoTourRef.current;
+
+      if (detail.passo === 2) {
+        if (filtradas.length === 0 && todas.length > 0) {
+          setFiltro('TODAS');
+          setPagina(1);
+        }
+      } else if (detail.passo === 3) {
+        if (todas.some(item => item.status === 'AGUARDANDO_RETIRADA')) {
+          setFiltro('AGUARDANDO');
+          setPagina(1);
+        } else if (filtradas.length === 0 && todas.length > 0) {
+          setFiltro('TODAS');
+          setPagina(1);
+        }
+      }
+    };
+
+    window.addEventListener('oasis:tour-etapa', onTourEtapa);
+    return () => window.removeEventListener('oasis:tour-etapa', onTourEtapa);
+  }, []);
 
   return (
     <div className="space-y-6">

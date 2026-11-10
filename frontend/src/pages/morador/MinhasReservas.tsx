@@ -1,5 +1,5 @@
 import { useSync } from '../../hooks/useSync';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api';
 import { Botao, Cartao, Mensagem, Titulo, Icone, Badge, EmptyState, Modal, ModalConfirmacao, Paginacao } from '../../components/ui';
@@ -208,6 +208,30 @@ export default function MinhasReservas() {
     setFiltroStatus(f);
     setPagina(1);
   };
+
+  const estadoTourRef = useRef({ totalFuturas, totalHistorico });
+  estadoTourRef.current = { totalFuturas, totalHistorico };
+
+  useEffect(() => {
+    const onTourEtapa = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (!detail || (detail.rota !== '/morador/reservas' && detail.rota !== 'minhas-reservas')) return;
+
+      const { totalFuturas: fut, totalHistorico: hist } = estadoTourRef.current;
+      if (detail.passo === 1 || detail.passo === 2) {
+        setFiltroArea('TODAS');
+        setFiltroMes('TODOS');
+        mudarFiltroStatus(fut > 0 ? 'FUTURAS' : 'TODAS');
+      } else if (detail.passo === 3) {
+        setFiltroArea('TODAS');
+        setFiltroMes('TODOS');
+        mudarFiltroStatus(hist > 0 ? 'HISTORICO' : 'TODAS');
+      }
+    };
+
+    window.addEventListener('oasis:tour-etapa', onTourEtapa);
+    return () => window.removeEventListener('oasis:tour-etapa', onTourEtapa);
+  }, []);
 
   const mudarFiltroArea = (area: string) => {
     setFiltroArea(area);

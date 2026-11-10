@@ -1,5 +1,5 @@
 import { useSync } from '../../hooks/useSync';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api, sessaoAtual } from '../../api';
 import { Cartao, Titulo, Icone, Badge, EmptyState, Paginacao } from '../../components/ui';
 
@@ -108,6 +108,67 @@ export default function Mural() {
     setFiltro(novoFiltro);
     setPagina(1);
   };
+
+  const estadoTourRef = useRef({ avisos, avisosFiltrados, aberto });
+  estadoTourRef.current = { avisos, avisosFiltrados, aberto };
+  const abriuAvisoViaTourRef = useRef(false);
+
+  useEffect(() => {
+    const onTourEtapa = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (!detail || (detail.rota !== '/mural' && detail.rota !== '/morador/mural' && detail.rota !== 'mural')) return;
+
+      const { avisos: todos, avisosFiltrados: atuais } = estadoTourRef.current;
+
+      if (detail.passo === 1) {
+        if (abriuAvisoViaTourRef.current) {
+          setAberto(null);
+          abriuAvisoViaTourRef.current = false;
+        }
+        return;
+      }
+
+      if (detail.passo === 2) {
+        if (abriuAvisoViaTourRef.current) {
+          setAberto(null);
+          abriuAvisoViaTourRef.current = false;
+        }
+        if (atuais.length === 0 && todos.length > 0) {
+          mudarFiltro('TODOS');
+        }
+        return;
+      }
+
+      if (detail.passo === 3) {
+        let listaAlvo = atuais;
+        if (atuais.length === 0 && todos.length > 0) {
+          mudarFiltro('TODOS');
+          listaAlvo = todos;
+        }
+        const primeiro = listaAlvo[0];
+        if (primeiro) {
+          setAberto(primeiro.id_aviso);
+          abriuAvisoViaTourRef.current = true;
+        }
+      }
+    };
+
+    const onTourEncerrar = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (!detail || (detail.rota !== '/mural' && detail.rota !== '/morador/mural' && detail.rota !== 'mural')) return;
+      if (detail.motivo === 'cancelar' && abriuAvisoViaTourRef.current) {
+        setAberto(null);
+        abriuAvisoViaTourRef.current = false;
+      }
+    };
+
+    window.addEventListener('oasis:tour-etapa', onTourEtapa);
+    window.addEventListener('oasis:tour-encerrar', onTourEncerrar);
+    return () => {
+      window.removeEventListener('oasis:tour-etapa', onTourEtapa);
+      window.removeEventListener('oasis:tour-encerrar', onTourEncerrar);
+    };
+  }, []);
 
   return (
     <div className="space-y-6">

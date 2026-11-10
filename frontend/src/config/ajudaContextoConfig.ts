@@ -75,21 +75,33 @@ export const AJUDA_CONFIG: Record<string, AjudaTela> = {
     passoAPasso: [
       {
         passo: 1,
-        titulo: 'Clique em "+ Abrir Novo Chamado"',
-        descricao: 'No topo da página, clique no botão principal para abrir o formulário de abertura de ocorrência.',
+        titulo: 'Botão "+ Abrir Novo Chamado"',
+        descricao: 'No topo da página, clique no botão principal sempre que precisar registrar uma nova ocorrência.',
         alvoSelector: '#tour-chamados-btn-novo',
       },
       {
         passo: 2,
-        titulo: 'Indicadores de Acompanhamento',
-        descricao: 'Confira a quantidade de chamados em análise, em andamento ou já resolvidos pela administração.',
-        alvoSelector: '#tour-chamados-kpis, #tour-chamados-btn-novo',
+        titulo: 'Formulário da Ocorrência & Foto',
+        descricao: 'Escolha a categoria (Avaria, Limpeza, Barulho, etc.), informe título, local, descrição e anexe uma foto opcional para ajudar a manutenção.',
+        alvoSelector: '#tour-chamados-modal-form, #tour-chamados-btn-novo',
       },
       {
         passo: 3,
-        titulo: 'Acompanhe as Respostas em Tempo Real',
-        descricao: 'Veja o histórico de mensagens, respostas oficiais da administração e status de resolução particular da sua unidade.',
+        titulo: 'Indicadores de Acompanhamento',
+        descricao: 'Alterne entre Em Aberto, Concluídos, Arquivados ou Todos para filtrar seus chamados por fase de atendimento.',
+        alvoSelector: '#tour-chamados-kpis, #tour-chamados-btn-novo',
+      },
+      {
+        passo: 4,
+        titulo: 'Lista de Chamados da Unidade',
+        descricao: 'Confira o status, data de abertura e contador de mensagens de cada solicitação registrada para sua residência.',
         alvoSelector: '#tour-chamados-lista, #tour-chamados-kpis, #tour-chamados-btn-novo',
+      },
+      {
+        passo: 5,
+        titulo: 'Conversa e Respostas em Tempo Real',
+        descricao: 'Na gaveta lateral do chamado, leia as respostas oficiais do síndico e envie novas mensagens ou réplicas com total privacidade.',
+        alvoSelector: '#tour-chamados-gaveta, #tour-chamados-lista, #tour-chamados-kpis',
       },
     ],
     dicas: [
@@ -132,9 +144,15 @@ export const AJUDA_CONFIG: Record<string, AjudaTela> = {
       },
       {
         passo: 3,
-        titulo: 'Atender, Responder e Atualizar Status',
-        descricao: 'Clique no botão "Atender & Responder" para abrir a gaveta lateral, enviar orientações oficiais ao morador e marcar como Em Andamento ou Realizada.',
+        titulo: 'Botão Atender & Responder',
+        descricao: 'Clique em "Atender & Responder" na linha do chamado para abrir o painel lateral de atendimento.',
         alvoSelector: '#tour-sindico-chamados-atender, #tour-sindico-chamados-tabela, #tour-sindico-chamados-triagem',
+      },
+      {
+        passo: 4,
+        titulo: 'Gaveta de Atendimento & Resposta',
+        descricao: 'Dentro da gaveta lateral, altere o status (Em Andamento, Realizada, Arquivada) e envie respostas particulares diretamente ao morador.',
+        alvoSelector: '#tour-sindico-chamados-gaveta, #tour-sindico-chamados-atender, #tour-sindico-chamados-tabela, #tour-sindico-chamados-triagem',
       },
     ],
     dicas: [

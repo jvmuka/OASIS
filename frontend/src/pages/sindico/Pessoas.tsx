@@ -420,6 +420,22 @@ export default function Pessoas({
   const [aprovacoes, setAprovacoes] = useState<AprovacaoPendente[]>([]);
   const [abaAtiva, setAbaAtiva] = useState<'pessoas' | 'aprovacoes' | 'estrutura'>('pessoas');
 
+  useEffect(() => {
+    if (embutido) return;
+    const onTourEtapa = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (!detail) return;
+      if (detail.rota === '/sindico/pessoas' || detail.rota === 'sindico-pessoas') {
+        setAbaAtiva('pessoas');
+      } else if (detail.rota === '/sindico/pessoas/aprovacoes' || detail.rota === 'sindico-aprovacoes') {
+        setAbaAtiva('aprovacoes');
+      }
+    };
+
+    window.addEventListener('oasis:tour-etapa', onTourEtapa);
+    return () => window.removeEventListener('oasis:tour-etapa', onTourEtapa);
+  }, [embutido]);
+
   // Filtros Segmentados
   const [filtroStatus, setFiltroStatus] = useState<'TODOS' | 'ATIVOS' | 'INATIVOS'>('TODOS');
   const [buscaNome, setBuscaNome] = useState('');

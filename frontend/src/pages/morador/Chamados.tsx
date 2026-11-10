@@ -273,6 +273,75 @@ export default function MoradorChamados() {
   const totalAbertos = chamados.filter((c) => c.status === 'EM_ANALISE' || c.status === 'EM_ANDAMENTO').length;
   const totalConcluidos = chamados.filter((c) => c.status === 'REALIZADA').length;
 
+  const estadoTourRef = useRef({ chamados, chamadosFiltrados, chamadosPaginados });
+  estadoTourRef.current = { chamados, chamadosFiltrados, chamadosPaginados };
+  const abriuModalViaTourRef = useRef(false);
+  const abriuGavetaViaTourRef = useRef(false);
+
+  useEffect(() => {
+    const fecharPreviewsTour = () => {
+      if (abriuModalViaTourRef.current) {
+        setModalAberto(false);
+        abriuModalViaTourRef.current = false;
+      }
+      if (abriuGavetaViaTourRef.current) {
+        setChamadoSelecionadoId(null);
+        setDetalhes(null);
+        abriuGavetaViaTourRef.current = false;
+      }
+    };
+
+    const onTourEtapa = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (!detail || detail.rota !== '/morador/chamados') return;
+      const { chamados: todos, chamadosFiltrados: filtrados, chamadosPaginados: paginados } = estadoTourRef.current;
+
+      if (detail.passo === 1 || detail.passo === 3) {
+        fecharPreviewsTour();
+      } else if (detail.passo === 2) {
+        if (abriuGavetaViaTourRef.current) {
+          setChamadoSelecionadoId(null);
+          setDetalhes(null);
+          abriuGavetaViaTourRef.current = false;
+        }
+        setModalAberto(true);
+        abriuModalViaTourRef.current = true;
+      } else if (detail.passo === 4) {
+        fecharPreviewsTour();
+        if (filtrados.length === 0 && todos.length > 0) {
+          mudarFiltroAba('TODOS');
+        }
+      } else if (detail.passo === 5) {
+        if (abriuModalViaTourRef.current) {
+          setModalAberto(false);
+          abriuModalViaTourRef.current = false;
+        }
+        const alvo = paginados[0] || filtrados[0] || todos[0];
+        if (alvo) {
+          if (filtrados.length === 0 && todos.length > 0) {
+            mudarFiltroAba('TODOS');
+          }
+          setChamadoSelecionadoId(alvo.id_chamado);
+          carregarDetalhes(alvo.id_chamado);
+          abriuGavetaViaTourRef.current = true;
+        }
+      }
+    };
+
+    const onTourEncerrar = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (!detail || detail.rota !== '/morador/chamados') return;
+      fecharPreviewsTour();
+    };
+
+    window.addEventListener('oasis:tour-etapa', onTourEtapa);
+    window.addEventListener('oasis:tour-encerrar', onTourEncerrar);
+    return () => {
+      window.removeEventListener('oasis:tour-etapa', onTourEtapa);
+      window.removeEventListener('oasis:tour-encerrar', onTourEncerrar);
+    };
+  }, []);
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
       <Titulo
@@ -488,7 +557,7 @@ export default function MoradorChamados() {
       {/* Modal: Abertura de Novo Chamado */}
       {modalAberto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 max-h-[90vh] overflow-y-auto">
+          <div id="tour-chamados-modal-form" className="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-4">
               <div className="flex items-center gap-2">
                 <div className="p-2 bg-navy-50 text-navy dark:bg-slate-800 dark:text-sky-400 rounded-lg">
@@ -648,7 +717,7 @@ export default function MoradorChamados() {
       {/* Modal / Gaveta de Conversa e Detalhes */}
       {chamadoSelecionadoId !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-end bg-slate-900/50 backdrop-blur-xs">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-xl h-full shadow-2xl border-l border-slate-200 dark:border-slate-800 flex flex-col">
+          <div id="tour-chamados-gaveta" className="bg-white dark:bg-slate-900 w-full max-w-xl h-full shadow-2xl border-l border-slate-200 dark:border-slate-800 flex flex-col">
             {/* Header da Gaveta */}
             <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/40">
               <div className="flex items-center gap-3">

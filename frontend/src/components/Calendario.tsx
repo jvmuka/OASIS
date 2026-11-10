@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Icone } from './ui';
 
 const DIAS_SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
@@ -40,6 +40,16 @@ export default function Calendario({
   const hoje = new Date();
   const [ano, setAno] = useState(dataSelecionada ? Number(dataSelecionada.slice(0, 4)) : hoje.getFullYear());
   const [mes, setMes] = useState(dataSelecionada ? Number(dataSelecionada.slice(5, 7)) - 1 : hoje.getMonth());
+
+  useEffect(() => {
+    if (!dataSelecionada || dataSelecionada.length < 7) return;
+    const novoAno = Number(dataSelecionada.slice(0, 4));
+    const novoMes = Number(dataSelecionada.slice(5, 7)) - 1;
+    if (!Number.isNaN(novoAno) && !Number.isNaN(novoMes) && (novoAno !== ano || novoMes !== mes)) {
+      setAno(novoAno);
+      setMes(novoMes);
+    }
+  }, [dataSelecionada]);
 
   const primeiroDia = new Date(ano, mes, 1).getDay();
   const totalDias = new Date(ano, mes + 1, 0).getDate();

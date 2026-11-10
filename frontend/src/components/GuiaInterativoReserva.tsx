@@ -504,7 +504,7 @@ interface TourGuiadoProps {
   alvoSelector?: string;
   onProximo: () => void;
   onAnterior: () => void;
-  onFinalizar: () => void;
+  onFinalizar: (motivo?: 'concluir' | 'cancelar') => void;
 }
 
 export function OverlayTourGuiado({
@@ -521,24 +521,41 @@ export function OverlayTourGuiado({
   const [posicaoManual, setPosicaoManual] = useState<{ x: number; y: number } | null>(null);
   const [arrastando, setArrastando] = useState(false);
   const dragOffsetRef = useRef<{ offsetX: number; offsetY: number }>({ offsetX: 0, offsetY: 0 });
+  const ultimoRectRef = useRef<{ top: number; left: number; width: number; height: number } | null>(null);
 
   // Resetar a posição manual ao trocar de passo para que o balão se ancore automaticamente ao lado do novo elemento
   useEffect(() => {
     setPosicaoManual(null);
   }, [passoAtual]);
 
-  // Calcula e acompanha a posição do elemento alvo em tempo real na tela
+  // Calcula e acompanha a posição do elemento alvo em tempo real na tela (inclusive após re-renders assíncronos)
   useEffect(() => {
+    const aplicarRectSeMudou = (proximo: { top: number; left: number; width: number; height: number } | null) => {
+      const ant = ultimoRectRef.current;
+      const igual =
+        (!ant && !proximo) ||
+        (!!ant &&
+          !!proximo &&
+          Math.abs(ant.top - proximo.top) < 0.5 &&
+          Math.abs(ant.left - proximo.left) < 0.5 &&
+          Math.abs(ant.width - proximo.width) < 0.5 &&
+          Math.abs(ant.height - proximo.height) < 0.5);
+      if (!igual) {
+        ultimoRectRef.current = proximo;
+        setAlvoRect(proximo);
+      }
+    };
+
     const calcularPosicao = () => {
       if (!alvoSelector) {
-        setAlvoRect(null);
+        aplicarRectSeMudou(null);
         return;
       }
       const el = localizarElementoTour(alvoSelector);
       if (el) {
         const rect = el.getBoundingClientRect();
         if (rect.width > 0 && rect.height > 0) {
-          setAlvoRect({
+          aplicarRectSeMudou({
             top: rect.top,
             left: rect.left,
             width: rect.width,
@@ -547,27 +564,41 @@ export function OverlayTourGuiado({
           return;
         }
       }
-      setAlvoRect(null);
+      aplicarRectSeMudou(null);
     };
 
     calcularPosicao();
 
-    // Rastreia suavemente durante a transição inicial de rolagem até o elemento
+    // Rastreia suavemente durante transição de rolagem / renderização inicial até o elemento
     let frameId: number;
     const tempoInicio = Date.now();
     const animar = () => {
       calcularPosicao();
-      if (Date.now() - tempoInicio < 800) {
+      if (Date.now() - tempoInicio < 1200) {
         frameId = requestAnimationFrame(animar);
       }
     };
     frameId = requestAnimationFrame(animar);
+
+    let mutationTimer: number | null = null;
+    const observer = new MutationObserver(() => {
+      if (mutationTimer !== null) return;
+      mutationTimer = window.requestAnimationFrame(() => {
+        mutationTimer = null;
+        calcularPosicao();
+      });
+    });
+    if (document.body) {
+      observer.observe(document.body, { childList: true, subtree: true, attributes: false });
+    }
 
     window.addEventListener('scroll', calcularPosicao, { passive: true, capture: true });
     window.addEventListener('resize', calcularPosicao);
 
     return () => {
       cancelAnimationFrame(frameId);
+      if (mutationTimer !== null) cancelAnimationFrame(mutationTimer);
+      observer.disconnect();
       window.removeEventListener('scroll', calcularPosicao, true);
       window.removeEventListener('resize', calcularPosicao);
     };
@@ -575,7 +606,7 @@ export function OverlayTourGuiado({
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onFinalizar();
+      if (e.key === 'Escape') onFinalizar('cancelar');
       if (e.key === 'ArrowRight') onProximo();
       if (e.key === 'ArrowLeft') onAnterior();
     };
@@ -785,7 +816,7 @@ export function OverlayTourGuiado({
             </div>
             <button
               type="button"
-              onClick={onFinalizar}
+              onClick={() => onFinalizar('cancelar')}
               title="Encerrar tour (ESC)"
               className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
             >
@@ -825,7 +856,7 @@ export function OverlayTourGuiado({
           ) : (
             <button
               type="button"
-              onClick={onFinalizar}
+              onClick={() => onFinalizar('cancelar')}
               className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
             >
               Pular tour
@@ -855,7 +886,7 @@ export function OverlayTourGuiado({
               <button
                 type="button"
                 data-testid="btn-concluir-tour"
-                onClick={onFinalizar}
+                onClick={() => onFinalizar('concluir')}
                 className="rounded-xl bg-emerald-600 px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-500 transition-transform active:scale-95 cursor-pointer flex items-center gap-1"
               >
                 <Icone nome="check" className="h-3.5 w-3.5" />

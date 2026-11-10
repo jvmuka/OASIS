@@ -244,6 +244,72 @@ export default function SindicoChamados() {
     pagina * ITENS_POR_PAGINA
   );
 
+  const estadoTourRef = useRef({ chamados, chamadosPaginados, filtroStatus });
+  estadoTourRef.current = { chamados, chamadosPaginados, filtroStatus };
+  const abriuGavetaViaTourRef = useRef(false);
+  const pendenteAbrirGavetaTourRef = useRef(false);
+
+  useEffect(() => {
+    if (pendenteAbrirGavetaTourRef.current && chamados.length > 0 && chamadoSelecionadoId === null) {
+      pendenteAbrirGavetaTourRef.current = false;
+      const alvo = chamadosPaginados[0] || chamados[0];
+      if (alvo) {
+        setChamadoSelecionadoId(alvo.id_chamado);
+        carregarDetalhes(alvo.id_chamado);
+        abriuGavetaViaTourRef.current = true;
+      }
+    }
+  }, [chamados]);
+
+  useEffect(() => {
+    const fecharGavetaTour = () => {
+      pendenteAbrirGavetaTourRef.current = false;
+      if (abriuGavetaViaTourRef.current) {
+        setChamadoSelecionadoId(null);
+        setDetalhes(null);
+        abriuGavetaViaTourRef.current = false;
+      }
+    };
+
+    const onTourEtapa = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (!detail || detail.rota !== '/sindico/chamados') return;
+      const { chamados: lista, chamadosPaginados: paginados, filtroStatus: st } = estadoTourRef.current;
+
+      if (detail.passo === 1) {
+        fecharGavetaTour();
+      } else if (detail.passo === 2 || detail.passo === 3) {
+        fecharGavetaTour();
+        if (lista.length === 0 && st !== 'TODOS') {
+          setFiltroStatus('TODOS');
+        }
+      } else if (detail.passo === 4) {
+        const alvo = paginados[0] || lista[0];
+        if (alvo) {
+          setChamadoSelecionadoId(alvo.id_chamado);
+          carregarDetalhes(alvo.id_chamado);
+          abriuGavetaViaTourRef.current = true;
+        } else if (st !== 'TODOS') {
+          pendenteAbrirGavetaTourRef.current = true;
+          setFiltroStatus('TODOS');
+        }
+      }
+    };
+
+    const onTourEncerrar = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (!detail || detail.rota !== '/sindico/chamados') return;
+      fecharGavetaTour();
+    };
+
+    window.addEventListener('oasis:tour-etapa', onTourEtapa);
+    window.addEventListener('oasis:tour-encerrar', onTourEncerrar);
+    return () => {
+      window.removeEventListener('oasis:tour-etapa', onTourEtapa);
+      window.removeEventListener('oasis:tour-encerrar', onTourEncerrar);
+    };
+  }, []);
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
       <Titulo
@@ -632,7 +698,7 @@ export default function SindicoChamados() {
       {/* Gaveta / Modal Lateral de Atendimento do Síndico */}
       {chamadoSelecionadoId !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-end bg-slate-900/50 backdrop-blur-xs">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-2xl h-full shadow-2xl border-l border-slate-200 dark:border-slate-800 flex flex-col animate-slide-left">
+          <div id="tour-sindico-chamados-gaveta" className="bg-white dark:bg-slate-900 w-full max-w-2xl h-full shadow-2xl border-l border-slate-200 dark:border-slate-800 flex flex-col animate-slide-left">
             {/* Header da Gaveta */}
             <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/40">
               <div className="flex items-center gap-3">

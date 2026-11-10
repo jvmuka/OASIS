@@ -1,5 +1,5 @@
 import { useSync } from '../../hooks/useSync';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api, sessaoAtual } from '../../api';
 import { Botao, Campo, Cartao, inputCls, Mensagem, Titulo, Icone, Badge, EmptyState, Modal, ModalConfirmacao, Paginacao } from '../../components/ui';
 import { formatarDataHora } from '../../utils/data';
@@ -215,6 +215,30 @@ export default function Chaves() {
   const ITENS_POR_PAGINA = 20;
   const totalPaginas = Math.ceil(chavesFiltradas.length / ITENS_POR_PAGINA) || 1;
   const chavesPaginadas = chavesFiltradas.slice((pagina - 1) * ITENS_POR_PAGINA, pagina * ITENS_POR_PAGINA);
+
+  const estadoTourRef = useRef({ totalDisponiveis, totalEmprestadas });
+  estadoTourRef.current = { totalDisponiveis, totalEmprestadas };
+
+  useEffect(() => {
+    const onTourEtapa = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (!detail || (detail.rota !== '/portaria/chaves' && detail.rota !== 'portaria-chaves')) return;
+      const { totalDisponiveis: disp, totalEmprestadas: emp } = estadoTourRef.current;
+
+      setBusca('');
+      setPagina(1);
+      if (detail.passo === 1) {
+        setFiltro('todas');
+      } else if (detail.passo === 2) {
+        setFiltro(disp > 0 ? 'disponiveis' : 'todas');
+      } else if (detail.passo === 3) {
+        setFiltro(emp > 0 ? 'emprestadas' : 'todas');
+      }
+    };
+
+    window.addEventListener('oasis:tour-etapa', onTourEtapa);
+    return () => window.removeEventListener('oasis:tour-etapa', onTourEtapa);
+  }, []);
 
   return (
     <div className="space-y-6 animate-fade-in">
