@@ -7,32 +7,59 @@
 SET session_replication_role = 'replica';
 
 -- ----------------------------------------------------------------------------
--- 1. MORADORES (PESSOAS, PERFIS E VÍNCULOS COM UNIDADES)
+-- 0. AJUSTE DE REGRAS DA ACADEMIA (PERMITIR VÁRIAS RESERVAS POR DIA E SIMULTÂNEAS)
 -- ----------------------------------------------------------------------------
+-- Academia (id_area_comum = 1):
+-- - max_unidades_simultaneas: 3 (até 3 apartamentos treinando ao mesmo tempo)
+-- - capacidade: 5 pessoas
+-- - limite_reservas_semana: 5 (permite até 5 reservas por dia por unidade)
+-- - tipo_limite_reserva: 'DIARIO'
+UPDATE area_comum 
+   SET max_unidades_simultaneas = 3,
+       capacidade = 5,
+       limite_reservas_semana = 5,
+       tipo_limite_reserva = 'DIARIO'
+ WHERE id_area_comum = 1;
 
+-- ----------------------------------------------------------------------------
+-- 1. LIMPEZA IDEMPOTENTE DOS DADOS DE SIMULAÇÃO (IDs >= 100)
+-- ----------------------------------------------------------------------------
+DELETE FROM chamado_mensagem WHERE id_chamado >= 100 OR id_chamado_mensagem >= 100;
+DELETE FROM chamado WHERE id_chamado >= 100;
+DELETE FROM aviso_perfil WHERE id_aviso >= 100;
+DELETE FROM aviso WHERE id_aviso >= 100;
+DELETE FROM encomenda WHERE id_encomenda >= 100;
+DELETE FROM entrega_chave WHERE id_entrega_chave >= 100;
+DELETE FROM reserva WHERE id_reserva >= 100;
+DELETE FROM pessoa_unidade WHERE id_pessoa >= 100;
+DELETE FROM perfil WHERE id_perfil >= 100;
+DELETE FROM pessoa WHERE id_pessoa >= 100;
+
+-- ----------------------------------------------------------------------------
+-- 2. MORADORES (PESSOAS, PERFIS E VÍNCULOS COM UNIDADES)
+-- ----------------------------------------------------------------------------
 -- Senha padrão para todos os moradores de teste: Teste@2026
 -- Hash: 995828a19cd944b4704a9b9e5229ae29:6f164bb3ba8797d416c8ebd81caa3d0ab7facdd0de4a8eb6ad654406fb89cb9101f8de00a92d216757b1408b08e230813e1d16141b669247524821d122e970e8
 
 INSERT INTO pessoa (id_pessoa, uid_firebase, nome, email, cpf, celular, ativo, senha_hash, status_conta, papel_controle)
 VALUES
-  (101, 'uid_fb_101', 'Rodrigo Ferreira', 'rodrigo.ferreira@oasis.com', '90111122233', '(42) 99111-2233', true, '995828a19cd944b4704a9b9e5229ae29:6f164bb3ba8797d416c8ebd81caa3d0ab7facdd0de4a8eb6ad654406fb89cb9101f8de00a92d216757b1408b08e230813e1d16141b669247524821d122e970e8', 'ATIVO', 'MORADOR'),
-  (102, 'uid_fb_102', 'Camila Rocha', 'camila.rocha@oasis.com', '90222233344', '(42) 99222-3344', true, '995828a19cd944b4704a9b9e5229ae29:6f164bb3ba8797d416c8ebd81caa3d0ab7facdd0de4a8eb6ad654406fb89cb9101f8de00a92d216757b1408b08e230813e1d16141b669247524821d122e970e8', 'ATIVO', 'MORADOR'),
-  (103, 'uid_fb_103', 'Felipe Castro', 'felipe.castro@oasis.com', '90333344455', '(42) 99333-4455', true, '995828a19cd944b4704a9b9e5229ae29:6f164bb3ba8797d416c8ebd81caa3d0ab7facdd0de4a8eb6ad654406fb89cb9101f8de00a92d216757b1408b08e230813e1d16141b669247524821d122e970e8', 'ATIVO', 'MORADOR'),
-  (104, 'uid_fb_104', 'Beatriz Lima', 'beatriz.lima@oasis.com', '90444455566', '(42) 99444-5566', true, '995828a19cd944b4704a9b9e5229ae29:6f164bb3ba8797d416c8ebd81caa3d0ab7facdd0de4a8eb6ad654406fb89cb9101f8de00a92d216757b1408b08e230813e1d16141b669247524821d122e970e8', 'ATIVO', 'MORADOR'),
-  (105, 'uid_fb_105', 'Lucas Pires', 'lucas.pires@oasis.com', '90555566677', '(42) 99555-6677', true, '995828a19cd944b4704a9b9e5229ae29:6f164bb3ba8797d416c8ebd81caa3d0ab7facdd0de4a8eb6ad654406fb89cb9101f8de00a92d216757b1408b08e230813e1d16141b669247524821d122e970e8', 'ATIVO', 'MORADOR'),
-  (106, 'uid_fb_106', 'Fernanda Ramos', 'fernanda.ramos@oasis.com', '90666677788', '(42) 99666-7788', true, '995828a19cd944b4704a9b9e5229ae29:6f164bb3ba8797d416c8ebd81caa3d0ab7facdd0de4a8eb6ad654406fb89cb9101f8de00a92d216757b1408b08e230813e1d16141b669247524821d122e970e8', 'ATIVO', 'MORADOR'),
-  (107, 'uid_fb_107', 'Gabriel Oliveira', 'gabriel.oliveira@oasis.com', '90777788899', '(42) 99777-8899', true, '995828a19cd944b4704a9b9e5229ae29:6f164bb3ba8797d416c8ebd81caa3d0ab7facdd0de4a8eb6ad654406fb89cb9101f8de00a92d216757b1408b08e230813e1d16141b669247524821d122e970e8', 'ATIVO', 'MORADOR'),
-  (108, 'uid_fb_108', 'Patricia Almeida', 'patricia.almeida@oasis.com', '90888899900', '(42) 99888-9900', true, '995828a19cd944b4704a9b9e5229ae29:6f164bb3ba8797d416c8ebd81caa3d0ab7facdd0de4a8eb6ad654406fb89cb9101f8de00a92d216757b1408b08e230813e1d16141b669247524821d122e970e8', 'ATIVO', 'MORADOR'),
-  (109, 'uid_fb_109', 'Marcelo Souza', 'marcelo.souza@oasis.com', '90999900011', '(42) 99999-0011', true, '995828a19cd944b4704a9b9e5229ae29:6f164bb3ba8797d416c8ebd81caa3d0ab7facdd0de4a8eb6ad654406fb89cb9101f8de00a92d216757b1408b08e230813e1d16141b669247524821d122e970e8', 'ATIVO', 'MORADOR'),
-  (110, 'uid_fb_110', 'Juliana Mendes', 'juliana.mendes@oasis.com', '91011122233', '(42) 99101-1122', true, '995828a19cd944b4704a9b9e5229ae29:6f164bb3ba8797d416c8ebd81caa3d0ab7facdd0de4a8eb6ad654406fb89cb9101f8de00a92d216757b1408b08e230813e1d16141b669247524821d122e970e8', 'ATIVO', 'MORADOR'),
-  (111, 'uid_fb_111', 'Thiago Barbosa', 'thiago.barbosa@oasis.com', '91122233344', '(42) 99112-2233', true, '995828a19cd944b4704a9b9e5229ae29:6f164bb3ba8797d416c8ebd81caa3d0ab7facdd0de4a8eb6ad654406fb89cb9101f8de00a92d216757b1408b08e230813e1d16141b669247524821d122e970e8', 'ATIVO', 'MORADOR'),
-  (112, 'uid_fb_112', 'Amanda Costa', 'amanda.costa@oasis.com', '91233344455', '(42) 99123-3344', true, '995828a19cd944b4704a9b9e5229ae29:6f164bb3ba8797d416c8ebd81caa3d0ab7facdd0de4a8eb6ad654406fb89cb9101f8de00a92d216757b1408b08e230813e1d16141b669247524821d122e970e8', 'ATIVO', 'MORADOR'),
+  (101, 'uid_fb_101', 'Rodrigo Ferreira',  'rodrigo.ferreira@oasis.com',  '90111122233', '(42) 99111-2233', true, '995828a19cd944b4704a9b9e5229ae29:6f164bb3ba8797d416c8ebd81caa3d0ab7facdd0de4a8eb6ad654406fb89cb9101f8de00a92d216757b1408b08e230813e1d16141b669247524821d122e970e8', 'ATIVO', 'MORADOR'),
+  (102, 'uid_fb_102', 'Camila Rocha',      'camila.rocha@oasis.com',      '90222233344', '(42) 99222-3344', true, '995828a19cd944b4704a9b9e5229ae29:6f164bb3ba8797d416c8ebd81caa3d0ab7facdd0de4a8eb6ad654406fb89cb9101f8de00a92d216757b1408b08e230813e1d16141b669247524821d122e970e8', 'ATIVO', 'MORADOR'),
+  (103, 'uid_fb_103', 'Felipe Castro',     'felipe.castro@oasis.com',     '90333344455', '(42) 99333-4455', true, '995828a19cd944b4704a9b9e5229ae29:6f164bb3ba8797d416c8ebd81caa3d0ab7facdd0de4a8eb6ad654406fb89cb9101f8de00a92d216757b1408b08e230813e1d16141b669247524821d122e970e8', 'ATIVO', 'MORADOR'),
+  (104, 'uid_fb_104', 'Beatriz Lima',      'beatriz.lima@oasis.com',      '90444455566', '(42) 99444-5566', true, '995828a19cd944b4704a9b9e5229ae29:6f164bb3ba8797d416c8ebd81caa3d0ab7facdd0de4a8eb6ad654406fb89cb9101f8de00a92d216757b1408b08e230813e1d16141b669247524821d122e970e8', 'ATIVO', 'MORADOR'),
+  (105, 'uid_fb_105', 'Lucas Pires',       'lucas.pires@oasis.com',       '90555566677', '(42) 99555-6677', true, '995828a19cd944b4704a9b9e5229ae29:6f164bb3ba8797d416c8ebd81caa3d0ab7facdd0de4a8eb6ad654406fb89cb9101f8de00a92d216757b1408b08e230813e1d16141b669247524821d122e970e8', 'ATIVO', 'MORADOR'),
+  (106, 'uid_fb_106', 'Fernanda Ramos',    'fernanda.ramos@oasis.com',    '90666677788', '(42) 99666-7788', true, '995828a19cd944b4704a9b9e5229ae29:6f164bb3ba8797d416c8ebd81caa3d0ab7facdd0de4a8eb6ad654406fb89cb9101f8de00a92d216757b1408b08e230813e1d16141b669247524821d122e970e8', 'ATIVO', 'MORADOR'),
+  (107, 'uid_fb_107', 'Gabriel Oliveira',  'gabriel.oliveira@oasis.com',  '90777788899', '(42) 99777-8899', true, '995828a19cd944b4704a9b9e5229ae29:6f164bb3ba8797d416c8ebd81caa3d0ab7facdd0de4a8eb6ad654406fb89cb9101f8de00a92d216757b1408b08e230813e1d16141b669247524821d122e970e8', 'ATIVO', 'MORADOR'),
+  (108, 'uid_fb_108', 'Patricia Almeida',  'patricia.almeida@oasis.com',  '90888899900', '(42) 99888-9900', true, '995828a19cd944b4704a9b9e5229ae29:6f164bb3ba8797d416c8ebd81caa3d0ab7facdd0de4a8eb6ad654406fb89cb9101f8de00a92d216757b1408b08e230813e1d16141b669247524821d122e970e8', 'ATIVO', 'MORADOR'),
+  (109, 'uid_fb_109', 'Marcelo Souza',     'marcelo.souza@oasis.com',     '90999900011', '(42) 99999-0011', true, '995828a19cd944b4704a9b9e5229ae29:6f164bb3ba8797d416c8ebd81caa3d0ab7facdd0de4a8eb6ad654406fb89cb9101f8de00a92d216757b1408b08e230813e1d16141b669247524821d122e970e8', 'ATIVO', 'MORADOR'),
+  (110, 'uid_fb_110', 'Juliana Mendes',    'juliana.mendes@oasis.com',    '91011122233', '(42) 99101-1122', true, '995828a19cd944b4704a9b9e5229ae29:6f164bb3ba8797d416c8ebd81caa3d0ab7facdd0de4a8eb6ad654406fb89cb9101f8de00a92d216757b1408b08e230813e1d16141b669247524821d122e970e8', 'ATIVO', 'MORADOR'),
+  (111, 'uid_fb_111', 'Thiago Barbosa',    'thiago.barbosa@oasis.com',    '91122233344', '(42) 99112-2233', true, '995828a19cd944b4704a9b9e5229ae29:6f164bb3ba8797d416c8ebd81caa3d0ab7facdd0de4a8eb6ad654406fb89cb9101f8de00a92d216757b1408b08e230813e1d16141b669247524821d122e970e8', 'ATIVO', 'MORADOR'),
+  (112, 'uid_fb_112', 'Amanda Costa',      'amanda.costa@oasis.com',      '91233344455', '(42) 99123-3344', true, '995828a19cd944b4704a9b9e5229ae29:6f164bb3ba8797d416c8ebd81caa3d0ab7facdd0de4a8eb6ad654406fb89cb9101f8de00a92d216757b1408b08e230813e1d16141b669247524821d122e970e8', 'ATIVO', 'MORADOR'),
   (113, 'uid_fb_113', 'Bruno Albuquerque', 'bruno.albuquerque@oasis.com', '91344455566', '(42) 99134-4455', true, '995828a19cd944b4704a9b9e5229ae29:6f164bb3ba8797d416c8ebd81caa3d0ab7facdd0de4a8eb6ad654406fb89cb9101f8de00a92d216757b1408b08e230813e1d16141b669247524821d122e970e8', 'ATIVO', 'MORADOR'),
-  (114, 'uid_fb_114', 'Rafael Moreira', 'rafael.moreira@oasis.com', '91455566677', '(42) 99145-5566', true, '995828a19cd944b4704a9b9e5229ae29:6f164bb3ba8797d416c8ebd81caa3d0ab7facdd0de4a8eb6ad654406fb89cb9101f8de00a92d216757b1408b08e230813e1d16141b669247524821d122e970e8', 'ATIVO', 'MORADOR'),
-  (115, 'uid_fb_115', 'Renata Guimarães', 'renata.guimaraes@oasis.com', '91566677788', '(42) 99156-6677', true, '995828a19cd944b4704a9b9e5229ae29:6f164bb3ba8797d416c8ebd81caa3d0ab7facdd0de4a8eb6ad654406fb89cb9101f8de00a92d216757b1408b08e230813e1d16141b669247524821d122e970e8', 'ATIVO', 'MORADOR'),
-  (116, 'uid_fb_116', 'Diego Silveira', 'diego.silveira@oasis.com', '91677788899', '(42) 99167-7788', true, '995828a19cd944b4704a9b9e5229ae29:6f164bb3ba8797d416c8ebd81caa3d0ab7facdd0de4a8eb6ad654406fb89cb9101f8de00a92d216757b1408b08e230813e1d16141b669247524821d122e970e8', 'ATIVO', 'MORADOR'),
-  (117, 'uid_fb_117', 'Vanessa Cardoso', 'vanessa.cardoso@oasis.com', '91788899900', '(42) 99178-8899', true, '995828a19cd944b4704a9b9e5229ae29:6f164bb3ba8797d416c8ebd81caa3d0ab7facdd0de4a8eb6ad654406fb89cb9101f8de00a92d216757b1408b08e230813e1d16141b669247524821d122e970e8', 'ATIVO', 'MORADOR')
-ON CONFLICT (id_pessoa) DO NOTHING;
+  (114, 'uid_fb_114', 'Rafael Moreira',    'rafael.moreira@oasis.com',    '91455566677', '(42) 99145-5566', true, '995828a19cd944b4704a9b9e5229ae29:6f164bb3ba8797d416c8ebd81caa3d0ab7facdd0de4a8eb6ad654406fb89cb9101f8de00a92d216757b1408b08e230813e1d16141b669247524821d122e970e8', 'ATIVO', 'MORADOR'),
+  (115, 'uid_fb_115', 'Renata Guimarães',  'renata.guimaraes@oasis.com',  '91566677788', '(42) 99156-6677', true, '995828a19cd944b4704a9b9e5229ae29:6f164bb3ba8797d416c8ebd81caa3d0ab7facdd0de4a8eb6ad654406fb89cb9101f8de00a92d216757b1408b08e230813e1d16141b669247524821d122e970e8', 'ATIVO', 'MORADOR'),
+  (116, 'uid_fb_116', 'Diego Silveira',    'diego.silveira@oasis.com',    '91677788899', '(42) 99167-7788', true, '995828a19cd944b4704a9b9e5229ae29:6f164bb3ba8797d416c8ebd81caa3d0ab7facdd0de4a8eb6ad654406fb89cb9101f8de00a92d216757b1408b08e230813e1d16141b669247524821d122e970e8', 'ATIVO', 'MORADOR'),
+  (117, 'uid_fb_117', 'Vanessa Cardoso',   'vanessa.cardoso@oasis.com',   '91788899900', '(42) 99178-8899', true, '995828a19cd944b4704a9b9e5229ae29:6f164bb3ba8797d416c8ebd81caa3d0ab7facdd0de4a8eb6ad654406fb89cb9101f8de00a92d216757b1408b08e230813e1d16141b669247524821d122e970e8', 'ATIVO', 'MORADOR');
 
 -- Perfis de Morador
 INSERT INTO perfil (id_perfil, id_pessoa, tipo_perfil, data_inicio, recebe_notificacao, id_condominio)
@@ -53,33 +80,31 @@ VALUES
   (114, 114, 'MORADOR', '2026-01-01', true, 1),
   (115, 115, 'MORADOR', '2026-01-01', true, 1),
   (116, 116, 'MORADOR', '2026-01-01', true, 1),
-  (117, 117, 'MORADOR', '2026-01-01', true, 1)
-ON CONFLICT (id_perfil) DO NOTHING;
+  (117, 117, 'MORADOR', '2026-01-01', true, 1);
 
 -- Vínculo Pessoa -> Unidade
 INSERT INTO pessoa_unidade (id_pessoa, id_unidade, tipo_vinculo, reside, data_inicio_ocupacao, status_aprovacao)
 VALUES
-  (101, 4, 'PROPRIETARIO', true, '2026-01-01', 'APROVADO'),   -- Apto 54
-  (102, 6, 'PROPRIETARIO', true, '2026-01-01', 'APROVADO'),   -- Apto 62
-  (103, 12, 'INQUILINO',   true, '2026-02-01', 'APROVADO'),   -- Apto 74
-  (104, 10, 'PROPRIETARIO', true, '2026-01-15', 'APROVADO'),  -- Apto 72
-  (105, 13, 'PROPRIETARIO', true, '2026-01-10', 'APROVADO'),  -- Apto 81
-  (106, 14, 'INQUILINO',    true, '2026-03-01', 'APROVADO'),  -- Apto 82
-  (107, 17, 'PROPRIETARIO', true, '2026-01-05', 'APROVADO'),  -- Apto 91
-  (108, 22, 'PROPRIETARIO', true, '2026-01-20', 'APROVADO'),  -- Apto 102
-  (109, 25, 'INQUILINO',    true, '2026-04-01', 'APROVADO'),  -- Apto 111
-  (110, 29, 'PROPRIETARIO', true, '2026-01-10', 'APROVADO'),  -- Apto 121
-  (111, 33, 'PROPRIETARIO', true, '2026-02-15', 'APROVADO'),  -- Apto 131
-  (112, 37, 'INQUILINO',    true, '2026-05-01', 'APROVADO'),  -- Apto 141
-  (113, 41, 'PROPRIETARIO', true, '2026-01-15', 'APROVADO'),  -- Apto 151
-  (114, 53, 'PROPRIETARIO', true, '2026-02-01', 'APROVADO'),  -- Apto 181
-  (115, 61, 'INQUILINO',    true, '2026-06-01', 'APROVADO'),  -- Apto 201
-  (116, 65, 'PROPRIETARIO', true, '2026-01-10', 'APROVADO'),  -- Apto 211
-  (117, 69, 'PROPRIETARIO', true, '2026-01-10', 'APROVADO')   -- Apto 221
-ON CONFLICT (id_pessoa, id_unidade, data_inicio_ocupacao) DO NOTHING;
+  (101, 4,  'PROPRIETARIO', true, '2026-01-01', 'APROVADO'),   -- Apto 54
+  (102, 6,  'PROPRIETARIO', true, '2026-01-01', 'APROVADO'),   -- Apto 62
+  (103, 12, 'INQUILINO',    true, '2026-02-01', 'APROVADO'),   -- Apto 74
+  (104, 10, 'PROPRIETARIO', true, '2026-01-15', 'APROVADO'),   -- Apto 72
+  (105, 13, 'PROPRIETARIO', true, '2026-01-10', 'APROVADO'),   -- Apto 81
+  (106, 14, 'INQUILINO',    true, '2026-03-01', 'APROVADO'),   -- Apto 82
+  (107, 17, 'PROPRIETARIO', true, '2026-01-05', 'APROVADO'),   -- Apto 91
+  (108, 22, 'PROPRIETARIO', true, '2026-01-20', 'APROVADO'),   -- Apto 102
+  (109, 25, 'INQUILINO',    true, '2026-04-01', 'APROVADO'),   -- Apto 111
+  (110, 29, 'PROPRIETARIO', true, '2026-01-10', 'APROVADO'),   -- Apto 121
+  (111, 33, 'PROPRIETARIO', true, '2026-02-15', 'APROVADO'),   -- Apto 131
+  (112, 37, 'INQUILINO',    true, '2026-05-01', 'APROVADO'),   -- Apto 141
+  (113, 41, 'PROPRIETARIO', true, '2026-01-15', 'APROVADO'),   -- Apto 151
+  (114, 53, 'PROPRIETARIO', true, '2026-02-01', 'APROVADO'),   -- Apto 181
+  (115, 61, 'INQUILINO',    true, '2026-06-01', 'APROVADO'),   -- Apto 201
+  (116, 65, 'PROPRIETARIO', true, '2026-01-10', 'APROVADO'),   -- Apto 211
+  (117, 69, 'PROPRIETARIO', true, '2026-01-10', 'APROVADO');   -- Apto 221
 
 -- ----------------------------------------------------------------------------
--- 2. RESERVAS DE ÁREAS COMUNS (HISTÓRICO REALISTA E RESERVAS ATIVAS FUTURAS)
+-- 3. RESERVAS DE ÁREAS COMUNS (COM MÚLTIPLAS RESERVAS POR DIA NA ACADEMIA)
 -- ----------------------------------------------------------------------------
 -- Áreas Comuns do OASIS (id_condominio = 1):
 -- 1: Academia (R$ 0)
@@ -94,26 +119,114 @@ VALUES
   -- --- OUTUBRO/2026 (Passadas / Concluídas) ---
   (101, 3, 102, '2026-10-03 12:00:00', '2026-10-03 22:00:00', 35, 'CONCLUIDA', NULL, NULL), -- Camila (Apto 62) - Salão de Festas
   (102, 4, 105, '2026-10-04 11:00:00', '2026-10-04 18:00:00', 12, 'CONCLUIDA', NULL, NULL), -- Lucas (Apto 81) - Pizza
-  (103, 1, 101, '2026-10-06 06:00:00', '2026-10-06 07:30:00', 1,  'CONCLUIDA', NULL, NULL), -- Rodrigo - Academia
+  (103, 1, 101, '2026-10-06 06:00:00', '2026-10-06 07:00:00', 1,  'CONCLUIDA', NULL, NULL), -- Rodrigo - Academia Manhã
   (104, 4, 110, '2026-10-10 18:00:00', '2026-10-10 23:00:00', 14, 'CONCLUIDA', NULL, NULL), -- Juliana (Apto 121) - Pizza
   (105, 3, 112, '2026-10-11 12:00:00', '2026-10-11 22:00:00', 40, 'CONCLUIDA', NULL, NULL), -- Amanda (Apto 141) - Salão de Festas
   (106, 5, 113, '2026-10-19 08:00:00', '2026-10-19 12:00:00', 3,  'CONCLUIDA', NULL, NULL), -- Bruno (Apto 151) - Elevador Mudança
-  (107, 1, 107, '2026-10-21 19:00:00', '2026-10-21 20:30:00', 1,  'CONCLUIDA', NULL, NULL), -- Gabriel - Academia
+  (107, 1, 107, '2026-10-21 19:00:00', '2026-10-21 20:00:00', 1,  'CONCLUIDA', NULL, NULL), -- Gabriel - Academia Noite
   (108, 3, 101, '2026-10-24 12:00:00', '2026-10-24 22:00:00', 30, 'CONCLUIDA', NULL, NULL), -- Rodrigo (Apto 54) - Salão de Festas
-  (109, 4, 103, '2026-10-25 12:00:00', '2026-10-25 19:00:00', 10, 'CONCLUIDA', NULL, NULL), -- Felipe (Apto 71) - Pizza
+  (109, 4, 103, '2026-10-25 12:00:00', '2026-10-25 19:00:00', 10, 'CONCLUIDA', NULL, NULL), -- Felipe (Apto 74) - Pizza
   (110, 7, 109, '2026-10-28 15:00:00', '2026-10-28 17:00:00', 4,  'CONCLUIDA', NULL, NULL), -- Marcelo - Sala de Jogos
   (111, 3, 108, '2026-10-31 18:00:00', '2026-10-31 23:00:00', 45, 'CONCLUIDA', NULL, NULL), -- Patricia (Apto 102) - Salão Halloween
 
-  -- --- NOVEMBRO/2026 (Passadas: 01/11 a 08/11) ---
+  -- --- NOVEMBRO/2026 (Passadas: Áreas Sociais de 01/11 a 08/11) ---
   (112, 4, 109, '2026-11-06 19:00:00', '2026-11-06 23:00:00', 10, 'CONCLUIDA', NULL, NULL), -- Marcelo (Apto 111) - Pizza
   (113, 3, 104, '2026-11-07 12:00:00', '2026-11-07 22:00:00', 25, 'CONCLUIDA', NULL, NULL), -- Beatriz (Apto 72) - Salão de Festas
   (114, 4, 114, '2026-11-08 11:00:00', '2026-11-08 18:00:00', 12, 'CONCLUIDA', NULL, NULL), -- Rafael (Apto 181) - Pizza
   (115, 5, 117, '2026-11-08 08:00:00', '2026-11-08 12:00:00', 2,  'CONCLUIDA', NULL, NULL), -- Vanessa (Apto 221) - Elevador Serviço
   (116, 3, 106, '2026-11-05 18:00:00', '2026-11-05 22:00:00', 20, 'CANCELADA', 'Viagem a trabalho imprevista', '2026-11-03 14:20:00'),
-  (117, 1, 110, '2026-11-09 07:00:00', '2026-11-09 08:30:00', 1,  'CONCLUIDA', NULL, NULL), -- Juliana - Academia Manhã
 
-  -- --- NOVEMBRO/2026 (Futuras / Ativas: 10/11 em diante) ---
-  (118, 1, 101, '2026-11-10 06:30:00', '2026-11-10 07:30:00', 1,  'ATIVA', NULL, NULL), -- Rodrigo - Academia amanhã
+  -- --- NOVEMBRO/2026 (MÚLTIPLAS RESERVAS POR DIA NA ACADEMIA - PASSADAS) ---
+  -- Domingo 01/11 (Horário Domingo: 05:00-10:00 e 13:00-17:00)
+  (130, 1, 1,   '2026-11-01 06:00:00', '2026-11-01 07:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Carlos Silva
+  (131, 1, 101, '2026-11-01 07:00:00', '2026-11-01 08:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Rodrigo
+  (132, 1, 108, '2026-11-01 08:00:00', '2026-11-01 09:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Patricia
+  (133, 1, 117, '2026-11-01 14:00:00', '2026-11-01 15:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Vanessa
+
+  -- Segunda 02/11 (Feriado)
+  (134, 1, 110, '2026-11-02 07:00:00', '2026-11-02 08:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Juliana
+  (135, 1, 105, '2026-11-02 08:00:00', '2026-11-02 09:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Lucas
+  (136, 1, 113, '2026-11-02 10:00:00', '2026-11-02 11:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Bruno
+  (137, 1, 112, '2026-11-02 17:00:00', '2026-11-02 18:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Amanda
+  (138, 1, 107, '2026-11-02 18:00:00', '2026-11-02 19:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Gabriel
+
+  -- Terça 03/11
+  (139, 1, 1,   '2026-11-03 06:00:00', '2026-11-03 07:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Carlos Silva
+  (140, 1, 101, '2026-11-03 07:00:00', '2026-11-03 08:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Rodrigo
+  (141, 1, 103, '2026-11-03 08:00:00', '2026-11-03 09:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Felipe
+  (142, 1, 116, '2026-11-03 18:00:00', '2026-11-03 19:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Diego
+  (143, 1, 111, '2026-11-03 19:00:00', '2026-11-03 20:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Thiago
+  (144, 1, 109, '2026-11-03 20:00:00', '2026-11-03 21:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Marcelo
+
+  -- Quarta 04/11
+  (145, 1, 1,   '2026-11-04 06:00:00', '2026-11-04 07:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Carlos Silva
+  (146, 1, 110, '2026-11-04 07:00:00', '2026-11-04 08:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Juliana
+  (147, 1, 114, '2026-11-04 12:00:00', '2026-11-04 13:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Rafael
+  (148, 1, 105, '2026-11-04 18:00:00', '2026-11-04 19:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Lucas
+  (149, 1, 112, '2026-11-04 19:00:00', '2026-11-04 20:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Amanda
+
+  -- Quinta 05/11
+  (150, 1, 101, '2026-11-05 06:00:00', '2026-11-05 07:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Rodrigo
+  (151, 1, 104, '2026-11-05 07:00:00', '2026-11-05 08:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Beatriz
+  (152, 1, 113, '2026-11-05 17:00:00', '2026-11-05 18:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Bruno
+  (153, 1, 107, '2026-11-05 18:00:00', '2026-11-05 19:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Gabriel
+  (154, 1, 116, '2026-11-05 19:00:00', '2026-11-05 20:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Diego
+
+  -- Sexta 06/11
+  (155, 1, 1,   '2026-11-06 06:00:00', '2026-11-06 07:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Carlos Silva
+  (156, 1, 103, '2026-11-06 07:00:00', '2026-11-06 08:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Felipe
+  (157, 1, 110, '2026-11-06 17:00:00', '2026-11-06 18:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Juliana
+  (158, 1, 111, '2026-11-06 18:00:00', '2026-11-06 19:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Thiago
+  (159, 1, 109, '2026-11-06 19:00:00', '2026-11-06 20:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Marcelo
+
+  -- Sábado 07/11
+  (160, 1, 108, '2026-11-07 08:00:00', '2026-11-07 09:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Patricia
+  (161, 1, 105, '2026-11-07 09:00:00', '2026-11-07 10:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Lucas
+  (162, 1, 117, '2026-11-07 10:00:00', '2026-11-07 11:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Vanessa
+  (163, 1, 115, '2026-11-07 16:00:00', '2026-11-07 17:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Renata
+
+  -- Domingo 08/11 (Horário Domingo: 05:00-10:00 e 13:00-17:00)
+  (164, 1, 101, '2026-11-08 07:00:00', '2026-11-08 08:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Rodrigo
+  (165, 1, 113, '2026-11-08 08:00:00', '2026-11-08 09:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Bruno
+  (166, 1, 1,   '2026-11-08 09:00:00', '2026-11-08 10:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Carlos Silva
+  (167, 1, 102, '2026-11-08 15:00:00', '2026-11-08 16:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Camila
+
+  -- Segunda 09/11 (Hoje)
+  (168, 1, 1,   '2026-11-09 06:00:00', '2026-11-09 07:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Carlos Silva Manhã
+  (169, 1, 110, '2026-11-09 07:00:00', '2026-11-09 08:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Juliana Manhã
+  (170, 1, 103, '2026-11-09 12:00:00', '2026-11-09 13:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Felipe Almoço
+  (171, 1, 112, '2026-11-09 18:00:00', '2026-11-09 19:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Amanda Fim de Tarde
+  (172, 1, 116, '2026-11-09 19:00:00', '2026-11-09 20:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Diego Noite
+  (173, 1, 109, '2026-11-09 20:00:00', '2026-11-09 21:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Marcelo Noite
+  (174, 1, 1,   '2026-11-09 21:00:00', '2026-11-09 22:00:00', 1, 'CONCLUIDA', NULL, NULL), -- Carlos Silva (segunda reserva no mesmo dia!)
+
+  -- --- NOVEMBRO/2026 (FUTURAS / ATIVAS: Áreas Sociais e Academia) ---
+  -- Terça 10/11 (Amanhã)
+  (118, 1, 1,   '2026-11-10 06:00:00', '2026-11-10 07:00:00', 1, 'ATIVA', NULL, NULL), -- Carlos Silva Academia
+  (175, 1, 101, '2026-11-10 07:00:00', '2026-11-10 08:00:00', 1, 'ATIVA', NULL, NULL), -- Rodrigo Academia
+  (176, 1, 105, '2026-11-10 08:00:00', '2026-11-10 09:00:00', 1, 'ATIVA', NULL, NULL), -- Lucas Academia
+  (177, 1, 107, '2026-11-10 18:00:00', '2026-11-10 19:00:00', 1, 'ATIVA', NULL, NULL), -- Gabriel Academia
+  (178, 1, 111, '2026-11-10 19:00:00', '2026-11-10 20:00:00', 1, 'ATIVA', NULL, NULL), -- Thiago Academia
+
+  -- Quarta 11/11
+  (179, 1, 1,   '2026-11-11 06:00:00', '2026-11-11 07:00:00', 1, 'ATIVA', NULL, NULL), -- Carlos Silva Academia
+  (180, 1, 110, '2026-11-11 07:00:00', '2026-11-11 08:00:00', 1, 'ATIVA', NULL, NULL), -- Juliana Academia
+  (181, 1, 113, '2026-11-11 18:00:00', '2026-11-11 19:00:00', 1, 'ATIVA', NULL, NULL), -- Bruno Academia
+  (182, 1, 116, '2026-11-11 19:00:00', '2026-11-11 20:00:00', 1, 'ATIVA', NULL, NULL), -- Diego Academia
+
+  -- Quinta 12/11
+  (183, 1, 101, '2026-11-12 06:30:00', '2026-11-12 07:30:00', 1, 'ATIVA', NULL, NULL), -- Rodrigo Academia
+  (184, 1, 108, '2026-11-12 08:00:00', '2026-11-12 09:00:00', 1, 'ATIVA', NULL, NULL), -- Patricia Academia
+  (185, 1, 112, '2026-11-12 18:30:00', '2026-11-12 19:30:00', 1, 'ATIVA', NULL, NULL), -- Amanda Academia
+  (186, 1, 109, '2026-11-12 19:30:00', '2026-11-12 20:30:00', 1, 'ATIVA', NULL, NULL), -- Marcelo Academia
+
+  -- Sexta 13/11 em diante (Áreas de Lazer e Academia)
+  (187, 1, 1,   '2026-11-13 06:00:00', '2026-11-13 07:00:00', 1, 'ATIVA', NULL, NULL), -- Carlos Silva Academia
+  (188, 1, 103, '2026-11-13 07:00:00', '2026-11-13 08:00:00', 1, 'ATIVA', NULL, NULL), -- Felipe Academia
+  (189, 1, 117, '2026-11-13 17:00:00', '2026-11-13 18:00:00', 1, 'ATIVA', NULL, NULL), -- Vanessa Academia
+  (190, 1, 105, '2026-11-13 18:00:00', '2026-11-13 19:00:00', 1, 'ATIVA', NULL, NULL), -- Lucas Academia
+
+  -- Reservas Sociais Futuras com Taxa
   (119, 3, 106, '2026-11-14 12:00:00', '2026-11-14 22:00:00', 45, 'ATIVA', NULL, NULL), -- Fernanda (Apto 82) - Salão de Festas
   (120, 4, 107, '2026-11-15 11:00:00', '2026-11-15 19:00:00', 15, 'ATIVA', NULL, NULL), -- Gabriel (Apto 91) - Pizza Feriado
   (121, 5, 115, '2026-11-16 08:00:00', '2026-11-16 12:00:00', 2,  'ATIVA', NULL, NULL), -- Renata (Apto 201) - Elevador Mudança
@@ -126,7 +239,7 @@ VALUES
 ON CONFLICT (id_reserva) DO NOTHING;
 
 -- ----------------------------------------------------------------------------
--- 3. ENCOMENDAS NA PORTARIA (HISTÓRICO RETIRADO E PENDENTES ATUAIS)
+-- 4. ENCOMENDAS NA PORTARIA (HISTÓRICO RETIRADO E PENDENTES ATUAIS)
 -- ----------------------------------------------------------------------------
 -- id_perfil_recebimento = 6 (Roberto Lima - Porteiro)
 -- id_perfil_entrega = 6 (Roberto Lima - Porteiro)
@@ -164,7 +277,7 @@ VALUES
 ON CONFLICT (id_encomenda) DO NOTHING;
 
 -- ----------------------------------------------------------------------------
--- 4. COMUNICADOS E AVISOS OFICIAIS NO MURAL
+-- 5. COMUNICADOS E AVISOS OFICIAIS NO MURAL
 -- ----------------------------------------------------------------------------
 -- id_perfil_autor = 4 (Ana Paula Souza - Síndica)
 -- id_condominio = 1 (OASIS)
@@ -205,7 +318,7 @@ VALUES
 ON CONFLICT (id_aviso) DO NOTHING;
 
 -- ----------------------------------------------------------------------------
--- 5. CHAMADOS E MANUTENÇÕES COM HISTÓRICO DE MENSAGENS
+-- 6. CHAMADOS E MANUTENÇÕES COM HISTÓRICO DE MENSAGENS
 -- ----------------------------------------------------------------------------
 -- id_condominio = 1
 
@@ -292,7 +405,7 @@ VALUES
 ON CONFLICT (id_chamado_mensagem) DO NOTHING;
 
 -- ----------------------------------------------------------------------------
--- 6. ENTREGA DE CHAVES NA PORTARIA (SALAO DE FESTAS E PIZZA/CHURRASQUEIRA)
+-- 7. ENTREGA DE CHAVES NA PORTARIA (SALAO DE FESTAS E PIZZA/CHURRASQUEIRA)
 -- ----------------------------------------------------------------------------
 -- id_chave:
 -- 1: CH-SALAO-01 (Área 3 - Salão de Festas)
@@ -322,7 +435,7 @@ ON CONFLICT (id_entrega_chave) DO NOTHING;
 UPDATE chave SET status = 'EMPRESTADA' WHERE id_chave = 1;
 
 -- ----------------------------------------------------------------------------
--- 7. AJUSTAR SEQUÊNCIAS DO BANCO DE DADOS
+-- 8. AJUSTAR SEQUÊNCIAS DO BANCO DE DADOS
 -- ----------------------------------------------------------------------------
 SELECT setval('pessoa_id_pessoa_seq', GREATEST((SELECT MAX(id_pessoa) FROM pessoa), 200));
 SELECT setval('perfil_id_perfil_seq', GREATEST((SELECT MAX(id_perfil) FROM perfil), 200));
