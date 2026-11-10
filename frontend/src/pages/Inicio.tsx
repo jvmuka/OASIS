@@ -628,6 +628,7 @@ export default function Inicio() {
   return (
     <div className="space-y-6">
       <Titulo
+        ajudaKey="/inicio"
         sub={(rotuloPapeis || ROTULO_PERFIL[perfilPrincipal]) + (unidadesTexto ? ` • ${unidadesTexto}` : '')}
         icone={<Icone nome="home" className="h-5 w-5" />}
         acao={

@@ -423,7 +423,7 @@ export default function PainelAdmin() {
           </Titulo>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
+        <div id="tour-sindico-exportar" className="flex items-center gap-2.5 flex-wrap">
           {/* Seletor de Mês de Análise com Navegação Rápida */}
           <div className="flex items-center gap-1 rounded-xl border border-[#e2e6ec] bg-white p-1 shadow-2xs dark:border-slate-800 dark:bg-[#0e1525]">
             <button
@@ -600,7 +600,7 @@ export default function PainelAdmin() {
       {/* ========================================================= */}
       {/* 1. SUPER CARDS OPERACIONAIS E FINANCEIROS (LETTLY SAAS)   */}
       {/* ========================================================= */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div id="tour-sindico-kpis" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {/* Card 1: Faturamento & Taxas de Áreas Comuns */}
         <div className="group relative overflow-hidden rounded-2xl border border-[#e2e6ec] bg-white p-5 shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-500/30 hover:shadow-card dark:border-slate-800 dark:bg-[#0e1525]">
           <div className="flex items-center justify-between">
@@ -738,7 +738,7 @@ export default function PainelAdmin() {
       {/* ========================================================= */}
       {/* 2. GRID DE GRÁFICOS ANALÍTICOS PRINCIPAIS                */}
       {/* ========================================================= */}
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div id="tour-sindico-graficos" className="grid gap-6 lg:grid-cols-3">
         {/* Gráfico de Evolução Mensal (Ocupa 2 colunas) */}
         <div className="lg:col-span-2">
           <Cartao className="p-6">
@@ -906,7 +906,8 @@ export default function PainelAdmin() {
       {/* ========================================================= */}
       {/* 4. SEÇÃO ANALÍTICA COM ABAS & TABELAS PAGINADAS            */}
       {/* ========================================================= */}
-      <Cartao className="p-6">
+      <div id="tour-sindico-tabelas">
+        <Cartao className="p-6">
         {/* Abas Superiores da Seção Analítica */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4 mb-5">
           <div className="flex items-center gap-2 overflow-x-auto">
@@ -1306,7 +1307,8 @@ export default function PainelAdmin() {
             )}
           </div>
         )}
-      </Cartao>
+        </Cartao>
+      </div>
 
       {/* ========================================================= */}
       {/* 5. ATALHOS RÁPIDOS DE GESTÃO (RODAPÉ DO PAINEL)           */}

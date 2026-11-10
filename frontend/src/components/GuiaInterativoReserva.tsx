@@ -459,6 +459,43 @@ export function SimuladorAnimadoUniversal({ passos, tituloTela, rota = '' }: Sim
 // ----------------------------------------------------
 // TOUR GUIADO ANIMADO NA TELA REAL
 // ----------------------------------------------------
+
+/**
+ * Localiza com segurança o elemento alvo na tela, suportando seletores múltiplos
+ * com fallback (ex: "#alvo-principal, #alvo-secundario, #alvo-container").
+ */
+export function localizarElementoTour(seletor?: string): Element | null {
+  if (!seletor) return null;
+  const partes = seletor.split(/,\s*|\|\|\s*/);
+  
+  // 1. Prioriza o primeiro seletor que estiver presente e com dimensões visíveis
+  for (const parte of partes) {
+    const limpo = parte.trim();
+    if (!limpo) continue;
+    try {
+      const el = document.querySelector(limpo);
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          return el;
+        }
+      }
+    } catch {}
+  }
+
+  // 2. Fallback: se nenhum estiver com dimensões calculadas (ex: renderizando), retorna o primeiro presente no DOM
+  for (const parte of partes) {
+    const limpo = parte.trim();
+    if (!limpo) continue;
+    try {
+      const el = document.querySelector(limpo);
+      if (el) return el;
+    } catch {}
+  }
+
+  return null;
+}
+
 interface TourGuiadoProps {
   passoAtual: number;
   totalPassos: number;
@@ -497,7 +534,7 @@ export function OverlayTourGuiado({
         setAlvoRect(null);
         return;
       }
-      const el = document.querySelector(alvoSelector);
+      const el = localizarElementoTour(alvoSelector);
       if (el) {
         const rect = el.getBoundingClientRect();
         if (rect.width > 0 && rect.height > 0) {
@@ -584,7 +621,7 @@ export function OverlayTourGuiado({
     }
   } else if (typeof window !== 'undefined') {
     posAuto.x = Math.max(16, (window.innerWidth - balaoWidth) / 2);
-    posAuto.y = Math.max(16, window.innerHeight - balaoHeight - 32);
+    posAuto.y = Math.max(24, Math.min(100, (window.innerHeight - balaoHeight) / 2));
     posAuto.direcaoSeta = 'nenhuma';
   }
 
@@ -674,8 +711,9 @@ export function OverlayTourGuiado({
           y="0"
           width="100%"
           height="100%"
-          fill="rgba(11, 24, 48, 0.74)"
-          mask="url(#tour-spotlight-cutout)"
+          fill={alvoRect ? "rgba(11, 24, 48, 0.74)" : "rgba(11, 24, 48, 0.20)"}
+          mask={alvoRect ? "url(#tour-spotlight-cutout)" : undefined}
+          className="transition-all duration-300"
         />
 
         {/* Borda destacada sutil contornando o elemento ativo para máxima clareza */}
@@ -706,6 +744,7 @@ export function OverlayTourGuiado({
           zIndex: 100,
           transition: arrastando ? 'none' : 'transform 0.15s ease-out, opacity 0.15s ease-out',
         }}
+        data-testid="balao-tour-guiado"
         className="pointer-events-auto relative rounded-2xl border border-[#e2e6ec] bg-white p-4 text-slate-900 shadow-2xl dark:border-slate-800 dark:bg-[#0e1525] dark:text-slate-100 select-none animate-fade-in"
       >
         {/* Setas indicadoras de balão apontando para o elemento onde tem que apertar */}
@@ -760,11 +799,18 @@ export function OverlayTourGuiado({
           {descricao}
         </p>
 
-        {/* Dica de clique interativo na área normal */}
-        <div className="mt-2.5 flex items-center gap-2 rounded-xl bg-sky-50 dark:bg-sky-950/40 border border-sky-200/80 dark:border-sky-800/60 p-2 text-[11px] text-sky-800 dark:text-sky-300 font-medium">
-          <Icone nome="info" className="h-3.5 w-3.5 shrink-0 text-sky-600 dark:text-sky-400" />
-          <span>A área de ação está normal e destacada; clique diretamente nela para interagir ou avance abaixo.</span>
-        </div>
+        {/* Dica de clique interativo na área normal ou mensagem de estado contextual */}
+        {alvoRect ? (
+          <div className="mt-2.5 flex items-center gap-2 rounded-xl bg-sky-50 dark:bg-sky-950/40 border border-sky-200/80 dark:border-sky-800/60 p-2 text-[11px] text-sky-800 dark:text-sky-300 font-medium">
+            <Icone nome="info" className="h-3.5 w-3.5 shrink-0 text-sky-600 dark:text-sky-400" />
+            <span>A área de ação está normal e destacada; clique diretamente nela para interagir ou avance abaixo.</span>
+          </div>
+        ) : (
+          <div className="mt-2.5 flex items-center gap-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/60 p-2 text-[11px] text-amber-800 dark:text-amber-300 font-medium">
+            <Icone nome="alert" className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+            <span>Esta etapa aparece ao interagir com a tela (ou quando houver registros ativos). Você pode avançar normalmente nos passos abaixo.</span>
+          </div>
+        )}
 
         {/* Rodapé com Navegação */}
         <div className="mt-3.5 flex items-center justify-between gap-2 pt-2 border-t border-[#edf1f7] dark:border-slate-800/80">
@@ -799,6 +845,7 @@ export function OverlayTourGuiado({
             {passoAtual < totalPassos ? (
               <button
                 type="button"
+                data-testid="btn-proximo-passo"
                 onClick={onProximo}
                 className="rounded-xl bg-[#0b1830] px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-[#152445] dark:bg-sky-500 dark:text-slate-950 dark:hover:bg-sky-400 transition-transform active:scale-95 cursor-pointer"
               >
@@ -807,6 +854,7 @@ export function OverlayTourGuiado({
             ) : (
               <button
                 type="button"
+                data-testid="btn-concluir-tour"
                 onClick={onFinalizar}
                 className="rounded-xl bg-emerald-600 px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-500 transition-transform active:scale-95 cursor-pointer flex items-center gap-1"
               >

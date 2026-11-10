@@ -42,13 +42,13 @@ export const AJUDA_CONFIG: Record<string, AjudaTela> = {
         passo: 2,
         titulo: 'Acesse Atalhos Rápidos',
         descricao: 'Clique nos cards temáticos (Reservar Espaço, Minhas Encomendas, Abrir Chamado, etc.) para ir diretamente à funcionalidade desejada.',
-        alvoSelector: '#tour-inicio-atalhos',
+        alvoSelector: '#tour-inicio-atalhos, #tour-inicio-cards',
       },
       {
         passo: 3,
         titulo: 'Confira Atividades & Chaves',
         descricao: 'Se houver chaves de áreas comuns retiradas pela sua residência ou comunicados urgentes, eles aparecerão com alertas em tempo real.',
-        alvoSelector: '#tour-inicio-atividades',
+        alvoSelector: '#tour-inicio-atividades, #tour-inicio-cards',
       },
     ],
     dicas: [
@@ -83,13 +83,13 @@ export const AJUDA_CONFIG: Record<string, AjudaTela> = {
         passo: 2,
         titulo: 'Indicadores de Acompanhamento',
         descricao: 'Confira a quantidade de chamados em análise, em andamento ou já resolvidos pela administração.',
-        alvoSelector: '#tour-chamados-kpis',
+        alvoSelector: '#tour-chamados-kpis, #tour-chamados-btn-novo',
       },
       {
         passo: 3,
         titulo: 'Acompanhe as Respostas em Tempo Real',
         descricao: 'Veja o histórico de mensagens, respostas oficiais da administração e status de resolução particular da sua unidade.',
-        alvoSelector: '#tour-chamados-lista',
+        alvoSelector: '#tour-chamados-lista, #tour-chamados-kpis, #tour-chamados-btn-novo',
       },
     ],
     dicas: [
@@ -128,13 +128,13 @@ export const AJUDA_CONFIG: Record<string, AjudaTela> = {
         passo: 2,
         titulo: 'Lista de Chamados das Unidades',
         descricao: 'Visualize o solicitante, o apartamento, a foto anexada e a descrição da ocorrência enviada pelo morador.',
-        alvoSelector: '#tour-sindico-chamados-tabela',
+        alvoSelector: '#tour-sindico-chamados-tabela, #tour-sindico-chamados-triagem',
       },
       {
         passo: 3,
         titulo: 'Atender, Responder e Atualizar Status',
         descricao: 'Clique no botão "Atender & Responder" para abrir a gaveta lateral, enviar orientações oficiais ao morador e marcar como Em Andamento ou Realizada.',
-        alvoSelector: '#tour-sindico-chamados-atender',
+        alvoSelector: '#tour-sindico-chamados-atender, #tour-sindico-chamados-tabela, #tour-sindico-chamados-triagem',
       },
     ],
     dicas: [
@@ -169,19 +169,19 @@ export const AJUDA_CONFIG: Record<string, AjudaTela> = {
         passo: 2,
         titulo: 'Selecione a Data no Calendário',
         descricao: 'Escolha o dia no calendário. Dias com bolinha possuem reservas ativas. Dias em cinza/bloqueados respeitam a antecedência mínima ou manutenções.',
-        alvoSelector: '#tour-passo-calendario',
+        alvoSelector: '#tour-passo-calendario, #tour-passo-area',
       },
       {
         passo: 3,
         titulo: 'Escolha o Horário (Slot Livre)',
         descricao: 'Na coluna à direita, clique no horário verde ("LIVRE") desejado. Horários cinzas estão ocupados ou com antecedência mínima vencida.',
-        alvoSelector: '#tour-passo-horarios',
+        alvoSelector: '#tour-passo-horarios, #tour-passo-calendario, #tour-passo-area',
       },
       {
         passo: 4,
         titulo: 'Informe Convidados e Confirme',
         descricao: 'Digite a quantidade estimada de pessoas respeitando o limite máximo da área e clique no botão verde "Confirmar Reserva".',
-        alvoSelector: '#tour-passo-confirmar',
+        alvoSelector: '#tour-passo-confirmar, #tour-passo-horarios, #tour-passo-area',
       },
     ],
     dicas: [
@@ -221,13 +221,13 @@ export const AJUDA_CONFIG: Record<string, AjudaTela> = {
         passo: 2,
         titulo: 'Cancelar Reserva no Prazo Gratuito',
         descricao: 'Caso não vá mais utilizar o espaço, clique em "Cancelar Reserva" dentro do prazo limite estipulado pelo condomínio (ex.: até 24h antes).',
-        alvoSelector: '#tour-minhas-reservas-cancelar',
+        alvoSelector: '#tour-minhas-reservas-cancelar, #tour-minhas-reservas-historico, #tour-minhas-reservas-ativas',
       },
       {
         passo: 3,
         titulo: 'Histórico Completo de Utilizações',
         descricao: 'Role até o final da tela para auditar utilizações passadas ou cancelamentos anteriores.',
-        alvoSelector: '#tour-minhas-reservas-historico',
+        alvoSelector: '#tour-minhas-reservas-historico, #tour-minhas-reservas-ativas',
       },
     ],
     dicas: [
@@ -262,13 +262,13 @@ export const AJUDA_CONFIG: Record<string, AjudaTela> = {
         passo: 2,
         titulo: 'Detalhes do Pacote & Remetente',
         descricao: 'Confira a data/hora de recebimento pelo porteiro, transportadora e descrição do pacote.',
-        alvoSelector: '#tour-encomendas-lista',
+        alvoSelector: '#tour-encomendas-lista, #tour-encomendas-kpis',
       },
       {
         passo: 3,
         titulo: 'Histórico de Entregas Retiradas',
         descricao: 'Após a retirada na portaria física, o histórico grava quem retirou e a data exata da baixa.',
-        alvoSelector: '#tour-encomendas-historico',
+        alvoSelector: '#tour-encomendas-historico, #tour-encomendas-lista, #tour-encomendas-kpis',
       },
     ],
     dicas: [
@@ -303,13 +303,13 @@ export const AJUDA_CONFIG: Record<string, AjudaTela> = {
         passo: 2,
         titulo: 'Leia os Comunicados Oficiais',
         descricao: 'Navegue pelos comunicados publicados pela administração. Comunicados não lidos possuem destaque visual.',
-        alvoSelector: '#tour-mural-cards',
+        alvoSelector: '#tour-mural-cards, #tour-mural-filtros',
       },
       {
         passo: 3,
         titulo: 'Marque como Lido',
         descricao: 'Clique no botão "Marcar como lido" no card do comunicado para atualizar seu contador de notificações.',
-        alvoSelector: '#tour-mural-lido',
+        alvoSelector: '#tour-mural-lido, #tour-mural-cards, #tour-mural-filtros',
       },
     ],
     dicas: [
@@ -343,13 +343,13 @@ export const AJUDA_CONFIG: Record<string, AjudaTela> = {
         passo: 2,
         titulo: 'Lista de Familiares Cadastrados',
         descricao: 'Consulte os dependentes registrados para sua residência com grau de parentesco e dados de contato.',
-        alvoSelector: '#tour-familia-lista',
+        alvoSelector: '#tour-familia-lista, #tour-familia-btn-novo',
       },
       {
         passo: 3,
         titulo: 'Status de Moderação & Código de Acesso',
         descricao: 'Acompanhe a aprovação do síndico. Assim que aprovado, entregue o código "OASIS-XXXXX" para o dependente criar sua senha.',
-        alvoSelector: '#tour-familia-status',
+        alvoSelector: '#tour-familia-status, #tour-familia-lista, #tour-familia-btn-novo',
       },
     ],
     dicas: [
@@ -378,7 +378,7 @@ export const AJUDA_CONFIG: Record<string, AjudaTela> = {
         passo: 1,
         titulo: 'Monitore as "Áreas Ocupadas Agora"',
         descricao: 'Veja quais moradores estão com reservas ativas neste exato momento, com contagem regressiva de minutos restantes.',
-        alvoSelector: '#tour-portaria-ocupacao',
+        alvoSelector: '#tour-portaria-ocupacao, #tour-portaria-registro',
       },
       {
         passo: 2,
@@ -390,7 +390,7 @@ export const AJUDA_CONFIG: Record<string, AjudaTela> = {
         passo: 3,
         titulo: 'Busca Rápida de Moradores & Unidades',
         descricao: 'Consulte moradores autorizados, telefone de contato e veículos pelo número do apartamento.',
-        alvoSelector: '#tour-portaria-busca',
+        alvoSelector: '#tour-portaria-busca, #tour-portaria-registro',
       },
     ],
     dicas: [
@@ -424,13 +424,13 @@ export const AJUDA_CONFIG: Record<string, AjudaTela> = {
         passo: 2,
         titulo: 'Lista de Encomendas Aguardando Retirada',
         descricao: 'Consulte todas as encomendas armazenadas na portaria com o tempo em espera e apartamento de destino.',
-        alvoSelector: '#tour-portaria-encomenda-lista',
+        alvoSelector: '#tour-portaria-encomenda-lista, #tour-portaria-encomenda-nova',
       },
       {
         passo: 3,
         titulo: 'Dar Baixa na Retirada',
         descricao: 'Quando o morador vier buscar, clique em "Registrar Retirada", selecionando quem retirou para gravar a auditoria.',
-        alvoSelector: '#tour-portaria-encomenda-entregar',
+        alvoSelector: '#tour-portaria-encomenda-entregar, #tour-portaria-encomenda-lista, #tour-portaria-encomenda-nova',
       },
     ],
     dicas: [
@@ -465,13 +465,13 @@ export const AJUDA_CONFIG: Record<string, AjudaTela> = {
         passo: 2,
         titulo: 'Registrar Empréstimo',
         descricao: 'Clique em "Emprestar Chave", selecione o morador solicitante ou prestador de serviço e confirme a retirada.',
-        alvoSelector: '#tour-chaves-emprestar',
+        alvoSelector: '#tour-chaves-emprestar, #tour-chaves-painel',
       },
       {
         passo: 3,
         titulo: 'Registrar Devolução',
         descricao: 'Assim que a chave for devolvida na portaria física, clique em "Registrar Devolução". A chave volta instantaneamente a ficar disponível.',
-        alvoSelector: '#tour-chaves-devolver',
+        alvoSelector: '#tour-chaves-devolver, #tour-chaves-emprestar, #tour-chaves-painel',
       },
     ],
     dicas: [
@@ -506,13 +506,13 @@ export const AJUDA_CONFIG: Record<string, AjudaTela> = {
         passo: 2,
         titulo: 'Alternar Status (Livre / Em Uso)',
         descricao: 'Ao notar entrada de moradores no espaço, a portaria pode clicar no botão de alternância para indicar que o local está ocupado.',
-        alvoSelector: '#tour-areaslivres-alternar',
+        alvoSelector: '#tour-areaslivres-alternar, #tour-areaslivres-cards',
       },
       {
         passo: 3,
         titulo: 'Detalhes de Lotação e Regras',
         descricao: 'Confira as regras específicas de cada espaço livre, horários permitidos e capacidade máxima de pessoas.',
-        alvoSelector: '#tour-areaslivres-detalhes',
+        alvoSelector: '#tour-areaslivres-detalhes, #tour-areaslivres-cards',
       },
     ],
     dicas: [
@@ -530,38 +530,50 @@ export const AJUDA_CONFIG: Record<string, AjudaTela> = {
   // SÍNDICO: PAINEL ADMINISTRATIVO (/sindico/painel)
   // ----------------------------------------------------
   '/sindico/painel': {
-    titulo: 'Painel do Síndico / Gestão',
-    subtitulo: 'Central administrativa e estatísticas condominiais',
+    titulo: 'Painel Geral do Condomínio & Relatórios',
+    subtitulo: 'Visão executiva consolidada, receitas de áreas comuns e auditoria',
     icone: 'home',
     temTourAnimado: true,
-    resumo: 'Visão macro da governança do condomínio: total de unidades, ocupação, cadastros pendentes de moderação e manutenções ativas.',
+    resumo: 'Acompanhe a governança do condomínio em padrão executivo: super cards de arrecadação financeira, agendamentos, chamados de manutenção, gráficos multi-mês, previsão de fluxo de caixa e exportação oficial de relatórios em PDF e CSV.',
     passoAPasso: [
       {
         passo: 1,
-        titulo: 'Cards de Indicadores Principais',
-        descricao: 'Acompanhe métricas em tempo real sobre unidades ocupadas, reservas do mês e chamados abertos.',
+        titulo: 'Super Cards de Desempenho Executivo',
+        descricao: 'Acompanhe a arrecadação de áreas comuns (com variação % vs. mês anterior), taxa de resolução de chamados, ocupação e encomendas pendentes.',
         alvoSelector: '#tour-sindico-kpis',
       },
       {
         passo: 2,
-        titulo: 'Alertas de Chamados & Moderação',
-        descricao: 'Se houver dependentes ou ocorrências aguardando atenção, clique no card de alerta para atender imediatamente.',
-        alvoSelector: '#tour-sindico-chamados-alerta',
+        titulo: 'Filtro de Período e Exportação de Relatórios',
+        descricao: 'Navegue entre os meses com as setas ou seletor e gere com um clique os relatórios oficiais em PDF (Geral e Cobrança de Áreas) e a planilha CSV para a administradora.',
+        alvoSelector: '#tour-sindico-exportar, #tour-sindico-kpis',
       },
       {
         passo: 3,
-        titulo: 'Resumo de Ocupação & Reservas',
-        descricao: 'Veja o gráfico de utilização dos espaços de lazer e o volume de agendamentos das unidades.',
-        alvoSelector: '#tour-sindico-ocupacao',
+        titulo: 'Gráficos Históricos e Projeção Futura',
+        descricao: 'Visualize a evolução multi-mês de arrecadação e reservas, o donut de status e a projeção de receita confirmada para os próximos 90 dias.',
+        alvoSelector: '#tour-sindico-graficos, #tour-sindico-kpis',
+      },
+      {
+        passo: 4,
+        titulo: 'Tabelas Analíticas e Espelho de Cobrança',
+        descricao: 'Acesse o espelho contábil para lançamento em boleto das cotas condominiais, ranking das unidades com maior engajamento e histórico paginado de agendamentos.',
+        alvoSelector: '#tour-sindico-tabelas, #tour-sindico-kpis',
       },
     ],
     dicas: [
-      'Mantenha as aprovações de novos moradores em dia para evitar atrasos na entrega de códigos de primeiro acesso.',
+      'Você pode exportar a planilha CSV para importar diretamente no sistema da sua administradora contábil sem digitação manual.',
+      'O espelho de cobrança em PDF já traz os CPFs dos moradores devidamente mascarados para conformidade com a LGPD.',
+      'Ao mudar o mês no seletor do topo, todos os cards, gráficos, projeções e downloads acompanham a competência selecionada.',
     ],
     duvidasFrequentes: [
       {
-        pergunta: 'Como cadastrar um novo bloco ou prédio?',
-        resposta: 'Use o módulo de Estrutura Física no menu Superadmin ou através das configurações globais do condomínio.',
+        pergunta: 'Como funciona o espelho de cobrança de taxas?',
+        resposta: 'Ele consolida todas as reservas com taxa realizada no mês, com bloco, apartamento, morador, data e valor exato a ser lançado no boleto de cota.',
+      },
+      {
+        pergunta: 'As reservas futuras aparecem no relatório do mês atual?',
+        resposta: 'Não, elas são computadas na seção de Projeção Futura (próximos 90 dias) e na competência do mês em que o evento ocorrerá.',
       },
     ],
   },
@@ -586,19 +598,19 @@ export const AJUDA_CONFIG: Record<string, AjudaTela> = {
         passo: 2,
         titulo: 'Filtros e Busca Abrangente',
         descricao: 'Filtre por Bloco, Unidade, Papel (Morador, Inquilino, Proprietário, Porteiro) ou busque por Nome/CPF.',
-        alvoSelector: '#tour-pessoas-filtros',
+        alvoSelector: '#tour-pessoas-filtros, #tour-pessoas-abas',
       },
       {
         passo: 3,
         titulo: 'Cadastrar Nova Pessoa',
         descricao: 'Clique no botão "+ Nova Pessoa", preencha os dados e vincule ao apartamento.',
-        alvoSelector: '#tour-pessoas-btn-novo',
+        alvoSelector: '#tour-pessoas-btn-novo, #tour-pessoas-abas',
       },
       {
         passo: 4,
         titulo: 'Tabela de Pessoas e Ações de Perfil',
         descricao: 'Consulte o histórico, edite dados, gere códigos de ativação ou aplique restrições de segurança.',
-        alvoSelector: '#tour-pessoas-tabela',
+        alvoSelector: '#tour-pessoas-tabela, #tour-pessoas-filtros, #tour-pessoas-abas',
       },
     ],
     dicas: [
@@ -627,19 +639,19 @@ export const AJUDA_CONFIG: Record<string, AjudaTela> = {
         passo: 1,
         titulo: 'Lista de Cadastros Aguardando Moderação',
         descricao: 'Confira os moradores que solicitaram entrada no sistema e aguardam validação do síndico.',
-        alvoSelector: '#tour-aprovacoes-lista',
+        alvoSelector: '#tour-aprovacoes-lista, #tour-pessoas-abas',
       },
       {
         passo: 2,
         titulo: 'Conferência de Vínculo com a Unidade',
         descricao: 'Verifique quem é o titular responsável pelo cadastro, o grau de parentesco e se a pessoa reside no imóvel.',
-        alvoSelector: '#tour-aprovacoes-detalhes',
+        alvoSelector: '#tour-aprovacoes-detalhes, #tour-aprovacoes-lista, #tour-pessoas-abas',
       },
       {
         passo: 3,
         titulo: 'Aprovar ou Rejeitar Solicitação',
         descricao: 'Clique em "Aprovar" para liberar o código de ativação OASIS-XXXXX ou "Rejeitar" justificando o motivo.',
-        alvoSelector: '#tour-aprovacoes-botoes',
+        alvoSelector: '#tour-aprovacoes-botoes, #tour-aprovacoes-detalhes, #tour-aprovacoes-lista, #tour-pessoas-abas',
       },
     ],
     dicas: [
@@ -673,13 +685,13 @@ export const AJUDA_CONFIG: Record<string, AjudaTela> = {
         passo: 2,
         titulo: 'Lista de Espaços Cadastrados',
         descricao: 'Consulte todos os espaços com capacidade máxima, tipo de uso (Uso Livre vs Reserva) e fotos cadastradas.',
-        alvoSelector: '#tour-sindico-areas-lista',
+        alvoSelector: '#tour-sindico-areas-lista, #tour-sindico-areas-nova',
       },
       {
         passo: 3,
         titulo: 'Regras, Horários e Manutenções',
         descricao: 'Configure a grade de horários por dia da semana, antecedência mínima/máxima de agendamento e interdições para obras.',
-        alvoSelector: '#tour-sindico-areas-regras',
+        alvoSelector: '#tour-sindico-areas-regras, #tour-sindico-areas-lista, #tour-sindico-areas-nova',
       },
     ],
     dicas: [
@@ -714,13 +726,13 @@ export const AJUDA_CONFIG: Record<string, AjudaTela> = {
         passo: 2,
         titulo: 'Definir o Escopo de Destinatários',
         descricao: 'Selecione se o aviso é visível a todos os blocos ou direcionado a uma torre específica.',
-        alvoSelector: '#tour-avisos-alvo',
+        alvoSelector: '#tour-avisos-alvo, #tour-avisos-form',
       },
       {
         passo: 3,
         titulo: 'Publicar Instantaneamente no Mural',
         descricao: 'Ao clicar em "Publicar Comunicado", a mensagem aparece em tempo real para os moradores sem necessidade de recarregar a tela.',
-        alvoSelector: '#tour-avisos-enviar',
+        alvoSelector: '#tour-avisos-enviar, #tour-avisos-form',
       },
     ],
     dicas: [
@@ -754,19 +766,19 @@ export const AJUDA_CONFIG: Record<string, AjudaTela> = {
         passo: 2,
         titulo: 'Ações Estruturais & Gerador em Lote',
         descricao: 'Utilize o "Gerador Estrutural em Lote" para erguer prédios inteiros automaticamente com regras de 4 aptos por andar.',
-        alvoSelector: '#tour-super-estrutura-acoes',
+        alvoSelector: '#tour-super-estrutura-acoes, #tour-super-estrutura-kpis',
       },
       {
         passo: 3,
         titulo: 'Seletor de Blocos / Torres',
         descricao: 'Alterne entre os blocos cadastrados para visualizar a distribuição de apartamentos e garagens.',
-        alvoSelector: '#tour-super-estrutura-blocos',
+        alvoSelector: '#tour-super-estrutura-blocos, #tour-super-estrutura-kpis',
       },
       {
         passo: 4,
         titulo: 'Grade de Andares, Aptos e Vagas',
         descricao: 'Gerencie cada unidade, adicione novos andares, vincule vagas de garagem com metragem e visualize moradores vinculados.',
-        alvoSelector: '#tour-super-estrutura-andares',
+        alvoSelector: '#tour-super-estrutura-andares, #tour-super-estrutura-blocos, #tour-super-estrutura-kpis',
       },
     ],
     dicas: [
@@ -800,13 +812,13 @@ export const AJUDA_CONFIG: Record<string, AjudaTela> = {
         passo: 2,
         titulo: 'Tabela de Contas e Credenciais',
         descricao: 'Verifique quais usuários possuem privilégios de Administrador, Porteiro ou Superadmin.',
-        alvoSelector: '#tour-super-pessoas-tabela',
+        alvoSelector: '#tour-super-pessoas-tabela, #tour-super-pessoas-busca',
       },
       {
         passo: 3,
         titulo: 'Atribuição de Papéis & Auditoria',
         descricao: 'Nomeie novos síndicos, redefina senhas técnicas ou efetue bloqueios globais de segurança.',
-        alvoSelector: '#tour-super-pessoas-papeis',
+        alvoSelector: '#tour-super-pessoas-papeis, #tour-super-pessoas-tabela, #tour-super-pessoas-busca',
       },
     ],
     dicas: [
@@ -840,13 +852,13 @@ export const AJUDA_CONFIG: Record<string, AjudaTela> = {
         passo: 2,
         titulo: 'Cards de Condomínios Cadastrados',
         descricao: 'Consulte os condomínios gerenciados e alterne a instância ativa com 1 clique.',
-        alvoSelector: '#tour-super-condominios-cards',
+        alvoSelector: '#tour-super-condominios-cards, #tour-super-condominios-novo',
       },
       {
         passo: 3,
         titulo: 'Ativação de Módulos Funcionais',
         descricao: 'Ative ou desative módulos individuais (Chamados, Portaria, Reservas, Chaves) conforme o contrato de cada condomínio.',
-        alvoSelector: '#tour-super-condominios-modulos',
+        alvoSelector: '#tour-super-condominios-modulos, #tour-super-condominios-cards, #tour-super-condominios-novo',
       },
     ],
     dicas: [
@@ -946,6 +958,9 @@ export function obterAjudaPorRota(pathname: string, chaveManual?: string): Ajuda
   }
   if (rotaLimpa.startsWith('/sindico/areas')) {
     return AJUDA_CONFIG['/sindico/areas'];
+  }
+  if (rotaLimpa.startsWith('/sindico/pessoas/aprovacoes')) {
+    return AJUDA_CONFIG['/sindico/pessoas/aprovacoes'];
   }
   if (rotaLimpa.startsWith('/sindico/pessoas')) {
     return AJUDA_CONFIG['/sindico/pessoas'];

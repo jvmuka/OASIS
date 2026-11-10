@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
 import { obterAjudaPorRota, AjudaTela } from '../config/ajudaContextoConfig';
 import { Icone } from './ui';
-import { SimuladorAnimadoUniversal, OverlayTourGuiado } from './GuiaInterativoReserva';
+import { SimuladorAnimadoUniversal, OverlayTourGuiado, localizarElementoTour } from './GuiaInterativoReserva';
 
 interface BotaoAjudaContextoProps {
   ajudaKey?: string;
@@ -24,10 +24,12 @@ export function BotaoAjudaContexto({ ajudaKey, className = '' }: BotaoAjudaConte
 
     const passoInfo = dadosAjuda.passoAPasso[passoTour - 1];
     if (passoInfo?.alvoSelector) {
-      const el = document.querySelector(passoInfo.alvoSelector);
+      const el = localizarElementoTour(passoInfo.alvoSelector);
       if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        el.classList.add('tour-spotlight-active');
+        try {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          el.classList.add('tour-spotlight-active');
+        } catch {}
       }
     }
 
@@ -165,6 +167,7 @@ export function ModalAjudaContexto({ dados, rota = '', fechar, onIniciarTour }: 
     <div
       role="dialog"
       aria-modal="true"
+      data-testid="modal-ajuda-contexto"
       className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/60 p-4 backdrop-blur-sm animate-in fade-in duration-200"
       onClick={fechar}
     >
@@ -223,6 +226,7 @@ export function ModalAjudaContexto({ dados, rota = '', fechar, onIniciarTour }: 
               {onIniciarTour && (
                 <button
                   type="button"
+                  data-testid="btn-iniciar-tour-guiado"
                   onClick={onIniciarTour}
                   className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#0b1830] hover:bg-[#14264a] dark:bg-sky-600 dark:hover:bg-sky-500 px-4 py-2.5 text-xs font-bold text-white shadow-2xs transition-colors cursor-pointer border border-transparent"
                 >
