@@ -33,6 +33,7 @@ export interface PainelGeralResposta {
   };
   mes_selecionado: string; // Ex: "2026-11"
   mes_rotulo: string;      // Ex: "Novembro/2026"
+  periodo_apuracao: string;// Ex: "Período apurado: 01/11/2026 até 09/11/2026 (eventos realizados até a data presente)"
   meses_disponiveis: { valor: string; rotulo: string }[];
   
   // Super Cards Operacionais
@@ -47,7 +48,16 @@ export interface PainelGeralResposta {
 
   // Bloco Financeiro das Áreas Comuns (Estilo Lettly)
   financeiro: {
-    receita_mes_atual: number;      // Soma de todas as taxas de reservas válidas no mês (R$)
+    receita_mes_atual: number;       // Receita faturável até a data de corte (R$)
+    receita_faturavel: number;       // Total já apto para cobrança em boleto (eventos já ocorridos)
+    receita_prevista_futura: number; // Reservas futuras confirmadas para o restante do mês
+    receita_total_mes: number;       // Soma integral do mês (faturável + futura)
+    receita_mes_anterior: number;    // Soma do mês anterior para comparação (R$)
+    variacao_receita_pct: number;    // Variação percentual (ex: 15.5 ou -5.2)
+    receita_concluida: number;       // Taxas de eventos já realizados
+    receita_pendente: number;        // Taxas de eventos futuros
+    total_unidades_taxadas: number;  // Quantidade de apartamentos distintos no espelho de cobrança
+  };
     receita_mes_anterior: number;   // Soma do mês anterior para comparação (R$)
     variacao_receita_pct: number;   // Variação percentual (ex: 15.5 ou -5.2)
     receita_concluida: number;      // Taxas de eventos já realizados no mês (R$)

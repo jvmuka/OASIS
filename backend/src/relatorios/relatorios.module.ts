@@ -69,7 +69,7 @@ export class RelatoriosController {
   ) {}
 
   /**
-   * Helper privado para coletar os dados analíticos consolidados do mês.
+   * Helper privado para coletar os dados analíticos consolidados do mês com estrita regra de corte temporal.
    */
   private async obterDadosConsolidados(idCondominio: number, mesParam?: string) {
     // 1. Atualiza reservas passadas ativas para concluídas
@@ -79,13 +79,28 @@ export class RelatoriosController {
        WHERE status = 'ATIVA'
          AND data_hora_fim < CURRENT_TIMESTAMP`);
 
-    // 2. Determina o mês de referência
+    // 2. Determina o mês de referência e data de corte
     const mesValido = mesParam && /^\d{4}-\d{2}$/.test(mesParam);
-    const [mesAtualRow] = await this.db.query(`SELECT to_char(CURRENT_DATE, 'YYYY-MM') AS mes_atual`);
-    const mesAno = mesValido ? mesParam! : mesAtualRow.mes_atual;
+    const [mesAtualRow] = await this.db.query(`
+      SELECT to_char(CURRENT_DATE, 'YYYY-MM') AS mes_atual,
+             to_char(CURRENT_DATE, 'DD/MM/YYYY') AS hoje_br`);
+    const mesAtualStr = mesAtualRow.mes_atual;
+    const hojeBr = mesAtualRow.hoje_br;
+
+    const mesAno = mesValido ? mesParam! : mesAtualStr;
     const dataRef = `${mesAno}-01`;
     const [anoStr, mesStr] = mesAno.split('-');
     const rotuloMesExtenso = `${MESES_EXTENSO[mesStr] || mesStr}/${anoStr}`;
+
+    // Texto descritivo do período apurado para faturamento
+    let periodoApuracaoTexto = '';
+    if (mesAno === mesAtualStr) {
+      periodoApuracaoTexto = `Período apurado: 01/${mesStr}/${anoStr} até ${hojeBr} (eventos realizados até a data presente)`;
+    } else if (mesAno < mesAtualStr) {
+      periodoApuracaoTexto = `Período apurado: 01/${mesStr}/${anoStr} até o fechamento da competência (mês integral)`;
+    } else {
+      periodoApuracaoTexto = `Competência futura: 01/${mesStr}/${anoStr} a 31/${mesStr}/${anoStr} (sem cobranças realizadas)`;
+    }
 
     // 3. Informações do Condomínio
     const [condoRow] = await this.db.query(`
@@ -101,7 +116,7 @@ export class RelatoriosController {
       uf: 'PR',
     };
 
-    // 4. Lista dos meses disponíveis (últimos 12 meses + próximos 3 meses + meses com histórico)
+    // 4. Lista dos meses disponíveis
     const mesesSeries = await this.db.query(`
       SELECT DISTINCT
              to_char(m, 'YYYY-MM') AS valor,
@@ -159,19 +174,79 @@ export class RelatoriosController {
            JOIN bloco b ON b.id_bloco = u.id_bloco
           WHERE b.id_condominio = $2)::int AS total_unidades`, [dataRef, idCondominio]);
 
-    // 6. Métricas Financeiras de Reservas
-    const [finAtual] = await this.db.query(`
-      SELECT COALESCE(SUM(a.valor), 0)::numeric AS receita_total,
-             COALESCE(SUM(CASE WHEN r.status = 'CONCLUIDA' THEN a.valor ELSE 0 END), 0)::numeric AS receita_concluida,
-             COALESCE(SUM(CASE WHEN r.status = 'ATIVA' THEN a.valor ELSE 0 END), 0)::numeric AS receita_pendente,
-             COUNT(DISTINCT pu.id_unidade)::int AS total_unidades_taxadas
+    // 6. Espelho Detalhado de Cobrança com REGRA ESTRITA DE CORTE:
+    // Eventos futuros no mesmo mês NÃO são cobrados; somente eventos ocorridos até hoje (se mês atual)
+    // ou o mês inteiro (se mês anterior).
+    const cobrancaRaw = await this.db.query(`
+      SELECT r.id_reserva,
+             b.nome AS bloco,
+             u.numero_apartamento AS apartamento,
+             p.nome AS morador_nome,
+             p.cpf AS morador_cpf,
+             a.nome AS area_nome,
+             r.data_hora_inicio,
+             r.data_hora_fim,
+             r.status,
+             a.valor AS valor_taxa
         FROM reserva r
         JOIN area_comum a ON a.id_area_comum = r.id_area_comum
         JOIN perfil pf ON pf.id_perfil = r.id_perfil
-        JOIN pessoa_unidade pu ON pu.id_pessoa = pf.id_pessoa AND pu.reside = TRUE
+        JOIN pessoa p ON p.id_pessoa = pf.id_pessoa
+        LEFT JOIN pessoa_unidade pu ON pu.id_pessoa = p.id_pessoa AND pu.reside = TRUE
+        LEFT JOIN unidade u ON u.id_unidade = pu.id_unidade
+        LEFT JOIN bloco b ON b.id_bloco = u.id_bloco
        WHERE a.id_condominio = $2
          AND r.status <> 'CANCELADA'
-         AND date_trunc('month', r.data_hora_inicio) = date_trunc('month', $1::date)`, [dataRef, idCondominio]);
+         AND a.valor > 0
+         AND date_trunc('month', r.data_hora_inicio) = date_trunc('month', $1::date)
+         AND r.data_hora_inicio <= (
+           CASE 
+             WHEN date_trunc('month', $1::date) = date_trunc('month', CURRENT_DATE) 
+               THEN CURRENT_TIMESTAMP
+             WHEN date_trunc('month', $1::date) < date_trunc('month', CURRENT_DATE) 
+               THEN (date_trunc('month', $1::date) + INTERVAL '1 month')
+             ELSE date_trunc('month', $1::date) - INTERVAL '1 day'
+           END
+         )
+       ORDER BY b.nome ASC, u.numero_apartamento ASC, r.data_hora_inicio ASC`, [dataRef, idCondominio]);
+
+    const cobrancaItens: ItemCobrancaArea[] = cobrancaRaw.map((item: any) => ({
+      id_reserva: item.id_reserva,
+      bloco: item.bloco || 'Sem Bloco',
+      apartamento: item.apartamento || 'S/N',
+      morador_nome: item.morador_nome || 'Morador Não Identificado',
+      morador_cpf: mascararCpf(item.morador_cpf),
+      area_nome: item.area_nome,
+      data_evento: formatarDataBr(item.data_hora_inicio),
+      horario_inicio: formatarHoraBr(item.data_hora_inicio),
+      horario_fim: formatarHoraBr(item.data_hora_fim),
+      status: item.status,
+      valor_taxa: Number(item.valor_taxa || 0),
+    }));
+
+    // Total de unidades distintas com lançamentos faturáveis
+    const unidadesImpactadasSet = new Set(
+      cobrancaItens.map(i => `${i.bloco}-${i.apartamento}`)
+    );
+    const totalUnidadesTaxadas = unidadesImpactadasSet.size;
+
+    // Receita faturável (eventos já ocorridos até o corte)
+    const receitaFaturavel = cobrancaItens.reduce(
+      (acc, item) => acc + Number(item.valor_taxa || 0),
+      0,
+    );
+
+    // Receita prevista de reservas futuras no restante do mês
+    const [finFuturoMes] = await this.db.query(`
+      SELECT COALESCE(SUM(a.valor), 0)::numeric AS receita_prevista_restante
+        FROM reserva r
+        JOIN area_comum a ON a.id_area_comum = r.id_area_comum
+       WHERE a.id_condominio = $2
+         AND r.status <> 'CANCELADA'
+         AND date_trunc('month', r.data_hora_inicio) = date_trunc('month', $1::date)
+         AND r.data_hora_inicio > CURRENT_TIMESTAMP`, [dataRef, idCondominio]);
+
+    const receitaFuturaRestante = Number(finFuturoMes?.receita_prevista_restante || 0);
 
     // Receita do mês anterior para variação percentual
     const [finAnterior] = await this.db.query(`
@@ -182,19 +257,21 @@ export class RelatoriosController {
          AND r.status <> 'CANCELADA'
          AND date_trunc('month', r.data_hora_inicio) = date_trunc('month', $1::date - INTERVAL '1 month')`, [dataRef, idCondominio]);
 
-    const recAtual = Number(finAtual?.receita_total || 0);
     const recAnterior = Number(finAnterior?.receita_anterior || 0);
     const variacaoPct = recAnterior > 0
-      ? Number((((recAtual - recAnterior) / recAnterior) * 100).toFixed(1))
+      ? Number((((receitaFaturavel - recAnterior) / recAnterior) * 100).toFixed(1))
       : 0;
 
     const financeiro = {
-      receita_mes_atual: recAtual,
+      receita_mes_atual: receitaFaturavel,
+      receita_faturavel: receitaFaturavel,
+      receita_prevista_futura: receitaFuturaRestante,
+      receita_total_mes: receitaFaturavel + receitaFuturaRestante,
       receita_mes_anterior: recAnterior,
       variacao_receita_pct: variacaoPct,
-      receita_concluida: Number(finAtual?.receita_concluida || 0),
-      receita_pendente: Number(finAtual?.receita_pendente || 0),
-      total_unidades_taxadas: Number(finAtual?.total_unidades_taxadas || 0),
+      receita_concluida: receitaFaturavel,
+      receita_pendente: receitaFuturaRestante,
+      total_unidades_taxadas: totalUnidadesTaxadas,
     };
 
     // 7. Métricas de Chamados & Ocorrências
@@ -355,7 +432,7 @@ export class RelatoriosController {
       receita_total: Number(a.receita_total || 0),
     }));
 
-    // 12. Top Unidades / Moradores em Utilização
+    // 12. Top Unidades com base nos eventos já ocorridos / faturáveis
     const topUnidadesRaw = await this.db.query(`
       SELECT b.nome AS bloco,
              u.numero_apartamento AS apartamento,
@@ -373,6 +450,15 @@ export class RelatoriosController {
        WHERE a.id_condominio = $2
          AND r.status <> 'CANCELADA'
          AND date_trunc('month', r.data_hora_inicio) = date_trunc('month', $1::date)
+         AND r.data_hora_inicio <= (
+           CASE 
+             WHEN date_trunc('month', $1::date) = date_trunc('month', CURRENT_DATE) 
+               THEN CURRENT_TIMESTAMP
+             WHEN date_trunc('month', $1::date) < date_trunc('month', CURRENT_DATE) 
+               THEN (date_trunc('month', $1::date) + INTERVAL '1 month')
+             ELSE date_trunc('month', $1::date) - INTERVAL '1 day'
+           END
+         )
        GROUP BY b.nome, u.numero_apartamento, p.nome, p.cpf
        ORDER BY total_taxas DESC, total_reservas DESC
        LIMIT 10`, [dataRef, idCondominio]);
@@ -386,46 +472,7 @@ export class RelatoriosController {
       total_taxas: Number(u.total_taxas || 0),
     }));
 
-    // 13. Espelho Detalhado de Cobrança (todas as reservas com taxa > 0)
-    const cobrancaRaw = await this.db.query(`
-      SELECT r.id_reserva,
-             b.nome AS bloco,
-             u.numero_apartamento AS apartamento,
-             p.nome AS morador_nome,
-             p.cpf AS morador_cpf,
-             a.nome AS area_nome,
-             r.data_hora_inicio,
-             r.data_hora_fim,
-             r.status,
-             a.valor AS valor_taxa
-        FROM reserva r
-        JOIN area_comum a ON a.id_area_comum = r.id_area_comum
-        JOIN perfil pf ON pf.id_perfil = r.id_perfil
-        JOIN pessoa p ON p.id_pessoa = pf.id_pessoa
-        LEFT JOIN pessoa_unidade pu ON pu.id_pessoa = p.id_pessoa AND pu.reside = TRUE
-        LEFT JOIN unidade u ON u.id_unidade = pu.id_unidade
-        LEFT JOIN bloco b ON b.id_bloco = u.id_bloco
-       WHERE a.id_condominio = $2
-         AND r.status <> 'CANCELADA'
-         AND a.valor > 0
-         AND date_trunc('month', r.data_hora_inicio) = date_trunc('month', $1::date)
-       ORDER BY b.nome ASC, u.numero_apartamento ASC, r.data_hora_inicio ASC`, [dataRef, idCondominio]);
-
-    const cobrancaItens: ItemCobrancaArea[] = cobrancaRaw.map((item: any) => ({
-      id_reserva: item.id_reserva,
-      bloco: item.bloco || 'Sem Bloco',
-      apartamento: item.apartamento || 'S/N',
-      morador_nome: item.morador_nome || 'Morador Não Identificado',
-      morador_cpf: mascararCpf(item.morador_cpf),
-      area_nome: item.area_nome,
-      data_evento: formatarDataBr(item.data_hora_inicio),
-      horario_inicio: formatarHoraBr(item.data_hora_inicio),
-      horario_fim: formatarHoraBr(item.data_hora_fim),
-      status: item.status,
-      valor_taxa: Number(item.valor_taxa || 0),
-    }));
-
-    // 14. Status das Reservas no Mês
+    // 13. Status das Reservas no Mês
     const statusReservasRaw = await this.db.query(`
       SELECT r.status, COUNT(*)::int AS total
         FROM reserva r
@@ -443,7 +490,7 @@ export class RelatoriosController {
       { status: 'CANCELADA', total: mapaStatus.CANCELADA },
     ];
 
-    // 15. Reservas Recentes do Mês
+    // 14. Reservas Recentes do Mês
     const recentes = await this.db.query(`
       SELECT r.id_reserva,
              p.nome,
@@ -471,6 +518,7 @@ export class RelatoriosController {
       condominio: condominioInfo,
       mes_selecionado: mesAno,
       mes_rotulo: rotuloMesExtenso,
+      periodo_apuracao: periodoApuracaoTexto,
       meses_disponiveis: mesesDisponiveis,
       totais: tot,
       financeiro,
@@ -513,10 +561,11 @@ export class RelatoriosController {
       condominio: dados.condominio,
       mes_rotulo: dados.mes_rotulo,
       mes_chave: dados.mes_selecionado,
+      periodo_apuracao: dados.periodo_apuracao,
       data_emissao: new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
       usuario_emissor: req.user?.nome || 'Administração OASIS',
       totais: {
-        receita_mes_atual: dados.financeiro.receita_mes_atual,
+        receita_mes_atual: dados.financeiro.receita_faturavel,
         variacao_receita_pct: dados.financeiro.variacao_receita_pct,
         reservas_mes: Number(dados.totais.reservas_mes || 0),
         moradores_ativos: Number(dados.totais.moradores_ativos || 0),
@@ -567,15 +616,20 @@ export class RelatoriosController {
       0,
     );
 
+    const unidadesImpactadas = new Set(
+      dados.cobranca_detalhada.map(i => `${i.bloco}-${i.apartamento}`)
+    ).size;
+
     const payload: DadosRelatorioCobranca = {
       condominio: dados.condominio,
       mes_rotulo: dados.mes_rotulo,
       mes_chave: dados.mes_selecionado,
+      periodo_apuracao: dados.periodo_apuracao,
       data_emissao: new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
       usuario_emissor: req.user?.nome || 'Administração OASIS',
       total_geral: totalGeral,
       total_reservas: dados.cobranca_detalhada.length,
-      total_unidades: dados.financeiro.total_unidades_taxadas,
+      total_unidades: unidadesImpactadas,
       itens: dados.cobranca_detalhada,
     };
 
@@ -610,15 +664,20 @@ export class RelatoriosController {
       0,
     );
 
+    const unidadesImpactadas = new Set(
+      dados.cobranca_detalhada.map(i => `${i.bloco}-${i.apartamento}`)
+    ).size;
+
     const payload: DadosRelatorioCobranca = {
       condominio: dados.condominio,
       mes_rotulo: dados.mes_rotulo,
       mes_chave: dados.mes_selecionado,
+      periodo_apuracao: dados.periodo_apuracao,
       data_emissao: new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
       usuario_emissor: req.user?.nome || 'Administração OASIS',
       total_geral: totalGeral,
       total_reservas: dados.cobranca_detalhada.length,
-      total_unidades: dados.financeiro.total_unidades_taxadas,
+      total_unidades: unidadesImpactadas,
       itens: dados.cobranca_detalhada,
     };
 
