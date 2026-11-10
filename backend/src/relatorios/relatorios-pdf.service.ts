@@ -108,10 +108,12 @@ export class RelatoriosPdfService {
   }
 
   private formatarMoeda(val: number): string {
-    return (Number(val) || 0).toLocaleString('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    });
+    return (Number(val) || 0)
+      .toLocaleString('pt-BR', {
+        style: 'currency',
+        currency: 'BRL',
+      })
+      .replace(/\u00a0/g, ' ');
   }
 
   /**
@@ -466,18 +468,18 @@ export class RelatoriosPdfService {
       doc.font('Helvetica-Bold').fontSize(8).fillColor('#475569')
         .text(`UNIDADES IMPACTADAS: ${dados.total_unidades}`, MARGEM_ESQ + 395, y + 9);
 
-      // 4. Tabela de Lançamentos com larguras rigorosamente calibradas (largura total: 523pt)
+      // 4. Tabela de Lançamentos com larguras rigorosamente calibradas (largura total útil: 523pt, [36 a 559])
       y += 36;
       const desenharCabecalhoTabela = (yPos: number) => {
         doc.rect(MARGEM_ESQ, yPos, LARGURA_UTIL, 18).fill('#1E293B');
         doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#FFFFFF');
-        doc.text('UNIDADE', MARGEM_ESQ + 8, yPos + 5, { width: 55 });
-        doc.text('MORADOR SOLICITANTE', MARGEM_ESQ + 68, yPos + 5, { width: 125 });
-        doc.text('CPF', MARGEM_ESQ + 198, yPos + 5, { width: 75 });
-        doc.text('ESPAÇO RESERVADO', MARGEM_ESQ + 278, yPos + 5, { width: 95 });
-        doc.text('DATA DO EVENTO', MARGEM_ESQ + 378, yPos + 5, { width: 65, align: 'center' });
-        doc.text('HORÁRIO', MARGEM_ESQ + 448, yPos + 5, { width: 45, align: 'center' });
-        doc.text('TAXA (R$)', MARGEM_ESQ + 498, yPos + 5, { width: 55, align: 'right' });
+        doc.text('UNIDADE', MARGEM_ESQ + 8, yPos + 5, { width: 46 });
+        doc.text('MORADOR SOLICITANTE', 92, yPos + 5, { width: 112 });
+        doc.text('CPF', 206, yPos + 5, { width: 66 });
+        doc.text('ESPAÇO RESERVADO', 274, yPos + 5, { width: 94 });
+        doc.text('DATA', 370, yPos + 5, { width: 56, align: 'center' });
+        doc.text('HORÁRIO', 428, yPos + 5, { width: 60, align: 'center' });
+        doc.text('TAXA (R$)', 490, yPos + 5, { width: 61, align: 'right' });
         return yPos + 18;
       };
 
@@ -526,36 +528,36 @@ export class RelatoriosPdfService {
             doc.rect(MARGEM_ESQ, y, LARGURA_UTIL, ALTURA_LINHA).fill(bg);
 
             doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0F172A')
-              .text(`Apto ${item.apartamento}`, MARGEM_ESQ + 8, y + 4, { width: 55 });
+              .text(`Apto ${item.apartamento}`, MARGEM_ESQ + 8, y + 4, { width: 46 });
             doc.font('Helvetica').fontSize(7.5).fillColor('#334155')
-              .text(item.morador_nome, MARGEM_ESQ + 68, y + 4, { width: 125, ellipsis: true });
+              .text(item.morador_nome, 92, y + 4, { width: 112, ellipsis: true });
             doc.font('Helvetica').fontSize(7).fillColor('#64748B')
-              .text(item.morador_cpf || '---', MARGEM_ESQ + 198, y + 4, { width: 75 });
+              .text(item.morador_cpf || '---', 206, y + 4, { width: 66 });
             doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0B1830')
-              .text(item.area_nome, MARGEM_ESQ + 278, y + 4, { width: 95, ellipsis: true });
+              .text(item.area_nome, 274, y + 4, { width: 94, ellipsis: true });
             doc.font('Helvetica').fontSize(7.5).fillColor('#334155')
-              .text(item.data_evento, MARGEM_ESQ + 378, y + 4, { width: 65, align: 'center' });
+              .text(item.data_evento, 370, y + 4, { width: 56, align: 'center' });
 
             const horarioFormatado = item.horario_inicio && item.horario_fim
               ? `${item.horario_inicio} às ${item.horario_fim}`
               : item.horario_inicio || '---';
-            doc.font('Helvetica').fontSize(7).fillColor('#475569')
-              .text(horarioFormatado, MARGEM_ESQ + 448, y + 4, { width: 45, align: 'center' });
+            doc.font('Helvetica').fontSize(6.5).fillColor('#475569')
+              .text(horarioFormatado, 428, y + 4.5, { width: 60, align: 'center', lineBreak: false });
 
             doc.font('Helvetica-Bold').fontSize(8).fillColor('#0F172A')
-              .text(this.formatarMoeda(item.valor_taxa), MARGEM_ESQ + 498, y + 4, { width: 55, align: 'right' });
+              .text(this.formatarMoeda(item.valor_taxa), 490, y + 4, { width: 61, align: 'right', lineBreak: false });
 
             subtotalBloco += Number(item.valor_taxa || 0);
             linhaIndex++;
             y += ALTURA_LINHA;
           }
 
-          // Subtotal do Bloco com largura suficiente para nunca quebrar linha
+          // Subtotal do Bloco com alinhamento perfeito na coluna de taxa
           doc.rect(MARGEM_ESQ, y, LARGURA_UTIL, 16).fill('#F1F5F9');
           doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#475569')
-            .text(`Subtotal Bloco ${bloco}:`, MARGEM_ESQ + 280, y + 4, { width: 180, align: 'right' });
+            .text(`Subtotal Bloco ${bloco}:`, 200, y + 4, { width: 280, align: 'right' });
           doc.font('Helvetica-Bold').fontSize(8).fillColor('#0B1830')
-            .text(this.formatarMoeda(subtotalBloco), MARGEM_ESQ + 470, y + 4, { width: 83, align: 'right' });
+            .text(this.formatarMoeda(subtotalBloco), 490, y + 4, { width: 61, align: 'right', lineBreak: false });
           y += 16;
         }
 
@@ -565,7 +567,7 @@ export class RelatoriosPdfService {
         doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#FFFFFF')
           .text('TOTAL GERAL A SER COBRADO EM BOLETO:', MARGEM_ESQ + 12, y + 6);
         doc.font('Helvetica-Bold').fontSize(10).fillColor('#4ADE80')
-          .text(this.formatarMoeda(dados.total_geral), MARGEM_ESQ + 320, y + 5, { width: 233, align: 'right' });
+          .text(this.formatarMoeda(dados.total_geral), 430, y + 5, { width: 121, align: 'right', lineBreak: false });
         y += 20;
       }
 
