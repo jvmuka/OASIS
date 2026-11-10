@@ -136,10 +136,24 @@ export function ModalPerfilUsuario({
   if (!aberto) return null;
 
   // Normalização de dados (compatível com lista de Pessoas e detalhes de EstruturaFisica)
-  const u = pessoa?.unidades && pessoa.unidades.length > 0 ? pessoa.unidades[0] : null;
+  const listaUnidades: any[] =
+    pessoa?.unidades && pessoa.unidades.length > 0
+      ? pessoa.unidades
+      : pessoa?.bloco || pessoa?.numero_apartamento || pessoa?.apartamento
+      ? [
+          {
+            id_unidade: pessoa?.id_unidade,
+            bloco: pessoa?.bloco,
+            apartamento: pessoa?.numero_apartamento || pessoa?.apartamento,
+            vinculo: pessoa?.tipo_vinculo || 'MORADOR',
+            reside: pessoa?.reside,
+          },
+        ]
+      : [];
+  const u = listaUnidades.length > 0 ? listaUnidades[0] : null;
   const bloco = u ? u.bloco : pessoa?.bloco;
-  const apartamento = u ? u.apartamento : (pessoa?.numero_apartamento || pessoa?.apartamento);
-  const vinculo = u ? (u.vinculo || 'MORADOR') : (pessoa?.tipo_vinculo || 'MORADOR');
+  const apartamento = u ? (u.apartamento || u.numero_apartamento) : (pessoa?.numero_apartamento || pessoa?.apartamento);
+  const vinculo = u ? (u.vinculo || u.tipo_vinculo || 'MORADOR') : (pessoa?.tipo_vinculo || 'MORADOR');
   const idUnidade = u ? u.id_unidade : pessoa?.id_unidade;
   const responsavel = pessoa?.responsavel || (pessoa?.id_responsavel ? {
     id_pessoa: pessoa.id_responsavel,
@@ -147,7 +161,7 @@ export function ModalPerfilUsuario({
     email: pessoa.email_responsavel,
   } : null);
   const dependentes = pessoa?.dependentes || [];
-  const ehDependente = vinculo === 'DEPENDENTE' || Boolean(responsavel);
+  const ehDependente = listaUnidades.length <= 1 && (vinculo === 'DEPENDENTE' || Boolean(responsavel));
   const papelInfo = pessoa ? obterPapelUsuario(pessoa) : { papel: 'Morador', badgeCls: '' };
   const idade = pessoa?.data_nascimento ? calcularIdade(pessoa.data_nascimento) : null;
   const temAcoesExtras = Boolean(aoBloquear || aoInativar || aoReativar || aoExcluir);
@@ -220,21 +234,43 @@ export function ModalPerfilUsuario({
             </div>
           )}
 
-          {/* Dados da Unidade */}
-          {(bloco || apartamento) && (
-            <div className="rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3">
+          {/* Dados da Unidade (suporta 1 ou mais imóveis vinculados) */}
+          {listaUnidades.length > 0 && (
+            <div className="rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3 space-y-2">
               <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                VÍNCULO COM IMÓVEL
+                {listaUnidades.length > 1 ? `VÍNCULOS COM IMÓVEIS (${listaUnidades.length})` : 'VÍNCULO COM IMÓVEL'}
               </p>
-              <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
-                <span className="font-bold text-xs text-slate-800 dark:text-slate-200">
-                  {bloco === 'Prédio' || apartamento === 'Geral'
-                    ? 'Prédio / Condomínio (Áreas Comuns)'
-                    : `Bloco ${bloco || '-'} - Apartamento ${apartamento || '-'}`}
-                </span>
-                <span className="rounded bg-navy-50 text-navy dark:bg-slate-700 dark:text-sky-400 px-2 py-0.5 text-[10px] font-bold uppercase">
-                  {vinculo}
-                </span>
+              <div className="space-y-1.5">
+                {listaUnidades.map((un: any, idx: number) => {
+                  const unBloco = un.bloco;
+                  const unApto = un.apartamento || un.numero_apartamento;
+                  const unVinculo = un.vinculo || un.tipo_vinculo || 'MORADOR';
+                  return (
+                    <div key={`${un.id_unidade || idx}-${idx}`} className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-bold text-xs text-slate-800 dark:text-slate-200">
+                        {unBloco === 'Prédio' || unApto === 'Geral'
+                          ? 'Prédio / Condomínio (Áreas Comuns)'
+                          : `Bloco ${unBloco || '-'} - Apartamento ${unApto || '-'}`}
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {unVinculo !== 'VISITANTE' && unVinculo !== 'PRESTADOR_SERVICO' && un.reside !== undefined && (
+                          <span
+                            className={`rounded px-1.5 py-0.5 text-[9px] font-bold ${
+                              un.reside !== false
+                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                                : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                            }`}
+                          >
+                            {un.reside !== false ? 'Residente' : 'Não Residente'}
+                          </span>
+                        )}
+                        <span className="rounded bg-navy-50 text-navy dark:bg-slate-700 dark:text-sky-400 px-2 py-0.5 text-[10px] font-bold uppercase">
+                          {unVinculo}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -306,8 +342,9 @@ export function ModalPerfilUsuario({
                           </span>
                         </div>
                         <p className="text-[10px] text-slate-400">
-                          {dep.email ? `${dep.email} • ` : ''}
-                          {dep.data_nascimento ? `${calcularIdade(dep.data_nascimento)} anos` : ''}
+                          {dep.email ? `${dep.email}` : ''}
+                          {dep.data_nascimento ? `${dep.email ? ' • ' : ''}${calcularIdade(dep.data_nascimento)} anos` : ''}
+                          {(dep.numero_apartamento || dep.apartamento) ? `${(dep.email || dep.data_nascimento) ? ' • ' : ''}Apto ${dep.numero_apartamento || dep.apartamento}` : ''}
                         </p>
                       </div>
                       <div className="flex items-center gap-1 text-slate-400 text-xs font-semibold">

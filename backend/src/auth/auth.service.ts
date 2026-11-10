@@ -384,11 +384,12 @@ export class AuthService {
     const ehSuperadmin = perfis.some(p => p.tipo_perfil === 'SUPERADMIN');
 
     const unidades = await this.db.query(
-      `SELECT b.nome AS bloco, b.id_condominio, u.numero_apartamento, pu.tipo_vinculo, pu.grau_parentesco
+      `SELECT u.id_unidade, b.nome AS bloco, b.id_condominio, u.numero_apartamento, pu.tipo_vinculo, pu.grau_parentesco, pu.reside
          FROM pessoa_unidade pu
          JOIN unidade u ON u.id_unidade = pu.id_unidade
          JOIN bloco   b ON b.id_bloco   = u.id_bloco
-        WHERE pu.id_pessoa = $1 AND pu.data_fim_ocupacao IS NULL`, [pessoa.id_pessoa]);
+        WHERE pu.id_pessoa = $1 AND pu.data_fim_ocupacao IS NULL
+        ORDER BY pu.reside DESC, b.nome ASC, u.numero_apartamento ASC`, [pessoa.id_pessoa]);
 
     let idCondominioAtivo = idCondominioForcado;
     if (!idCondominioAtivo) {

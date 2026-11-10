@@ -17,16 +17,23 @@ export class PortariaController {
   encomendas(@Req() req: any, @Query('status') status?: string) {
     const idCondominio = resolverIdCondominio(req);
     return this.db.query(`
-      SELECT e.id_encomenda, p.nome AS destinatario, b.nome AS bloco,
-             u.numero_apartamento, e.descricao, e.tamanho, e.status,
+      SELECT e.id_encomenda, p.nome AS destinatario, u_prin.bloco,
+             u_prin.numero_apartamento, e.descricao, e.tamanho, e.status,
              e.data_hora_recebimento, e.data_hora_retirada, e.retirado_por, e.nome_retirante
         FROM encomenda e
         JOIN pessoa p ON p.id_pessoa = e.id_pessoa_destinatario
-        LEFT JOIN pessoa_unidade pu ON pu.id_pessoa = p.id_pessoa AND pu.data_fim_ocupacao IS NULL
-        LEFT JOIN unidade u ON u.id_unidade = pu.id_unidade
-        LEFT JOIN bloco   b ON b.id_bloco   = u.id_bloco
-       WHERE b.id_condominio = $1
-         AND ($2::status_encomenda_enum IS NULL OR e.status = $2::status_encomenda_enum)
+        JOIN LATERAL (
+          SELECT b.nome AS bloco, u.numero_apartamento
+            FROM pessoa_unidade pu
+            JOIN unidade u ON u.id_unidade = pu.id_unidade
+            JOIN bloco   b ON b.id_bloco   = u.id_bloco
+           WHERE pu.id_pessoa = p.id_pessoa
+             AND pu.data_fim_ocupacao IS NULL
+             AND b.id_condominio = $1
+           ORDER BY pu.reside DESC, pu.id_pessoa_unidade ASC
+           LIMIT 1
+        ) u_prin ON TRUE
+       WHERE ($2::status_encomenda_enum IS NULL OR e.status = $2::status_encomenda_enum)
        ORDER BY (CASE WHEN e.status = 'AGUARDANDO_RETIRADA' THEN 0 ELSE 1 END), e.data_hora_recebimento DESC`, [idCondominio, status || null]);
   }
 
@@ -89,8 +96,8 @@ export class PortariaController {
              p_dest.nome AS destinatario,
              p_rec.nome AS recebido_por,
              p_ent.nome AS entregue_por,
-             b.nome AS bloco, u.numero_apartamento AS apartamento,
-             pu.tipo_vinculo, pu.grau_parentesco,
+             pu_prin.bloco, pu_prin.apartamento,
+             pu_prin.tipo_vinculo, pu_prin.grau_parentesco,
              CASE WHEN e.id_pessoa_destinatario = $1 THEN true ELSE false END AS para_mim
         FROM encomenda e
         JOIN pessoa p_dest ON p_dest.id_pessoa = e.id_pessoa_destinatario
@@ -98,16 +105,25 @@ export class PortariaController {
         JOIN pessoa p_rec ON p_rec.id_pessoa = pf_rec.id_pessoa
         LEFT JOIN perfil pf_ent ON pf_ent.id_perfil = e.id_perfil_entrega
         LEFT JOIN pessoa p_ent ON p_ent.id_pessoa = pf_ent.id_pessoa
-        LEFT JOIN pessoa_unidade pu ON pu.id_pessoa = e.id_pessoa_destinatario AND pu.data_fim_ocupacao IS NULL
-        LEFT JOIN unidade u ON u.id_unidade = pu.id_unidade
-        LEFT JOIN bloco b ON b.id_bloco = u.id_bloco
+        LEFT JOIN LATERAL (
+          SELECT b.nome AS bloco, u.numero_apartamento AS apartamento,
+                 pu.tipo_vinculo, pu.grau_parentesco
+            FROM pessoa_unidade pu
+            JOIN unidade u ON u.id_unidade = pu.id_unidade
+            JOIN bloco b ON b.id_bloco = u.id_bloco
+           WHERE pu.id_pessoa = e.id_pessoa_destinatario AND pu.data_fim_ocupacao IS NULL
+           ORDER BY pu.reside DESC, pu.id_pessoa_unidade ASC
+           LIMIT 1
+        ) pu_prin ON TRUE
        WHERE e.id_pessoa_destinatario = $1
           OR e.id_pessoa_destinatario IN (
              SELECT pu2.id_pessoa
                FROM pessoa_unidade pu1
                JOIN pessoa_unidade pu2 ON pu2.id_unidade = pu1.id_unidade
-              WHERE pu1.id_pessoa = $1 
-                AND pu1.data_fim_ocupacao IS NULL 
+              WHERE pu1.id_pessoa = $1
+                AND pu1.reside = TRUE
+                AND pu2.reside = TRUE
+                AND pu1.data_fim_ocupacao IS NULL
                 AND pu2.data_fim_ocupacao IS NULL
           )
        ORDER BY 
@@ -125,7 +141,7 @@ export class PortariaController {
              a.id_area_comum, a.nome AS area, a.imagem_url AS area_imagem,
              ec.data_hora_retirada,
              p.id_pessoa, p.nome AS responsavel, p.celular AS contato_responsavel,
-             u.numero_apartamento AS apartamento, b.nome AS bloco,
+             pu_prin.apartamento, pu_prin.bloco,
              CASE WHEN p.id_pessoa = $1 THEN true ELSE false END AS com_voce,
              (ec.data_hora_retirada IS NOT NULL
               AND ec.data_hora_devolucao IS NULL
@@ -140,17 +156,28 @@ export class PortariaController {
         JOIN area_comum a ON a.id_area_comum = c.id_area_comum
         LEFT JOIN perfil pf ON pf.id_perfil = ec.id_perfil_solicitante
         JOIN pessoa p ON p.id_pessoa = COALESCE(ec.id_pessoa_solicitante, pf.id_pessoa)
-        LEFT JOIN pessoa_unidade pu ON pu.id_pessoa = p.id_pessoa AND pu.data_fim_ocupacao IS NULL
-        LEFT JOIN unidade u ON u.id_unidade = pu.id_unidade
-        LEFT JOIN bloco b ON b.id_bloco = u.id_bloco
+        LEFT JOIN LATERAL (
+          SELECT u.numero_apartamento AS apartamento, b.nome AS bloco
+            FROM pessoa_unidade pu
+            JOIN unidade u ON u.id_unidade = pu.id_unidade
+            JOIN bloco b ON b.id_bloco = u.id_bloco
+           WHERE pu.id_pessoa = p.id_pessoa AND pu.data_fim_ocupacao IS NULL
+           ORDER BY pu.reside DESC, pu.id_pessoa_unidade ASC
+           LIMIT 1
+        ) pu_prin ON TRUE
        WHERE ec.data_hora_devolucao IS NULL
          AND (
            p.id_pessoa = $1
-           OR pu.id_unidade IN (
-             SELECT pu_user.id_unidade
-               FROM pessoa_unidade pu_user
-              WHERE pu_user.id_pessoa = $1
-                AND pu_user.data_fim_ocupacao IS NULL
+           OR EXISTS (
+             SELECT 1
+               FROM pessoa_unidade pu_req
+               JOIN pessoa_unidade pu_resp ON pu_resp.id_unidade = pu_req.id_unidade
+              WHERE pu_req.id_pessoa = $1
+                AND pu_resp.id_pessoa = p.id_pessoa
+                AND pu_req.reside = TRUE
+                AND pu_resp.reside = TRUE
+                AND pu_req.data_fim_ocupacao IS NULL
+                AND pu_resp.data_fim_ocupacao IS NULL
            )
          )
        ORDER BY ec.data_hora_retirada DESC`, [idPessoa]);
@@ -164,7 +191,7 @@ export class PortariaController {
     return this.db.query(`
       SELECT c.id_chave, c.codigo, c.status, c.id_area_comum, a.nome AS area,
              ec.id_entrega_chave, p.nome AS responsavel, ec.data_hora_retirada,
-             u.numero_apartamento AS apartamento, b.nome AS bloco, p.celular AS contato_responsavel,
+             pu_prin.apartamento, pu_prin.bloco, p.celular AS contato_responsavel,
              p.papel_controle,
              (ec.data_hora_retirada IS NOT NULL
               AND ec.data_hora_devolucao IS NULL
@@ -179,9 +206,15 @@ export class PortariaController {
         LEFT JOIN entrega_chave ec ON ec.id_chave = c.id_chave AND ec.data_hora_devolucao IS NULL
         LEFT JOIN perfil pf ON pf.id_perfil = ec.id_perfil_solicitante
         LEFT JOIN pessoa p ON p.id_pessoa = COALESCE(ec.id_pessoa_solicitante, pf.id_pessoa)
-        LEFT JOIN pessoa_unidade pu ON pu.id_pessoa = p.id_pessoa AND pu.data_fim_ocupacao IS NULL
-        LEFT JOIN unidade u ON u.id_unidade = pu.id_unidade
-        LEFT JOIN bloco b ON b.id_bloco = u.id_bloco
+        LEFT JOIN LATERAL (
+          SELECT u.numero_apartamento AS apartamento, b.nome AS bloco
+            FROM pessoa_unidade pu
+            JOIN unidade u ON u.id_unidade = pu.id_unidade
+            JOIN bloco b ON b.id_bloco = u.id_bloco
+           WHERE pu.id_pessoa = p.id_pessoa AND pu.data_fim_ocupacao IS NULL
+           ORDER BY pu.reside DESC, pu.id_pessoa_unidade ASC
+           LIMIT 1
+        ) pu_prin ON TRUE
        WHERE a.ativo = TRUE AND a.exige_chave = TRUE AND a.id_condominio = $1
        ORDER BY a.nome, c.codigo`, [idCondominio]);
   }
@@ -394,8 +427,14 @@ export class PortariaController {
         JOIN area_comum a ON a.id_area_comum = r.id_area_comum
         JOIN perfil pf ON pf.id_perfil = r.id_perfil
         JOIN pessoa p ON p.id_pessoa = pf.id_pessoa
-        LEFT JOIN pessoa_unidade pu ON pu.id_pessoa = p.id_pessoa AND pu.data_fim_ocupacao IS NULL
-        LEFT JOIN unidade u ON u.id_unidade = pu.id_unidade
+        LEFT JOIN LATERAL (
+          SELECT pu_lat.id_unidade
+            FROM pessoa_unidade pu_lat
+           WHERE pu_lat.id_pessoa = p.id_pessoa AND pu_lat.data_fim_ocupacao IS NULL
+           ORDER BY pu_lat.reside DESC, pu_lat.id_pessoa_unidade ASC
+           LIMIT 1
+        ) pu_fallback ON r.id_unidade IS NULL
+        LEFT JOIN unidade u ON u.id_unidade = COALESCE(r.id_unidade, pu_fallback.id_unidade)
         LEFT JOIN bloco b ON b.id_bloco = u.id_bloco
        WHERE a.id_condominio = $1
          AND r.status = 'ATIVA'
@@ -438,8 +477,14 @@ export class PortariaController {
         JOIN area_comum a ON a.id_area_comum = r.id_area_comum
         JOIN perfil pf ON pf.id_perfil = r.id_perfil
         JOIN pessoa p ON p.id_pessoa = pf.id_pessoa
-        LEFT JOIN pessoa_unidade pu ON pu.id_pessoa = p.id_pessoa AND pu.data_fim_ocupacao IS NULL
-        LEFT JOIN unidade u ON u.id_unidade = pu.id_unidade
+        LEFT JOIN LATERAL (
+          SELECT pu_lat.id_unidade
+            FROM pessoa_unidade pu_lat
+           WHERE pu_lat.id_pessoa = p.id_pessoa AND pu_lat.data_fim_ocupacao IS NULL
+           ORDER BY pu_lat.reside DESC, pu_lat.id_pessoa_unidade ASC
+           LIMIT 1
+        ) pu_fallback ON r.id_unidade IS NULL
+        LEFT JOIN unidade u ON u.id_unidade = COALESCE(r.id_unidade, pu_fallback.id_unidade)
         LEFT JOIN bloco b ON b.id_bloco = u.id_bloco
        ${whereClause}
        ORDER BY r.data_hora_inicio ${paramMes || isQualquerData ? 'DESC' : 'ASC'}
@@ -459,15 +504,36 @@ export class PortariaController {
 
     return this.db.query(`
       SELECT p.id_pessoa, p.nome, p.cpf, p.celular,
-             b.nome AS bloco, u.numero_apartamento AS apartamento, pu.tipo_vinculo,
+             pu_prin.bloco, pu_prin.apartamento, pu_prin.tipo_vinculo,
+             COALESCE((
+               SELECT json_agg(jsonb_build_object(
+                 'bloco', b_u.nome,
+                 'apartamento', u_u.numero_apartamento,
+                 'tipo_vinculo', pu_u.tipo_vinculo
+               ) ORDER BY pu_u.reside DESC, b_u.nome, u_u.numero_apartamento)
+                 FROM pessoa_unidade pu_u
+                 JOIN unidade u_u ON u_u.id_unidade = pu_u.id_unidade
+                 JOIN bloco b_u ON b_u.id_bloco = u_u.id_bloco
+                WHERE pu_u.id_pessoa = p.id_pessoa
+                  AND pu_u.data_fim_ocupacao IS NULL
+                  AND b_u.id_condominio = $2
+             ), '[]'::json) AS unidades,
              (ativa.id_reserva IS NOT NULL) AS em_atividade,
              ativa.area AS atividade_area,
              ativa.data_hora_inicio AS atividade_inicio,
              ativa.data_hora_fim AS atividade_fim
         FROM pessoa p
-        LEFT JOIN pessoa_unidade pu ON pu.id_pessoa = p.id_pessoa AND pu.data_fim_ocupacao IS NULL
-        LEFT JOIN unidade u ON u.id_unidade = pu.id_unidade
-        LEFT JOIN bloco b ON b.id_bloco = u.id_bloco
+        LEFT JOIN LATERAL (
+          SELECT b.nome AS bloco, u.numero_apartamento AS apartamento, pu.tipo_vinculo
+            FROM pessoa_unidade pu
+            JOIN unidade u ON u.id_unidade = pu.id_unidade
+            JOIN bloco b ON b.id_bloco = u.id_bloco
+           WHERE pu.id_pessoa = p.id_pessoa
+             AND pu.data_fim_ocupacao IS NULL
+             AND b.id_condominio = $2
+           ORDER BY pu.reside DESC, pu.id_pessoa_unidade ASC
+           LIMIT 1
+        ) pu_prin ON TRUE
         LEFT JOIN LATERAL (
           SELECT r.id_reserva, r.data_hora_inicio, r.data_hora_fim, a.nome AS area
             FROM reserva r
@@ -478,8 +544,36 @@ export class PortariaController {
            LIMIT 1
         ) ativa ON TRUE
        WHERE p.ativo = TRUE
-         AND (b.id_condominio = $2 OR EXISTS (SELECT 1 FROM perfil pf WHERE pf.id_pessoa = p.id_pessoa AND pf.id_condominio = $2))
-         AND (LOWER(p.nome) LIKE $1 OR p.cpf LIKE $1 OR LOWER(b.nome) LIKE $1 OR u.numero_apartamento LIKE $1)
+         AND (
+           EXISTS (
+             SELECT 1
+               FROM pessoa_unidade pu_c
+               JOIN unidade u_c ON u_c.id_unidade = pu_c.id_unidade
+               JOIN bloco b_c ON b_c.id_bloco = u_c.id_bloco
+              WHERE pu_c.id_pessoa = p.id_pessoa
+                AND pu_c.data_fim_ocupacao IS NULL
+                AND b_c.id_condominio = $2
+           )
+           OR EXISTS (SELECT 1 FROM perfil pf WHERE pf.id_pessoa = p.id_pessoa AND pf.id_condominio = $2)
+         )
+         AND (
+           LOWER(p.nome) LIKE $1
+           OR p.cpf LIKE $1
+           OR EXISTS (
+             SELECT 1
+               FROM pessoa_unidade pu_s
+               JOIN unidade u_s ON u_s.id_unidade = pu_s.id_unidade
+               JOIN bloco b_s ON b_s.id_bloco = u_s.id_bloco
+              WHERE pu_s.id_pessoa = p.id_pessoa
+                AND pu_s.data_fim_ocupacao IS NULL
+                AND b_s.id_condominio = $2
+                AND (
+                  LOWER(b_s.nome) LIKE $1
+                  OR u_s.numero_apartamento LIKE $1
+                  OR LOWER(CONCAT(b_s.nome, ' ', u_s.numero_apartamento)) LIKE $1
+                )
+           )
+         )
        ORDER BY p.nome
        LIMIT 30`, [filtro, idCondominio]);
   }
@@ -488,11 +582,29 @@ export class PortariaController {
   @Get('pessoas/:idPessoa/atividade') @Perfis('PORTEIRO', 'SINDICO', 'SUPERADMIN')
   async atividadePessoa(@Param('idPessoa', ParseIntPipe) idPessoa: number) {
     const pessoa = await this.db.query(`
-      SELECT p.id_pessoa, p.nome, p.cpf, p.celular, b.nome AS bloco, u.numero_apartamento AS apartamento
+      SELECT p.id_pessoa, p.nome, p.cpf, p.celular, pu_prin.bloco, pu_prin.apartamento,
+             COALESCE((
+               SELECT json_agg(jsonb_build_object(
+                 'bloco', b_u.nome,
+                 'apartamento', u_u.numero_apartamento,
+                 'tipo_vinculo', pu_u.tipo_vinculo
+               ) ORDER BY pu_u.reside DESC, b_u.nome, u_u.numero_apartamento)
+                 FROM pessoa_unidade pu_u
+                 JOIN unidade u_u ON u_u.id_unidade = pu_u.id_unidade
+                 JOIN bloco b_u ON b_u.id_bloco = u_u.id_bloco
+                WHERE pu_u.id_pessoa = p.id_pessoa
+                  AND pu_u.data_fim_ocupacao IS NULL
+             ), '[]'::json) AS unidades
         FROM pessoa p
-        LEFT JOIN pessoa_unidade pu ON pu.id_pessoa = p.id_pessoa AND pu.data_fim_ocupacao IS NULL
-        LEFT JOIN unidade u ON u.id_unidade = pu.id_unidade
-        LEFT JOIN bloco b ON b.id_bloco = u.id_bloco
+        LEFT JOIN LATERAL (
+          SELECT b.nome AS bloco, u.numero_apartamento AS apartamento
+            FROM pessoa_unidade pu
+            JOIN unidade u ON u.id_unidade = pu.id_unidade
+            JOIN bloco b ON b.id_bloco = u.id_bloco
+           WHERE pu.id_pessoa = p.id_pessoa AND pu.data_fim_ocupacao IS NULL
+           ORDER BY pu.reside DESC, pu.id_pessoa_unidade ASC
+           LIMIT 1
+        ) pu_prin ON TRUE
        WHERE p.id_pessoa = $1`, [idPessoa]);
     if (!pessoa.length) throw new BadRequestException('Pessoa nao encontrada.');
 

@@ -35,6 +35,8 @@ interface Dependente {
 export default function Dependentes() {
   const [carregando, setCarregando] = useState(true);
   const [vinculo, setVinculo] = useState<VinculoTitular | null>(null);
+  const [minhasUnidades, setMinhasUnidades] = useState<VinculoTitular[]>([]);
+  const [idUnidadeSelecionada, setIdUnidadeSelecionada] = useState<number | undefined>(undefined);
   const [dependentes, setDependentes] = useState<Dependente[]>([]);
   const [pagina, setPagina] = useState(1);
   const [modalAberto, setModalAberto] = useState(false);
@@ -52,11 +54,21 @@ export default function Dependentes() {
     grau_parentesco: 'FILHO',
   });
 
-  const carregar = async () => {
+  const carregar = async (idUnidOverride?: number) => {
     setCarregando(true);
     try {
-      const res = await api.get<{ vinculo: VinculoTitular | null; dependentes: Dependente[] }>('/cadastros/meus-dependentes');
+      const idAlvo = idUnidOverride ?? idUnidadeSelecionada;
+      const url = idAlvo ? `/cadastros/meus-dependentes?id_unidade=${idAlvo}` : '/cadastros/meus-dependentes';
+      const res = await api.get<{
+        vinculo: VinculoTitular | null;
+        minhas_unidades?: VinculoTitular[];
+        dependentes: Dependente[];
+      }>(url);
       setVinculo(res.vinculo);
+      setMinhasUnidades(res.minhas_unidades || (res.vinculo ? [res.vinculo] : []));
+      if (res.vinculo?.id_unidade) {
+        setIdUnidadeSelecionada(res.vinculo.id_unidade);
+      }
       setDependentes(res.dependentes || []);
     } catch (err: any) {
       setNotificacao({
@@ -73,8 +85,8 @@ export default function Dependentes() {
   }, []);
 
   useSync('PESSOAS', () => {
-    carregar();
-  });
+    carregar(idUnidadeSelecionada);
+  }, [idUnidadeSelecionada]);
 
   const copiarCodigo = (codigo: string, id: number) => {
     navigator.clipboard.writeText(codigo);
@@ -98,6 +110,7 @@ export default function Dependentes() {
     try {
       const res = await api.post<{ mensagem?: string }>('/cadastros/meus-dependentes', {
         ...form,
+        id_unidade: vinculo?.id_unidade || idUnidadeSelecionada,
         cpf: cpfLimpo,
       });
       setNotificacao({
@@ -113,7 +126,7 @@ export default function Dependentes() {
         celular: '',
         grau_parentesco: 'FILHO',
       });
-      carregar();
+      carregar(idUnidadeSelecionada);
     } catch (err: any) {
       setNotificacao({
         texto: err?.message || 'Erro ao enviar solicitação de dependente.',
@@ -188,6 +201,31 @@ export default function Dependentes() {
       >
         Minha Família & Dependentes
       </Titulo>
+
+      {minhasUnidades.length > 1 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#e2e6ec] dark:border-slate-800 bg-white dark:bg-[#0e1525] p-3 text-xs">
+          <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300 font-semibold">
+            <Icone nome="building" className="h-4 w-4 text-navy dark:text-sky-400" />
+            <span>Unidade selecionada:</span>
+          </div>
+          <select
+            className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 text-xs font-bold text-slate-800 dark:text-slate-100 cursor-pointer"
+            value={idUnidadeSelecionada ?? ''}
+            onChange={e => {
+              const novaUnid = Number(e.target.value);
+              setIdUnidadeSelecionada(novaUnid);
+              setPagina(1);
+              carregar(novaUnid);
+            }}
+          >
+            {minhasUnidades.map(u => (
+              <option key={u.id_unidade} value={u.id_unidade}>
+                {`Bloco ${u.bloco}, Apto ${u.numero_apartamento} (${u.tipo_vinculo})`}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Informação sobre Responsável caso o usuário logado seja dependente */}
       {vinculo?.tipo_vinculo === 'DEPENDENTE' && vinculo.nome_responsavel && (
@@ -389,6 +427,15 @@ export default function Dependentes() {
         titulo="Solicitar Cadastro de Dependente"
       >
         <form onSubmit={handleSolicitar} className="space-y-4">
+          {minhasUnidades.length > 1 && vinculo && (
+            <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 px-3 py-2 text-xs text-slate-700 dark:text-slate-200 flex items-center justify-between">
+              <span className="font-semibold">Unidade vinculada:</span>
+              <span className="font-bold text-navy dark:text-sky-400">
+                {`Bloco ${vinculo.bloco}, Apto ${vinculo.numero_apartamento}`}
+              </span>
+            </div>
+          )}
+
           <div className="rounded-xl border border-sky-200 bg-sky-50/70 p-3 text-xs text-sky-900 dark:border-sky-800/60 dark:bg-sky-950/40 dark:text-sky-300 flex items-start gap-2.5">
             <Icone nome="shield" className="h-5 w-5 shrink-0 text-sky-600 dark:text-sky-400 mt-0.5" />
             <div className="leading-relaxed">

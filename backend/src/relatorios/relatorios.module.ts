@@ -192,8 +192,15 @@ export class RelatoriosController {
         JOIN area_comum a ON a.id_area_comum = r.id_area_comum
         JOIN perfil pf ON pf.id_perfil = r.id_perfil
         JOIN pessoa p ON p.id_pessoa = pf.id_pessoa
-        LEFT JOIN pessoa_unidade pu ON pu.id_pessoa = p.id_pessoa AND pu.reside = TRUE
-        LEFT JOIN unidade u ON u.id_unidade = pu.id_unidade
+        LEFT JOIN LATERAL (
+          SELECT pu_lat.id_unidade
+            FROM pessoa_unidade pu_lat
+           WHERE pu_lat.id_pessoa = p.id_pessoa
+             AND pu_lat.data_fim_ocupacao IS NULL
+           ORDER BY pu_lat.reside DESC, pu_lat.id_pessoa_unidade ASC
+           LIMIT 1
+        ) pu_fallback ON r.id_unidade IS NULL
+        LEFT JOIN unidade u ON u.id_unidade = COALESCE(r.id_unidade, pu_fallback.id_unidade)
         LEFT JOIN bloco b ON b.id_bloco = u.id_bloco
        WHERE a.id_condominio = $2
          AND r.status <> 'CANCELADA'
@@ -444,8 +451,15 @@ export class RelatoriosController {
         JOIN area_comum a ON a.id_area_comum = r.id_area_comum
         JOIN perfil pf ON pf.id_perfil = r.id_perfil
         JOIN pessoa p ON p.id_pessoa = pf.id_pessoa
-        JOIN pessoa_unidade pu ON pu.id_pessoa = p.id_pessoa AND pu.reside = TRUE
-        JOIN unidade u ON u.id_unidade = pu.id_unidade
+        LEFT JOIN LATERAL (
+          SELECT pu_lat.id_unidade
+            FROM pessoa_unidade pu_lat
+           WHERE pu_lat.id_pessoa = p.id_pessoa
+             AND pu_lat.data_fim_ocupacao IS NULL
+           ORDER BY pu_lat.reside DESC, pu_lat.id_pessoa_unidade ASC
+           LIMIT 1
+        ) pu_fallback ON r.id_unidade IS NULL
+        JOIN unidade u ON u.id_unidade = COALESCE(r.id_unidade, pu_fallback.id_unidade)
         JOIN bloco b ON b.id_bloco = u.id_bloco
        WHERE a.id_condominio = $2
          AND r.status <> 'CANCELADA'

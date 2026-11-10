@@ -102,6 +102,7 @@ const STATUS_CONFIG = {
 
 export default function MoradorChamados() {
   const sessao = sessaoAtual();
+  const unidadesUsuario = sessao?.unidades || [];
   const [chamados, setChamados] = useState<Chamado[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
@@ -117,6 +118,9 @@ export default function MoradorChamados() {
   // Modal Novo Chamado
   const [modalAberto, setModalAberto] = useState(false);
   const [enviando, setEnviando] = useState(false);
+  const [formIdUnidade, setFormIdUnidade] = useState<string>(
+    unidadesUsuario[0]?.id_unidade ? String(unidadesUsuario[0].id_unidade) : '',
+  );
   const [formTitulo, setFormTitulo] = useState('');
   const [formCategoria, setFormCategoria] = useState<keyof typeof CATEGORIAS_CONFIG>('AVARIA_QUEBRADO');
   const [formDescricao, setFormDescricao] = useState('');
@@ -175,6 +179,7 @@ export default function MoradorChamados() {
   });
 
   const abrirModalNovo = () => {
+    setFormIdUnidade(unidadesUsuario[0]?.id_unidade ? String(unidadesUsuario[0].id_unidade) : '');
     setFormTitulo('');
     setFormCategoria('AVARIA_QUEBRADO');
     setFormDescricao('');
@@ -220,6 +225,7 @@ export default function MoradorChamados() {
       }
 
       await api.post('/chamados', {
+        id_unidade: formIdUnidade ? Number(formIdUnidade) : undefined,
         titulo: formTitulo.trim(),
         categoria: formCategoria,
         descricao: formDescricao.trim(),
@@ -370,10 +376,10 @@ export default function MoradorChamados() {
         <Icone nome="shield" className="w-5 h-5 mt-0.5 text-sky-600 dark:text-sky-400 shrink-0" />
         <div>
           <span className="font-semibold">Privacidade Particular:</span> Todos os chamados registrados aqui pertencem
-          exclusivamente à sua unidade residencial (
+          exclusivamente à(s) sua(s) unidade(s) residencial(is) (
           <span className="font-medium underline">
-            {sessao?.unidades?.[0]
-              ? `Bloco ${sessao.unidades[0].bloco}, Apto ${sessao.unidades[0].numero_apartamento}`
+            {unidadesUsuario.length > 0
+              ? unidadesUsuario.map(u => `Bloco ${u.bloco}, Apto ${u.numero_apartamento}`).join(' | ')
               : 'sua unidade'}
           </span>
           ). Nenhum outro morador ou vizinho tem acesso aos seus chamados ou às respostas enviadas pela administração.
@@ -577,6 +583,26 @@ export default function MoradorChamados() {
             </div>
 
             <form onSubmit={handleSubmeterChamado} className="space-y-4">
+              {unidadesUsuario.length > 1 && (
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1">
+                    Unidade / Apartamento Referente *
+                  </label>
+                  <select
+                    className={inputCls}
+                    value={formIdUnidade}
+                    onChange={e => setFormIdUnidade(e.target.value)}
+                    required
+                  >
+                    {unidadesUsuario.map((u, i) => (
+                      <option key={u.id_unidade ?? i} value={u.id_unidade ? String(u.id_unidade) : ''}>
+                        {`Bloco ${u.bloco}, Apto ${u.numero_apartamento}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               {/* Seletor de Categoria */}
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-1.5">

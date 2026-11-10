@@ -56,7 +56,8 @@ export class ReservasController {
   async disponibilidade(
     @Req() req: any,
     @Query('area', ParseIntPipe) area: number,
-    @Query('data') data: string
+    @Query('data') data: string,
+    @Query('id_unidade') idUnidadeParam?: string,
   ) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(data || ''))
       throw new BadRequestException('Informe a data no formato AAAA-MM-DD.');
@@ -75,10 +76,17 @@ export class ReservasController {
       [area, diaSemana]);
 
     const reservas = await this.db.query(
-      `SELECT r.id_reserva, r.data_hora_inicio, r.data_hora_fim, r.numero_pessoas, pu.id_unidade
+      `SELECT r.id_reserva, r.data_hora_inicio, r.data_hora_fim, r.numero_pessoas,
+              COALESCE(r.id_unidade, pu_fallback.id_unidade) AS id_unidade
          FROM reserva r
          JOIN perfil pf ON pf.id_perfil = r.id_perfil
-         LEFT JOIN pessoa_unidade pu ON pu.id_pessoa = pf.id_pessoa AND pu.data_fim_ocupacao IS NULL
+         LEFT JOIN LATERAL (
+           SELECT pu_lat.id_unidade
+             FROM pessoa_unidade pu_lat
+            WHERE pu_lat.id_pessoa = pf.id_pessoa AND pu_lat.data_fim_ocupacao IS NULL
+            ORDER BY pu_lat.reside DESC, pu_lat.id_pessoa_unidade ASC
+            LIMIT 1
+         ) pu_fallback ON r.id_unidade IS NULL
         WHERE r.id_area_comum = $1 AND r.status <> 'CANCELADA'
           AND r.data_hora_inicio::date = $2::date`, [area, data]);
 
@@ -89,12 +97,16 @@ export class ReservasController {
       [area, data]);
 
     const idPessoa = req.user?.sub;
+    const idUnidadeSolicitada = idUnidadeParam && !isNaN(Number(idUnidadeParam)) ? Number(idUnidadeParam) : null;
     const [minhaUnidadeRow] = await this.db.query(`
       SELECT pu.id_unidade
         FROM pessoa_unidade pu
-       WHERE pu.id_pessoa = $1 AND pu.data_fim_ocupacao IS NULL
-       LIMIT 1`, [idPessoa]);
-    const idMinhaUnidade = minhaUnidadeRow?.id_unidade;
+       WHERE pu.id_pessoa = $1
+         AND pu.data_fim_ocupacao IS NULL
+         AND ($2::int IS NULL OR pu.id_unidade = $2::int)
+       ORDER BY pu.reside DESC, pu.id_pessoa_unidade ASC
+       LIMIT 1`, [idPessoa, idUnidadeSolicitada]);
+    const idMinhaUnidade = minhaUnidadeRow?.id_unidade ? Number(minhaUnidadeRow.id_unidade) : undefined;
 
     const [penalidadeUsuario] = await this.db.query(`
       SELECT bp.id_bloqueio_perfil, bp.motivo, bp.descricao, bp.data_hora_inicio, bp.data_hora_fim
@@ -143,7 +155,7 @@ export class ReservasController {
         return slotIniStr < rFim && slotFimStr > rIni;
       });
 
-      const usuarioJaReservou = Boolean(idMinhaUnidade && reservasSlot.some(r => r.id_unidade === idMinhaUnidade));
+      const usuarioJaReservou = Boolean(idMinhaUnidade && reservasSlot.some(r => Number(r.id_unidade) === idMinhaUnidade));
       const maxSimultaneas = Number(info.max_unidades_simultaneas || 1);
       const totalReservadas = reservasSlot.length;
       const unidadesRestantes = Math.max(0, maxSimultaneas - totalReservadas);
@@ -263,6 +275,7 @@ export class ReservasController {
     return {
       area: { id_area_comum: info.id_area_comum, nome: info.nome, capacidade: info.capacidade, reserva_por_dia: Boolean(info.reserva_por_dia) },
       data, dia_semana: diaSemana,
+      id_unidade_selecionada: idMinhaUnidade || null,
       bloqueio_usuario: penalidadeUsuario ? {
         bloqueado: true,
         motivo: penalidadeUsuario.motivo,
@@ -288,7 +301,7 @@ export class ReservasController {
   /** UC03: registrar a reserva (gatilhos RN01 a RN07 validam no INSERT). */
   @Post() @Perfis('MORADOR')
   async criar(@Req() req: any, @Body() b: {
-    id_area_comum: number; data: string; inicio: string; fim: string; numero_pessoas: number;
+    id_area_comum: number; data: string; inicio: string; fim: string; numero_pessoas: number; id_unidade?: number;
   }) {
     const [area] = await this.db.query(
       `SELECT nome, requer_reserva FROM area_comum WHERE id_area_comum = $1`,
@@ -316,20 +329,39 @@ export class ReservasController {
       );
     }
 
+    // Resolve a unidade da reserva (validando vínculo ativo quando informada)
+    let idUnidadeAlvo: number | null = b.id_unidade ? Number(b.id_unidade) : null;
+    if (idUnidadeAlvo) {
+      const [vinculoValido] = await this.db.query(`
+        SELECT id_unidade FROM pessoa_unidade
+         WHERE id_pessoa = $1 AND id_unidade = $2 AND data_fim_ocupacao IS NULL
+         LIMIT 1`, [idPessoa, idUnidadeAlvo]);
+      if (!vinculoValido) {
+        throw new BadRequestException('Você não possui vínculo ativo com a unidade selecionada para esta reserva.');
+      }
+    } else {
+      const [unPrincipal] = await this.db.query(`
+        SELECT id_unidade FROM pessoa_unidade
+         WHERE id_pessoa = $1 AND data_fim_ocupacao IS NULL
+         ORDER BY reside DESC, id_pessoa_unidade ASC
+         LIMIT 1`, [idPessoa]);
+      idUnidadeAlvo = unPrincipal?.id_unidade ? Number(unPrincipal.id_unidade) : null;
+    }
+
     const idPerfil = perfilDoUsuario(req.user, 'MORADOR');
     const fimAjustado = (b.fim === '24:00' || b.fim === '23:59') ? '23:59:59' : b.fim;
     const res = await this.db.query(`
-      INSERT INTO reserva (id_area_comum, id_perfil, data_hora_inicio, data_hora_fim, numero_pessoas)
-      VALUES ($1,$2,($3 || ' ' || $4)::timestamp,($3 || ' ' || $5)::timestamp,$6)
-      RETURNING id_reserva, status, data_hora_inicio, data_hora_fim`,
-      [b.id_area_comum, idPerfil, b.data, b.inicio, fimAjustado, b.numero_pessoas])
+      INSERT INTO reserva (id_area_comum, id_perfil, id_unidade, data_hora_inicio, data_hora_fim, numero_pessoas)
+      VALUES ($1,$2,$3,($4 || ' ' || $5)::timestamp,($4 || ' ' || $6)::timestamp,$7)
+      RETURNING id_reserva, id_unidade, status, data_hora_inicio, data_hora_fim`,
+      [b.id_area_comum, idPerfil, idUnidadeAlvo, b.data, b.inicio, fimAjustado, b.numero_pessoas])
       .then(r => r[0]);
 
     this.sync.emitir({
       topico: 'RESERVAS',
       acao: 'CRIADO',
       idPessoaAlvo: idPessoa,
-      detalhes: { id_area_comum: b.id_area_comum, data: b.data, id_reserva: res.id_reserva },
+      detalhes: { id_area_comum: b.id_area_comum, data: b.data, id_reserva: res.id_reserva, id_unidade: idUnidadeAlvo },
     });
     return res;
   }
@@ -345,12 +377,27 @@ export class ReservasController {
        WHERE status = 'ATIVA'
          AND data_hora_fim < CURRENT_TIMESTAMP`);
     return this.db.query(`
-      SELECT r.id_reserva, a.nome AS area, r.data_hora_inicio, r.data_hora_fim,
+      SELECT r.id_reserva,
+             COALESCE(r.id_unidade, pu_fallback.id_unidade) AS id_unidade,
+             u.numero_apartamento AS apartamento,
+             b.nome AS bloco,
+             a.nome AS area, r.data_hora_inicio, r.data_hora_fim,
              r.numero_pessoas,
              CASE WHEN r.status = 'ATIVA' AND r.data_hora_fim < CURRENT_TIMESTAMP THEN 'CONCLUIDA'
                   ELSE r.status END AS status,
              a.prazo_cancelamento_horas
-        FROM reserva r JOIN area_comum a ON a.id_area_comum = r.id_area_comum
+        FROM reserva r
+        JOIN area_comum a ON a.id_area_comum = r.id_area_comum
+        JOIN perfil pf ON pf.id_perfil = r.id_perfil
+        LEFT JOIN LATERAL (
+          SELECT pu_lat.id_unidade
+            FROM pessoa_unidade pu_lat
+           WHERE pu_lat.id_pessoa = pf.id_pessoa AND pu_lat.data_fim_ocupacao IS NULL
+           ORDER BY pu_lat.reside DESC, pu_lat.id_pessoa_unidade ASC
+           LIMIT 1
+        ) pu_fallback ON r.id_unidade IS NULL
+        LEFT JOIN unidade u ON u.id_unidade = COALESCE(r.id_unidade, pu_fallback.id_unidade)
+        LEFT JOIN bloco b ON b.id_bloco = u.id_bloco
        WHERE r.id_perfil = $1 AND a.id_condominio = $2
        ORDER BY 
          (CASE WHEN r.status = 'ATIVA' AND r.data_hora_fim >= CURRENT_TIMESTAMP THEN 0 ELSE 1 END),

@@ -15,7 +15,13 @@ type Grade = GradeHorarios;
 /** UC02 + UC03: Nova Reserva de Área Comum (UI/UX Pro Max) */
 export default function NovaReserva() {
   const s = sessaoAtual()!;
-  const unidade = s.unidades[0];
+  const unidadesDisponiveis = s.unidades || [];
+  const [idUnidadeSelecionada, setIdUnidadeSelecionada] = useState<number | undefined>(
+    unidadesDisponiveis[0]?.id_unidade,
+  );
+  const unidade =
+    unidadesDisponiveis.find(u => u.id_unidade === idUnidadeSelecionada) ||
+    unidadesDisponiveis[0];
   const [areas, setAreas] = useState<Area[]>([]);
   const [abaAtiva, setAbaAtiva] = useState<'com_reserva' | 'livre'>('com_reserva');
   const [area, setArea] = useState<Area | null>(null);
@@ -62,7 +68,7 @@ export default function NovaReserva() {
       .catch(() => setDatasOcupadas([]));
   }, [area, mesCalendario]);
 
-  async function consultar(d: string, limparMsg = false) {
+  async function consultar(d: string, limparMsg = false, idUnidOverride?: number) {
     setData(d);
     setSlot(null);
     setGrade(null);
@@ -70,7 +76,9 @@ export default function NovaReserva() {
     if (!area || !d) return;
     setCarregandoGrade(true);
     try {
-      const res = await api.get<Grade>(`/reservas/disponibilidade?area=${area.id_area_comum}&data=${d}`);
+      const idUnidAlvo = idUnidOverride ?? idUnidadeSelecionada;
+      const paramUnidade = idUnidAlvo ? `&id_unidade=${idUnidAlvo}` : '';
+      const res = await api.get<Grade>(`/reservas/disponibilidade?area=${area.id_area_comum}&data=${d}${paramUnidade}`);
       setGrade(res);
       if ((area.reserva_por_dia || res.regras?.reserva_por_dia) && res.slots.length === 1 && res.slots[0].status === 'LIVRE') {
         setSlot(res.slots[0]);
@@ -92,6 +100,7 @@ export default function NovaReserva() {
         inicio: slot.inicio,
         fim: slot.fim,
         numero_pessoas: pessoas,
+        id_unidade: idUnidadeSelecionada,
       });
       window.dispatchEvent(new CustomEvent('oasis:tour-concluir'));
       setMsg({
@@ -322,13 +331,40 @@ export default function NovaReserva() {
         sub="Consulte os espaços coletivos do condomínio, horários de funcionamento e reserve sua data."
         icone={<Icone nome="calendar" className="h-5 w-5" />}
         acao={
-          <div className="flex items-center gap-2 rounded-xl bg-slate-100/80 dark:bg-slate-800 px-3.5 py-1.5 text-xs text-slate-600 dark:text-slate-300 font-medium">
-            <Icone nome="user" className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
-            <span>
-              <b>{s.pessoa.nome}</b>
-              {unidade && ` • Bloco ${unidade.bloco}, Apto ${unidade.numero_apartamento}`}
-            </span>
-          </div>
+          unidadesDisponiveis.length > 1 ? (
+            <div className="flex flex-wrap items-center gap-2 rounded-xl bg-slate-100/80 dark:bg-slate-800 px-3 py-1.5 text-xs text-slate-600 dark:text-slate-300 font-medium">
+              <Icone nome="user" className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
+              <span className="font-bold">{s.pessoa.nome}</span>
+              <span className="text-slate-400">•</span>
+              <select
+                aria-label="Unidade para reserva"
+                className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-xs font-bold text-navy dark:text-sky-400 focus:outline-none cursor-pointer"
+                value={idUnidadeSelecionada ?? ''}
+                onChange={e => {
+                  const novaUnid = Number(e.target.value);
+                  setIdUnidadeSelecionada(novaUnid);
+                  setSlot(null);
+                  if (area && data) {
+                    consultar(data, false, novaUnid);
+                  }
+                }}
+              >
+                {unidadesDisponiveis.map((u, i) => (
+                  <option key={u.id_unidade ?? i} value={u.id_unidade ?? ''}>
+                    {`Bloco ${u.bloco}, Apto ${u.numero_apartamento}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 rounded-xl bg-slate-100/80 dark:bg-slate-800 px-3.5 py-1.5 text-xs text-slate-600 dark:text-slate-300 font-medium">
+              <Icone nome="user" className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
+              <span>
+                <b>{s.pessoa.nome}</b>
+                {unidade && ` • Bloco ${unidade.bloco}, Apto ${unidade.numero_apartamento}`}
+              </span>
+            </div>
+          )
         }
       >
         Áreas Comuns & Reservas
@@ -1051,6 +1087,9 @@ export default function NovaReserva() {
               mensagem={
                 area && slot && (
                   <div className="space-y-2 text-left bg-slate-50 dark:bg-slate-800/80 p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-700/60 text-xs text-slate-700 dark:text-slate-300">
+                    {unidade && unidadesDisponiveis.length > 1 && (
+                      <p>Unidade Solicitante: <b className="text-navy dark:text-sky-400">Bloco {unidade.bloco}, Apto {unidade.numero_apartamento}</b></p>
+                    )}
                     <p>Espaço Coletivo: <b className="text-slate-900 dark:text-slate-100">{area.nome}</b></p>
                     <p>Data do Agendamento: <b className="text-slate-900 dark:text-slate-100">{data} ({grade?.dia_semana})</b></p>
                     <p>Horário Selecionado: <b className="text-slate-900 dark:text-slate-100">{slot.inicio} às {slot.fim}</b></p>

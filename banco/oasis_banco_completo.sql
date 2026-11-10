@@ -202,6 +202,7 @@ CREATE TABLE reserva (
     id_reserva              SERIAL               PRIMARY KEY,
     id_area_comum           INTEGER              NOT NULL,
     id_perfil               INTEGER              NOT NULL,
+    id_unidade              INTEGER,
     data_hora_inicio        TIMESTAMP            NOT NULL,
     data_hora_fim           TIMESTAMP            NOT NULL,
     numero_pessoas          INTEGER              NOT NULL,
@@ -212,6 +213,7 @@ CREATE TABLE reserva (
     observacao              VARCHAR(255),
     CONSTRAINT fk_reserva_area   FOREIGN KEY (id_area_comum) REFERENCES area_comum (id_area_comum),
     CONSTRAINT fk_reserva_perfil FOREIGN KEY (id_perfil)     REFERENCES perfil (id_perfil),
+    CONSTRAINT fk_reserva_unidade FOREIGN KEY (id_unidade)   REFERENCES unidade (id_unidade),
     CONSTRAINT ck_reserva_periodo  CHECK (data_hora_fim > data_hora_inicio),
     CONSTRAINT ck_reserva_mesmodia CHECK (data_hora_fim::date = data_hora_inicio::date),
     CONSTRAINT ck_reserva_pessoas  CHECK (numero_pessoas > 0),
@@ -496,30 +498,66 @@ BEGIN
         RETURN NEW;
     END IF;
 
+    -- no backfill administrativo de id_unidade em reservas existentes nao revalidar antecedencia
+    IF TG_OP = 'UPDATE'
+       AND OLD.id_unidade IS NULL
+       AND NEW.id_unidade IS NOT NULL
+       AND NEW.status = OLD.status
+       AND NEW.id_area_comum = OLD.id_area_comum
+       AND NEW.id_perfil = OLD.id_perfil
+       AND NEW.data_hora_inicio = OLD.data_hora_inicio
+       AND NEW.data_hora_fim = OLD.data_hora_fim THEN
+        RETURN NEW;
+    END IF;
+
     SELECT * INTO v_area FROM area_comum WHERE id_area_comum = NEW.id_area_comum;
 
     IF NOT v_area.ativo THEN
         RAISE EXCEPTION 'Area comum inativa: reservas nao sao permitidas.';
     END IF;
 
+    -- Resolve unidade da reserva quando nao informada explicitamente
+    IF NEW.id_unidade IS NULL THEN
+        SELECT pu.id_unidade INTO NEW.id_unidade
+          FROM perfil pf
+          JOIN pessoa_unidade pu ON pu.id_pessoa = pf.id_pessoa AND pu.data_fim_ocupacao IS NULL
+         WHERE pf.id_perfil = NEW.id_perfil
+         ORDER BY pu.reside DESC, pu.id_pessoa_unidade ASC
+         LIMIT 1;
+    END IF;
+
     -- RN01-A: a mesma unidade nao pode reservar o mesmo horario mais de uma vez
-    IF EXISTS (
+    IF (NEW.id_unidade IS NOT NULL AND EXISTS (
         SELECT 1
           FROM reserva r
-          JOIN perfil pf ON pf.id_perfil = r.id_perfil
-          JOIN pessoa_unidade pu ON pu.id_pessoa = pf.id_pessoa AND pu.data_fim_ocupacao IS NULL
          WHERE r.id_area_comum = NEW.id_area_comum
            AND r.status        IN ('ATIVA', 'CONCLUIDA')
            AND r.id_reserva   <> COALESCE(NEW.id_reserva, -1)
            AND (NEW.data_hora_inicio, NEW.data_hora_fim)
                OVERLAPS (r.data_hora_inicio, r.data_hora_fim)
-           AND pu.id_unidade IN (
-                 SELECT pu2.id_unidade
-                   FROM pessoa_unidade pu2
-                   JOIN perfil pf2 ON pf2.id_pessoa = pu2.id_pessoa
-                  WHERE pf2.id_perfil = NEW.id_perfil
-                    AND pu2.data_fim_ocupacao IS NULL)
-    ) THEN
+           AND (
+               r.id_unidade = NEW.id_unidade
+               OR (
+                   r.id_unidade IS NULL
+                   AND EXISTS (
+                       SELECT 1
+                         FROM perfil pf
+                         JOIN pessoa_unidade pu ON pu.id_pessoa = pf.id_pessoa AND pu.data_fim_ocupacao IS NULL
+                        WHERE pf.id_perfil = r.id_perfil
+                          AND pu.id_unidade = NEW.id_unidade
+                   )
+               )
+           )
+    )) OR (NEW.id_unidade IS NULL AND EXISTS (
+        SELECT 1
+          FROM reserva r
+         WHERE r.id_area_comum = NEW.id_area_comum
+           AND r.status        IN ('ATIVA', 'CONCLUIDA')
+           AND r.id_reserva   <> COALESCE(NEW.id_reserva, -1)
+           AND (NEW.data_hora_inicio, NEW.data_hora_fim)
+               OVERLAPS (r.data_hora_inicio, r.data_hora_fim)
+           AND r.id_perfil = NEW.id_perfil
+    )) THEN
         RAISE EXCEPTION 'RN01: sua unidade ja possui uma reserva ativa para este mesmo horario.';
     END IF;
 
@@ -627,28 +665,49 @@ BEGIN
     END IF;
 
     -- RN07: limite de reservas por unidade (DIARIO, SEMANAL ou MENSAL)
-    SELECT COUNT(DISTINCT r.id_reserva) INTO v_qtd_periodo
-      FROM reserva r
-      JOIN perfil          pf ON pf.id_perfil = r.id_perfil
-      JOIN pessoa_unidade  pu ON pu.id_pessoa = pf.id_pessoa
-                             AND pu.data_fim_ocupacao IS NULL
-     WHERE r.id_area_comum = NEW.id_area_comum
-       AND r.status        IN ('ATIVA', 'CONCLUIDA')
-       AND r.id_reserva   <> COALESCE(NEW.id_reserva, -1)
-       AND (
-           (COALESCE(v_area.tipo_limite_reserva, 'SEMANAL') = 'DIARIO'
-            AND r.data_hora_inicio::date = NEW.data_hora_inicio::date)
-        OR (COALESCE(v_area.tipo_limite_reserva, 'SEMANAL') = 'SEMANAL'
-            AND date_trunc('week', r.data_hora_inicio) = date_trunc('week', NEW.data_hora_inicio))
-        OR (COALESCE(v_area.tipo_limite_reserva, 'SEMANAL') = 'MENSAL'
-            AND date_trunc('month', r.data_hora_inicio) = date_trunc('month', NEW.data_hora_inicio))
-       )
-       AND pu.id_unidade IN (
-             SELECT pu2.id_unidade
-               FROM pessoa_unidade pu2
-               JOIN perfil pf2 ON pf2.id_pessoa = pu2.id_pessoa
-              WHERE pf2.id_perfil = NEW.id_perfil
-                AND pu2.data_fim_ocupacao IS NULL);
+    IF NEW.id_unidade IS NOT NULL THEN
+        SELECT COUNT(DISTINCT r.id_reserva) INTO v_qtd_periodo
+          FROM reserva r
+         WHERE r.id_area_comum = NEW.id_area_comum
+           AND r.status        IN ('ATIVA', 'CONCLUIDA')
+           AND r.id_reserva   <> COALESCE(NEW.id_reserva, -1)
+           AND (
+               (COALESCE(v_area.tipo_limite_reserva, 'SEMANAL') = 'DIARIO'
+                AND r.data_hora_inicio::date = NEW.data_hora_inicio::date)
+            OR (COALESCE(v_area.tipo_limite_reserva, 'SEMANAL') = 'SEMANAL'
+                AND date_trunc('week', r.data_hora_inicio) = date_trunc('week', NEW.data_hora_inicio))
+            OR (COALESCE(v_area.tipo_limite_reserva, 'SEMANAL') = 'MENSAL'
+                AND date_trunc('month', r.data_hora_inicio) = date_trunc('month', NEW.data_hora_inicio))
+           )
+           AND (
+               r.id_unidade = NEW.id_unidade
+               OR (
+                   r.id_unidade IS NULL
+                   AND EXISTS (
+                       SELECT 1
+                         FROM perfil pf
+                         JOIN pessoa_unidade pu ON pu.id_pessoa = pf.id_pessoa AND pu.data_fim_ocupacao IS NULL
+                        WHERE pf.id_perfil = r.id_perfil
+                          AND pu.id_unidade = NEW.id_unidade
+                   )
+               )
+           );
+    ELSE
+        SELECT COUNT(DISTINCT r.id_reserva) INTO v_qtd_periodo
+          FROM reserva r
+         WHERE r.id_area_comum = NEW.id_area_comum
+           AND r.status        IN ('ATIVA', 'CONCLUIDA')
+           AND r.id_reserva   <> COALESCE(NEW.id_reserva, -1)
+           AND r.id_perfil     = NEW.id_perfil
+           AND (
+               (COALESCE(v_area.tipo_limite_reserva, 'SEMANAL') = 'DIARIO'
+                AND r.data_hora_inicio::date = NEW.data_hora_inicio::date)
+            OR (COALESCE(v_area.tipo_limite_reserva, 'SEMANAL') = 'SEMANAL'
+                AND date_trunc('week', r.data_hora_inicio) = date_trunc('week', NEW.data_hora_inicio))
+            OR (COALESCE(v_area.tipo_limite_reserva, 'SEMANAL') = 'MENSAL'
+                AND date_trunc('month', r.data_hora_inicio) = date_trunc('month', NEW.data_hora_inicio))
+           );
+    END IF;
 
     IF v_qtd_periodo >= v_area.limite_reservas_semana THEN
         IF COALESCE(v_area.tipo_limite_reserva, 'SEMANAL') = 'DIARIO' THEN

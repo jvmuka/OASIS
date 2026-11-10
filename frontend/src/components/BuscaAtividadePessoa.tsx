@@ -3,7 +3,7 @@ import { api } from '../api';
 import { Badge, Botao, Cartao, EmptyState, Icone, Modal, mascararCPF, mascararCelular } from './ui';
 import { formatarData, formatarHora } from '../utils/data';
 
-/** Linha bruta retornada por GET /portaria/pessoas/busca (uma por vínculo ativo com unidade). */
+/** Linha bruta retornada por GET /portaria/pessoas/busca. */
 type LinhaBusca = {
   id_pessoa: number;
   nome: string;
@@ -12,6 +12,7 @@ type LinhaBusca = {
   bloco: string | null;
   apartamento: string | null;
   tipo_vinculo: string | null;
+  unidades?: UnidadeVinculo[];
   em_atividade: boolean;
   atividade_area: string | null;
   atividade_inicio: string | null;
@@ -21,7 +22,7 @@ type LinhaBusca = {
 type UnidadeVinculo = { bloco: string | null; apartamento: string | null; tipo_vinculo: string | null };
 
 /** Pessoa com as linhas da busca agrupadas por id_pessoa, preservando o vínculo de cada unidade. */
-type PessoaAgrupada = Omit<LinhaBusca, 'bloco' | 'apartamento' | 'tipo_vinculo'> & {
+type PessoaAgrupada = Omit<LinhaBusca, 'bloco' | 'apartamento' | 'tipo_vinculo' | 'unidades'> & {
   unidades: UnidadeVinculo[];
 };
 
@@ -84,13 +85,23 @@ function normalizarTermo(termo: string) {
 
 function agruparPorPessoa(linhas: LinhaBusca[]): PessoaAgrupada[] {
   const mapa = new Map<number, PessoaAgrupada>();
-  for (const { bloco, apartamento, tipo_vinculo, ...pessoa } of linhas) {
+  for (const { bloco, apartamento, tipo_vinculo, unidades, ...pessoa } of linhas) {
     let atual = mapa.get(pessoa.id_pessoa);
     if (!atual) {
       atual = { ...pessoa, unidades: [] };
       mapa.set(pessoa.id_pessoa, atual);
     }
-    if (bloco || apartamento || tipo_vinculo) {
+    if (Array.isArray(unidades) && unidades.length > 0) {
+      for (const u of unidades) {
+        if (
+          !atual.unidades.some(
+            ex => ex.bloco === u.bloco && ex.apartamento === u.apartamento && ex.tipo_vinculo === u.tipo_vinculo,
+          )
+        ) {
+          atual.unidades.push(u);
+        }
+      }
+    } else if (bloco || apartamento || tipo_vinculo) {
       atual.unidades.push({ bloco, apartamento, tipo_vinculo });
     }
   }

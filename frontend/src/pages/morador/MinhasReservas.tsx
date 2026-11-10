@@ -1,11 +1,14 @@
 import { useSync } from '../../hooks/useSync';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../../api';
+import { api, sessaoAtual } from '../../api';
 import { Botao, Cartao, Mensagem, Titulo, Icone, Badge, EmptyState, Modal, ModalConfirmacao, Paginacao } from '../../components/ui';
 
 type Reserva = {
   id_reserva: number;
+  id_unidade?: number;
+  apartamento?: string;
+  bloco?: string;
   area: string;
   data_hora_inicio: string;
   data_hora_fim: string;
@@ -19,6 +22,8 @@ const ITENS_POR_PAGINA = 8;
 /** UC04 - Listar e cancelar as reservas do morador logado (UI/UX Pro Max) */
 export default function MinhasReservas() {
   const nav = useNavigate();
+  const s = sessaoAtual();
+  const temMultiplasUnidades = (s?.unidades?.length || 0) > 1;
   const [reservas, setReservas] = useState<Reserva[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [filtroStatus, setFiltroStatus] = useState<'FUTURAS' | 'HISTORICO' | 'TODAS'>('FUTURAS');
@@ -434,7 +439,14 @@ export default function MinhasReservas() {
                         <Icone nome="calendar" className="h-5 w-5" />
                       </div>
                       <div>
-                        <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 leading-tight">{r.area}</h3>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 leading-tight">{r.area}</h3>
+                          {temMultiplasUnidades && r.apartamento && (
+                            <span className="rounded-md bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[10px] font-bold text-navy dark:text-sky-400">
+                              {`Bl. ${r.bloco || '-'} • Apto ${r.apartamento}`}
+                            </span>
+                          )}
+                        </div>
                         <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 font-medium">
                           {formatarDataHora(r.data_hora_inicio)} até {formatarDataHora(r.data_hora_fim)}
                         </p>

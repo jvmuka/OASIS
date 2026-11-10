@@ -34,7 +34,13 @@ export interface ModuloSistema {
 export type Sessao = {
   pessoa: { id_pessoa: number; nome: string; email: string };
   perfis: Perfil[];
-  unidades: { bloco: string; numero_apartamento: string }[];
+  unidades: {
+    id_unidade?: number;
+    bloco: string;
+    numero_apartamento: string;
+    tipo_vinculo?: string;
+    reside?: boolean;
+  }[];
   condominio?: CondominioInfo;
   condominiosDisponiveis?: CondominioInfo[];
   modulosAtivos?: string[];

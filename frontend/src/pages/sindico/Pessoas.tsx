@@ -39,6 +39,7 @@ type Responsavel = {
 };
 
 type UnidadeVinculada = {
+  id_pessoa_unidade?: number;
   id_unidade: number;
   bloco: string;
   apartamento: string;
@@ -47,6 +48,22 @@ type UnidadeVinculada = {
   id_responsavel?: number;
   status_aprovacao?: string;
   reside: boolean;
+};
+
+type VinculoUnidadeForm = {
+  id_unidade: string;
+  tipo_vinculo: string;
+  reside: boolean;
+  id_responsavel: string;
+  grau_parentesco: string;
+};
+
+const VINCULO_VAZIO: VinculoUnidadeForm = {
+  id_unidade: '',
+  tipo_vinculo: '',
+  reside: true,
+  id_responsavel: '',
+  grau_parentesco: 'FILHO',
 };
 
 type Pessoa = {
@@ -520,12 +537,8 @@ export default function Pessoas({
     cpf: '',
     data_nascimento: '',
     celular: '',
-    id_unidade: '',
-    tipo_vinculo: '',
+    unidadesVinculos: [{ ...VINCULO_VAZIO }] as VinculoUnidadeForm[],
     perfis: [] as string[],
-    id_responsavel: '',
-    grau_parentesco: 'FILHO',
-    reside: true,
     tipo_servico: '',
   };
 
@@ -535,12 +548,8 @@ export default function Pessoas({
     cpf: string;
     data_nascimento: string;
     celular: string;
-    id_unidade: string;
-    tipo_vinculo: string;
+    unidadesVinculos: VinculoUnidadeForm[];
     perfis: string[];
-    id_responsavel: string;
-    grau_parentesco: string;
-    reside: boolean;
     tipo_servico: string;
   }>(FORM_INICIAL_CADASTRO);
 
@@ -551,12 +560,8 @@ export default function Pessoas({
     cpf: string;
     data_nascimento: string;
     celular: string;
-    id_unidade: string;
-    tipo_vinculo: string;
+    unidadesVinculos: VinculoUnidadeForm[];
     perfis: string[];
-    id_responsavel: string;
-    grau_parentesco: string;
-    reside: boolean;
     tipo_servico: string;
   }>({
     nome: '',
@@ -564,12 +569,8 @@ export default function Pessoas({
     cpf: '',
     data_nascimento: '',
     celular: '',
-    id_unidade: '',
-    tipo_vinculo: '',
+    unidadesVinculos: [{ ...VINCULO_VAZIO }],
     perfis: ['PORTEIRO'],
-    id_responsavel: '',
-    grau_parentesco: 'FILHO',
-    reside: true,
     tipo_servico: '',
   });
 
@@ -595,7 +596,8 @@ export default function Pessoas({
   function togglePerfilEdicao(tipo: string) {
     if (ehUnicoAdmin && tipo === 'SINDICO') return;
 
-    if (tipo === 'MORADOR' && !formEdicao.id_unidade) {
+    const temUnidadeEdicao = formEdicao.unidadesVinculos.some(v => Boolean(v.id_unidade));
+    if (tipo === 'MORADOR' && !temUnidadeEdicao) {
       setErroEdicao('Para selecionar o papel de Morador, você deve vincular uma unidade residencial acima.');
       return;
     }
@@ -605,7 +607,7 @@ export default function Pessoas({
 
     // Se está desmarcando o tipo que já estava selecionado
     if (atuais.includes(tipo)) {
-      if (tipo === 'MORADOR' && formEdicao.id_unidade) {
+      if (tipo === 'MORADOR' && temUnidadeEdicao) {
         setErroEdicao('Este usuário possui uma unidade vinculada e deve obrigatoriamente manter o perfil de Morador. Para remover o perfil de Morador, desvincule a unidade primeiro.');
         return;
       }
@@ -621,7 +623,8 @@ export default function Pessoas({
   }
 
   function togglePerfilCadastro(tipo: string) {
-    if (tipo === 'MORADOR' && !form.id_unidade) {
+    const temUnidadeCadastro = form.unidadesVinculos.some(v => Boolean(v.id_unidade));
+    if (tipo === 'MORADOR' && !temUnidadeCadastro) {
       setErroCadastro('Para selecionar o papel de Morador, você deve vincular uma unidade residencial acima.');
       return;
     }
@@ -631,7 +634,7 @@ export default function Pessoas({
 
     // Se está desmarcando o tipo que já estava selecionado
     if (atuais.includes(tipo)) {
-      if (tipo === 'MORADOR' && form.id_unidade) {
+      if (tipo === 'MORADOR' && temUnidadeCadastro) {
         setErroCadastro('Esta pessoa possui uma unidade vinculada e deve obrigatoriamente manter o perfil de Morador. Para remover o perfil de Morador, desvincule a unidade primeiro.');
         return;
       }
@@ -757,15 +760,14 @@ export default function Pessoas({
     // 4. Filtro Função / Papel no Condomínio
     if (filtroFuncao && filtroFuncao !== 'TODAS') {
       const tiposPerfis = (p.perfis || []).map(pf => pf.tipo);
-      const uAtiva = p.unidades && p.unidades[0];
-      const vinculo = uAtiva?.vinculo;
+      const listaUnid = p.unidades || [];
 
       if (filtroFuncao === 'PROPRIETARIO') {
-        if (vinculo !== 'PROPRIETARIO') return false;
+        if (!listaUnid.some(u => u.vinculo === 'PROPRIETARIO')) return false;
       } else if (filtroFuncao === 'INQUILINO') {
-        if (vinculo !== 'INQUILINO') return false;
+        if (!listaUnid.some(u => u.vinculo === 'INQUILINO')) return false;
       } else if (filtroFuncao === 'DEPENDENTE') {
-        if (vinculo !== 'DEPENDENTE') return false;
+        if (!listaUnid.some(u => u.vinculo === 'DEPENDENTE')) return false;
       } else if (filtroFuncao === 'MORADOR') {
         if (!tiposPerfis.includes('MORADOR')) return false;
       } else if (filtroFuncao === 'PORTEIRO') {
@@ -773,9 +775,9 @@ export default function Pessoas({
       } else if (filtroFuncao === 'ADMINISTRADOR') {
         if (!tiposPerfis.includes('SINDICO') && !tiposPerfis.includes('ADMINISTRADOR')) return false;
       } else if (filtroFuncao === 'VISITANTE') {
-        if (p.papel_controle !== 'VISITANTE' && vinculo !== 'VISITANTE') return false;
+        if (p.papel_controle !== 'VISITANTE' && !listaUnid.some(u => u.vinculo === 'VISITANTE')) return false;
       } else if (filtroFuncao === 'PRESTADOR_SERVICO') {
-        if (p.papel_controle !== 'PRESTADOR_SERVICO' && vinculo !== 'PRESTADOR_SERVICO') return false;
+        if (p.papel_controle !== 'PRESTADOR_SERVICO' && !listaUnid.some(u => u.vinculo === 'PRESTADOR_SERVICO')) return false;
       }
     }
 
@@ -867,38 +869,55 @@ export default function Pessoas({
       return;
     }
 
+    const vinculosValidos = (form.unidadesVinculos || []).filter(v => Boolean(v.id_unidade) && Number(v.id_unidade) > 0);
+
     // Validação obrigatória de Morador: exige unidade vinculada
-    if (form.perfis.includes('MORADOR') && (!form.id_unidade || Number(form.id_unidade) <= 0)) {
+    if (form.perfis.includes('MORADOR') && vinculosValidos.length === 0) {
       setErroCadastro('Para o papel de Morador, é obrigatório selecionar uma unidade vinculada (bloco e apartamento).');
       setMsg({ t: 'Para o papel de Morador, é obrigatório selecionar uma unidade vinculada.', tipo: 'erro' });
       return;
     }
 
     // Se vinculou unidade, deve conter o papel Morador
-    if (form.id_unidade && !form.perfis.includes('MORADOR')) {
+    if (vinculosValidos.length > 0 && !form.perfis.includes('MORADOR')) {
       setErroCadastro('Ao vincular uma unidade residencial, é obrigatório atribuir o perfil de Morador para esta pessoa.');
       setMsg({ t: 'Ao vincular uma unidade, o perfil de Morador é obrigatório.', tipo: 'erro' });
       return;
     }
+
+    const depSemResp = vinculosValidos.find(v => v.tipo_vinculo === 'DEPENDENTE' && !v.id_responsavel);
+    if (depSemResp) {
+      setErroCadastro('Selecione o titular responsável para o vínculo de Dependente Familiar.');
+      setMsg({ t: 'Selecione o titular responsável do dependente.', tipo: 'erro' });
+      return;
+    }
+
+    const unidadesPayload = vinculosValidos.map(v => ({
+      id_unidade: Number(v.id_unidade),
+      tipo_vinculo: v.tipo_vinculo || 'INQUILINO',
+      reside: v.tipo_vinculo === 'PROPRIETARIO' ? v.reside : true,
+      id_responsavel: v.tipo_vinculo === 'DEPENDENTE' && v.id_responsavel ? Number(v.id_responsavel) : undefined,
+      grau_parentesco: v.tipo_vinculo === 'DEPENDENTE' ? v.grau_parentesco : undefined,
+    }));
 
     setSalvando(true);
     setErroCadastro(null);
     setMsg({ t: '', tipo: 'ok' });
     try {
       const res = await api.post<any>('/cadastros/pessoas', {
-        ...form,
+        nome: form.nome,
+        email: form.email,
         cpf: cpfLimpo,
+        data_nascimento: form.data_nascimento,
+        celular: form.celular,
         perfis: form.perfis,
-        tipo_vinculo: form.id_unidade ? form.tipo_vinculo : undefined,
-        id_unidade: form.id_unidade ? Number(form.id_unidade) : undefined,
-        id_responsavel: form.id_unidade && form.tipo_vinculo === 'DEPENDENTE' && form.id_responsavel ? Number(form.id_responsavel) : undefined,
-        grau_parentesco: form.id_unidade && form.tipo_vinculo === 'DEPENDENTE' ? form.grau_parentesco : undefined,
-        reside: form.reside,
+        tipo_servico: form.tipo_servico || undefined,
+        unidades: unidadesPayload,
       });
 
       setMsg({ t: `Usuário "${form.nome}" cadastrado com sucesso!`, tipo: 'ok' });
       setCodigoGeradoSucesso(res.codigo_ativacao || null);
-      setForm({ ...FORM_INICIAL_CADASTRO });
+      setForm({ ...FORM_INICIAL_CADASTRO, unidadesVinculos: [{ ...VINCULO_VAZIO }] });
       setModalAberto(false);
       carregarPessoas();
       carregarUnidades();
@@ -984,16 +1003,16 @@ export default function Pessoas({
     }
 
     setPessoaEditando(pNormalizado);
-    const u = pNormalizado.unidades && pNormalizado.unidades[0];
+    const listaUnidadesPessoa: any[] = pNormalizado.unidades || [];
     const tipos = (pNormalizado.perfis || []).map((pf: any) => (typeof pf === 'string' ? pf : pf.tipo));
     const perfisAtivos: string[] = [];
     if (tipos.includes('MORADOR')) perfisAtivos.push('MORADOR');
     if (tipos.includes('PORTEIRO')) perfisAtivos.push('PORTEIRO');
     if (tipos.includes('SINDICO') || tipos.includes('ADMINISTRADOR')) perfisAtivos.push('SINDICO');
 
-    if (!u) {
+    if (listaUnidadesPessoa.length === 0) {
       // Sem unidade vinculada: pessoa não pode ter perfil de morador
-      const filtrados = perfisAtivos.filter(p => p !== 'MORADOR');
+      const filtrados = perfisAtivos.filter(pf => pf !== 'MORADOR');
       perfisAtivos.length = 0;
       perfisAtivos.push(...(filtrados.length > 0 ? filtrados : ['PORTEIRO']));
     } else {
@@ -1003,21 +1022,31 @@ export default function Pessoas({
       }
     }
 
-    if (perfisAtivos.length === 0) perfisAtivos.push(u ? 'MORADOR' : 'PORTEIRO');
+    if (perfisAtivos.length === 0) perfisAtivos.push(listaUnidadesPessoa.length > 0 ? 'MORADOR' : 'PORTEIRO');
 
-    let vinculoInicial = u ? (u.vinculo || 'PROPRIETARIO') : '';
-    if (vinculoInicial === 'PRESTADOR_SERVICO' || vinculoInicial === 'VISITANTE') {
-      vinculoInicial = 'PROPRIETARIO';
-    }
-    if (u) {
-      const unidInfo = unidades.find(un => un.id_unidade === u.id_unidade);
-      const st = obterStatusVinculosUnidade(unidInfo, pNormalizado.id_pessoa, pNormalizado);
-      if (vinculoInicial === 'PROPRIETARIO' && !st.podeProprietario) {
-        vinculoInicial = st.sugestaoVinculo;
-      } else if (vinculoInicial === 'INQUILINO' && !st.podeInquilino) {
-        vinculoInicial = st.sugestaoVinculo;
-      }
-    }
+    const unidadesVinculos: VinculoUnidadeForm[] =
+      listaUnidadesPessoa.length > 0
+        ? listaUnidadesPessoa.map((u: any) => {
+            let vinculoInicial = u.vinculo || u.tipo_vinculo || 'PROPRIETARIO';
+            if (vinculoInicial === 'PRESTADOR_SERVICO' || vinculoInicial === 'VISITANTE') {
+              vinculoInicial = 'PROPRIETARIO';
+            }
+            const unidInfo = unidades.find(un => Number(un.id_unidade) === Number(u.id_unidade));
+            const st = obterStatusVinculosUnidade(unidInfo, pNormalizado.id_pessoa, pNormalizado);
+            if (vinculoInicial === 'PROPRIETARIO' && !st.podeProprietario) {
+              vinculoInicial = st.sugestaoVinculo;
+            } else if (vinculoInicial === 'INQUILINO' && !st.podeInquilino) {
+              vinculoInicial = st.sugestaoVinculo;
+            }
+            return {
+              id_unidade: String(u.id_unidade),
+              tipo_vinculo: vinculoInicial,
+              reside: u.reside !== undefined ? Boolean(u.reside) : true,
+              id_responsavel: u.id_responsavel ? String(u.id_responsavel) : '',
+              grau_parentesco: u.parentesco || u.grau_parentesco || 'FILHO',
+            };
+          })
+        : [{ ...VINCULO_VAZIO }];
 
     setFormEdicao({
       nome: pNormalizado.nome || '',
@@ -1025,12 +1054,8 @@ export default function Pessoas({
       cpf: mascararCPF(pNormalizado.cpf || ''),
       data_nascimento: pNormalizado.data_nascimento ? pNormalizado.data_nascimento.substring(0, 10) : '',
       celular: mascararCelular(pNormalizado.celular || ''),
-      id_unidade: u ? String(u.id_unidade) : '',
-      tipo_vinculo: vinculoInicial,
+      unidadesVinculos,
       perfis: perfisAtivos,
-      id_responsavel: u?.id_responsavel ? String(u.id_responsavel) : (pNormalizado.id_responsavel ? String(pNormalizado.id_responsavel) : ''),
-      grau_parentesco: u?.parentesco || pNormalizado.grau_parentesco || 'FILHO',
-      reside: u?.reside !== undefined ? u.reside : (pNormalizado.reside !== undefined ? pNormalizado.reside : true),
       tipo_servico: pNormalizado.tipo_servico || '',
     });
     setErroEdicao(null);
@@ -1059,19 +1084,36 @@ export default function Pessoas({
       return;
     }
 
+    const vinculosValidos = (formEdicao.unidadesVinculos || []).filter(v => Boolean(v.id_unidade) && Number(v.id_unidade) > 0);
+
     // Validação obrigatória de Morador: exige unidade vinculada
-    if (formEdicao.perfis.includes('MORADOR') && (!formEdicao.id_unidade || Number(formEdicao.id_unidade) <= 0)) {
+    if (formEdicao.perfis.includes('MORADOR') && vinculosValidos.length === 0) {
       setErroEdicao('Para o papel de Morador, é obrigatório selecionar uma unidade vinculada (bloco e apartamento).');
       setMsg({ t: 'Para o papel de Morador, é obrigatório selecionar uma unidade vinculada.', tipo: 'erro' });
       return;
     }
 
     // Se vinculou unidade, deve conter o papel Morador
-    if (formEdicao.id_unidade && !formEdicao.perfis.includes('MORADOR')) {
+    if (vinculosValidos.length > 0 && !formEdicao.perfis.includes('MORADOR')) {
       setErroEdicao('Ao vincular uma unidade, é obrigatório atribuir o perfil de Morador para esta pessoa.');
       setMsg({ t: 'Ao vincular uma unidade, o perfil de Morador é obrigatório.', tipo: 'erro' });
       return;
     }
+
+    const depSemResp = vinculosValidos.find(v => v.tipo_vinculo === 'DEPENDENTE' && !v.id_responsavel);
+    if (depSemResp) {
+      setErroEdicao('Selecione o titular responsável para o vínculo de Dependente Familiar.');
+      setMsg({ t: 'Selecione o titular responsável do dependente.', tipo: 'erro' });
+      return;
+    }
+
+    const unidadesPayload = vinculosValidos.map(v => ({
+      id_unidade: Number(v.id_unidade),
+      tipo_vinculo: v.tipo_vinculo || 'INQUILINO',
+      reside: v.tipo_vinculo === 'PROPRIETARIO' ? v.reside : true,
+      id_responsavel: v.tipo_vinculo === 'DEPENDENTE' && v.id_responsavel ? Number(v.id_responsavel) : null,
+      grau_parentesco: v.tipo_vinculo === 'DEPENDENTE' ? v.grau_parentesco : null,
+    }));
 
     setSalvandoEdicao(true);
     setErroEdicao(null);
@@ -1083,15 +1125,8 @@ export default function Pessoas({
         cpf: cpfLimpo,
         celular: formEdicao.celular,
         data_nascimento: formEdicao.data_nascimento ? formEdicao.data_nascimento : null,
-        id_unidade: formEdicao.id_unidade ? Number(formEdicao.id_unidade) : null,
-        tipo_vinculo: formEdicao.id_unidade ? formEdicao.tipo_vinculo : null,
-        id_responsavel:
-          formEdicao.id_unidade && formEdicao.tipo_vinculo === 'DEPENDENTE' && formEdicao.id_responsavel
-            ? Number(formEdicao.id_responsavel)
-            : null,
-        grau_parentesco: formEdicao.id_unidade && formEdicao.tipo_vinculo === 'DEPENDENTE' ? formEdicao.grau_parentesco : null,
+        unidades: unidadesPayload,
         perfis: formEdicao.perfis,
-        reside: formEdicao.reside,
         tipo_servico: null,
         papel_controle: formEdicao.perfis[0] || 'MORADOR',
       });
@@ -1100,9 +1135,22 @@ export default function Pessoas({
       if (sessao && sessao.pessoa.id_pessoa === pessoaEditando.id_pessoa) {
         const token = localStorage.getItem('oasis_token') || '';
         const novosPerfisObj = formEdicao.perfis.map((tp, idx) => ({ id_perfil: idx + 1, tipo: tp as any }));
+        const novasUnidadesSessao = vinculosValidos
+          .map(v => {
+            const uObj = unidades.find(un => Number(un.id_unidade) === Number(v.id_unidade));
+            return {
+              id_unidade: Number(v.id_unidade),
+              bloco: uObj?.bloco || '',
+              numero_apartamento: uObj?.numero_apartamento || '',
+              tipo_vinculo: v.tipo_vinculo || 'INQUILINO',
+              reside: v.tipo_vinculo === 'PROPRIETARIO' ? v.reside : true,
+            };
+          })
+          .sort((a, b) => Number(b.reside) - Number(a.reside) || a.bloco.localeCompare(b.bloco) || a.numero_apartamento.localeCompare(b.numero_apartamento));
         salvarSessao(token, {
           ...sessao,
           perfis: novosPerfisObj,
+          unidades: novasUnidadesSessao,
         });
       }
 
@@ -1316,12 +1364,16 @@ export default function Pessoas({
       cpf: '',
       data_nascimento: '',
       celular: '',
-      id_unidade: String(idUnidade),
-      tipo_vinculo: 'DEPENDENTE',
+      unidadesVinculos: [
+        {
+          id_unidade: String(idUnidade),
+          tipo_vinculo: 'DEPENDENTE',
+          reside: true,
+          id_responsavel: String(titular.id_pessoa),
+          grau_parentesco: 'FILHO',
+        },
+      ],
       perfis: ['MORADOR'],
-      id_responsavel: String(titular.id_pessoa),
-      grau_parentesco: 'FILHO',
-      reside: true,
       tipo_servico: '',
     });
     setErroCadastro(null);
@@ -1329,143 +1381,481 @@ export default function Pessoas({
     setModalAberto(true);
   }
 
-  const c = (k: keyof typeof form) => (e: React.ChangeEvent<any>) => {
-    const val = e.target.value;
-    if (k === 'id_unidade') {
-      if (!val) {
-        setForm(prev => ({
+  function atualizarListaVinculos(
+    ehEdicao: boolean,
+    fnAtualizar: (
+      lista: VinculoUnidadeForm[],
+      perfisAtuais: string[],
+    ) => { unidadesVinculos: VinculoUnidadeForm[]; perfis?: string[] },
+  ) {
+    if (ehEdicao) {
+      setFormEdicao(prev => {
+        const res = fnAtualizar(prev.unidadesVinculos, prev.perfis);
+        return {
           ...prev,
-          id_unidade: '',
-          tipo_vinculo: '',
-          id_responsavel: '',
-        }));
-        return;
-      } else {
-        let novosPerfis = [...form.perfis];
-        if (!novosPerfis.includes('MORADOR')) {
-          novosPerfis.push('MORADOR');
-        }
-        const unid = unidades.find(u => String(u.id_unidade) === String(val));
-        const st = obterStatusVinculosUnidade(unid);
-        setForm(prev => {
-          let novoVinculo = prev.tipo_vinculo;
-          if (!novoVinculo || (novoVinculo === 'PROPRIETARIO' && !st.podeProprietario) || (novoVinculo === 'INQUILINO' && !st.podeInquilino)) {
-            novoVinculo = st.sugestaoVinculo;
-          }
-          return {
-            ...prev,
-            id_unidade: val,
-            perfis: novosPerfis,
-            tipo_vinculo: novoVinculo,
-            reside: novoVinculo === 'PROPRIETARIO' ? prev.reside : true,
-          };
-        });
-        return;
-      }
+          unidadesVinculos: res.unidadesVinculos,
+          ...(res.perfis ? { perfis: res.perfis } : {}),
+        };
+      });
+    } else {
+      setForm(prev => {
+        const res = fnAtualizar(prev.unidadesVinculos, prev.perfis);
+        return {
+          ...prev,
+          unidadesVinculos: res.unidadesVinculos,
+          ...(res.perfis ? { perfis: res.perfis } : {}),
+        };
+      });
     }
-    if (k === 'tipo_vinculo') {
-      const unid = unidades.find(u => String(u.id_unidade) === String(form.id_unidade));
-      const st = obterStatusVinculosUnidade(unid);
-      if (val === 'PROPRIETARIO' && !st.podeProprietario) {
-        setErroCadastro(`Não é possível selecionar Proprietário (Titular): ${st.motivoProprietario}.`);
-        return;
-      }
-      if (val === 'INQUILINO' && !st.podeInquilino) {
-        setErroCadastro(`Não é possível selecionar Inquilino: ${st.motivoInquilino}.`);
-        return;
-      }
-      setErroCadastro(null);
-      setForm(prev => ({
-        ...prev,
-        tipo_vinculo: val,
-        reside: val === 'PROPRIETARIO' ? prev.reside : true,
-      }));
+  }
+
+  function alterarUnidadeLinha(ehEdicao: boolean, idx: number, val: string) {
+    const listaAtual = ehEdicao ? formEdicao.unidadesVinculos : form.unidadesVinculos;
+    const setErro = ehEdicao ? setErroEdicao : setErroCadastro;
+
+    if (val && listaAtual.some((item, i) => i !== idx && String(item.id_unidade) === String(val))) {
+      setErro('Esta unidade já foi adicionada na lista acima.');
       return;
     }
-    setForm(prev => ({ ...prev, [k]: val }));
-  };
+    setErro(null);
 
-  const cEdicao = (k: keyof typeof formEdicao) => (e: React.ChangeEvent<any>) => {
-    const val = e.target.value;
-    if (k === 'id_unidade') {
+    atualizarListaVinculos(ehEdicao, (lista, perfisAtuais) => {
       if (!val) {
-        // Sem unidade: remove MORADOR dos perfis e zera tipo_vinculo
-        const novosPerfis = formEdicao.perfis.filter(p => p !== 'MORADOR');
-        if (novosPerfis.length === 0) {
-          novosPerfis.push('PORTEIRO');
+        const novaLista = lista.map((item, i) => (i === idx ? { ...VINCULO_VAZIO } : item));
+        const aindaTemUnidade = novaLista.some(u => Boolean(u.id_unidade));
+        if (ehEdicao && !aindaTemUnidade) {
+          const novosPerfis = perfisAtuais.filter(p => p !== 'MORADOR');
+          if (novosPerfis.length === 0) novosPerfis.push('PORTEIRO');
+          return { unidadesVinculos: novaLista, perfis: novosPerfis };
         }
-        setFormEdicao(prev => ({
-          ...prev,
-          id_unidade: '',
-          tipo_vinculo: '',
-          id_responsavel: '',
-          perfis: novosPerfis,
-        }));
-        return;
-      } else {
-        // Com unidade vinculada:
-        let novosPerfis = [...formEdicao.perfis];
-        if (!novosPerfis.includes('MORADOR')) {
-          novosPerfis.push('MORADOR');
-        }
-        const unid = unidades.find(u => String(u.id_unidade) === String(val));
-        const st = obterStatusVinculosUnidade(unid, pessoaEditando?.id_pessoa, pessoaEditando);
-        setFormEdicao(prev => {
-          let novoVinculo = prev.tipo_vinculo;
-          if (!novoVinculo || (novoVinculo === 'PROPRIETARIO' && !st.podeProprietario) || (novoVinculo === 'INQUILINO' && !st.podeInquilino)) {
-            novoVinculo = st.sugestaoVinculo;
-          }
-          return {
-            ...prev,
-            id_unidade: val,
-            perfis: novosPerfis,
-            tipo_vinculo: novoVinculo,
-            reside: novoVinculo === 'PROPRIETARIO' ? prev.reside : true,
-          };
-        });
-        return;
+        return { unidadesVinculos: novaLista };
       }
-    }
-    if (k === 'tipo_vinculo') {
-      const unid = unidades.find(u => String(u.id_unidade) === String(formEdicao.id_unidade));
-      const st = obterStatusVinculosUnidade(unid, pessoaEditando?.id_pessoa, pessoaEditando);
-      if (val === 'PROPRIETARIO' && !st.podeProprietario) {
-        setErroEdicao(`Não é possível selecionar Proprietário (Titular): ${st.motivoProprietario}.`);
-        return;
+
+      const unid = unidades.find(u => String(u.id_unidade) === String(val));
+      const st = obterStatusVinculosUnidade(
+        unid,
+        ehEdicao ? pessoaEditando?.id_pessoa : undefined,
+        ehEdicao ? pessoaEditando : null,
+      );
+      const itemAtual = lista[idx] || VINCULO_VAZIO;
+      let novoVinculo = itemAtual.tipo_vinculo;
+      if (
+        !novoVinculo ||
+        (novoVinculo === 'PROPRIETARIO' && !st.podeProprietario) ||
+        (novoVinculo === 'INQUILINO' && !st.podeInquilino)
+      ) {
+        novoVinculo = st.sugestaoVinculo;
       }
-      if (val === 'INQUILINO' && !st.podeInquilino) {
-        setErroEdicao(`Não é possível selecionar Inquilino: ${st.motivoInquilino}.`);
-        return;
-      }
-      setErroEdicao(null);
-      setFormEdicao(prev => ({
-        ...prev,
-        tipo_vinculo: val,
-        reside: val === 'PROPRIETARIO' ? prev.reside : true,
-      }));
+      const novaLista = lista.map((item, i) =>
+        i === idx
+          ? {
+              ...item,
+              id_unidade: val,
+              tipo_vinculo: novoVinculo,
+              reside: novoVinculo === 'PROPRIETARIO' ? item.reside : true,
+              id_responsavel: '',
+            }
+          : item,
+      );
+      const novosPerfis = perfisAtuais.includes('MORADOR') ? perfisAtuais : [...perfisAtuais, 'MORADOR'];
+      return { unidadesVinculos: novaLista, perfis: novosPerfis };
+    });
+  }
+
+  function alterarTipoVinculoLinha(ehEdicao: boolean, idx: number, val: string) {
+    const listaAtual = ehEdicao ? formEdicao.unidadesVinculos : form.unidadesVinculos;
+    const setErro = ehEdicao ? setErroEdicao : setErroCadastro;
+    const itemAtual = listaAtual[idx];
+    if (!itemAtual) return;
+
+    const unid = unidades.find(u => String(u.id_unidade) === String(itemAtual.id_unidade));
+    const st = obterStatusVinculosUnidade(
+      unid,
+      ehEdicao ? pessoaEditando?.id_pessoa : undefined,
+      ehEdicao ? pessoaEditando : null,
+    );
+    if (val === 'PROPRIETARIO' && !st.podeProprietario) {
+      setErro(`Não é possível selecionar Proprietário (Titular): ${st.motivoProprietario}.`);
       return;
     }
-    setFormEdicao(prev => ({ ...prev, [k]: val }));
-  };
+    if (val === 'INQUILINO' && !st.podeInquilino) {
+      setErro(`Não é possível selecionar Inquilino: ${st.motivoInquilino}.`);
+      return;
+    }
+    setErro(null);
+    atualizarListaVinculos(ehEdicao, lista => ({
+      unidadesVinculos: lista.map((item, i) =>
+        i === idx
+          ? {
+              ...item,
+              tipo_vinculo: val,
+              reside: val === 'PROPRIETARIO' ? item.reside : true,
+            }
+          : item,
+      ),
+    }));
+  }
 
-  // Titulares na unidade selecionada (Cadastro)
-  const titularesNaUnidade = pessoas.filter(p =>
-    p.unidades.some(
-      u =>
-        String(u.id_unidade) === String(form.id_unidade) &&
-        (u.vinculo === 'PROPRIETARIO' || u.vinculo === 'INQUILINO')
-    )
-  );
+  function alterarCampoVinculoLinha(
+    ehEdicao: boolean,
+    idx: number,
+    patch: Partial<VinculoUnidadeForm>,
+  ) {
+    atualizarListaVinculos(ehEdicao, lista => ({
+      unidadesVinculos: lista.map((item, i) => (i === idx ? { ...item, ...patch } : item)),
+    }));
+  }
 
-  // Titulares na unidade selecionada (Edição)
-  const titularesNaUnidadeEdicao = pessoas.filter(p =>
-    p.id_pessoa !== pessoaEditando?.id_pessoa &&
-    p.unidades.some(
-      u =>
-        String(u.id_unidade) === String(formEdicao.id_unidade) &&
-        (u.vinculo === 'PROPRIETARIO' || u.vinculo === 'INQUILINO')
-    )
-  );
+  function removerLinhaVinculo(ehEdicao: boolean, idx: number) {
+    const setErro = ehEdicao ? setErroEdicao : setErroCadastro;
+    setErro(null);
+    atualizarListaVinculos(ehEdicao, (lista, perfisAtuais) => {
+      const novaLista =
+        lista.length <= 1 ? [{ ...VINCULO_VAZIO }] : lista.filter((_, i) => i !== idx);
+      const aindaTemUnidade = novaLista.some(u => Boolean(u.id_unidade));
+      if (ehEdicao && !aindaTemUnidade) {
+        const novosPerfis = perfisAtuais.filter(p => p !== 'MORADOR');
+        if (novosPerfis.length === 0) novosPerfis.push('PORTEIRO');
+        return { unidadesVinculos: novaLista, perfis: novosPerfis };
+      }
+      return { unidadesVinculos: novaLista };
+    });
+  }
+
+  function renderEditorUnidades(ehEdicao: boolean) {
+    const estado = ehEdicao ? formEdicao : form;
+    const vinculos = estado.unidadesVinculos;
+    const temMaisDeUma = vinculos.length > 1;
+    const temAlgumaUnidade = vinculos.some(v => Boolean(v.id_unidade));
+
+    return (
+      <div className="space-y-3">
+        {vinculos.map((v, idx) => {
+          const unidSel = unidades.find(u => String(u.id_unidade) === String(v.id_unidade));
+          const st = obterStatusVinculosUnidade(
+            unidSel,
+            ehEdicao ? pessoaEditando?.id_pessoa : undefined,
+            ehEdicao ? pessoaEditando : null,
+          );
+          const temOcupantes =
+            unidSel &&
+            (Number(unidSel.total_ocupantes || unidSel.total_moradores || 0) > 0 ||
+              Boolean(unidSel.proprietario || unidSel.inquilino));
+          const titularesNaUnid = pessoas.filter(
+            p =>
+              (!ehEdicao || p.id_pessoa !== pessoaEditando?.id_pessoa) &&
+              (p.unidades || []).some(
+                u =>
+                  String(u.id_unidade) === String(v.id_unidade) &&
+                  (u.vinculo === 'PROPRIETARIO' || u.vinculo === 'INQUILINO'),
+              ),
+          );
+
+          return (
+            <div
+              key={idx}
+              className={
+                temMaisDeUma
+                  ? 'rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/60 p-3 space-y-3'
+                  : 'space-y-3'
+              }
+            >
+              {temMaisDeUma && (
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-navy dark:text-sky-400">
+                    {`Unidade #${idx + 1}`}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removerLinhaVinculo(ehEdicao, idx)}
+                    className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/50 transition-colors cursor-pointer"
+                  >
+                    <Icone nome="x" className="h-3.5 w-3.5" />
+                    Remover
+                  </button>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="sm:col-span-1">
+                  <Campo
+                    rotulo={temMaisDeUma ? `Unidade #${idx + 1}` : 'Unidade'}
+                    obrigatorio={estado.perfis.includes('MORADOR') && idx === 0}
+                  >
+                    <select
+                      className={inputCls}
+                      value={v.id_unidade}
+                      onChange={e => alterarUnidadeLinha(ehEdicao, idx, e.target.value)}
+                      required={estado.perfis.includes('MORADOR') && idx === 0}
+                    >
+                      <option value="">
+                        {idx === 0
+                          ? 'Nenhuma (para Porteiro / Administrador)'
+                          : 'Selecione o apartamento adicional...'}
+                      </option>
+                      {unidades
+                        .filter(u => u.bloco !== 'Prédio' && u.numero_apartamento !== 'Geral')
+                        .map(u => {
+                          const jaSelecionadaEmOutra = vinculos.some(
+                            (outro, oi) =>
+                              oi !== idx && String(outro.id_unidade) === String(u.id_unidade),
+                          );
+                          return (
+                            <option
+                              key={u.id_unidade}
+                              value={String(u.id_unidade)}
+                              disabled={jaSelecionadaEmOutra}
+                            >
+                              {`Bloco ${u.bloco} - Apto ${u.numero_apartamento} ${obterTextoOcupacaoUnidade(u)}${
+                                jaSelecionadaEmOutra ? ' [Já vinculada]' : ''
+                              }`}
+                            </option>
+                          );
+                        })}
+                    </select>
+                  </Campo>
+                </div>
+
+                <div className="sm:col-span-1">
+                  <Campo rotulo="Tipo de Vínculo">
+                    <select
+                      className={`${inputCls} ${
+                        !v.id_unidade
+                          ? 'cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 opacity-90'
+                          : ''
+                      }`}
+                      value={!v.id_unidade ? '' : v.tipo_vinculo}
+                      onChange={e => alterarTipoVinculoLinha(ehEdicao, idx, e.target.value)}
+                      disabled={!v.id_unidade}
+                    >
+                      {!v.id_unidade ? (
+                        <option value="">Não aplicável (sem unidade vinculada)</option>
+                      ) : (
+                        <>
+                          <option
+                            value="PROPRIETARIO"
+                            disabled={!st.podeProprietario}
+                            className={
+                              !st.podeProprietario
+                                ? 'text-slate-400 bg-slate-100 dark:bg-slate-800'
+                                : ''
+                            }
+                          >
+                            {`Proprietário (Titular)${
+                              !st.podeProprietario ? ` — (${st.motivoProprietario})` : ''
+                            }`}
+                          </option>
+                          <option
+                            value="INQUILINO"
+                            disabled={!st.podeInquilino}
+                            className={
+                              !st.podeInquilino
+                                ? 'text-slate-400 bg-slate-100 dark:bg-slate-800'
+                                : ''
+                            }
+                          >
+                            {`Inquilino (Titular Locação)${
+                              !st.podeInquilino ? ` — (${st.motivoInquilino})` : ''
+                            }`}
+                          </option>
+                          <option value="DEPENDENTE">Dependente Familiar</option>
+                        </>
+                      )}
+                    </select>
+                  </Campo>
+                  {!v.id_unidade && (
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+                      {ehEdicao
+                        ? 'Selecione uma unidade acima para definir o tipo de vínculo.'
+                        : 'Selecione uma unidade acima para definir o tipo de vínculo de morador.'}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {temOcupantes && unidSel && (
+                <div className="rounded-xl border border-amber-300 bg-amber-50/95 dark:border-amber-800 dark:bg-amber-950/60 p-3 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5 shadow-2xs animate-fade-in">
+                  <Icone nome="alert" className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+                  <div className="space-y-1.5 w-full">
+                    <span className="font-bold flex items-center gap-1.5">
+                      <span>Aviso de Ocupação da Unidade:</span>
+                      <span className="font-semibold text-amber-800 dark:text-amber-300">
+                        Apartamento com moradores já vinculados
+                      </span>
+                    </span>
+                    <p className="text-[11px] text-amber-800/90 dark:text-amber-300/90">
+                      {unidSel.proprietario && (
+                        <span>
+                          Proprietário atual: <b>{unidSel.proprietario}</b> (
+                          {st.proprietarioReside ? 'Residente no imóvel' : 'Não reside no imóvel'}).{' '}
+                        </span>
+                      )}
+                      {unidSel.inquilino && (
+                        <span>
+                          Inquilino atual: <b>{unidSel.inquilino}</b>.{' '}
+                        </span>
+                      )}
+                      {unidSel.nomes_ocupantes && (
+                        <span>
+                          Morador(es): <b>{unidSel.nomes_ocupantes}</b>.{' '}
+                        </span>
+                      )}
+                      {`Total: ${unidSel.total_ocupantes || unidSel.total_moradores || 1} pessoa(s) vinculada(s).`}
+                    </p>
+                    <div className="pt-1.5 text-[11px] space-y-1 border-t border-amber-200 dark:border-amber-900/60">
+                      {ehEdicao && st.ehProprioProprietario && (
+                        <p className="text-emerald-800 dark:text-emerald-300 font-medium flex items-center gap-1.5">
+                          <Icone nome="user" className="h-3.5 w-3.5 shrink-0 text-emerald-700 dark:text-emerald-400" />
+                          <span>Você está editando o <b>Proprietário Titular</b> desta unidade.</span>
+                        </p>
+                      )}
+                      {!st.podeProprietario && (!ehEdicao || !st.ehProprioProprietario) && (
+                        <p className="text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
+                          <Icone nome="alert" className="h-3.5 w-3.5 shrink-0 text-amber-700 dark:text-amber-400" />
+                          <span><b>Proprietário (Titular)</b> indisponível: este apartamento já possui proprietário titular cadastrado.</span>
+                        </p>
+                      )}
+                      {ehEdicao && st.ehProprioInquilino && (
+                        <p className="text-emerald-800 dark:text-emerald-300 font-medium flex items-center gap-1.5">
+                          <Icone nome="user" className="h-3.5 w-3.5 shrink-0 text-emerald-700 dark:text-emerald-400" />
+                          <span>Você está editando o <b>Inquilino Titular</b> desta locação.</span>
+                        </p>
+                      )}
+                      {!st.podeInquilino && (!ehEdicao || !st.ehProprioInquilino) && (
+                        <p className="text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
+                          <Icone nome="alert" className="h-3.5 w-3.5 shrink-0 text-amber-700 dark:text-amber-400" />
+                          <span><b>Inquilino</b> indisponível: {st.motivoInquilino}.</span>
+                        </p>
+                      )}
+                      {st.podeInquilino &&
+                        (!ehEdicao ? !st.podeProprietario : !st.ehProprioInquilino && !st.ehProprioProprietario) && (
+                          <p className="text-emerald-800 dark:text-emerald-300 font-medium flex items-center gap-1.5">
+                            <Icone nome="check" className="h-3.5 w-3.5 shrink-0 text-emerald-700 dark:text-emerald-400" />
+                            <span><b>Inquilino</b> permitido: o proprietário não reside no imóvel e não há inquilino titular cadastrado.</span>
+                          </p>
+                        )}
+                      {!st.podeProprietario &&
+                        !st.podeInquilino &&
+                        (!ehEdicao || (!st.ehProprioProprietario && !st.ehProprioInquilino)) && (
+                          <p className="text-indigo-900 dark:text-indigo-300 font-semibold flex items-center gap-1.5">
+                            <Icone nome="info" className="h-3.5 w-3.5 shrink-0 text-indigo-700 dark:text-indigo-400" />
+                            <span>Como já existem titulares no imóvel, vincule este morador como <b>Dependente Familiar</b>.</span>
+                          </p>
+                        )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {estado.perfis.includes('MORADOR') && v.id_unidade && (
+                <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                    {temMaisDeUma ? `Reside no Apto ${unidSel?.numero_apartamento || ''}?` : 'Reside no Apartamento?'} <span className="text-red-500">*</span>
+                  </label>
+                  {v.tipo_vinculo !== 'PROPRIETARIO' ? (
+                    <div className="p-2.5 rounded-xl border border-emerald-200 bg-emerald-50/80 dark:border-emerald-900/60 dark:bg-emerald-950/40 text-xs text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
+                      <Icone nome="check" className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                      <span>
+                        <b>Sim (Residente no Imóvel)</b> — Moradores com vínculo de <b>{v.tipo_vinculo === 'INQUILINO' ? 'Inquilino' : 'Dependente Familiar'}</b> residem obrigatoriamente no apartamento.
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => alterarCampoVinculoLinha(ehEdicao, idx, { reside: true })}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                          v.reside
+                            ? 'border-emerald-500 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200 dark:border-emerald-600 shadow-xs'
+                            : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400'
+                        }`}
+                      >
+                        <Icone nome="check" className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                        <span>Sim (Residente no Imóvel)</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => alterarCampoVinculoLinha(ehEdicao, idx, { reside: false })}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                          !v.reside
+                            ? 'border-amber-500 bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-200 dark:border-amber-600 shadow-xs'
+                            : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400'
+                        }`}
+                      >
+                        <Icone nome="x" className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                        <span>Não (Proprietário Não Residente)</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {v.tipo_vinculo === 'DEPENDENTE' && v.id_unidade && (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
+                  <Campo rotulo="Titular Responsável" obrigatorio>
+                    <select
+                      className={inputCls}
+                      value={v.id_responsavel}
+                      onChange={e =>
+                        alterarCampoVinculoLinha(ehEdicao, idx, { id_responsavel: e.target.value })
+                      }
+                      required
+                    >
+                      <option value="">Selecione o Titular da Unidade</option>
+                      {titularesNaUnid.map(t => (
+                        <option key={t.id_pessoa} value={t.id_pessoa}>
+                          {t.nome} ({t.unidades.find(tu => String(tu.id_unidade) === String(v.id_unidade))?.vinculo || t.unidades[0]?.vinculo})
+                        </option>
+                      ))}
+                    </select>
+                  </Campo>
+
+                  <Campo rotulo="Grau de Parentesco" obrigatorio>
+                    <select
+                      className={inputCls}
+                      value={v.grau_parentesco}
+                      onChange={e =>
+                        alterarCampoVinculoLinha(ehEdicao, idx, { grau_parentesco: e.target.value })
+                      }
+                      required
+                    >
+                      <option value="CONJUGE">Cônjuge / Companheiro(a)</option>
+                      <option value="FILHO">Filho(a) / Enteado(a)</option>
+                      <option value="PAI_MAE">Pai / Mãe / Sogro(a)</option>
+                      <option value="OUTRO">Outro Familiar / Agregado</option>
+                    </select>
+                  </Campo>
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {temAlgumaUnidade && (
+          <div className="flex items-center justify-between pt-1">
+            <button
+              type="button"
+              onClick={() =>
+                atualizarListaVinculos(ehEdicao, lista => ({
+                  unidadesVinculos: [...lista, { ...VINCULO_VAZIO }],
+                }))
+              }
+              className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-navy/40 dark:border-sky-500/40 bg-white/80 dark:bg-slate-900/60 px-3 py-1.5 text-xs font-bold text-navy dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/40 transition-colors cursor-pointer"
+            >
+              <Icone nome="plus" className="h-3.5 w-3.5" />
+              <span>Adicionar outra unidade</span>
+            </button>
+            {temMaisDeUma && (
+              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                {`${vinculos.filter(v => Boolean(v.id_unidade)).length} de ${vinculos.length} unidade(s) vinculada(s)`}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className={embutido ? 'space-y-4' : 'space-y-6'}>
@@ -1489,12 +1879,8 @@ export default function Pessoas({
                           cpf: '',
                           data_nascimento: '',
                           celular: '',
-                          id_unidade: '',
-                          tipo_vinculo: '',
+                          unidadesVinculos: [{ ...VINCULO_VAZIO }],
                           perfis: [],
-                          id_responsavel: '',
-                          grau_parentesco: 'FILHO',
-                          reside: true,
                           tipo_servico: '',
                         });
                         setErroCadastro(null);
@@ -1817,12 +2203,8 @@ export default function Pessoas({
                           cpf: '',
                           data_nascimento: '',
                           celular: '',
-                          id_unidade: '',
-                          tipo_vinculo: '',
+                          unidadesVinculos: [{ ...VINCULO_VAZIO }],
                           perfis: ['MORADOR'],
-                          id_responsavel: '',
-                          grau_parentesco: 'FILHO',
-                          reside: true,
                           tipo_servico: '',
                         });
                         setErroCadastro(null);
@@ -1942,9 +2324,12 @@ export default function Pessoas({
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {listaExibidaPaginada.map(p => {
-                    const uAtiva = p.unidades && p.unidades[0];
-                    const isDependente = uAtiva && uAtiva.vinculo === 'DEPENDENTE';
-                    const isTitular = uAtiva && (uAtiva.vinculo === 'PROPRIETARIO' || uAtiva.vinculo === 'INQUILINO');
+                    const listaUnid = p.unidades || [];
+                    const temMultiplasUnid = listaUnid.length > 1;
+                    const isDependente = listaUnid.some(u => u.vinculo === 'DEPENDENTE');
+                    const isTitular = listaUnid.some(
+                      u => u.vinculo === 'PROPRIETARIO' || u.vinculo === 'INQUILINO',
+                    );
                     const papelInfo = obterPapelUsuario(p);
 
                     return (
@@ -2013,41 +2398,47 @@ export default function Pessoas({
                               {papelInfo.papel}
                             </span>
 
-                            {/* Vínculo com apartamento */}
-                            {uAtiva ? (
-                              <div>
-                                <div className="flex flex-wrap items-center gap-1">
-                                  <span
-                                    className={`rounded-md px-2 py-0.5 text-[10px] font-bold ${
-                                      uAtiva.vinculo === 'PROPRIETARIO'
-                                        ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
-                                        : uAtiva.vinculo === 'INQUILINO'
-                                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
-                                        : uAtiva.vinculo === 'VISITANTE'
-                                        ? 'bg-cyan-50 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300'
-                                        : uAtiva.vinculo === 'PRESTADOR_SERVICO'
-                                        ? 'bg-orange-50 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'
-                                        : 'bg-purple-50 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
-                                    }`}
-                                  >
-                                    {uAtiva.vinculo}
-                                    {uAtiva.parentesco ? ` (${formatarParentesco(uAtiva.parentesco)})` : ''}
-                                  </span>
-
-                                  {/* Badge de Residência (Sim / Não) para moradores e proprietários */}
-                                  {uAtiva.vinculo !== 'VISITANTE' && uAtiva.vinculo !== 'PRESTADOR_SERVICO' && (
+                            {/* Vínculo com apartamento(s) */}
+                            {listaUnid.length > 0 ? (
+                              <div className="space-y-1">
+                                {listaUnid.map((u, idx) => (
+                                  <div key={`${u.id_unidade}-${idx}`} className="flex flex-wrap items-center gap-1">
+                                    {temMultiplasUnid && (
+                                      <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                                        {`Apto ${u.apartamento}:`}
+                                      </span>
+                                    )}
                                     <span
-                                      className={`rounded-md px-1.5 py-0.5 text-[9px] font-bold ${
-                                        uAtiva.reside !== false
-                                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                                          : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                                      className={`rounded-md px-2 py-0.5 text-[10px] font-bold ${
+                                        u.vinculo === 'PROPRIETARIO'
+                                          ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                                          : u.vinculo === 'INQUILINO'
+                                          ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                                          : u.vinculo === 'VISITANTE'
+                                          ? 'bg-cyan-50 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300'
+                                          : u.vinculo === 'PRESTADOR_SERVICO'
+                                          ? 'bg-orange-50 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'
+                                          : 'bg-purple-50 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300'
                                       }`}
-                                      title={uAtiva.reside !== false ? 'Reside no imóvel' : 'Não reside no imóvel (titular externo)'}
                                     >
-                                      {uAtiva.reside !== false ? 'Residente' : 'Não Residente'}
+                                      {u.vinculo}
+                                      {u.parentesco ? ` (${formatarParentesco(u.parentesco)})` : ''}
                                     </span>
-                                  )}
-                                </div>
+
+                                    {u.vinculo !== 'VISITANTE' && u.vinculo !== 'PRESTADOR_SERVICO' && (
+                                      <span
+                                        className={`rounded-md px-1.5 py-0.5 text-[9px] font-bold ${
+                                          u.reside !== false
+                                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                                            : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                                        }`}
+                                        title={u.reside !== false ? 'Reside no imóvel' : 'Não reside no imóvel (titular externo)'}
+                                      >
+                                        {u.reside !== false ? 'Residente' : 'Não Residente'}
+                                      </span>
+                                    )}
+                                  </div>
+                                ))}
                                 {isDependente && p.responsavel && (
                                   <p className="text-[10px] text-slate-400 mt-0.5">
                                     Resp.: <b className="text-slate-600 dark:text-slate-300">{p.responsavel.nome}</b>
@@ -2451,7 +2842,7 @@ export default function Pessoas({
                 <input
                   className={inputCls}
                   value={form.nome}
-                  onChange={c('nome')}
+                  onChange={e => setForm({ ...form, nome: e.target.value })}
                   required
                   maxLength={100}
                   placeholder="Ex.: Maria Clara dos Santos"
@@ -2475,7 +2866,7 @@ export default function Pessoas({
                     type="date"
                     className={inputCls}
                     value={form.data_nascimento}
-                    onChange={c('data_nascimento')}
+                    onChange={e => setForm({ ...form, data_nascimento: e.target.value })}
                     required
                   />
                 </Campo>
@@ -2487,7 +2878,7 @@ export default function Pessoas({
                     type="email"
                     className={inputCls}
                     value={form.email}
-                    onChange={c('email')}
+                    onChange={e => setForm({ ...form, email: e.target.value })}
                     required
                     maxLength={120}
                     placeholder="maria@email.com"
@@ -2512,179 +2903,7 @@ export default function Pessoas({
                   Vínculo com Imóvel & Papéis
                 </p>
 
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="sm:col-span-1">
-                    <Campo rotulo="Unidade" obrigatorio={form.perfis.includes('MORADOR')}>
-                      <select
-                        className={inputCls}
-                        value={form.id_unidade}
-                        onChange={c('id_unidade')}
-                        required={form.perfis.includes('MORADOR')}
-                      >
-                        <option value="">Nenhuma (para Porteiro / Administrador)</option>
-                        {unidades
-                          .filter(u => u.bloco !== 'Prédio' && u.numero_apartamento !== 'Geral')
-                          .map(u => (
-                            <option key={u.id_unidade} value={String(u.id_unidade)}>
-                              {`Bloco ${u.bloco} - Apto ${u.numero_apartamento} ${obterTextoOcupacaoUnidade(u)}`}
-                            </option>
-                          ))}
-                      </select>
-                    </Campo>
-                  </div>
-
-                  <div className="sm:col-span-1">
-                    <Campo rotulo="Tipo de Vínculo">
-                      {(() => {
-                        const unidSel = unidades.find(u => String(u.id_unidade) === String(form.id_unidade));
-                        const st = obterStatusVinculosUnidade(unidSel);
-
-                        return (
-                          <select
-                            className={`${inputCls} ${
-                              !form.id_unidade
-                                ? 'cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 opacity-90'
-                                : ''
-                            }`}
-                            value={!form.id_unidade ? '' : form.tipo_vinculo}
-                            onChange={c('tipo_vinculo')}
-                            disabled={!form.id_unidade}
-                          >
-                            {!form.id_unidade ? (
-                              <option value="">Não aplicável (sem unidade vinculada)</option>
-                            ) : (
-                              <>
-                                <option
-                                  value="PROPRIETARIO"
-                                  disabled={!st.podeProprietario}
-                                  className={!st.podeProprietario ? 'text-slate-400 bg-slate-100 dark:bg-slate-800' : ''}
-                                >
-                                  {`Proprietário (Titular)${!st.podeProprietario ? ` — (${st.motivoProprietario})` : ''}`}
-                                </option>
-                                <option
-                                  value="INQUILINO"
-                                  disabled={!st.podeInquilino}
-                                  className={!st.podeInquilino ? 'text-slate-400 bg-slate-100 dark:bg-slate-800' : ''}
-                                >
-                                  {`Inquilino (Titular Locação)${!st.podeInquilino ? ` — (${st.motivoInquilino})` : ''}`}
-                                </option>
-                                <option value="DEPENDENTE">Dependente Familiar</option>
-                              </>
-                            )}
-                          </select>
-                        );
-                      })()}
-                    </Campo>
-                    {!form.id_unidade && (
-                      <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
-                        Selecione uma unidade acima para definir o tipo de vínculo de morador.
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Aviso quando o apartamento selecionado já possui moradores/usuários vinculados */}
-                {(() => {
-                  const unidSel = unidades.find(u => String(u.id_unidade) === String(form.id_unidade));
-                  const temOcupantes = unidSel && (Number(unidSel.total_ocupantes || unidSel.total_moradores || 0) > 0 || Boolean(unidSel.proprietario || unidSel.inquilino));
-                  if (!temOcupantes || !unidSel) return null;
-                  const st = obterStatusVinculosUnidade(unidSel);
-
-                  return (
-                    <div className="rounded-xl border border-amber-300 bg-amber-50/95 dark:border-amber-800 dark:bg-amber-950/60 p-3 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5 shadow-2xs animate-fade-in">
-                      <Icone nome="alert" className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
-                      <div className="space-y-1.5 w-full">
-                        <span className="font-bold flex items-center gap-1.5">
-                          <span>Aviso de Ocupação da Unidade:</span>
-                          <span className="font-semibold text-amber-800 dark:text-amber-300">
-                            Apartamento com moradores já vinculados
-                          </span>
-                        </span>
-                        <p className="text-[11px] text-amber-800/90 dark:text-amber-300/90">
-                          {unidSel.proprietario && (
-                            <span>
-                              Proprietário atual: <b>{unidSel.proprietario}</b> ({st.proprietarioReside ? 'Residente no imóvel' : 'Não reside no imóvel'}).{' '}
-                            </span>
-                          )}
-                          {unidSel.inquilino && <span>Inquilino atual: <b>{unidSel.inquilino}</b>.{' '}</span>}
-                          {unidSel.nomes_ocupantes && <span>Morador(es): <b>{unidSel.nomes_ocupantes}</b>.{' '}</span>}
-                          {`Total: ${unidSel.total_ocupantes || unidSel.total_moradores || 1} pessoa(s) vinculada(s).`}
-                        </p>
-                        <div className="pt-1.5 text-[11px] space-y-1 border-t border-amber-200 dark:border-amber-900/60">
-                          {!st.podeProprietario && (
-                            <p className="text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
-                              <Icone nome="alert" className="h-3.5 w-3.5 shrink-0 text-amber-700 dark:text-amber-400" />
-                              <span><b>Proprietário (Titular)</b> indisponível: este apartamento já possui proprietário titular cadastrado.</span>
-                            </p>
-                          )}
-                          {!st.podeInquilino && (
-                            <p className="text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
-                              <Icone nome="alert" className="h-3.5 w-3.5 shrink-0 text-amber-700 dark:text-amber-400" />
-                              <span><b>Inquilino</b> indisponível: {st.motivoInquilino}.</span>
-                            </p>
-                          )}
-                          {st.podeInquilino && !st.podeProprietario && (
-                            <p className="text-emerald-800 dark:text-emerald-300 font-medium flex items-center gap-1.5">
-                              <Icone nome="check" className="h-3.5 w-3.5 shrink-0 text-emerald-700 dark:text-emerald-400" />
-                              <span><b>Inquilino</b> permitido: o proprietário não reside no imóvel e não há inquilino titular cadastrado.</span>
-                            </p>
-                          )}
-                          {!st.podeProprietario && !st.podeInquilino && (
-                            <p className="text-indigo-900 dark:text-indigo-300 font-semibold flex items-center gap-1.5">
-                              <Icone nome="info" className="h-3.5 w-3.5 shrink-0 text-indigo-700 dark:text-indigo-400" />
-                              <span>Como já existem titulares no imóvel, vincule este morador como <b>Dependente Familiar</b>.</span>
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* SE FOR MORADOR: RESIDE NA UNIDADE (SIM / NÃO) */}
-                {form.perfis.includes('MORADOR') && (
-                  <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                      Reside no Apartamento? <span className="text-red-500">*</span>
-                    </label>
-                    {form.tipo_vinculo !== 'PROPRIETARIO' ? (
-                      <div className="p-2.5 rounded-xl border border-emerald-200 bg-emerald-50/80 dark:border-emerald-900/60 dark:bg-emerald-950/40 text-xs text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
-                        <Icone nome="check" className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                        <span>
-                          <b>Sim (Residente no Imóvel)</b> — Moradores com vínculo de <b>{form.tipo_vinculo === 'INQUILINO' ? 'Inquilino' : 'Dependente Familiar'}</b> residem obrigatoriamente no apartamento.
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setForm({ ...form, reside: true })}
-                          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                            form.reside
-                              ? 'border-emerald-500 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200 dark:border-emerald-600 shadow-xs'
-                              : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400'
-                          }`}
-                        >
-                          <Icone nome="check" className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                          <span>Sim (Residente no Imóvel)</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setForm({ ...form, reside: false })}
-                          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                            !form.reside
-                              ? 'border-amber-500 bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-200 dark:border-amber-600 shadow-xs'
-                              : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400'
-                          }`}
-                        >
-                          <Icone nome="x" className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                          <span>Não (Proprietário Não Residente)</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
+                {renderEditorUnidades(false)}
 
                 {/* SELEÇÃO MÚLTIPLA DE PAPÉIS NO CADASTRO DE USUÁRIO */}
                 <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 space-y-2">
@@ -2700,8 +2919,9 @@ export default function Pessoas({
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 items-stretch">
                     {OPCOES_PAPEIS.map(op => {
                       const selecionado = form.perfis.includes(op.tipo);
-                      const moradorObrigatorio = op.tipo === 'MORADOR' && Boolean(form.id_unidade);
-                      const moradorSemUnidade = op.tipo === 'MORADOR' && !form.id_unidade;
+                      const temUnidadeCad = form.unidadesVinculos.some(v => Boolean(v.id_unidade));
+                      const moradorObrigatorio = op.tipo === 'MORADOR' && temUnidadeCad;
+                      const moradorSemUnidade = op.tipo === 'MORADOR' && !temUnidadeCad;
 
                       return (
                         <div
@@ -2794,41 +3014,6 @@ export default function Pessoas({
                     })}
                   </div>
                 </div>
-
-                {/* SE FOR DEPENDENTE: CAMPOS ADICIONAIS DE RESPONSÁVEL E PARENTESCO */}
-                {form.tipo_vinculo === 'DEPENDENTE' && (
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
-                    <Campo rotulo="Titular Responsável" obrigatorio>
-                      <select
-                        className={inputCls}
-                        value={form.id_responsavel}
-                        onChange={c('id_responsavel')}
-                        required
-                      >
-                        <option value="">Selecione o Titular da Unidade</option>
-                        {titularesNaUnidade.map(t => (
-                          <option key={t.id_pessoa} value={t.id_pessoa}>
-                            {t.nome} ({t.unidades[0]?.vinculo})
-                          </option>
-                        ))}
-                      </select>
-                    </Campo>
-
-                    <Campo rotulo="Grau de Parentesco" obrigatorio>
-                      <select
-                        className={inputCls}
-                        value={form.grau_parentesco}
-                        onChange={c('grau_parentesco')}
-                        required
-                      >
-                        <option value="CONJUGE">Cônjuge / Companheiro(a)</option>
-                        <option value="FILHO">Filho(a) / Enteado(a)</option>
-                        <option value="PAI_MAE">Pai / Mãe / Sogro(a)</option>
-                        <option value="OUTRO">Outro Familiar / Agregado</option>
-                      </select>
-                    </Campo>
-                  </div>
-                )}
               </div>
             </form>
           </Modal>
@@ -3094,7 +3279,7 @@ export default function Pessoas({
                   : ''
               }`}
               value={formEdicao.nome}
-              onChange={cEdicao('nome')}
+              onChange={e => setFormEdicao({ ...formEdicao, nome: e.target.value })}
               disabled={ehMoradorEdicao}
               required
               maxLength={100}
@@ -3151,7 +3336,7 @@ export default function Pessoas({
                     : ''
                 }`}
                 value={formEdicao.data_nascimento}
-                onChange={cEdicao('data_nascimento')}
+                onChange={e => setFormEdicao({ ...formEdicao, data_nascimento: e.target.value })}
                 disabled={ehMoradorEdicao}
                 required={!formEdicao.perfis.every(pf => pf === 'VISITANTE' || pf === 'PRESTADOR_SERVICO')}
               />
@@ -3180,7 +3365,7 @@ export default function Pessoas({
                     : ''
                 }`}
                 value={formEdicao.email}
-                onChange={cEdicao('email')}
+                onChange={e => setFormEdicao({ ...formEdicao, email: e.target.value })}
                 disabled={ehMoradorEdicao}
                 required={!formEdicao.perfis.every(pf => pf === 'VISITANTE' || pf === 'PRESTADOR_SERVICO')}
                 maxLength={120}
@@ -3205,191 +3390,7 @@ export default function Pessoas({
               Vínculo com Unidade & Papel
             </p>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="sm:col-span-1">
-                <Campo rotulo="Unidade" obrigatorio={formEdicao.perfis.includes('MORADOR')}>
-                  <select
-                    className={inputCls}
-                    value={formEdicao.id_unidade}
-                    onChange={cEdicao('id_unidade')}
-                    required={formEdicao.perfis.includes('MORADOR')}
-                  >
-                    <option value="">Nenhuma (para Porteiro / Administrador)</option>
-                    {unidades
-                      .filter(u => u.bloco !== 'Prédio' && u.numero_apartamento !== 'Geral')
-                      .map(u => (
-                        <option key={u.id_unidade} value={String(u.id_unidade)}>
-                          {`Bloco ${u.bloco} - Apto ${u.numero_apartamento} ${obterTextoOcupacaoUnidade(u)}`}
-                        </option>
-                      ))}
-                  </select>
-                </Campo>
-              </div>
-
-              <div className="sm:col-span-1">
-                <Campo rotulo="Tipo de Vínculo">
-                  {(() => {
-                    const unidSel = unidades.find(u => String(u.id_unidade) === String(formEdicao.id_unidade));
-                    const st = obterStatusVinculosUnidade(unidSel, pessoaEditando?.id_pessoa, pessoaEditando);
-
-                    return (
-                      <select
-                        className={`${inputCls} ${
-                          !formEdicao.id_unidade
-                            ? 'cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 opacity-90'
-                            : ''
-                        }`}
-                        value={!formEdicao.id_unidade ? '' : formEdicao.tipo_vinculo}
-                        onChange={cEdicao('tipo_vinculo')}
-                        disabled={!formEdicao.id_unidade}
-                      >
-                        {!formEdicao.id_unidade ? (
-                          <option value="">Não aplicável (sem unidade vinculada)</option>
-                        ) : (
-                          <>
-                            <option
-                              value="PROPRIETARIO"
-                              disabled={!st.podeProprietario}
-                              className={!st.podeProprietario ? 'text-slate-400 bg-slate-100 dark:bg-slate-800' : ''}
-                            >
-                              {`Proprietário (Titular)${!st.podeProprietario ? ` — (${st.motivoProprietario})` : ''}`}
-                            </option>
-                            <option
-                              value="INQUILINO"
-                              disabled={!st.podeInquilino}
-                              className={!st.podeInquilino ? 'text-slate-400 bg-slate-100 dark:bg-slate-800' : ''}
-                            >
-                              {`Inquilino (Titular Locação)${!st.podeInquilino ? ` — (${st.motivoInquilino})` : ''}`}
-                            </option>
-                            <option value="DEPENDENTE">Dependente Familiar</option>
-                          </>
-                        )}
-                      </select>
-                    );
-                  })()}
-                </Campo>
-                {!formEdicao.id_unidade && (
-                  <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
-                    Selecione uma unidade acima para definir o tipo de vínculo.
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Aviso quando o apartamento selecionado na edição já possui moradores/usuários vinculados */}
-            {(() => {
-              const unidSel = unidades.find(u => String(u.id_unidade) === String(formEdicao.id_unidade));
-              const temOcupantes = unidSel && (Number(unidSel.total_ocupantes || unidSel.total_moradores || 0) > 0 || Boolean(unidSel.proprietario || unidSel.inquilino));
-              if (!temOcupantes || !unidSel) return null;
-              const st = obterStatusVinculosUnidade(unidSel, pessoaEditando?.id_pessoa, pessoaEditando);
-
-              return (
-                <div className="rounded-xl border border-amber-300 bg-amber-50/95 dark:border-amber-800 dark:bg-amber-950/60 p-3 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5 shadow-2xs animate-fade-in">
-                  <Icone nome="alert" className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
-                  <div className="space-y-1.5 w-full">
-                    <span className="font-bold flex items-center gap-1.5">
-                      <span>Aviso de Ocupação da Unidade:</span>
-                      <span className="font-semibold text-amber-800 dark:text-amber-300">
-                        Apartamento com moradores já vinculados
-                      </span>
-                    </span>
-                    <p className="text-[11px] text-amber-800/90 dark:text-amber-300/90">
-                      {unidSel.proprietario && (
-                        <span>
-                          Proprietário atual: <b>{unidSel.proprietario}</b> ({st.proprietarioReside ? 'Residente no imóvel' : 'Não reside no imóvel'}).{' '}
-                        </span>
-                      )}
-                      {unidSel.inquilino && <span>Inquilino atual: <b>{unidSel.inquilino}</b>.{' '}</span>}
-                      {unidSel.nomes_ocupantes && <span>Morador(es): <b>{unidSel.nomes_ocupantes}</b>.{' '}</span>}
-                      {`Total: ${unidSel.total_ocupantes || unidSel.total_moradores || 1} pessoa(s) vinculada(s).`}
-                    </p>
-                    <div className="pt-1.5 text-[11px] space-y-1 border-t border-amber-200 dark:border-amber-900/60">
-                      {st.ehProprioProprietario && (
-                        <p className="text-emerald-800 dark:text-emerald-300 font-medium flex items-center gap-1.5">
-                          <Icone nome="user" className="h-3.5 w-3.5 shrink-0 text-emerald-700 dark:text-emerald-400" />
-                          <span>Você está editando o <b>Proprietário Titular</b> desta unidade.</span>
-                        </p>
-                      )}
-                      {!st.podeProprietario && !st.ehProprioProprietario && (
-                        <p className="text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
-                          <Icone nome="alert" className="h-3.5 w-3.5 shrink-0 text-amber-700 dark:text-amber-400" />
-                          <span><b>Proprietário (Titular)</b> indisponível: este apartamento já possui proprietário titular cadastrado.</span>
-                        </p>
-                      )}
-                      {st.ehProprioInquilino && (
-                        <p className="text-emerald-800 dark:text-emerald-300 font-medium flex items-center gap-1.5">
-                          <Icone nome="user" className="h-3.5 w-3.5 shrink-0 text-emerald-700 dark:text-emerald-400" />
-                          <span>Você está editando o <b>Inquilino Titular</b> desta locação.</span>
-                        </p>
-                      )}
-                      {!st.podeInquilino && !st.ehProprioInquilino && (
-                        <p className="text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
-                          <Icone nome="alert" className="h-3.5 w-3.5 shrink-0 text-amber-700 dark:text-amber-400" />
-                          <span><b>Inquilino</b> indisponível: {st.motivoInquilino}.</span>
-                        </p>
-                      )}
-                      {st.podeInquilino && !st.ehProprioInquilino && !st.ehProprioProprietario && (
-                        <p className="text-emerald-800 dark:text-emerald-300 font-medium flex items-center gap-1.5">
-                          <Icone nome="check" className="h-3.5 w-3.5 shrink-0 text-emerald-700 dark:text-emerald-400" />
-                          <span><b>Inquilino</b> permitido: o proprietário não reside no imóvel e não há inquilino titular cadastrado.</span>
-                        </p>
-                      )}
-                      {!st.podeProprietario && !st.podeInquilino && !st.ehProprioProprietario && !st.ehProprioInquilino && (
-                        <p className="text-indigo-900 dark:text-indigo-300 font-semibold flex items-center gap-1.5">
-                          <Icone nome="info" className="h-3.5 w-3.5 shrink-0 text-indigo-700 dark:text-indigo-400" />
-                          <span>Como já existem titulares no imóvel, vincule este morador como <b>Dependente Familiar</b>.</span>
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* SE FOR MORADOR: RESIDE NA UNIDADE (SIM / NÃO) */}
-            {formEdicao.perfis.includes('MORADOR') && (
-              <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Reside no Apartamento? <span className="text-red-500">*</span>
-                </label>
-                {formEdicao.tipo_vinculo !== 'PROPRIETARIO' ? (
-                  <div className="p-2.5 rounded-xl border border-emerald-200 bg-emerald-50/80 dark:border-emerald-900/60 dark:bg-emerald-950/40 text-xs text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
-                    <Icone nome="check" className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                    <span>
-                      <b>Sim (Residente no Imóvel)</b> — Moradores com vínculo de <b>{formEdicao.tipo_vinculo === 'INQUILINO' ? 'Inquilino' : 'Dependente Familiar'}</b> residem obrigatoriamente no apartamento.
-                    </span>
-                  </div>
-                ) : (
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setFormEdicao({ ...formEdicao, reside: true })}
-                      className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                        formEdicao.reside
-                          ? 'border-emerald-500 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200 dark:border-emerald-600 shadow-xs'
-                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400'
-                      }`}
-                    >
-                      <Icone nome="check" className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                      <span>Sim (Residente no Imóvel)</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setFormEdicao({ ...formEdicao, reside: false })}
-                      className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                        !formEdicao.reside
-                          ? 'border-amber-500 bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-200 dark:border-amber-600 shadow-xs'
-                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400'
-                      }`}
-                    >
-                      <Icone nome="x" className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                      <span>Não (Proprietário Não Residente)</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
+            {renderEditorUnidades(true)}
 
             {/* SELEÇÃO MÚLTIPLA DE PAPÉIS NA EDIÇÃO */}
             <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 space-y-2">
@@ -3405,9 +3406,10 @@ export default function Pessoas({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 items-stretch">
                 {OPCOES_PAPEIS.map(op => {
                   const selecionado = formEdicao.perfis.includes(op.tipo);
+                  const temUnidadeEd = formEdicao.unidadesVinculos.some(v => Boolean(v.id_unidade));
                   const bloqueadoAdmin = ehUnicoAdmin && op.tipo === 'SINDICO';
-                  const moradorObrigatorio = op.tipo === 'MORADOR' && Boolean(formEdicao.id_unidade);
-                  const moradorSemUnidade = op.tipo === 'MORADOR' && !formEdicao.id_unidade;
+                  const moradorObrigatorio = op.tipo === 'MORADOR' && temUnidadeEd;
+                  const moradorSemUnidade = op.tipo === 'MORADOR' && !temUnidadeEd;
                   const cardDesabilitado = bloqueadoAdmin || moradorSemUnidade;
 
                   return (
@@ -3523,41 +3525,6 @@ export default function Pessoas({
                 </div>
               )}
             </div>
-
-            {/* SE FOR DEPENDENTE: RESPONSÁVEL E GRAU DE PARENTESCO */}
-            {formEdicao.tipo_vinculo === 'DEPENDENTE' && (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
-                <Campo rotulo="Titular Responsável" obrigatorio>
-                  <select
-                    className={inputCls}
-                    value={formEdicao.id_responsavel}
-                    onChange={cEdicao('id_responsavel')}
-                    required
-                  >
-                    <option value="">Selecione o Titular da Unidade</option>
-                    {titularesNaUnidadeEdicao.map(t => (
-                      <option key={t.id_pessoa} value={t.id_pessoa}>
-                        {t.nome} ({t.unidades[0]?.vinculo})
-                      </option>
-                    ))}
-                  </select>
-                </Campo>
-
-                <Campo rotulo="Grau de Parentesco" obrigatorio>
-                  <select
-                    className={inputCls}
-                    value={formEdicao.grau_parentesco}
-                    onChange={cEdicao('grau_parentesco')}
-                    required
-                  >
-                    <option value="CONJUGE">Cônjuge / Companheiro(a)</option>
-                    <option value="FILHO">Filho(a) / Enteado(a)</option>
-                    <option value="PAI_MAE">Pai / Mãe / Sogro(a)</option>
-                    <option value="OUTRO">Outro Familiar / Agregado</option>
-                  </select>
-                </Campo>
-              </div>
-            )}
           </div>
         </form>
       </Modal>

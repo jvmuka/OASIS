@@ -12,6 +12,14 @@ function gerarCodigoAtivacao(): string {
   return 'OASIS-' + Array.from(bytes).map(b => CHARSET[b % CHARSET.length]).join('');
 }
 
+interface VinculoUnidadeInput {
+  id_unidade: number;
+  tipo_vinculo?: string;
+  reside?: boolean;
+  id_responsavel?: number | null;
+  grau_parentesco?: string | null;
+}
+
 /**
  * UC11 - Cadastrar / Editar Pessoa e Unidade, Gestão de Dependentes e Primeiro Acesso.
  */
@@ -23,6 +31,168 @@ export class CadastrosController {
     private sync: SyncService,
     private emailService: EmailService,
   ) {}
+
+  /** Normaliza entrada de unidades (array multi-unidade ou campos legados de unidade única). */
+  private normalizarUnidadesPayload(
+    unidades?: VinculoUnidadeInput[],
+    idUnidadeLegado?: number | null,
+    tipoVinculoLegado?: string | null,
+    resideLegado?: boolean,
+    idResponsavelLegado?: number | null,
+    grauParentescoLegado?: string | null,
+  ): VinculoUnidadeInput[] | null {
+    if (Array.isArray(unidades)) {
+      const vistos = new Set<number>();
+      const limpas: VinculoUnidadeInput[] = [];
+      for (const item of unidades) {
+        const idU = Number(item?.id_unidade || 0);
+        if (idU <= 0) continue;
+        if (vistos.has(idU)) {
+          throw new BadRequestException('Não é permitido vincular o mesmo apartamento duas vezes para a mesma pessoa.');
+        }
+        vistos.add(idU);
+        limpas.push({
+          id_unidade: idU,
+          tipo_vinculo: item.tipo_vinculo,
+          reside: item.reside,
+          id_responsavel: item.id_responsavel ?? null,
+          grau_parentesco: item.grau_parentesco ?? null,
+        });
+      }
+      return limpas;
+    }
+
+    if (idUnidadeLegado === undefined) return null;
+    if (!idUnidadeLegado || Number(idUnidadeLegado) <= 0) return [];
+    return [{
+      id_unidade: Number(idUnidadeLegado),
+      tipo_vinculo: tipoVinculoLegado || undefined,
+      reside: resideLegado,
+      id_responsavel: idResponsavelLegado ?? null,
+      grau_parentesco: grauParentescoLegado ?? null,
+    }];
+  }
+
+  /** Valida regras de titularidade e coabitação para uma unidade. */
+  private async validarRegrasUnidade(
+    c: any,
+    idUnidade: number,
+    vinculo: string,
+    reside: boolean,
+    idPessoaIgnorar?: number,
+  ) {
+    if (vinculo !== 'PROPRIETARIO' && vinculo !== 'INQUILINO') return;
+
+    const existente = await c.query(
+      `SELECT pu.id_pessoa, p.nome, pu.tipo_vinculo
+         FROM pessoa_unidade pu
+         JOIN pessoa p ON p.id_pessoa = pu.id_pessoa
+        WHERE pu.id_unidade = $1
+          AND pu.tipo_vinculo = $2
+          AND pu.data_fim_ocupacao IS NULL
+          AND ($3::int IS NULL OR pu.id_pessoa <> $3::int)`,
+      [idUnidade, vinculo, idPessoaIgnorar ?? null]);
+
+    if (existente.rows.length > 0) {
+      if (vinculo === 'PROPRIETARIO') {
+        throw new BadRequestException(
+          `Erro de cadastro: O apartamento selecionado já possui um Proprietário (titular) cadastrado (${existente.rows[0].nome}). Para cadastrar moradores adicionais nesta unidade, selecione a opção de Dependente.`
+        );
+      }
+      throw new BadRequestException(
+        `Erro de cadastro: O apartamento selecionado já possui um Inquilino (titular) cadastrado (${existente.rows[0].nome}). Para demais moradores desta locação, selecione a opção de Dependente.`
+      );
+    }
+
+    if (vinculo === 'INQUILINO') {
+      const propResidente = await c.query(
+        `SELECT pu.id_pessoa, p.nome
+           FROM pessoa_unidade pu
+           JOIN pessoa p ON p.id_pessoa = pu.id_pessoa
+          WHERE pu.id_unidade = $1
+            AND pu.tipo_vinculo = 'PROPRIETARIO'
+            AND pu.reside = TRUE
+            AND pu.data_fim_ocupacao IS NULL`,
+        [idUnidade]);
+
+      if (propResidente.rows.length > 0) {
+        throw new BadRequestException(
+          `Erro de cadastro: Não é permitido vincular como Inquilino, pois o Proprietário (${propResidente.rows[0].nome}) reside neste apartamento.`
+        );
+      }
+
+      if (idPessoaIgnorar) {
+        const proprioProp = await c.query(
+          `SELECT 1 FROM pessoa_unidade
+            WHERE id_unidade = $1 AND id_pessoa = $2 AND tipo_vinculo = 'PROPRIETARIO' AND data_fim_ocupacao IS NULL`,
+          [idUnidade, idPessoaIgnorar]);
+        if (proprioProp.rows.length > 0) {
+          throw new BadRequestException(
+            'Erro de cadastro: Esta pessoa já é o Proprietário titular do imóvel e não pode ser vinculada como Inquilino.'
+          );
+        }
+      }
+    }
+
+    if (vinculo === 'PROPRIETARIO' && reside) {
+      const inqAtivo = await c.query(
+        `SELECT pu.id_pessoa, p.nome
+           FROM pessoa_unidade pu
+           JOIN pessoa p ON p.id_pessoa = pu.id_pessoa
+          WHERE pu.id_unidade = $1
+            AND pu.tipo_vinculo = 'INQUILINO'
+            AND pu.data_fim_ocupacao IS NULL
+            AND ($2::int IS NULL OR pu.id_pessoa <> $2::int)`,
+        [idUnidade, idPessoaIgnorar ?? null]);
+
+      if (inqAtivo.rows.length > 0) {
+        throw new BadRequestException(
+          `Erro de cadastro: Não é permitido definir o Proprietário como residente enquanto houver um Inquilino ativo (${inqAtivo.rows[0].nome}) no apartamento.`
+        );
+      }
+    }
+  }
+
+  /** Cria ou atualiza um vínculo ativo de pessoa_unidade para uma unidade específica. */
+  private async upsertVinculoUnidade(
+    c: any,
+    idPessoa: number,
+    idUnidade: number,
+    vinculo: string,
+    reside: boolean,
+    idResponsavel: number | null,
+    grauParentesco: string | null,
+  ) {
+    const ativoNaUnidade = await c.query(
+      `SELECT id_pessoa_unidade FROM pessoa_unidade
+        WHERE id_pessoa = $1 AND id_unidade = $2 AND data_fim_ocupacao IS NULL
+        LIMIT 1`,
+      [idPessoa, idUnidade]);
+
+    if (ativoNaUnidade.rows.length > 0) {
+      await c.query(
+        `UPDATE pessoa_unidade
+            SET tipo_vinculo = $2,
+                id_responsavel = $3,
+                grau_parentesco = $4,
+                reside = $5,
+                status_aprovacao = 'APROVADO'
+          WHERE id_pessoa_unidade = $1`,
+        [ativoNaUnidade.rows[0].id_pessoa_unidade, vinculo, idResponsavel, grauParentesco, reside]);
+    } else {
+      await c.query(
+        `INSERT INTO pessoa_unidade (id_pessoa, id_unidade, tipo_vinculo, id_responsavel, grau_parentesco, status_aprovacao, reside, data_inicio_ocupacao)
+         VALUES ($1, $2, $3, $4, $5, 'APROVADO', $6, CURRENT_DATE)
+         ON CONFLICT (id_pessoa, id_unidade, data_inicio_ocupacao) DO UPDATE
+         SET tipo_vinculo = EXCLUDED.tipo_vinculo,
+             id_responsavel = EXCLUDED.id_responsavel,
+             grau_parentesco = EXCLUDED.grau_parentesco,
+             status_aprovacao = 'APROVADO',
+             reside = EXCLUDED.reside,
+             data_fim_ocupacao = NULL`,
+        [idPessoa, idUnidade, vinculo, idResponsavel, grauParentesco, reside]);
+    }
+  }
 
   // ------------------------- blocos e unidades -------------------------
   @Get('blocos')
@@ -193,6 +363,7 @@ export class CadastrosController {
                'tipo', pf.tipo_perfil, 'id_perfil', pf.id_perfil))
                FILTER (WHERE pf.id_perfil IS NOT NULL), '[]') AS perfis,
              COALESCE(json_agg(DISTINCT jsonb_build_object(
+               'id_pessoa_unidade', pu.id_pessoa_unidade,
                'id_unidade', u.id_unidade, 'bloco', b.nome, 'apartamento', u.numero_apartamento,
                'vinculo', pu.tipo_vinculo, 'parentesco', pu.grau_parentesco,
                'id_responsavel', pu.id_responsavel, 'status_aprovacao', pu.status_aprovacao,
@@ -210,6 +381,7 @@ export class CadastrosController {
              -- Lista de dependentes vinculados a esta pessoa
              (SELECT COALESCE(json_agg(jsonb_build_object(
                 'id_pessoa', p_filho.id_pessoa,
+                'id_unidade', pu_filho.id_unidade,
                 'nome', p_filho.nome,
                 'email', p_filho.email,
                 'cpf', p_filho.cpf,
@@ -284,20 +456,42 @@ export class CadastrosController {
         LEFT JOIN unidade u ON u.id_unidade = pu.id_unidade
         LEFT JOIN bloco   b ON b.id_bloco   = u.id_bloco
         LEFT JOIN pessoa resp ON resp.id_pessoa = pu.id_responsavel
-       WHERE p.id_pessoa = $1`, [id]);
+       WHERE p.id_pessoa = $1
+       ORDER BY pu.reside DESC NULLS LAST, b.nome ASC, u.numero_apartamento ASC`, [id]);
 
     if (!lista.length) throw new BadRequestException('Pessoa não encontrada.');
     const base = lista[0];
+    const unidades = lista
+      .filter((r: any) => r.id_pessoa_unidade != null)
+      .map((r: any) => ({
+        id_pessoa_unidade: r.id_pessoa_unidade,
+        id_unidade: r.id_unidade,
+        numero_apartamento: r.numero_apartamento,
+        apartamento: r.numero_apartamento,
+        bloco: r.bloco,
+        tipo_vinculo: r.tipo_vinculo,
+        vinculo: r.tipo_vinculo,
+        grau_parentesco: r.grau_parentesco,
+        reside: r.reside,
+        status_aprovacao: r.status_aprovacao,
+        id_responsavel: r.id_responsavel,
+        nome_responsavel: r.nome_responsavel,
+        email_responsavel: r.email_responsavel,
+        celular_responsavel: r.celular_responsavel,
+      }));
 
     // Dependentes vinculados a esta pessoa
     const dependentes = await this.db.query(`
       SELECT p.id_pessoa, p.nome, p.email, p.cpf, p.celular, p.data_nascimento,
+             pu.id_unidade, u.numero_apartamento, b.nome AS bloco,
              pu.grau_parentesco, pu.status_aprovacao, p.ativo,
              (SELECT c.codigo FROM codigo_primeiro_acesso c
                WHERE c.id_pessoa = p.id_pessoa AND c.status = 'DISPONIVEL'
                ORDER BY c.id_codigo DESC LIMIT 1) AS codigo_ativacao
         FROM pessoa_unidade pu
         JOIN pessoa p ON p.id_pessoa = pu.id_pessoa
+        LEFT JOIN unidade u ON u.id_unidade = pu.id_unidade
+        LEFT JOIN bloco b ON b.id_bloco = u.id_bloco
        WHERE pu.id_responsavel = $1 AND pu.data_fim_ocupacao IS NULL
        ORDER BY p.nome`, [id]);
 
@@ -316,6 +510,7 @@ export class CadastrosController {
 
     return {
       ...base,
+      unidades,
       dependentes,
       total_historico: totalHistorico,
       pode_excluir: totalHistorico === 0,
@@ -333,9 +528,11 @@ export class CadastrosController {
       nome: string; email?: string; cpf: string; data_nascimento?: string; celular?: string;
       id_unidade?: number; tipo_vinculo?: string; tipo_perfil?: string; perfis?: string[];
       id_responsavel?: number; grau_parentesco?: string; reside?: boolean;
+      unidades?: VinculoUnidadeInput[];
       tipo_servico?: string;
     }
   ) {
+    const idCondominio = resolverIdCondominio(req);
     const tiposUsuario = (req.user?.perfis || []).map((pf: any) => pf.tipo);
     const ehSindico = tiposUsuario.includes('SINDICO') || tiposUsuario.includes('ADMINISTRADOR') || tiposUsuario.includes('SUPERADMIN');
     const idPerfilGerador = ehSindico
@@ -382,8 +579,17 @@ export class CadastrosController {
         throw new BadRequestException('O papel de Prestador de Serviço é exclusivo e não pode ser combinado com nenhum outro papel.');
       }
 
+      const unidadesSolicitadas = this.normalizarUnidadesPayload(
+        b.unidades,
+        b.id_unidade,
+        b.tipo_vinculo,
+        b.reside,
+        b.id_responsavel,
+        b.grau_parentesco,
+      ) || [];
+
       // Validação obrigatória de Morador: exige unidade vinculada
-      if (rawPerfis.includes('MORADOR') && (!b.id_unidade || Number(b.id_unidade) <= 0)) {
+      if (rawPerfis.includes('MORADOR') && unidadesSolicitadas.length === 0) {
         throw new BadRequestException('Para o papel de Morador, é obrigatório selecionar uma unidade vinculada (bloco e apartamento).');
       }
 
@@ -392,67 +598,31 @@ export class CadastrosController {
       const ehApenasExterno = perfisExternos.length > 0 && perfisInternos.length === 0;
 
       // Validação de vinculação de unidade: ao vincular uma unidade, deve conter obrigatoriamente MORADOR (exceto visitantes/prestadores)
-      if (b.id_unidade && Number(b.id_unidade) > 0 && !ehApenasExterno && !rawPerfis.includes('MORADOR')) {
+      if (unidadesSolicitadas.length > 0 && !ehApenasExterno && !rawPerfis.includes('MORADOR')) {
         throw new BadRequestException('Ao vincular uma unidade a esta pessoa, o papel de Morador é obrigatório (exceto para Visitantes e Prestadores de Serviço).');
       }
 
-      // 1. Validação de regras de negócio de proprietário e inquilino por apartamento
-      if (b.id_unidade && (b.tipo_vinculo === 'PROPRIETARIO' || b.tipo_vinculo === 'INQUILINO')) {
-        const existente = await c.query(
-          `SELECT pu.id_pessoa, p.nome, pu.tipo_vinculo
-             FROM pessoa_unidade pu
-             JOIN pessoa p ON p.id_pessoa = pu.id_pessoa
-            WHERE pu.id_unidade = $1
-              AND pu.tipo_vinculo = $2
-              AND pu.data_fim_ocupacao IS NULL`,
-          [b.id_unidade, b.tipo_vinculo]);
-
-        if (existente.rows.length > 0) {
-          if (b.tipo_vinculo === 'PROPRIETARIO') {
-            throw new BadRequestException(
-              `Erro de cadastro: O apartamento selecionado já possui um Proprietário (titular) cadastrado (${existente.rows[0].nome}). Para cadastrar moradores adicionais nesta unidade, selecione a opção de Dependente.`
-            );
-          } else {
-            throw new BadRequestException(
-              `Erro de cadastro: O apartamento selecionado já possui um Inquilino (titular) cadastrado (${existente.rows[0].nome}). Para demais moradores desta locação, selecione a opção de Dependente.`
-            );
-          }
+      // 1. Validação de pertinência ao condomínio e regras de proprietário/inquilino por apartamento
+      if (unidadesSolicitadas.length > 0) {
+        const idsU = unidadesSolicitadas.map(u => u.id_unidade);
+        const valUnidades = await c.query(
+          `SELECT u.id_unidade
+             FROM unidade u
+             JOIN bloco b ON b.id_bloco = u.id_bloco
+            WHERE u.id_unidade = ANY($1::int[]) AND b.id_condominio = $2`,
+          [idsU, idCondominio]
+        );
+        if (valUnidades.rows.length !== idsU.length) {
+          throw new BadRequestException('Uma ou mais unidades informadas não pertencem a este condomínio.');
         }
 
-        // Se for cadastrar inquilino, não permite se o proprietário residir no imóvel
-        if (b.tipo_vinculo === 'INQUILINO') {
-          const propResidente = await c.query(
-            `SELECT pu.id_pessoa, p.nome
-               FROM pessoa_unidade pu
-               JOIN pessoa p ON p.id_pessoa = pu.id_pessoa
-              WHERE pu.id_unidade = $1
-                AND pu.tipo_vinculo = 'PROPRIETARIO'
-                AND pu.reside = TRUE
-                AND pu.data_fim_ocupacao IS NULL`,
-            [b.id_unidade]);
-
-          if (propResidente.rows.length > 0) {
-            throw new BadRequestException(
-              `Erro de cadastro: Não é permitido vincular como Inquilino, pois o Proprietário (${propResidente.rows[0].nome}) reside neste apartamento.`
-            );
-          }
-        }
-
-        // Se for cadastrar proprietário como residente, verifica se já há inquilino ativo
-        if (b.tipo_vinculo === 'PROPRIETARIO' && (b.reside === undefined || Boolean(b.reside))) {
-          const inqAtivo = await c.query(
-            `SELECT pu.id_pessoa, p.nome
-               FROM pessoa_unidade pu
-               JOIN pessoa p ON p.id_pessoa = pu.id_pessoa
-              WHERE pu.id_unidade = $1
-                AND pu.tipo_vinculo = 'INQUILINO'
-                AND pu.data_fim_ocupacao IS NULL`,
-            [b.id_unidade]);
-
-          if (inqAtivo.rows.length > 0) {
-            throw new BadRequestException(
-              `Erro de cadastro: Não é permitido cadastrar o Proprietário como residente enquanto houver um Inquilino ativo (${inqAtivo.rows[0].nome}) no apartamento.`
-            );
+        if (!ehApenasExterno) {
+          for (const item of unidadesSolicitadas) {
+            const vinculoItem = item.tipo_vinculo || b.tipo_vinculo || 'INQUILINO';
+            const resideItem = item.reside !== undefined
+              ? Boolean(item.reside)
+              : (b.reside !== undefined ? Boolean(b.reside) : true);
+            await this.validarRegrasUnidade(c, item.id_unidade, vinculoItem, resideItem);
           }
         }
       }
@@ -505,21 +675,18 @@ export class CadastrosController {
          RETURNING id_pessoa, nome, email, cpf, papel_controle, tipo_servico`,
         ['dev_' + cpfLimpo, b.nome, emailEfetivo, cpfLimpo, dataNascimentoEfetiva, b.celular || null, statusConta, papelControle, b.tipo_servico || null])).rows[0];
 
-      // 3. Vínculo com a unidade
-      if (b.id_unidade) {
-        let vinculo = b.tipo_vinculo || 'INQUILINO';
-        let reside = b.reside !== undefined ? Boolean(b.reside) : true;
-        if (ehApenasExterno) {
-          vinculo = perfisExternos[0];
-          reside = false;
-        }
-        const idResp = vinculo === 'DEPENDENTE' ? (b.id_responsavel || null) : null;
-        const parentesco = vinculo === 'DEPENDENTE' ? (b.grau_parentesco || 'OUTRO') : null;
+      // 3. Vínculos com as unidades
+      for (const item of unidadesSolicitadas) {
+        const vinculoItem = ehApenasExterno
+          ? perfisExternos[0]
+          : (item.tipo_vinculo || b.tipo_vinculo || 'INQUILINO');
+        const resideItem = ehApenasExterno
+          ? false
+          : (item.reside !== undefined ? Boolean(item.reside) : (b.reside !== undefined ? Boolean(b.reside) : true));
+        const idResp = vinculoItem === 'DEPENDENTE' ? (item.id_responsavel ?? b.id_responsavel ?? null) : null;
+        const parentesco = vinculoItem === 'DEPENDENTE' ? (item.grau_parentesco || b.grau_parentesco || 'OUTRO') : null;
 
-        await c.query(
-          `INSERT INTO pessoa_unidade (id_pessoa, id_unidade, tipo_vinculo, id_responsavel, grau_parentesco, status_aprovacao, reside)
-           VALUES ($1,$2,$3,$4,$5,'APROVADO',$6)`,
-          [p.id_pessoa, b.id_unidade, vinculo, idResp, parentesco, reside]);
+        await this.upsertVinculoUnidade(c, p.id_pessoa, item.id_unidade, vinculoItem, resideItem, idResp, parentesco);
       }
 
       // 4. Perfil de acesso (apenas para perfis internos que utilizam o sistema)
@@ -529,8 +696,8 @@ export class CadastrosController {
       if (!ehApenasExterno && perfisInternos.length > 0) {
         for (const tp of perfisInternos) {
           const row = (await c.query(
-            `INSERT INTO perfil (id_pessoa, tipo_perfil) VALUES ($1, $2) RETURNING id_perfil, tipo_perfil`,
-            [p.id_pessoa, tp]
+            `INSERT INTO perfil (id_pessoa, tipo_perfil, id_condominio) VALUES ($1, $2, $3) RETURNING id_perfil, tipo_perfil`,
+            [p.id_pessoa, tp, idCondominio]
           )).rows[0];
           if (!perfil) perfil = row;
         }
@@ -538,9 +705,9 @@ export class CadastrosController {
         // 5. Geração do código legível de ativação / primeiro acesso
         codigoGerado = gerarCodigoAtivacao();
         await c.query(
-          `INSERT INTO codigo_primeiro_acesso (codigo, id_pessoa, id_perfil_gerador, status)
-           VALUES ($1,$2,$3,'DISPONIVEL')`,
-          [codigoGerado, p.id_pessoa, idPerfilGerador || null]);
+          `INSERT INTO codigo_primeiro_acesso (codigo, id_pessoa, id_perfil_gerador, id_condominio, status)
+           VALUES ($1,$2,$3,$4,'DISPONIVEL')`,
+          [codigoGerado, p.id_pessoa, idPerfilGerador || null, idCondominio]);
       }
 
       if (codigoGerado && p.email) {
@@ -660,30 +827,40 @@ export class CadastrosController {
 
   // ------------------------- Consulta e Solicitação de Dependente pelo Morador -------------------------
   @Get('meus-dependentes') @Perfis('MORADOR') @ExigeModulo('DEPENDENTES_FAMILIA')
-  async obterMeusDependentes(@Req() req: any) {
+  async obterMeusDependentes(
+    @Req() req: any,
+    @Query('id_unidade') idUnidadeQuery?: string,
+  ) {
     const idPessoa = req.user.sub;
     const vinculos = await this.db.query(
       `SELECT pu.id_pessoa_unidade, pu.id_unidade, pu.tipo_vinculo, pu.grau_parentesco, pu.id_responsavel,
-              u.numero_apartamento, b.nome AS bloco,
+              pu.reside, u.numero_apartamento, b.nome AS bloco,
               resp.nome AS nome_responsavel, resp.email AS email_responsavel
          FROM pessoa_unidade pu
          JOIN unidade u ON u.id_unidade = pu.id_unidade
          JOIN bloco   b ON b.id_bloco   = u.id_bloco
          LEFT JOIN pessoa resp ON resp.id_pessoa = pu.id_responsavel
         WHERE pu.id_pessoa = $1 AND pu.data_fim_ocupacao IS NULL
-        LIMIT 1`, [idPessoa]);
+        ORDER BY pu.reside DESC, b.nome ASC, u.numero_apartamento ASC`, [idPessoa]);
 
     if (!vinculos.length) {
-      return { vinculo: null, dependentes: [] };
+      return { vinculo: null, minhas_unidades: [], dependentes: [] };
     }
 
-    const v = vinculos[0];
+    const idUnidadeSelecionada = idUnidadeQuery ? Number(idUnidadeQuery) : null;
+    const v = idUnidadeSelecionada
+      ? vinculos.find((item: any) => Number(item.id_unidade) === idUnidadeSelecionada)
+      : vinculos[0];
+
+    if (!v) {
+      throw new BadRequestException('Unidade não vinculada ao seu cadastro.');
+    }
 
     // Se o morador logado for dependente, o titular responsável é v.id_responsavel; caso contrário, é o próprio morador
     const idTitular = (v.tipo_vinculo === 'DEPENDENTE' && v.id_responsavel) ? v.id_responsavel : idPessoa;
 
     const dependentes = await this.db.query(
-      `SELECT pu.id_pessoa_unidade, p.id_pessoa, p.nome, p.email, p.cpf, p.data_nascimento, p.celular,
+      `SELECT pu.id_pessoa_unidade, pu.id_unidade, p.id_pessoa, p.nome, p.email, p.cpf, p.data_nascimento, p.celular,
               pu.tipo_vinculo, pu.grau_parentesco, pu.status_aprovacao, pu.motivo_rejeicao,
               pu.id_responsavel,
               cpa.codigo AS codigo_ativacao, p.status_conta
@@ -707,6 +884,7 @@ export class CadastrosController {
 
     return {
       vinculo: v,
+      minhas_unidades: vinculos,
       dependentes,
     };
   }
@@ -716,23 +894,36 @@ export class CadastrosController {
     @Req() req: any,
     @Body() b: {
       nome: string; email: string; cpf: string; data_nascimento: string; celular?: string;
-      grau_parentesco: string;
+      grau_parentesco: string; id_unidade?: number;
     }
   ) {
     const idMoradorLogado = req.user.sub;
+    const idCondominio = resolverIdCondominio(req);
 
     return this.db.transacao(async c => {
       // Localiza a unidade ativa do morador logado
+      const paramsVinculo: any[] = [idMoradorLogado];
+      let filtroUnidadeSql = '';
+      if (b.id_unidade && Number(b.id_unidade) > 0) {
+        paramsVinculo.push(Number(b.id_unidade));
+        filtroUnidadeSql = `AND pu.id_unidade = $${paramsVinculo.length}`;
+      }
       const vinculoTitular = (await c.query(`
         SELECT pu.id_unidade, pu.tipo_vinculo
           FROM pessoa_unidade pu
          WHERE pu.id_pessoa = $1
            AND pu.data_fim_ocupacao IS NULL
            AND pu.tipo_vinculo IN ('PROPRIETARIO', 'INQUILINO')
-         LIMIT 1`, [idMoradorLogado])).rows;
+           ${filtroUnidadeSql}
+         ORDER BY pu.reside DESC, pu.id_unidade ASC
+         LIMIT 1`, paramsVinculo)).rows;
 
       if (!vinculoTitular.length) {
-        throw new BadRequestException('Apenas titulares residentes ou proprietários podem solicitar dependentes.');
+        throw new BadRequestException(
+          b.id_unidade
+            ? 'Unidade informada não possui vínculo titular ativo para o seu usuário.'
+            : 'Apenas titulares residentes ou proprietários podem solicitar dependentes.'
+        );
       }
       const idUnidade = vinculoTitular[0].id_unidade;
 
@@ -756,10 +947,12 @@ export class CadastrosController {
 
       // Perfil Morador
       await c.query(
-        `INSERT INTO perfil (id_pessoa, tipo_perfil) VALUES ($1,'MORADOR')`, [p.id_pessoa]);
+        `INSERT INTO perfil (id_pessoa, tipo_perfil, id_condominio) VALUES ($1,'MORADOR',$2)`,
+        [p.id_pessoa, idCondominio]);
 
       return {
         ...p,
+        id_unidade: idUnidade,
         status: 'PENDENTE_APROVACAO',
         mensagem: 'Solicitação enviada para avaliação da administração condominial.',
       };
@@ -776,100 +969,22 @@ export class CadastrosController {
       celular?: string;
       cpf?: string;
       data_nascimento?: string;
-      id_unidade?: number;
+      id_unidade?: number | null;
       tipo_vinculo?: string;
       id_responsavel?: number;
       grau_parentesco?: string;
       tipo_perfil?: string;
       perfis?: string[];
       reside?: boolean;
+      unidades?: VinculoUnidadeInput[];
       papel_controle?: string;
       tipo_servico?: string;
     }
   ) {
+    const idCondominio = resolverIdCondominio(req);
     return this.db.transacao(async c => {
-      // 1. Valida se o novo vínculo com a unidade conflita com outro titular ativo e regras de coabitação
-      if (b.id_unidade && (b.tipo_vinculo === 'PROPRIETARIO' || b.tipo_vinculo === 'INQUILINO')) {
-        const existente = await c.query(
-          `SELECT pu.id_pessoa, p.nome, pu.tipo_vinculo
-             FROM pessoa_unidade pu
-             JOIN pessoa p ON p.id_pessoa = pu.id_pessoa
-            WHERE pu.id_unidade = $1
-              AND pu.tipo_vinculo = $2
-              AND pu.data_fim_ocupacao IS NULL
-              AND pu.id_pessoa <> $3`,
-          [b.id_unidade, b.tipo_vinculo, id]);
-
-        if (existente.rows.length > 0) {
-          if (b.tipo_vinculo === 'PROPRIETARIO') {
-            throw new BadRequestException(
-              `Erro de cadastro: O apartamento selecionado já possui um Proprietário (titular) cadastrado (${existente.rows[0].nome}). Para cadastrar moradores adicionais nesta unidade, selecione a opção de Dependente.`
-            );
-          } else {
-            throw new BadRequestException(
-              `Erro de cadastro: O apartamento selecionado já possui um Inquilino (titular) cadastrado (${existente.rows[0].nome}). Para demais moradores desta locação, selecione a opção de Dependente.`
-            );
-          }
-        }
-
-        // Se for vincular como inquilino, não permite se o proprietário residir no imóvel
-        if (b.tipo_vinculo === 'INQUILINO') {
-          const propResidente = await c.query(
-            `SELECT pu.id_pessoa, p.nome
-               FROM pessoa_unidade pu
-               JOIN pessoa p ON p.id_pessoa = pu.id_pessoa
-              WHERE pu.id_unidade = $1
-                AND pu.tipo_vinculo = 'PROPRIETARIO'
-                AND pu.reside = TRUE
-                AND pu.data_fim_ocupacao IS NULL`,
-            [b.id_unidade]);
-
-          if (propResidente.rows.length > 0) {
-            throw new BadRequestException(
-              `Erro de cadastro: Não é permitido vincular como Inquilino, pois o Proprietário (${propResidente.rows[0].nome}) reside neste apartamento.`
-            );
-          }
-
-          // Se a pessoa já é o próprio proprietário deste imóvel, também não pode virar inquilino
-          const proprioProprietario = await c.query(
-            `SELECT 1
-               FROM pessoa_unidade pu
-              WHERE pu.id_unidade = $1
-                AND pu.id_pessoa = $2
-                AND pu.tipo_vinculo = 'PROPRIETARIO'
-                AND pu.data_fim_ocupacao IS NULL`,
-            [b.id_unidade, id]);
-
-          if (proprioProprietario.rows.length > 0) {
-            throw new BadRequestException(
-              `Erro de cadastro: Esta pessoa já é o Proprietário titular do imóvel e não pode ser vinculada como Inquilino.`
-            );
-          }
-        }
-
-        // Se for proprietário e residir, não permite se já houver um inquilino ativo
-        if (b.tipo_vinculo === 'PROPRIETARIO' && (b.reside === true)) {
-          const inqAtivo = await c.query(
-            `SELECT pu.id_pessoa, p.nome
-               FROM pessoa_unidade pu
-               JOIN pessoa p ON p.id_pessoa = pu.id_pessoa
-              WHERE pu.id_unidade = $1
-                AND pu.tipo_vinculo = 'INQUILINO'
-                AND pu.data_fim_ocupacao IS NULL
-                AND pu.id_pessoa <> $2`,
-            [b.id_unidade, id]);
-
-          if (inqAtivo.rows.length > 0) {
-            throw new BadRequestException(
-              `Erro de cadastro: Não é permitido definir o Proprietário como residente enquanto houver um Inquilino ativo (${inqAtivo.rows[0].nome}) no apartamento.`
-            );
-          }
-        }
-      }
-
-      // Validação de Morador: não permitir perfil Morador sem unidade vinculada
       const listaPerfisRaw = b.perfis || (b.tipo_perfil ? [b.tipo_perfil] : []);
-      const listaPerfisUpper = listaPerfisRaw.map(p => p.toUpperCase());
+      const listaPerfisUpper = listaPerfisRaw.map(p => (p === 'ADMINISTRADOR' ? 'SINDICO' : p.trim().toUpperCase()));
 
       // Validação de exclusividade: Visitante e Prestador de Serviço não podem ser combinados com outros papéis
       if (listaPerfisUpper.includes('VISITANTE') && listaPerfisUpper.length > 1) {
@@ -879,39 +994,72 @@ export class CadastrosController {
         throw new BadRequestException('O papel de Prestador de Serviço é exclusivo e não pode ser combinado com nenhum outro papel.');
       }
 
-      const temPerfilMorador = listaPerfisUpper.includes('MORADOR');
-      const ehApenasExternoEdicao = listaPerfisUpper.includes('VISITANTE') || listaPerfisUpper.includes('PRESTADOR_SERVICO');
+      const perfisSolicitadosInformados = b.perfis !== undefined || b.tipo_perfil !== undefined;
+      let listaPerfisEfetivos = [...listaPerfisUpper];
+      if (!perfisSolicitadosInformados) {
+        const pfAtuais = await c.query(
+          `SELECT tipo_perfil FROM perfil WHERE id_pessoa = $1 AND (data_fim IS NULL OR data_fim > CURRENT_DATE)`,
+          [id]
+        );
+        listaPerfisEfetivos = pfAtuais.rows.map((r: any) => String(r.tipo_perfil).toUpperCase());
+      }
 
-      if (temPerfilMorador) {
-        const temUnidadeInformada = b.id_unidade && Number(b.id_unidade) > 0;
-        if (!temUnidadeInformada) {
-          // Se não foi informada uma nova unidade, verifica se já tem uma unidade ativa
-          const unExistente = await c.query(
-            `SELECT id_pessoa_unidade FROM pessoa_unidade WHERE id_pessoa = $1 AND data_fim_ocupacao IS NULL LIMIT 1`,
-            [id]
-          );
-          if (b.id_unidade === null || b.id_unidade === 0 || unExistente.rows.length === 0) {
-            throw new BadRequestException('Para o papel de Morador, é obrigatório selecionar uma unidade vinculada (bloco e apartamento).');
+      const temPerfilMorador = listaPerfisEfetivos.includes('MORADOR');
+      const ehApenasExternoEdicao = (listaPerfisEfetivos.includes('VISITANTE') || listaPerfisEfetivos.includes('PRESTADOR_SERVICO'))
+        && !listaPerfisEfetivos.some(pf => ['MORADOR', 'PORTEIRO', 'SINDICO'].includes(pf));
+
+      const unidadesPayload = this.normalizarUnidadesPayload(
+        b.unidades,
+        b.id_unidade,
+        b.tipo_vinculo,
+        b.reside,
+        b.id_responsavel,
+        b.grau_parentesco,
+      );
+
+      // 1. Valida pertencimento e regras de coabitação para todas as unidades informadas
+      if (unidadesPayload && unidadesPayload.length > 0) {
+        const idsU = unidadesPayload.map(u => u.id_unidade);
+        const valUnidades = await c.query(
+          `SELECT u.id_unidade
+             FROM unidade u
+             JOIN bloco b ON b.id_bloco = u.id_bloco
+            WHERE u.id_unidade = ANY($1::int[]) AND b.id_condominio = $2`,
+          [idsU, idCondominio]
+        );
+        if (valUnidades.rows.length !== idsU.length) {
+          throw new BadRequestException('Uma ou mais unidades informadas não pertencem a este condomínio.');
+        }
+
+        if (!ehApenasExternoEdicao) {
+          for (const item of unidadesPayload) {
+            const vinculoItem = item.tipo_vinculo || b.tipo_vinculo || 'INQUILINO';
+            const resideItem = item.reside !== undefined
+              ? Boolean(item.reside)
+              : (b.reside !== undefined ? Boolean(b.reside) : true);
+            await this.validarRegrasUnidade(c, item.id_unidade, vinculoItem, resideItem, id);
           }
         }
       }
 
-      // Se possui unidade vinculada (informada ou existente que não foi removida) e não for visitante/prestador, MORADOR é obrigatório
-      if (!ehApenasExternoEdicao) {
-        let temUnidadeEfetiva = false;
-        if (b.id_unidade && Number(b.id_unidade) > 0) {
-          temUnidadeEfetiva = true;
-        } else if (b.id_unidade === undefined) {
-          const unExistente = await c.query(
-            `SELECT id_pessoa_unidade FROM pessoa_unidade WHERE id_pessoa = $1 AND data_fim_ocupacao IS NULL LIMIT 1`,
-            [id]
-          );
-          temUnidadeEfetiva = unExistente.rows.length > 0;
-        }
+      // Validação de Morador: não permitir perfil Morador sem unidade vinculada
+      let unExistenteRows: any[] = [];
+      if (unidadesPayload === null) {
+        unExistenteRows = (await c.query(
+          `SELECT id_pessoa_unidade, id_unidade FROM pessoa_unidade WHERE id_pessoa = $1 AND data_fim_ocupacao IS NULL`,
+          [id]
+        )).rows;
+      }
+      const temUnidadeEfetiva = unidadesPayload !== null
+        ? unidadesPayload.length > 0
+        : unExistenteRows.length > 0;
 
-        if (temUnidadeEfetiva && !temPerfilMorador) {
-          throw new BadRequestException('Ao vincular uma unidade a esta pessoa, o papel de Morador é obrigatório (exceto para Visitantes e Prestadores de Serviço).');
-        }
+      if (temPerfilMorador && !temUnidadeEfetiva) {
+        throw new BadRequestException('Para o papel de Morador, é obrigatório selecionar uma unidade vinculada (bloco e apartamento).');
+      }
+
+      if (!ehApenasExternoEdicao && temUnidadeEfetiva && !temPerfilMorador) {
+        throw new BadRequestException('Ao vincular uma unidade a esta pessoa, o papel de Morador é obrigatório (exceto para Visitantes e Prestadores de Serviço).');
       }
 
       // 2. Atualiza dados cadastrais em pessoa
@@ -933,7 +1081,17 @@ export class CadastrosController {
 
       // Usuário com conta ativa de login no sistema não pode ser alterado para Visitante ou Prestador de Serviço
       const temContaUsuario = (await c.query(
-        `SELECT 1 FROM usuario WHERE id_pessoa = $1 AND ativo = TRUE`,
+        `SELECT 1
+           FROM pessoa pe
+          WHERE pe.id_pessoa = $1
+            AND pe.ativo = TRUE
+            AND pe.status_conta = 'ATIVO'
+            AND EXISTS (
+              SELECT 1 FROM perfil pf
+               WHERE pf.id_pessoa = pe.id_pessoa
+                 AND pf.tipo_perfil IN ('MORADOR', 'PORTEIRO', 'SINDICO', 'SUPERADMIN')
+                 AND (pf.data_fim IS NULL OR pf.data_fim > CURRENT_DATE)
+            )`,
         [id]
       )).rows.length > 0;
 
@@ -973,30 +1131,76 @@ export class CadastrosController {
 
       if (!p) throw new BadRequestException('Pessoa não encontrada.');
 
-      // 3. Atualiza ou cria vínculo com unidade
-      if (b.id_unidade !== undefined) {
-        if (b.id_unidade && Number(b.id_unidade) > 0) {
-          const perfisInternos = listaPerfisUpper.filter(p => ['MORADOR', 'PORTEIRO', 'SINDICO'].includes(p));
-          const perfisExternos = listaPerfisUpper.filter(p => ['VISITANTE', 'PRESTADOR_SERVICO'].includes(p));
-          const ehApenasExterno = perfisExternos.length > 0 && perfisInternos.length === 0;
+      // Helper local para garantir que nenhuma unidade removida deixe dependentes órfãos
+      const verificarDependentesNaUnidade = async (idUnidadeAlvo: number) => {
+        const depOrfaos = await c.query(
+          `SELECT p_dep.nome
+             FROM pessoa_unidade pu
+             JOIN pessoa p_dep ON p_dep.id_pessoa = pu.id_pessoa
+            WHERE pu.id_responsavel = $1
+              AND pu.id_unidade = $2
+              AND pu.data_fim_ocupacao IS NULL
+            LIMIT 1`,
+          [id, idUnidadeAlvo]
+        );
+        if (depOrfaos.rows.length > 0) {
+          throw new BadRequestException(
+            `Não é possível desvincular este apartamento enquanto houver dependentes ativos vinculados ao responsável nesta unidade (ex.: ${depOrfaos.rows[0].nome}).`
+          );
+        }
+      };
 
-          let vinculo = b.tipo_vinculo || 'INQUILINO';
-          let resideVal = b.reside !== undefined ? Boolean(b.reside) : null;
-          if (ehApenasExterno) {
-            vinculo = perfisExternos[0];
-            resideVal = false;
+      // 3. Atualiza ou cria vínculos com unidades
+      if (unidadesPayload !== null) {
+        const ativosAtuais = (await c.query(
+          `SELECT id_pessoa_unidade, id_unidade FROM pessoa_unidade WHERE id_pessoa = $1 AND data_fim_ocupacao IS NULL`,
+          [id]
+        )).rows;
+
+        if (Array.isArray(b.unidades)) {
+          const novosIds = new Set(unidadesPayload.map(u => Number(u.id_unidade)));
+          const removidos = ativosAtuais.filter((r: any) => !novosIds.has(Number(r.id_unidade)));
+
+          for (const rem of removidos) {
+            await verificarDependentesNaUnidade(Number(rem.id_unidade));
+            await c.query(
+              `UPDATE pessoa_unidade SET data_fim_ocupacao = CURRENT_DATE WHERE id_pessoa_unidade = $1`,
+              [rem.id_pessoa_unidade]
+            );
           }
-          const idResp = vinculo === 'DEPENDENTE' ? (b.id_responsavel || null) : null;
-          const parentesco = vinculo === 'DEPENDENTE' ? (b.grau_parentesco || 'OUTRO') : null;
-          if (ehApenasExterno) {
-            resideVal = false;
+
+          for (const item of unidadesPayload) {
+            const vinculoItem = ehApenasExternoEdicao
+              ? (listaPerfisEfetivos[0] || 'VISITANTE')
+              : (item.tipo_vinculo || b.tipo_vinculo || 'INQUILINO');
+            const resideItem = ehApenasExternoEdicao
+              ? false
+              : (item.reside !== undefined ? Boolean(item.reside) : (b.reside !== undefined ? Boolean(b.reside) : true));
+            const idResp = vinculoItem === 'DEPENDENTE' ? (item.id_responsavel ?? b.id_responsavel ?? null) : null;
+            const parentesco = vinculoItem === 'DEPENDENTE' ? (item.grau_parentesco || b.grau_parentesco || 'OUTRO') : null;
+
+            await this.upsertVinculoUnidade(c, id, item.id_unidade, vinculoItem, resideItem, idResp, parentesco);
+          }
+        } else if (unidadesPayload.length > 0) {
+          // Fluxo legado (unidade única via id_unidade)
+          if (ativosAtuais.length > 1) {
+            throw new BadRequestException('Esta pessoa possui múltiplas unidades vinculadas; envie o array "unidades" para editar os vínculos.');
           }
 
-          const vinculoAtivo = await c.query(
-            `SELECT id_pessoa_unidade FROM pessoa_unidade WHERE id_pessoa = $1 AND data_fim_ocupacao IS NULL LIMIT 1`,
-            [id]);
+          const item = unidadesPayload[0];
+          const vinculoItem = ehApenasExternoEdicao
+            ? (listaPerfisEfetivos[0] || 'VISITANTE')
+            : (item.tipo_vinculo || b.tipo_vinculo || 'INQUILINO');
+          const resideVal = ehApenasExternoEdicao
+            ? false
+            : (b.reside !== undefined ? Boolean(b.reside) : null);
+          const idResp = vinculoItem === 'DEPENDENTE' ? (b.id_responsavel || null) : null;
+          const parentesco = vinculoItem === 'DEPENDENTE' ? (b.grau_parentesco || 'OUTRO') : null;
 
-          if (vinculoAtivo.rows.length > 0) {
+          if (ativosAtuais.length === 1) {
+            if (Number(ativosAtuais[0].id_unidade) !== Number(item.id_unidade)) {
+              await verificarDependentesNaUnidade(Number(ativosAtuais[0].id_unidade));
+            }
             await c.query(
               `UPDATE pessoa_unidade
                   SET id_unidade = $2,
@@ -1005,15 +1209,16 @@ export class CadastrosController {
                       grau_parentesco = $5,
                       reside = COALESCE($6, reside)
                 WHERE id_pessoa_unidade = $1`,
-              [vinculoAtivo.rows[0].id_pessoa_unidade, b.id_unidade, vinculo, idResp, parentesco, resideVal]);
+              [ativosAtuais[0].id_pessoa_unidade, item.id_unidade, vinculoItem, idResp, parentesco, resideVal]
+            );
           } else {
-            await c.query(
-              `INSERT INTO pessoa_unidade (id_pessoa, id_unidade, tipo_vinculo, id_responsavel, grau_parentesco, status_aprovacao, reside)
-               VALUES ($1, $2, $3, $4, $5, 'APROVADO', COALESCE($6, TRUE))`,
-              [id, b.id_unidade, vinculo, idResp, parentesco, resideVal]);
+            await this.upsertVinculoUnidade(c, id, item.id_unidade, vinculoItem, resideVal ?? true, idResp, parentesco);
           }
         } else {
-          // Desvincula morador de qualquer unidade ativa caso passe sem unidade
+          // Desvincula todas as unidades ativas
+          for (const rem of ativosAtuais) {
+            await verificarDependentesNaUnidade(Number(rem.id_unidade));
+          }
           await c.query(
             `UPDATE pessoa_unidade SET data_fim_ocupacao = CURRENT_DATE WHERE id_pessoa = $1 AND data_fim_ocupacao IS NULL`,
             [id]
@@ -1086,9 +1291,15 @@ export class CadastrosController {
               [id, tp]
             );
             if (has.rows.length === 0) {
-              await c.query(`INSERT INTO perfil (id_pessoa, tipo_perfil) VALUES ($1, $2)`, [id, tp]);
+              await c.query(
+                `INSERT INTO perfil (id_pessoa, tipo_perfil, id_condominio) VALUES ($1, $2, $3)`,
+                [id, tp, idCondominio]
+              );
             } else if (has.rows[0].data_fim !== null) {
-              await c.query(`UPDATE perfil SET data_fim = NULL WHERE id_perfil = $1`, [has.rows[0].id_perfil]);
+              await c.query(
+                `UPDATE perfil SET data_fim = NULL, id_condominio = COALESCE(id_condominio, $2) WHERE id_perfil = $1`,
+                [has.rows[0].id_perfil, idCondominio]
+              );
             }
           }
 
@@ -1107,6 +1318,130 @@ export class CadastrosController {
 
       this.sync.emitir({ topico: 'PESSOAS', acao: 'ATUALIZADO', idPessoaAlvo: id, detalhes: { id_pessoa: id } });
       return p;
+    });
+  }
+
+  @Post('pessoas/:id/unidades') @Perfis('SINDICO')
+  async adicionarUnidadePessoa(
+    @Req() req: any,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() b: VinculoUnidadeInput,
+  ) {
+    const idCondominio = resolverIdCondominio(req);
+    const idUnidade = Number(b?.id_unidade || 0);
+    if (idUnidade <= 0) {
+      throw new BadRequestException('Informe uma unidade válida para vinculação.');
+    }
+
+    return this.db.transacao(async c => {
+      const pessoaRows = await c.query(`SELECT id_pessoa, papel_controle FROM pessoa WHERE id_pessoa = $1`, [id]);
+      if (!pessoaRows.rows.length) throw new BadRequestException('Pessoa não encontrada.');
+
+      const pfRows = await c.query(
+        `SELECT tipo_perfil FROM perfil WHERE id_pessoa = $1 AND (data_fim IS NULL OR data_fim > CURRENT_DATE)`,
+        [id]
+      );
+      const perfisAtivos = pfRows.rows.map((r: any) => String(r.tipo_perfil).toUpperCase());
+      const ehExterno = perfisAtivos.length === 0 && ['VISITANTE', 'PRESTADOR_SERVICO'].includes(String(pessoaRows.rows[0].papel_controle || '').toUpperCase());
+
+      if (!ehExterno && !perfisAtivos.includes('MORADOR')) {
+        throw new BadRequestException('Ao vincular uma unidade a esta pessoa, o papel de Morador é obrigatório.');
+      }
+
+      const valUnidade = await c.query(
+        `SELECT u.id_unidade
+           FROM unidade u
+           JOIN bloco bl ON bl.id_bloco = u.id_bloco
+          WHERE u.id_unidade = $1 AND bl.id_condominio = $2`,
+        [idUnidade, idCondominio]
+      );
+      if (!valUnidade.rows.length) {
+        throw new BadRequestException('A unidade informada não pertence a este condomínio.');
+      }
+
+      const vinculo = ehExterno
+        ? String(pessoaRows.rows[0].papel_controle).toUpperCase()
+        : (b.tipo_vinculo || 'PROPRIETARIO');
+      const reside = ehExterno ? false : (b.reside !== undefined ? Boolean(b.reside) : true);
+      const idResp = vinculo === 'DEPENDENTE' ? (b.id_responsavel ?? null) : null;
+      const parentesco = vinculo === 'DEPENDENTE' ? (b.grau_parentesco || 'OUTRO') : null;
+
+      if (!ehExterno) {
+        await this.validarRegrasUnidade(c, idUnidade, vinculo, reside, id);
+      }
+      await this.upsertVinculoUnidade(c, id, idUnidade, vinculo, reside, idResp, parentesco);
+
+      this.sync.emitir({ topico: 'PESSOAS', acao: 'ATUALIZADO', idPessoaAlvo: id, detalhes: { id_pessoa: id } });
+      return (await c.query(
+        `SELECT pu.id_pessoa_unidade, pu.id_unidade, b.nome AS bloco, u.numero_apartamento AS apartamento,
+                pu.tipo_vinculo AS vinculo, pu.grau_parentesco AS parentesco, pu.id_responsavel,
+                pu.status_aprovacao, pu.reside
+           FROM pessoa_unidade pu
+           JOIN unidade u ON u.id_unidade = pu.id_unidade
+           JOIN bloco b ON b.id_bloco = u.id_bloco
+          WHERE pu.id_pessoa = $1 AND pu.data_fim_ocupacao IS NULL
+          ORDER BY pu.reside DESC, b.nome ASC, u.numero_apartamento ASC`,
+        [id]
+      )).rows;
+    });
+  }
+
+  @Delete('pessoas/:id/unidades/:idUnidade') @Perfis('SINDICO')
+  async removerUnidadePessoa(
+    @Req() req: any,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('idUnidade', ParseIntPipe) idUnidade: number,
+  ) {
+    const idCondominio = resolverIdCondominio(req);
+    return this.db.transacao(async c => {
+      const ativos = (await c.query(
+        `SELECT pu.id_pessoa_unidade, pu.id_unidade
+           FROM pessoa_unidade pu
+           JOIN unidade u ON u.id_unidade = pu.id_unidade
+           JOIN bloco b ON b.id_bloco = u.id_bloco
+          WHERE pu.id_pessoa = $1 AND pu.data_fim_ocupacao IS NULL AND b.id_condominio = $2`,
+        [id, idCondominio]
+      )).rows;
+
+      const alvo = ativos.find((r: any) => Number(r.id_unidade) === idUnidade);
+      if (!alvo) {
+        throw new BadRequestException('Vínculo ativo com a unidade não encontrado.');
+      }
+
+      const ehMorador = (await c.query(
+        `SELECT 1 FROM perfil WHERE id_pessoa = $1 AND tipo_perfil = 'MORADOR' AND (data_fim IS NULL OR data_fim > CURRENT_DATE)`,
+        [id]
+      )).rows.length > 0;
+
+      if (ehMorador && ativos.length <= 1) {
+        throw new BadRequestException(
+          'Para o papel de Morador, não é permitido remover a última unidade vinculada. Remova o papel de Morador na edição da pessoa se desejar desvincular todas as unidades.'
+        );
+      }
+
+      const depOrfaos = await c.query(
+        `SELECT p_dep.nome
+           FROM pessoa_unidade pu
+           JOIN pessoa p_dep ON p_dep.id_pessoa = pu.id_pessoa
+          WHERE pu.id_responsavel = $1
+            AND pu.id_unidade = $2
+            AND pu.data_fim_ocupacao IS NULL
+          LIMIT 1`,
+        [id, idUnidade]
+      );
+      if (depOrfaos.rows.length > 0) {
+        throw new BadRequestException(
+          `Não é possível desvincular este apartamento enquanto houver dependentes ativos vinculados ao responsável nesta unidade (ex.: ${depOrfaos.rows[0].nome}).`
+        );
+      }
+
+      await c.query(
+        `UPDATE pessoa_unidade SET data_fim_ocupacao = CURRENT_DATE WHERE id_pessoa_unidade = $1`,
+        [alvo.id_pessoa_unidade]
+      );
+
+      this.sync.emitir({ topico: 'PESSOAS', acao: 'ATUALIZADO', idPessoaAlvo: id, detalhes: { id_pessoa: id } });
+      return { ok: true, mensagem: 'Unidade desvinculada com sucesso.' };
     });
   }
 
