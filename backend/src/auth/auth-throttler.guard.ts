@@ -12,8 +12,9 @@ import { ThrottlerGuard, ThrottlerLimitDetail } from '@nestjs/throttler';
 export class AuthThrottlerGuard extends ThrottlerGuard {
   protected async getTracker(req: Record<string, any>): Promise<string> {
     const rawIp = req.ips?.length ? req.ips[0] : (req.ip || req.connection?.remoteAddress || '127.0.0.1');
-    const email = req.body?.email ? `:${req.body.email.toString().toLowerCase().trim()}` : '';
-    return `${rawIp}${email}`;
+    const id = (req.body?.identificador || req.body?.email || '').toString().toLowerCase().trim();
+    const idSuffix = id ? `:${id}` : '';
+    return `${rawIp}${idSuffix}`;
   }
 
   protected async throwThrottlingException(

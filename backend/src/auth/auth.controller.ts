@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, ParseIntPipe, Post, Req, UseGuards, Forbi
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { AuthThrottlerGuard } from './auth-throttler.guard';
-import { JwtAuthGuard } from './guards';
+import { JwtAuthGuard, resolverIdCondominio } from './guards';
 
 @Controller('auth')
 @UseGuards(AuthThrottlerGuard)
@@ -67,7 +67,7 @@ export class AuthController {
   @Get('meus-modulos')
   @UseGuards(JwtAuthGuard)
   async obterMeusModulos(@Req() req: any) {
-    const idCondominio = Number(req.headers?.['x-condominio-id'] || req.user?.id_condominio || 1);
+    const idCondominio = resolverIdCondominio(req);
     return this.auth.obterModulosCondominio(idCondominio);
   }
 }

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import PDFDocument from 'pdfkit';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -85,7 +85,6 @@ export interface DadosRelatorioCobranca {
 
 @Injectable()
 export class RelatoriosPdfService {
-  private readonly logger = new Logger(RelatoriosPdfService.name);
   private logoPath: string;
 
   constructor() {

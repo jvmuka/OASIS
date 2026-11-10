@@ -342,7 +342,7 @@ export class CadastrosController {
       ? perfilDoUsuario(req.user, 'SINDICO')
       : perfilDoUsuario(req.user, 'PORTEIRO');
 
-    const resFinal = await this.db.transacao(async c => {
+    return this.db.transacao(async c => {
       // Identifica papéis solicitados
       let rawPerfis: string[] = [];
       if (Array.isArray(b.perfis) && b.perfis.length > 0) {

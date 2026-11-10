@@ -1,7 +1,6 @@
 import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, Req, Module, UseGuards, ParseIntPipe, UseInterceptors, UploadedFile, BadRequestException, Logger } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
-import 'multer';
 import { promises as fs } from 'fs';
 import sharp from 'sharp';
 import { DbService } from '../db/db.service';

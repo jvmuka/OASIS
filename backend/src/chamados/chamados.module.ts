@@ -625,7 +625,6 @@ export class ChamadosController {
 
 @Module({
   controllers: [ChamadosController],
-  providers: [DbService, SyncService],
 })
 export class ChamadosModule {}
 

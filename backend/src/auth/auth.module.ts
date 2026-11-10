@@ -25,7 +25,7 @@ function obterJwtSecret(): string {
     signOptions: { expiresIn: '8h' },
   })],
   controllers: [AuthController],
-  providers: [AuthService, JwtAuthGuard, PerfilGuard],
-  exports: [JwtAuthGuard, PerfilGuard],
+  providers: [AuthService, JwtAuthGuard, PerfilGuard, ModuloGuard],
+  exports: [JwtAuthGuard, PerfilGuard, ModuloGuard],
 })
 export class AuthModule {}

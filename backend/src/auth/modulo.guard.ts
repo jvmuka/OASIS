@@ -34,9 +34,7 @@ export class ModuloGuard implements CanActivate {
     const perfis = (user.perfis || []).map((p: any) => p.tipo);
     if (perfis.includes('SUPERADMIN')) return true;
 
-    const idCondominio = Number(
-      req.headers?.['x-condominio-id'] || user.id_condominio || 1,
-    );
+    const idCondominio = Number(user.id_condominio || 1);
 
     const checagem = await this.db.query(
       `SELECT ativo FROM condominio_modulo WHERE id_condominio = $1 AND codigo_modulo = $2`,
