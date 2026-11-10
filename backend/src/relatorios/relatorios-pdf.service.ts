@@ -168,12 +168,12 @@ export class RelatoriosPdfService {
       y += 12;
       doc.rect(MARGEM_ESQ, y, LARGURA_UTIL, 32).fill('#F1F5F9');
       doc.font('Helvetica-Bold').fontSize(11).fillColor('#0B1830')
-        .text('RELATÓRIO MENSAL CONSOLIDADO DE GESTÃO', MARGEM_ESQ + 12, y + 6, { width: 340 });
+        .text('RELATÓRIO MENSAL CONSOLIDADO DE GESTÃO', MARGEM_ESQ + 12, y + 6, { width: 330, lineBreak: false });
       doc.font('Helvetica').fontSize(7).fillColor('#64748B')
-        .text(dados.periodo_apuracao || 'Demonstrativo executivo de operações e uso dos espaços', MARGEM_ESQ + 12, y + 19, { width: 340 });
+        .text(dados.periodo_apuracao || 'Demonstrativo executivo de operações e uso dos espaços', MARGEM_ESQ + 12, y + 19, { width: 330, lineBreak: false });
 
-      doc.font('Helvetica-Bold').fontSize(10).fillColor('#2548A0')
-        .text(`COMPETÊNCIA: ${dados.mes_rotulo.toUpperCase()}`, MARGEM_ESQ + 350, y + 10, { width: LARGURA_UTIL - 362, align: 'right' });
+      doc.font('Helvetica-Bold').fontSize(9).fillColor('#2548A0')
+        .text(`COMPETÊNCIA: ${dados.mes_rotulo.toUpperCase()}`, MARGEM_ESQ + 330, y + 10, { width: LARGURA_UTIL - 342, align: 'right', lineBreak: false });
 
       // 3. Super Cards de Resumo Executivo (4 cards em linha)
       y += 40;
@@ -215,26 +215,26 @@ export class RelatoriosPdfService {
       cards.forEach((c, i) => {
         const xCard = MARGEM_ESQ + i * (cardLargura + 6);
         doc.roundedRect(xCard, y, cardLargura, cardAltura, 4).fillAndStroke('#FFFFFF', c.corBorda);
-        doc.font('Helvetica-Bold').fontSize(6.5).fillColor('#64748B').text(c.titulo, xCard + 7, y + 6);
-        doc.font('Helvetica-Bold').fontSize(10).fillColor(c.corDestaque).text(c.valor, xCard + 7, y + 17);
-        doc.font('Helvetica').fontSize(6.5).fillColor('#64748B').text(c.sub, xCard + 7, y + 33, { width: cardLargura - 14 });
+        doc.font('Helvetica-Bold').fontSize(6.5).fillColor('#64748B').text(c.titulo, xCard + 7, y + 6, { width: cardLargura - 14, lineBreak: false });
+        doc.font('Helvetica-Bold').fontSize(10).fillColor(c.corDestaque).text(c.valor, xCard + 7, y + 17, { width: cardLargura - 14, lineBreak: false });
+        doc.font('Helvetica').fontSize(6.5).fillColor('#64748B').text(c.sub, xCard + 7, y + 33, { width: cardLargura - 14, lineBreak: false, ellipsis: true });
       });
 
       // 4. Seção: Desempenho e Arrecadação por Área Comum
       y += cardAltura + 14;
       doc.font('Helvetica-Bold').fontSize(9.5).fillColor('#0B1830')
-        .text('1. DESEMPENHO E ARRECADAÇÃO POR ÁREA COMUM', MARGEM_ESQ, y);
+        .text('1. DESEMPENHO E ARRECADAÇÃO POR ÁREA COMUM', MARGEM_ESQ, y, { lineBreak: false });
 
       y += 14;
       // Cabeçalho da Tabela
       doc.rect(MARGEM_ESQ, y, LARGURA_UTIL, 16).fill('#0B1830');
       doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#FFFFFF');
-      doc.text('ÁREA COMUM', MARGEM_ESQ + 6, y + 4, { width: 170 });
-      doc.text('CAPACIDADE', MARGEM_ESQ + 180, y + 4, { width: 70, align: 'center' });
-      doc.text('RESERVAS', MARGEM_ESQ + 255, y + 4, { width: 65, align: 'center' });
-      doc.text('HORAS RESERV.', MARGEM_ESQ + 325, y + 4, { width: 65, align: 'center' });
-      doc.text('VALOR TAXA', MARGEM_ESQ + 395, y + 4, { width: 60, align: 'right' });
-      doc.text('TOTAL GERADO', MARGEM_ESQ + 460, y + 4, { width: 57, align: 'right' });
+      doc.text('ÁREA COMUM', MARGEM_ESQ + 8, y + 4, { width: 160, lineBreak: false });
+      doc.text('CAPACIDADE', 208, y + 4, { width: 62, align: 'center', lineBreak: false });
+      doc.text('RESERVAS', 274, y + 4, { width: 56, align: 'center', lineBreak: false });
+      doc.text('HORAS RESERV.', 334, y + 4, { width: 66, align: 'center', lineBreak: false });
+      doc.text('VALOR TAXA', 404, y + 4, { width: 64, align: 'right', lineBreak: false });
+      doc.text('TOTAL GERADO', 472, y + 4, { width: 80, align: 'right', lineBreak: false });
 
       y += 16;
       let totalGeralAreas = 0;
@@ -243,19 +243,19 @@ export class RelatoriosPdfService {
       if (!dados.areas || dados.areas.length === 0) {
         doc.rect(MARGEM_ESQ, y, LARGURA_UTIL, 18).fill('#F8FAFC');
         doc.font('Helvetica-Oblique').fontSize(7.5).fillColor('#64748B')
-          .text('Nenhuma área comum com movimentação registrada neste mês.', MARGEM_ESQ + 6, y + 5);
+          .text('Nenhuma área comum com movimentação registrada neste mês.', MARGEM_ESQ + 8, y + 5, { lineBreak: false });
         y += 18;
       } else {
         dados.areas.forEach((area, idx) => {
           const bg = idx % 2 === 0 ? '#FFFFFF' : '#F8FAFC';
           doc.rect(MARGEM_ESQ, y, LARGURA_UTIL, 15).fill(bg);
-          doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0F172A').text(area.nome, MARGEM_ESQ + 6, y + 3.5, { width: 170 });
-          doc.font('Helvetica').fontSize(7.5).fillColor('#475569').text(`${area.capacidade} pess.`, MARGEM_ESQ + 180, y + 3.5, { width: 70, align: 'center' });
-          doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0F172A').text(String(area.reservas), MARGEM_ESQ + 255, y + 3.5, { width: 65, align: 'center' });
-          doc.font('Helvetica').fontSize(7.5).fillColor('#475569').text(`${area.horas_totais}h`, MARGEM_ESQ + 325, y + 3.5, { width: 65, align: 'center' });
-          doc.font('Helvetica').fontSize(7.5).fillColor('#475569').text(this.formatarMoeda(area.valor_unitario), MARGEM_ESQ + 395, y + 3.5, { width: 60, align: 'right' });
+          doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0F172A').text(area.nome, MARGEM_ESQ + 8, y + 3.5, { width: 160, ellipsis: true, lineBreak: false });
+          doc.font('Helvetica').fontSize(7.5).fillColor('#475569').text(`${area.capacidade} pess.`, 208, y + 3.5, { width: 62, align: 'center', lineBreak: false });
+          doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0F172A').text(String(area.reservas), 274, y + 3.5, { width: 56, align: 'center', lineBreak: false });
+          doc.font('Helvetica').fontSize(7.5).fillColor('#475569').text(`${area.horas_totais}h`, 334, y + 3.5, { width: 66, align: 'center', lineBreak: false });
+          doc.font('Helvetica').fontSize(7.5).fillColor('#475569').text(this.formatarMoeda(area.valor_unitario), 404, y + 3.5, { width: 64, align: 'right', lineBreak: false });
           doc.font('Helvetica-Bold').fontSize(7.5).fillColor(area.receita_total > 0 ? '#16A34A' : '#64748B')
-            .text(this.formatarMoeda(area.receita_total), MARGEM_ESQ + 460, y + 3.5, { width: 57, align: 'right' });
+            .text(this.formatarMoeda(area.receita_total), 472, y + 3.5, { width: 80, align: 'right', lineBreak: false });
 
           totalGeralAreas += Number(area.receita_total || 0);
           totalReservasAreas += Number(area.reservas || 0);
@@ -264,9 +264,9 @@ export class RelatoriosPdfService {
 
         // Linha de Totalizador
         doc.rect(MARGEM_ESQ, y, LARGURA_UTIL, 16).fill('#E2E8F0');
-        doc.font('Helvetica-Bold').fontSize(8).fillColor('#0B1830').text('TOTAL CONSOLIDADO DAS ÁREAS', MARGEM_ESQ + 6, y + 4);
-        doc.font('Helvetica-Bold').fontSize(8).fillColor('#0B1830').text(`${totalReservasAreas} reservas`, MARGEM_ESQ + 255, y + 4, { width: 65, align: 'center' });
-        doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#16A34A').text(this.formatarMoeda(totalGeralAreas), MARGEM_ESQ + 450, y + 4, { width: 67, align: 'right' });
+        doc.font('Helvetica-Bold').fontSize(8).fillColor('#0B1830').text('TOTAL CONSOLIDADO DAS ÁREAS', MARGEM_ESQ + 8, y + 4, { width: 220, lineBreak: false });
+        doc.font('Helvetica-Bold').fontSize(8).fillColor('#0B1830').text(`${totalReservasAreas} reservas`, 274, y + 4, { width: 56, align: 'center', lineBreak: false });
+        doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#16A34A').text(this.formatarMoeda(totalGeralAreas), 450, y + 4, { width: 102, align: 'right', lineBreak: false });
         y += 16;
       }
 
@@ -276,11 +276,11 @@ export class RelatoriosPdfService {
 
       // Coluna Esquerda: Chamados
       doc.font('Helvetica-Bold').fontSize(9.5).fillColor('#0B1830')
-        .text('2. OCORRÊNCIAS & MANUTENÇÃO', MARGEM_ESQ, y);
+        .text('2. OCORRÊNCIAS & MANUTENÇÃO', MARGEM_ESQ, y, { lineBreak: false });
 
       // Coluna Direita: Top Unidades em Uso
       doc.font('Helvetica-Bold').fontSize(9.5).fillColor('#0B1830')
-        .text('3. TOP UNIDADES EM UTILIZAÇÃO', MARGEM_ESQ + colLargura + 12, y);
+        .text('3. TOP UNIDADES EM UTILIZAÇÃO', MARGEM_ESQ + colLargura + 12, y, { lineBreak: false });
 
       y += 13;
       const boxAltura = 96;
@@ -289,31 +289,31 @@ export class RelatoriosPdfService {
       doc.roundedRect(MARGEM_ESQ, y, colLargura, boxAltura, 4).fillAndStroke('#FFFFFF', '#CBD5E1');
       let yInterno = y + 7;
       doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0B1830')
-        .text(`Total de Chamados Abertos: `, MARGEM_ESQ + 8, yInterno);
-      doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#2548A0')
-        .text(`${dados.chamados.total_mes} chamados`, MARGEM_ESQ + 125, yInterno);
+        .text('Total de Chamados Abertos: ', MARGEM_ESQ + 8, yInterno, { continued: true })
+        .fillColor('#2548A0')
+        .text(`${dados.chamados.total_mes} chamados`, { lineBreak: false });
 
       yInterno += 11;
       doc.font('Helvetica').fontSize(7).fillColor('#475569')
-        .text(`Resolvidos no Mês: ${dados.chamados.resolvidos} | Em Andamento/Análise: ${dados.chamados.pendentes}`, MARGEM_ESQ + 8, yInterno);
+        .text(`Resolvidos no Mês: ${dados.chamados.resolvidos} | Em Andamento/Análise: ${dados.chamados.pendentes}`, MARGEM_ESQ + 8, yInterno, { width: colLargura - 16, lineBreak: false });
 
       yInterno += 11;
       doc.font('Helvetica').fontSize(7).fillColor('#475569')
-        .text(`Taxa de Resolução: ${dados.chamados.taxa_resolucao_pct}% | Tempo Médio: ${dados.chamados.tempo_medio_resolucao_horas}h`, MARGEM_ESQ + 8, yInterno);
+        .text(`Taxa de Resolução: ${dados.chamados.taxa_resolucao_pct}% | Tempo Médio: ${dados.chamados.tempo_medio_resolucao_horas}h`, MARGEM_ESQ + 8, yInterno, { width: colLargura - 16, lineBreak: false });
 
       yInterno += 12;
       doc.strokeColor('#E2E8F0').lineWidth(0.5).moveTo(MARGEM_ESQ + 8, yInterno).lineTo(MARGEM_ESQ + colLargura - 8, yInterno).stroke();
       yInterno += 5;
 
-      doc.font('Helvetica-Bold').fontSize(7).fillColor('#0B1830').text('Distribuição por Categoria:', MARGEM_ESQ + 8, yInterno);
+      doc.font('Helvetica-Bold').fontSize(7).fillColor('#0B1830').text('Distribuição por Categoria:', MARGEM_ESQ + 8, yInterno, { lineBreak: false });
       yInterno += 10;
 
       if (!dados.chamados.categorias || dados.chamados.categorias.length === 0) {
-        doc.font('Helvetica-Oblique').fontSize(7).fillColor('#64748B').text('Nenhum chamado no período.', MARGEM_ESQ + 8, yInterno);
+        doc.font('Helvetica-Oblique').fontSize(7).fillColor('#64748B').text('Nenhum chamado no período.', MARGEM_ESQ + 8, yInterno, { lineBreak: false });
       } else {
         dados.chamados.categorias.slice(0, 3).forEach(cat => {
           doc.font('Helvetica').fontSize(7).fillColor('#334155')
-            .text(`• ${cat.rotulo}: ${cat.total} (${cat.pct}%)`, MARGEM_ESQ + 12, yInterno);
+            .text(`• ${cat.rotulo}: ${cat.total} (${cat.pct}%)`, MARGEM_ESQ + 12, yInterno, { width: colLargura - 20, lineBreak: false, ellipsis: true });
           yInterno += 10;
         });
       }
@@ -325,32 +325,35 @@ export class RelatoriosPdfService {
 
       if (!dados.top_unidades || dados.top_unidades.length === 0) {
         doc.font('Helvetica-Oblique').fontSize(7.5).fillColor('#64748B')
-          .text('Nenhuma unidade com agendamentos no mês.', xCol2 + 8, yInterno2 + 25, { width: colLargura - 16, align: 'center' });
+          .text('Nenhuma unidade com agendamentos no mês.', xCol2 + 8, yInterno2 + 25, { width: colLargura - 16, align: 'center', lineBreak: false });
       } else {
         doc.font('Helvetica-Bold').fontSize(7).fillColor('#64748B');
-        doc.text('APTO / BLOCO', xCol2 + 8, yInterno2, { width: 75 });
-        doc.text('MORADOR', xCol2 + 85, yInterno2, { width: 95 });
-        doc.text('RESERVAS', xCol2 + 180, yInterno2, { width: 40, align: 'center' });
-        doc.text('TAXAS', xCol2 + 220, yInterno2, { width: colLargura - 228, align: 'right' });
+        doc.text('APTO / BLOCO', xCol2 + 8, yInterno2, { width: 64, lineBreak: false });
+        doc.text('MORADOR', xCol2 + 74, yInterno2, { width: 74, lineBreak: false });
+        doc.text('RESERVAS', xCol2 + 150, yInterno2, { width: 38, align: 'center', lineBreak: false });
+        doc.text('TAXAS', xCol2 + 190, yInterno2, { width: 57.5, align: 'right', lineBreak: false });
 
         yInterno2 += 10;
         doc.strokeColor('#E2E8F0').lineWidth(0.5).moveTo(xCol2 + 8, yInterno2).lineTo(xCol2 + colLargura - 8, yInterno2).stroke();
-        yInterno2 += 4;
+        yInterno2 += 5;
 
         dados.top_unidades.slice(0, 5).forEach((u) => {
-          doc.font('Helvetica-Bold').fontSize(7).fillColor('#0F172A').text(`Apto ${u.apartamento} (${u.bloco})`, xCol2 + 8, yInterno2, { width: 75 });
-          doc.font('Helvetica').fontSize(7).fillColor('#475569').text(u.morador, xCol2 + 85, yInterno2, { width: 95, ellipsis: true });
-          doc.font('Helvetica').fontSize(7).fillColor('#0F172A').text(String(u.total_reservas), xCol2 + 180, yInterno2, { width: 40, align: 'center' });
+          doc.font('Helvetica-Bold').fontSize(7).fillColor('#0F172A')
+            .text(`Apto ${u.apartamento} (${u.bloco})`, xCol2 + 8, yInterno2, { width: 64, ellipsis: true, lineBreak: false });
+          doc.font('Helvetica').fontSize(7).fillColor('#475569')
+            .text(u.morador, xCol2 + 74, yInterno2, { width: 74, ellipsis: true, lineBreak: false });
+          doc.font('Helvetica').fontSize(7).fillColor('#0F172A')
+            .text(String(u.total_reservas), xCol2 + 150, yInterno2, { width: 38, align: 'center', lineBreak: false });
           doc.font('Helvetica-Bold').fontSize(7).fillColor(u.total_taxas > 0 ? '#16A34A' : '#64748B')
-            .text(this.formatarMoeda(u.total_taxas), xCol2 + 220, yInterno2, { width: colLargura - 228, align: 'right' });
-          yInterno2 += 11;
+            .text(this.formatarMoeda(u.total_taxas), xCol2 + 190, yInterno2, { width: 57.5, align: 'right', lineBreak: false });
+          yInterno2 += 12.5;
         });
       }
 
       // 6. Parecer e Assinaturas
       y += boxAltura + 14;
       doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#0B1830')
-        .text('4. PARECER DA ADMINISTRAÇÃO E CONSELHO FISCAL', MARGEM_ESQ, y);
+        .text('4. PARECER DA ADMINISTRAÇÃO E CONSELHO FISCAL', MARGEM_ESQ, y, { lineBreak: false });
 
       y += 12;
       doc.rect(MARGEM_ESQ, y, LARGURA_UTIL, 35).fillAndStroke('#F8FAFC', '#E2E8F0');
@@ -362,14 +365,14 @@ export class RelatoriosPdfService {
 
       // Assinatura Síndico
       doc.strokeColor('#94A3B8').lineWidth(0.8).moveTo(MARGEM_ESQ + 10, y).lineTo(MARGEM_ESQ + 10 + larguraAssinatura, y).stroke();
-      doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0B1830').text('Síndico(a) / Gestor Condominial', MARGEM_ESQ + 10, y + 4, { width: larguraAssinatura, align: 'center' });
-      doc.font('Helvetica').fontSize(6.5).fillColor('#64748B').text(dados.condominio.nome, MARGEM_ESQ + 10, y + 13, { width: larguraAssinatura, align: 'center' });
+      doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0B1830').text('Síndico(a) / Gestor Condominial', MARGEM_ESQ + 10, y + 4, { width: larguraAssinatura, align: 'center', lineBreak: false });
+      doc.font('Helvetica').fontSize(6.5).fillColor('#64748B').text(dados.condominio.nome, MARGEM_ESQ + 10, y + 13, { width: larguraAssinatura, align: 'center', lineBreak: false });
 
       // Assinatura Conselho Fiscal
       const xAssinatura2 = MARGEM_ESQ + larguraAssinatura + 36;
       doc.strokeColor('#94A3B8').lineWidth(0.8).moveTo(xAssinatura2, y).lineTo(xAssinatura2 + larguraAssinatura, y).stroke();
-      doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0B1830').text('Conselho Fiscal / Consultivo', xAssinatura2, y + 4, { width: larguraAssinatura, align: 'center' });
-      doc.font('Helvetica').fontSize(6.5).fillColor('#64748B').text('Aprovação de Contas', xAssinatura2, y + 13, { width: larguraAssinatura, align: 'center' });
+      doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0B1830').text('Conselho Fiscal / Consultivo', xAssinatura2, y + 4, { width: larguraAssinatura, align: 'center', lineBreak: false });
+      doc.font('Helvetica').fontSize(6.5).fillColor('#64748B').text('Aprovação de Contas', xAssinatura2, y + 13, { width: larguraAssinatura, align: 'center', lineBreak: false });
 
       // 7. Rodapé com numeração dinâmica de páginas (sem criar páginas em branco espúrias)
       const totalPaginas = doc.bufferedPageRange().count;
@@ -459,27 +462,27 @@ export class RelatoriosPdfService {
       y += 42;
       doc.rect(MARGEM_ESQ, y, LARGURA_UTIL, 28).fillAndStroke('#F8FAFC', '#CBD5E1');
       doc.font('Helvetica-Bold').fontSize(8).fillColor('#475569')
-        .text('TOTAL A FATURAR:', MARGEM_ESQ + 12, y + 9);
+        .text('TOTAL A FATURAR:', MARGEM_ESQ + 12, y + 9, { lineBreak: false });
       doc.font('Helvetica-Bold').fontSize(11).fillColor('#16A34A')
-        .text(this.formatarMoeda(dados.total_geral), MARGEM_ESQ + 105, y + 7);
+        .text(this.formatarMoeda(dados.total_geral), MARGEM_ESQ + 105, y + 7, { lineBreak: false });
 
       doc.font('Helvetica-Bold').fontSize(8).fillColor('#475569')
-        .text(`EVENTOS REALIZADOS: ${dados.total_reservas}`, MARGEM_ESQ + 260, y + 9);
+        .text(`EVENTOS REALIZADOS: ${dados.total_reservas}`, MARGEM_ESQ + 260, y + 9, { lineBreak: false });
       doc.font('Helvetica-Bold').fontSize(8).fillColor('#475569')
-        .text(`UNIDADES IMPACTADAS: ${dados.total_unidades}`, MARGEM_ESQ + 395, y + 9);
+        .text(`UNIDADES IMPACTADAS: ${dados.total_unidades}`, MARGEM_ESQ + 395, y + 9, { lineBreak: false });
 
       // 4. Tabela de Lançamentos com larguras rigorosamente calibradas (largura total útil: 523pt, [36 a 559])
       y += 36;
       const desenharCabecalhoTabela = (yPos: number) => {
         doc.rect(MARGEM_ESQ, yPos, LARGURA_UTIL, 18).fill('#1E293B');
         doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#FFFFFF');
-        doc.text('UNIDADE', MARGEM_ESQ + 8, yPos + 5, { width: 46 });
-        doc.text('MORADOR SOLICITANTE', 92, yPos + 5, { width: 112 });
-        doc.text('CPF', 206, yPos + 5, { width: 66 });
-        doc.text('ESPAÇO RESERVADO', 274, yPos + 5, { width: 94 });
-        doc.text('DATA', 370, yPos + 5, { width: 56, align: 'center' });
-        doc.text('HORÁRIO', 428, yPos + 5, { width: 60, align: 'center' });
-        doc.text('TAXA (R$)', 490, yPos + 5, { width: 61, align: 'right' });
+        doc.text('UNIDADE', MARGEM_ESQ + 8, yPos + 5, { width: 46, lineBreak: false });
+        doc.text('MORADOR SOLICITANTE', 92, yPos + 5, { width: 112, lineBreak: false });
+        doc.text('CPF', 206, yPos + 5, { width: 66, lineBreak: false });
+        doc.text('ESPAÇO RESERVADO', 274, yPos + 5, { width: 94, lineBreak: false });
+        doc.text('DATA', 370, yPos + 5, { width: 56, align: 'center', lineBreak: false });
+        doc.text('HORÁRIO', 428, yPos + 5, { width: 58, align: 'center', lineBreak: false });
+        doc.text('TAXA (R$)', 488, yPos + 5, { width: 66, align: 'right', lineBreak: false });
         return yPos + 18;
       };
 
@@ -488,7 +491,7 @@ export class RelatoriosPdfService {
       if (!dados.itens || dados.itens.length === 0) {
         doc.rect(MARGEM_ESQ, y, LARGURA_UTIL, 24).fill('#F8FAFC');
         doc.font('Helvetica-Oblique').fontSize(8).fillColor('#64748B')
-          .text('Nenhum evento tarifado realizado no período apurado até o momento.', MARGEM_ESQ + 12, y + 8);
+          .text('Nenhum evento tarifado realizado no período apurado até o momento.', MARGEM_ESQ + 12, y + 8, { lineBreak: false });
         y += 24;
       } else {
         // Agrupa por Bloco para criar subtotais organizados
@@ -515,7 +518,7 @@ export class RelatoriosPdfService {
           // Faixa de cabeçalho do Bloco
           doc.rect(MARGEM_ESQ, y, LARGURA_UTIL, 15).fill('#E2E8F0');
           doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0B1830')
-            .text(`BLOCO: ${bloco.toUpperCase()} (${itensBloco.length} lançamento${itensBloco.length > 1 ? 's' : ''})`, MARGEM_ESQ + 8, y + 3.5);
+            .text(`BLOCO: ${bloco.toUpperCase()} (${itensBloco.length} lançamento${itensBloco.length > 1 ? 's' : ''})`, MARGEM_ESQ + 8, y + 3.5, { lineBreak: false });
           y += 15;
 
           for (const item of itensBloco) {
@@ -528,24 +531,24 @@ export class RelatoriosPdfService {
             doc.rect(MARGEM_ESQ, y, LARGURA_UTIL, ALTURA_LINHA).fill(bg);
 
             doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0F172A')
-              .text(`Apto ${item.apartamento}`, MARGEM_ESQ + 8, y + 4, { width: 46 });
+              .text(`Apto ${item.apartamento}`, MARGEM_ESQ + 8, y + 4, { width: 46, lineBreak: false });
             doc.font('Helvetica').fontSize(7.5).fillColor('#334155')
-              .text(item.morador_nome, 92, y + 4, { width: 112, ellipsis: true });
+              .text(item.morador_nome, 92, y + 4, { width: 112, ellipsis: true, lineBreak: false });
             doc.font('Helvetica').fontSize(7).fillColor('#64748B')
-              .text(item.morador_cpf || '---', 206, y + 4, { width: 66 });
+              .text(item.morador_cpf || '---', 206, y + 4, { width: 66, lineBreak: false });
             doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0B1830')
-              .text(item.area_nome, 274, y + 4, { width: 94, ellipsis: true });
+              .text(item.area_nome, 274, y + 4, { width: 94, ellipsis: true, lineBreak: false });
             doc.font('Helvetica').fontSize(7.5).fillColor('#334155')
-              .text(item.data_evento, 370, y + 4, { width: 56, align: 'center' });
+              .text(item.data_evento, 370, y + 4, { width: 56, align: 'center', lineBreak: false });
 
             const horarioFormatado = item.horario_inicio && item.horario_fim
               ? `${item.horario_inicio} às ${item.horario_fim}`
               : item.horario_inicio || '---';
             doc.font('Helvetica').fontSize(6.5).fillColor('#475569')
-              .text(horarioFormatado, 428, y + 4.5, { width: 60, align: 'center', lineBreak: false });
+              .text(horarioFormatado, 428, y + 4.5, { width: 58, align: 'center', lineBreak: false });
 
             doc.font('Helvetica-Bold').fontSize(8).fillColor('#0F172A')
-              .text(this.formatarMoeda(item.valor_taxa), 490, y + 4, { width: 61, align: 'right', lineBreak: false });
+              .text(this.formatarMoeda(item.valor_taxa), 488, y + 4, { width: 66, align: 'right', lineBreak: false });
 
             subtotalBloco += Number(item.valor_taxa || 0);
             linhaIndex++;
@@ -555,9 +558,9 @@ export class RelatoriosPdfService {
           // Subtotal do Bloco com alinhamento perfeito na coluna de taxa
           doc.rect(MARGEM_ESQ, y, LARGURA_UTIL, 16).fill('#F1F5F9');
           doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#475569')
-            .text(`Subtotal Bloco ${bloco}:`, 200, y + 4, { width: 280, align: 'right' });
+            .text(`Subtotal Bloco ${bloco}:`, 200, y + 4, { width: 280, align: 'right', lineBreak: false });
           doc.font('Helvetica-Bold').fontSize(8).fillColor('#0B1830')
-            .text(this.formatarMoeda(subtotalBloco), 490, y + 4, { width: 61, align: 'right', lineBreak: false });
+            .text(this.formatarMoeda(subtotalBloco), 488, y + 4, { width: 66, align: 'right', lineBreak: false });
           y += 16;
         }
 
@@ -565,9 +568,9 @@ export class RelatoriosPdfService {
         y += 6;
         doc.rect(MARGEM_ESQ, y, LARGURA_UTIL, 20).fill('#0B1830');
         doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#FFFFFF')
-          .text('TOTAL GERAL A SER COBRADO EM BOLETO:', MARGEM_ESQ + 12, y + 6);
+          .text('TOTAL GERAL A SER COBRADO EM BOLETO:', MARGEM_ESQ + 12, y + 6, { lineBreak: false });
         doc.font('Helvetica-Bold').fontSize(10).fillColor('#4ADE80')
-          .text(this.formatarMoeda(dados.total_geral), 430, y + 5, { width: 121, align: 'right', lineBreak: false });
+          .text(this.formatarMoeda(dados.total_geral), 430, y + 5, { width: 124, align: 'right', lineBreak: false });
         y += 20;
       }
 
