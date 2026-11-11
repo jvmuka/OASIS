@@ -36,24 +36,38 @@ export default function Mural() {
   const temUnidade = Boolean(sessao?.unidades && sessao.unidades.length > 0);
   const ehApenasAdmin = !temMorador && !temUnidade && (tiposPerfis.includes('SINDICO') || tiposPerfis.includes('ADMINISTRADOR'));
 
-  const carregar = () => {
-    setCarregando(true);
+  const carregar = (silencioso = false) => {
+    if (!silencioso) setCarregando(true);
     api
       .get<Aviso[]>('/avisos/meus')
       .then(res => {
         // Se for exclusivamente administrador, desconsidera qualquer aviso de encomenda
         const dados = ehApenasAdmin ? res.filter(a => a.categoria !== 'ENCOMENDA') : res;
-        setAvisos(dados.map(a => ({ ...a, lidoInicial: a.lido })));
+        setAvisos(prev => {
+          if (!silencioso || prev.length === 0) {
+            return dados.map(a => ({ ...a, lidoInicial: a.lido }));
+          }
+          const mapaAnterior = new Map(prev.map(item => [item.id_aviso, item]));
+          return dados.map(a => {
+            const ant = mapaAnterior.get(a.id_aviso);
+            return {
+              ...a,
+              lidoInicial: ant ? (ant.lidoInicial ?? ant.lido) : a.lido,
+            };
+          });
+        });
       })
-      .finally(() => setCarregando(false));
+      .finally(() => {
+        if (!silencioso) setCarregando(false);
+      });
   };
 
   useEffect(() => {
-    carregar();
+    carregar(false);
   }, []);
 
   useSync('AVISOS', () => {
-    carregar();
+    carregar(true);
   });
 
   async function abrir(a: Aviso) {
@@ -182,7 +196,7 @@ export default function Mural() {
 
         <button
           type="button"
-          onClick={carregar}
+          onClick={() => carregar(false)}
           disabled={carregando}
           className="self-start sm:self-auto inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors shadow-2xs cursor-pointer"
           title="Recarregar avisos do mural"
@@ -390,7 +404,10 @@ export default function Mural() {
                   </div>
 
                   {eAberto && (
-                    <div className="mt-4 border-t border-slate-100 dark:border-slate-800 pt-3 text-sm text-slate-700 dark:text-slate-300 space-y-3 animate-fade-in">
+                    <div
+                      onClick={e => e.stopPropagation()}
+                      className="mt-4 border-t border-slate-100 dark:border-slate-800 pt-3 text-sm text-slate-700 dark:text-slate-300 space-y-3 animate-fade-in cursor-default"
+                    >
                       <p className="whitespace-pre-line leading-relaxed text-slate-600 dark:text-slate-300">
                         {a.conteudo}
                       </p>

@@ -372,6 +372,7 @@ export class CadastrosController {
              (SELECT c.codigo FROM codigo_primeiro_acesso c
                WHERE c.id_pessoa = p.id_pessoa AND c.status = 'DISPONIVEL'
                  AND c.data_expiracao > CURRENT_TIMESTAMP
+                 AND c.codigo NOT LIKE 'REC-%'
                ORDER BY c.id_codigo DESC LIMIT 1) AS codigo_ativacao,
              -- Informações do responsável direto (caso este usuário seja dependente)
              (SELECT jsonb_build_object('id_pessoa', resp.id_pessoa, 'nome', resp.nome, 'email', resp.email)
@@ -426,11 +427,23 @@ export class CadastrosController {
        GROUP BY p.id_pessoa
        ORDER BY p.nome`, params);
 
+    const tiposUsuario: string[] = (req?.user?.perfis || []).map((p: any) => p.tipo);
+    const podeVerCodigo = tiposUsuario.some(t => ['SINDICO', 'ADMINISTRADOR', 'SUPERADMIN'].includes(t));
+
+    if (!podeVerCodigo) {
+      return pessoas.map((p: any) => ({ ...p, codigo_ativacao: null }));
+    }
+
     return pessoas;
   }
 
   @Get('pessoas/:id/detalhes')
-  async detalhesPessoa(@Param('id', ParseIntPipe) id: number) {
+  async detalhesPessoa(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    const tiposUsuario: string[] = (req?.user?.perfis || []).map((p: any) => p.tipo);
+    const ehSuperadmin = tiposUsuario.includes('SUPERADMIN');
+    const podeVerCodigo = tiposUsuario.some(t => ['SINDICO', 'ADMINISTRADOR', 'SUPERADMIN'].includes(t));
+    const idCondominio = resolverIdCondominio(req);
+
     const lista = await this.db.query(`
       SELECT p.id_pessoa, p.nome, p.email, p.cpf, p.celular, p.data_nascimento,
              p.status_conta, p.ativo, p.papel_controle, p.tipo_servico,
@@ -445,6 +458,8 @@ export class CadastrosController {
              ), '[]') AS perfis,
              (SELECT c.codigo FROM codigo_primeiro_acesso c
                WHERE c.id_pessoa = p.id_pessoa AND c.status = 'DISPONIVEL'
+                 AND c.data_expiracao > CURRENT_TIMESTAMP
+                 AND c.codigo NOT LIKE 'REC-%'
                ORDER BY c.id_codigo DESC LIMIT 1) AS codigo_ativacao,
              (SELECT COUNT(*)::INTEGER FROM bloqueio_perfil bp
                 JOIN perfil pf_b ON pf_b.id_perfil = bp.id_perfil
@@ -457,10 +472,16 @@ export class CadastrosController {
         LEFT JOIN bloco   b ON b.id_bloco   = u.id_bloco
         LEFT JOIN pessoa resp ON resp.id_pessoa = pu.id_responsavel
        WHERE p.id_pessoa = $1
-       ORDER BY pu.reside DESC NULLS LAST, b.nome ASC, u.numero_apartamento ASC`, [id]);
+         AND ($2::boolean = TRUE OR b.id_condominio = $3 OR EXISTS (
+           SELECT 1 FROM perfil pf_c WHERE pf_c.id_pessoa = p.id_pessoa AND pf_c.id_condominio = $3
+         ))
+       ORDER BY pu.reside DESC NULLS LAST, b.nome ASC, u.numero_apartamento ASC`, [id, ehSuperadmin, idCondominio]);
 
     if (!lista.length) throw new BadRequestException('Pessoa não encontrada.');
-    const base = lista[0];
+    const base = {
+      ...lista[0],
+      codigo_ativacao: podeVerCodigo ? lista[0].codigo_ativacao : null,
+    };
     const unidades = lista
       .filter((r: any) => r.id_pessoa_unidade != null)
       .map((r: any) => ({
@@ -481,12 +502,14 @@ export class CadastrosController {
       }));
 
     // Dependentes vinculados a esta pessoa
-    const dependentes = await this.db.query(`
+    const dependentesRaw = await this.db.query(`
       SELECT p.id_pessoa, p.nome, p.email, p.cpf, p.celular, p.data_nascimento,
              pu.id_unidade, u.numero_apartamento, b.nome AS bloco,
              pu.grau_parentesco, pu.status_aprovacao, p.ativo,
              (SELECT c.codigo FROM codigo_primeiro_acesso c
                WHERE c.id_pessoa = p.id_pessoa AND c.status = 'DISPONIVEL'
+                 AND c.data_expiracao > CURRENT_TIMESTAMP
+                 AND c.codigo NOT LIKE 'REC-%'
                ORDER BY c.id_codigo DESC LIMIT 1) AS codigo_ativacao
         FROM pessoa_unidade pu
         JOIN pessoa p ON p.id_pessoa = pu.id_pessoa
@@ -494,6 +517,11 @@ export class CadastrosController {
         LEFT JOIN bloco b ON b.id_bloco = u.id_bloco
        WHERE pu.id_responsavel = $1 AND pu.data_fim_ocupacao IS NULL
        ORDER BY p.nome`, [id]);
+
+    const dependentes = dependentesRaw.map((d: any) => ({
+      ...d,
+      codigo_ativacao: podeVerCodigo ? d.codigo_ativacao : null,
+    }));
 
     const historico = await this.db.query(`
       SELECT (

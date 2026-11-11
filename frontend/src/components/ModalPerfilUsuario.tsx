@@ -164,7 +164,7 @@ export function ModalPerfilUsuario({
   const ehDependente = listaUnidades.length <= 1 && (vinculo === 'DEPENDENTE' || Boolean(responsavel));
   const papelInfo = pessoa ? obterPapelUsuario(pessoa) : { papel: 'Morador', badgeCls: '' };
   const idade = pessoa?.data_nascimento ? calcularIdade(pessoa.data_nascimento) : null;
-  const temAcoesExtras = Boolean(aoBloquear || aoInativar || aoReativar || aoExcluir);
+  const temAcoesExtras = !somenteLeitura && Boolean(aoBloquear || aoInativar || aoReativar || aoExcluir);
 
   return (
     <Modal
@@ -362,8 +362,8 @@ export function ModalPerfilUsuario({
             </div>
           )}
 
-          {/* Código de Ativação caso exista */}
-          {pessoa.codigo_ativacao && (
+          {/* Código de Ativação caso exista (somente para perfis com permissão de gestão) */}
+          {!somenteLeitura && pessoa.codigo_ativacao && (
             <div className="rounded-xl border border-sky-200 bg-sky-50/60 dark:border-sky-900/50 dark:bg-sky-950/30 p-3 flex items-center justify-between">
               <div>
                 <p className="text-[10px] font-bold uppercase text-sky-700 dark:text-sky-300">
@@ -431,7 +431,7 @@ export function ModalPerfilUsuario({
             </Botao>
 
             <div className="flex items-center gap-2">
-              {aoEditar && (
+              {!somenteLeitura && aoEditar && (
                 <Botao
                   variante="claro"
                   tamanho="sm"
