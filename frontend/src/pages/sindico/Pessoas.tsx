@@ -2753,6 +2753,7 @@ export default function Pessoas({
       {abaAtiva === 'estrutura' && (
         <EstruturaFisica
           somenteLeitura={true}
+          somenteLeituraPessoas={somenteLeitura}
           aoEditarPessoa={somenteLeitura ? undefined : (p) => abrirModalEdicao(p)}
           aoAdicionarDependente={somenteLeitura ? undefined : (titular, idUnidade) => iniciarCadastroDependente(titular, idUnidade)}
           aoBloquear={somenteLeitura ? undefined : (p) => abrirModalBloqueio(p)}

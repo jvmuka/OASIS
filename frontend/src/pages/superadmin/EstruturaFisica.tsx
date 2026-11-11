@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../../api';
+import { api, sessaoAtual } from '../../api';
 import {
   Botao,
   Cartao,
@@ -85,6 +85,7 @@ interface EstruturaResponse {
 
 export interface EstruturaFisicaProps {
   somenteLeitura?: boolean;
+  somenteLeituraPessoas?: boolean;
   aoEditarPessoa?: (pessoa: any) => void;
   aoAdicionarDependente?: (titular: any, idUnidade: number) => void;
   aoBloquear?: (pessoa: any) => void;
@@ -95,6 +96,7 @@ export interface EstruturaFisicaProps {
 
 export default function EstruturaFisica({
   somenteLeitura = false,
+  somenteLeituraPessoas,
   aoEditarPessoa,
   aoAdicionarDependente,
   aoBloquear,
@@ -103,6 +105,10 @@ export default function EstruturaFisica({
   aoExcluir,
 }: EstruturaFisicaProps = {}) {
   const navigate = useNavigate();
+  const sessao = sessaoAtual();
+  const tiposPerfis = (sessao?.perfis || []).map(p => p.tipo);
+  const podeGerenciarPessoas = tiposPerfis.some(t => ['SUPERADMIN', 'SINDICO', 'ADMINISTRADOR'].includes(t));
+  const bloquearEdicaoPessoas = Boolean(somenteLeituraPessoas ?? !podeGerenciarPessoas);
   const [dados, setDados] = useState<EstruturaResponse | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [blocoAtivoId, setBlocoAtivoId] = useState<number | null>(null);
@@ -1934,17 +1940,19 @@ export default function EstruturaFisica({
         largura="max-w-2xl"
         rodape={
           <div className="flex items-center justify-between w-full">
-            <Botao
-              variante="secundario"
-              tamanho="sm"
-              onClick={() => {
-                setUnidadeDetalhesMoradores(null);
-                navigate(somenteLeitura ? '/sindico/pessoas' : '/superadmin/pessoas');
-              }}
-            >
-              <Icone nome="user" className="w-3.5 h-3.5 mr-1.5" />
-              Gestão de Pessoas
-            </Botao>
+            {!bloquearEdicaoPessoas ? (
+              <Botao
+                variante="secundario"
+                tamanho="sm"
+                onClick={() => {
+                  setUnidadeDetalhesMoradores(null);
+                  navigate(somenteLeitura ? '/sindico/pessoas' : '/superadmin/pessoas');
+                }}
+              >
+                <Icone nome="user" className="w-3.5 h-3.5 mr-1.5" />
+                Gestão de Pessoas
+              </Botao>
+            ) : <div />}
             <Botao
               variante="primario"
               tamanho="sm"
@@ -2065,19 +2073,21 @@ export default function EstruturaFisica({
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
                       Este apartamento está registrado como <strong>Vago</strong>. Não há proprietário, inquilino ou dependentes com ocupação ativa nesta unidade.
                     </p>
-                    <div className="mt-4">
-                      <Botao
-                        variante="secundario"
-                        tamanho="sm"
-                        onClick={() => {
-                          setUnidadeDetalhesMoradores(null);
-                          navigate(somenteLeitura ? '/sindico/pessoas' : '/superadmin/pessoas');
-                        }}
-                      >
-                        <Icone nome="plus" className="w-3.5 h-3.5 mr-1" />
-                        Cadastrar/Vincular Morador
-                      </Botao>
-                    </div>
+                    {!bloquearEdicaoPessoas && (
+                      <div className="mt-4">
+                        <Botao
+                          variante="secundario"
+                          tamanho="sm"
+                          onClick={() => {
+                            setUnidadeDetalhesMoradores(null);
+                            navigate(somenteLeitura ? '/sindico/pessoas' : '/superadmin/pessoas');
+                          }}
+                        >
+                          <Icone nome="plus" className="w-3.5 h-3.5 mr-1" />
+                          Cadastrar/Vincular Morador
+                        </Botao>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
@@ -2308,27 +2318,27 @@ export default function EstruturaFisica({
         fechar={() => setModalPerfilUsuarioAberto(false)}
         pessoa={perfilUsuarioSelecionado}
         carregando={perfilCarregando}
-        aoEditar={(p) => {
+        aoEditar={!bloquearEdicaoPessoas ? (p) => {
           if (aoEditarPessoa) {
             aoEditarPessoa(p);
           } else {
             navigate('/superadmin/pessoas');
           }
-        }}
+        } : undefined}
         aoVerAtividades={(p) => setPessoaAtividadeModal(p)}
-        aoAdicionarDependente={(titular, idUnidade) => {
+        aoAdicionarDependente={!bloquearEdicaoPessoas ? (titular, idUnidade) => {
           if (aoAdicionarDependente) {
             aoAdicionarDependente(titular, idUnidade);
           } else {
             navigate('/superadmin/pessoas');
           }
-        }}
+        } : undefined}
         aoNavegarParaPessoa={(id) => abrirPerfilUsuario(id)}
-        aoBloquear={aoBloquear}
-        aoInativar={aoInativar}
-        aoReativar={aoReativar}
-        aoExcluir={aoExcluir}
-        somenteLeitura={somenteLeitura}
+        aoBloquear={!bloquearEdicaoPessoas ? aoBloquear : undefined}
+        aoInativar={!bloquearEdicaoPessoas ? aoInativar : undefined}
+        aoReativar={!bloquearEdicaoPessoas ? aoReativar : undefined}
+        aoExcluir={!bloquearEdicaoPessoas ? aoExcluir : undefined}
+        somenteLeitura={bloquearEdicaoPessoas}
       />
 
       {/* ========================================================================= */}

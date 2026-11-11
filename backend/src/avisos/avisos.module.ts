@@ -214,14 +214,15 @@ export class AvisosController {
        WHERE (id_aviso_perfil = $1 OR id_aviso = $1) AND id_perfil = ANY($2::int[])
        RETURNING id_aviso_perfil, lido, data_hora_leitura`, [id, idsPerfis]);
 
-    this.syncService.emitir({
-      topico: 'AVISOS',
-      acao: 'ATUALIZADO',
-      idPessoaAlvo: req.user?.sub,
-      detalhes: { id_aviso: id },
-    });
-
-    if (r.length) return r[0];
+    if (r.length) {
+      this.syncService.emitir({
+        topico: 'AVISOS',
+        acao: 'ATUALIZADO',
+        idPessoaAlvo: req.user?.sub,
+        detalhes: { id_aviso: id },
+      });
+      return r[0];
+    }
 
     // 2. Se for aviso de escopo MURAL que ainda não tinha linha em aviso_perfil, insere
     const idPerfil = idsPerfis[0];
@@ -231,6 +232,14 @@ export class AvisosController {
       ON CONFLICT (id_aviso, id_perfil)
       DO UPDATE SET lido = TRUE, data_hora_leitura = COALESCE(aviso_perfil.data_hora_leitura, CURRENT_TIMESTAMP)
       RETURNING id_aviso_perfil, lido, data_hora_leitura`, [id, idPerfil]);
+
+    this.syncService.emitir({
+      topico: 'AVISOS',
+      acao: 'ATUALIZADO',
+      idPessoaAlvo: req.user?.sub,
+      detalhes: { id_aviso: id },
+    });
+
     return ins[0] || { ok: true };
   }
 
