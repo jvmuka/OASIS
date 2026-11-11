@@ -28,25 +28,56 @@ CREATE TYPE grau_parentesco_enum        AS ENUM ('CONJUGE','FILHO','PAI_MAE','OU
 CREATE TYPE status_aprovacao_enum       AS ENUM ('PENDENTE','APROVADO','REJEITADO');
 CREATE TYPE status_codigo_enum          AS ENUM ('DISPONIVEL','USADO','EXPIRADO','CANCELADO');
 
+CREATE TYPE categoria_chamado_enum      AS ENUM ('LIMPEZA','AVARIA_QUEBRADO','MANUTENCAO','CONVIVENCIA_BARULHO','OUTROS');
+CREATE TYPE status_chamado_enum         AS ENUM ('EM_ANALISE','EM_ANDAMENTO','REALIZADA','ARQUIVADA');
+
 -- =====================================================================
 -- Parte 2 de 4: criacao das tabelas
 -- As tabelas sao criadas na ordem de dependencia das chaves estrangeiras
 -- =====================================================================
 
-CREATE TABLE bloco (
-    id_bloco    SERIAL       PRIMARY KEY,
-    nome        VARCHAR(20)  NOT NULL UNIQUE,
-    descricao   VARCHAR(120)
+CREATE TABLE condominio (
+    id_condominio       SERIAL          PRIMARY KEY,
+    nome                VARCHAR(120)    NOT NULL,
+    razao_social        VARCHAR(150),
+    cnpj                CHAR(14)        UNIQUE,
+    slug                VARCHAR(60)     NOT NULL UNIQUE,
+    endereco_completo   VARCHAR(255),
+    cidade              VARCHAR(80)     NOT NULL DEFAULT 'Ponta Grossa',
+    uf                  CHAR(2)         NOT NULL DEFAULT 'PR',
+    cep                 CHAR(8),
+    telefone_contato    VARCHAR(20),
+    email_contato       VARCHAR(150),
+    logo_url            VARCHAR(255),
+    ativo               BOOLEAN         NOT NULL DEFAULT TRUE,
+    criado_em           TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em       TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX idx_condominio_slug ON condominio (slug);
+CREATE INDEX idx_condominio_ativo ON condominio (ativo);
+
+CREATE TABLE bloco (
+    id_bloco        SERIAL       PRIMARY KEY,
+    id_condominio   INTEGER      NOT NULL DEFAULT 1,
+    nome            VARCHAR(20)  NOT NULL,
+    descricao       VARCHAR(120),
+    CONSTRAINT fk_bloco_condominio      FOREIGN KEY (id_condominio) REFERENCES condominio (id_condominio),
+    CONSTRAINT uk_bloco_condominio_nome UNIQUE (id_condominio, nome)
+);
+
+CREATE INDEX idx_bloco_condominio ON bloco (id_condominio);
 
 CREATE TABLE unidade (
     id_unidade          SERIAL       PRIMARY KEY,
     id_bloco            INTEGER      NOT NULL,
     numero_apartamento  VARCHAR(10)  NOT NULL,
+    andar               INTEGER      NOT NULL DEFAULT 1,
     numero_vagas        INTEGER      NOT NULL DEFAULT 0,
     CONSTRAINT fk_unidade_bloco   FOREIGN KEY (id_bloco) REFERENCES bloco (id_bloco),
     CONSTRAINT uk_unidade_ap      UNIQUE (id_bloco, numero_apartamento),
-    CONSTRAINT ck_unidade_vagas   CHECK (numero_vagas >= 0)
+    CONSTRAINT ck_unidade_vagas   CHECK (numero_vagas >= 0),
+    CONSTRAINT ck_unidade_andar   CHECK (andar >= 0)
 );
 
 CREATE TABLE vaga_garagem (
@@ -56,7 +87,9 @@ CREATE TABLE vaga_garagem (
     pavimento      pavimento_enum NOT NULL,
     tipo_vaga      tipo_vaga_enum NOT NULL,
     coberta        BOOLEAN        NOT NULL DEFAULT FALSE,
-    CONSTRAINT fk_vaga_unidade FOREIGN KEY (id_unidade) REFERENCES unidade (id_unidade)
+    metragem_m2    NUMERIC(6,2)   NOT NULL DEFAULT 12.00,
+    CONSTRAINT fk_vaga_unidade FOREIGN KEY (id_unidade) REFERENCES unidade (id_unidade),
+    CONSTRAINT ck_vaga_metragem_positiva CHECK (metragem_m2 > 0)
 );
 
 CREATE TABLE pessoa (
@@ -116,54 +149,63 @@ CREATE INDEX idx_pu_responsavel ON pessoa_unidade (id_responsavel);
 CREATE TABLE perfil (
     id_perfil           SERIAL            PRIMARY KEY,
     id_pessoa           INTEGER           NOT NULL,
+    id_condominio       INTEGER,
     tipo_perfil         tipo_perfil_enum  NOT NULL,
     data_inicio         DATE              NOT NULL DEFAULT CURRENT_DATE,
     data_fim            DATE,
     recebe_notificacao  BOOLEAN           NOT NULL DEFAULT TRUE,
     token_fcm           VARCHAR(255),
-    CONSTRAINT fk_perfil_pessoa FOREIGN KEY (id_pessoa) REFERENCES pessoa (id_pessoa),
-    CONSTRAINT uk_perfil        UNIQUE (id_pessoa, tipo_perfil, data_inicio),
-    CONSTRAINT ck_perfil_data   CHECK (data_fim IS NULL OR data_fim >= data_inicio)
+    CONSTRAINT fk_perfil_pessoa     FOREIGN KEY (id_pessoa)     REFERENCES pessoa (id_pessoa),
+    CONSTRAINT fk_perfil_condominio FOREIGN KEY (id_condominio) REFERENCES condominio (id_condominio),
+    CONSTRAINT uk_perfil            UNIQUE (id_pessoa, tipo_perfil, data_inicio),
+    CONSTRAINT ck_perfil_data       CHECK (data_fim IS NULL OR data_fim >= data_inicio)
 );
 
+CREATE INDEX idx_perfil_condominio ON perfil (id_condominio);
+
 CREATE TABLE area_comum (
-    id_area_comum             SERIAL            PRIMARY KEY,
-    nome                      VARCHAR(60)       NOT NULL UNIQUE,
-    descricao                 VARCHAR(255),
-    capacidade                INTEGER           NOT NULL,
-    idade_minima              INTEGER           NOT NULL DEFAULT 0,
-    tipo_acesso               tipo_acesso_enum  NOT NULL,
-    tipo_uso                  tipo_uso_enum     NOT NULL,
-    duracao_slot_min          INTEGER           NOT NULL DEFAULT 60,
-    antecedencia_minima_dias  INTEGER           NOT NULL DEFAULT 0,
-    antecedencia_minima_horas INTEGER           NOT NULL DEFAULT 0,
-    antecedencia_maxima_dias  INTEGER           NOT NULL DEFAULT 30,
-    prazo_cancelamento_horas  INTEGER           NOT NULL DEFAULT 24,
-    limite_reservas_semana    INTEGER           NOT NULL DEFAULT 2,
-    tipo_limite_reserva       VARCHAR(20)       NOT NULL DEFAULT 'SEMANAL',
-    max_unidades_simultaneas  INTEGER           NOT NULL DEFAULT 1,
-    exige_chave               BOOLEAN           NOT NULL DEFAULT FALSE,
-    valor                     NUMERIC(10,2)     NOT NULL DEFAULT 0,
-    ativo                     BOOLEAN           NOT NULL DEFAULT TRUE,
-    imagem_url                VARCHAR(500),
-    observacoes               VARCHAR(255),
-    reserva_por_dia           BOOLEAN           NOT NULL DEFAULT FALSE,
-    requer_reserva            BOOLEAN           NOT NULL DEFAULT TRUE,
-    status_livre              VARCHAR(20)       NOT NULL DEFAULT 'LIVRE',
+    id_area_comum              SERIAL            PRIMARY KEY,
+    id_condominio              INTEGER           NOT NULL DEFAULT 1,
+    nome                       VARCHAR(60)       NOT NULL,
+    descricao                  TEXT,
+    capacidade                 INTEGER           NOT NULL,
+    idade_minima               INTEGER           NOT NULL DEFAULT 0,
+    tipo_acesso                tipo_acesso_enum  NOT NULL,
+    tipo_uso                   tipo_uso_enum     NOT NULL,
+    duracao_slot_min           INTEGER           NOT NULL DEFAULT 60,
+    antecedencia_minima_dias   INTEGER           NOT NULL DEFAULT 0,
+    antecedencia_minima_horas  INTEGER           NOT NULL DEFAULT 0,
+    antecedencia_maxima_dias   INTEGER           NOT NULL DEFAULT 30,
+    prazo_cancelamento_horas   INTEGER           NOT NULL DEFAULT 24,
+    limite_reservas_semana     INTEGER           NOT NULL DEFAULT 2,
+    tipo_limite_reserva        VARCHAR(20)       NOT NULL DEFAULT 'SEMANAL',
+    max_unidades_simultaneas   INTEGER           NOT NULL DEFAULT 1,
+    exige_chave                BOOLEAN           NOT NULL DEFAULT FALSE,
+    valor                      NUMERIC(10,2)     NOT NULL DEFAULT 0,
+    ativo                      BOOLEAN           NOT NULL DEFAULT TRUE,
+    imagem_url                 VARCHAR(500),
+    observacoes                VARCHAR(255),
+    reserva_por_dia            BOOLEAN           NOT NULL DEFAULT FALSE,
+    requer_reserva             BOOLEAN           NOT NULL DEFAULT TRUE,
+    status_livre               VARCHAR(20)       NOT NULL DEFAULT 'LIVRE',
     status_livre_atualizado_em TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    status_livre_observacao   VARCHAR(255),
-    status_livre_porteiro     VARCHAR(100),
-    CONSTRAINT ck_area_capacidade  CHECK (capacidade > 0),
-    CONSTRAINT ck_area_idade       CHECK (idade_minima >= 0),
-    CONSTRAINT ck_area_slot        CHECK (duracao_slot_min BETWEEN 1 AND 1440),
-    CONSTRAINT ck_area_antec       CHECK (antecedencia_maxima_dias >= antecedencia_minima_dias
-                                          AND antecedencia_minima_dias >= 0),
-    CONSTRAINT ck_area_prazo       CHECK (prazo_cancelamento_horas >= 0),
-    CONSTRAINT ck_area_limite      CHECK (limite_reservas_semana > 0),
-    CONSTRAINT ck_area_tipo_limite CHECK (tipo_limite_reserva IN ('DIARIO', 'SEMANAL', 'MENSAL')),
-    CONSTRAINT ck_area_max_simult  CHECK (max_unidades_simultaneas >= 1),
-    CONSTRAINT ck_area_valor       CHECK (valor >= 0)
+    status_livre_observacao    VARCHAR(255),
+    status_livre_porteiro      VARCHAR(100),
+    CONSTRAINT fk_area_condominio      FOREIGN KEY (id_condominio) REFERENCES condominio (id_condominio),
+    CONSTRAINT uk_area_condominio_nome UNIQUE (id_condominio, nome),
+    CONSTRAINT ck_area_capacidade      CHECK (capacidade > 0),
+    CONSTRAINT ck_area_idade           CHECK (idade_minima >= 0),
+    CONSTRAINT ck_area_slot            CHECK (duracao_slot_min BETWEEN 1 AND 1440),
+    CONSTRAINT ck_area_antec           CHECK (antecedencia_maxima_dias >= antecedencia_minima_dias
+                                              AND antecedencia_minima_dias >= 0),
+    CONSTRAINT ck_area_prazo           CHECK (prazo_cancelamento_horas >= 0),
+    CONSTRAINT ck_area_limite          CHECK (limite_reservas_semana > 0),
+    CONSTRAINT ck_area_tipo_limite     CHECK (tipo_limite_reserva IN ('DIARIO', 'SEMANAL', 'MENSAL')),
+    CONSTRAINT ck_area_max_simult      CHECK (max_unidades_simultaneas >= 1),
+    CONSTRAINT ck_area_valor           CHECK (valor >= 0)
 );
+
+CREATE INDEX idx_area_condominio ON area_comum (id_condominio);
 
 CREATE TABLE area_horario (
     id_horario     SERIAL           PRIMARY KEY,
@@ -191,12 +233,16 @@ CREATE TABLE area_utensilio (
 
 CREATE TABLE chave (
     id_chave       SERIAL             PRIMARY KEY,
+    id_condominio  INTEGER            NOT NULL DEFAULT 1,
     id_area_comum  INTEGER            NOT NULL,
     codigo         VARCHAR(100)       NOT NULL UNIQUE,
     status         status_chave_enum  NOT NULL DEFAULT 'DISPONIVEL',
     observacao     VARCHAR(255),
-    CONSTRAINT fk_chave_area FOREIGN KEY (id_area_comum) REFERENCES area_comum (id_area_comum)
+    CONSTRAINT fk_chave_condominio FOREIGN KEY (id_condominio) REFERENCES condominio (id_condominio),
+    CONSTRAINT fk_chave_area       FOREIGN KEY (id_area_comum) REFERENCES area_comum (id_area_comum)
 );
+
+CREATE INDEX idx_chave_condominio ON chave (id_condominio);
 
 CREATE TABLE reserva (
     id_reserva              SERIAL               PRIMARY KEY,
@@ -211,9 +257,9 @@ CREATE TABLE reserva (
     data_hora_cancelamento  TIMESTAMP,
     motivo_cancelamento     VARCHAR(255),
     observacao              VARCHAR(255),
-    CONSTRAINT fk_reserva_area   FOREIGN KEY (id_area_comum) REFERENCES area_comum (id_area_comum),
-    CONSTRAINT fk_reserva_perfil FOREIGN KEY (id_perfil)     REFERENCES perfil (id_perfil),
-    CONSTRAINT fk_reserva_unidade FOREIGN KEY (id_unidade)   REFERENCES unidade (id_unidade),
+    CONSTRAINT fk_reserva_area    FOREIGN KEY (id_area_comum) REFERENCES area_comum (id_area_comum),
+    CONSTRAINT fk_reserva_perfil  FOREIGN KEY (id_perfil)     REFERENCES perfil (id_perfil),
+    CONSTRAINT fk_reserva_unidade FOREIGN KEY (id_unidade)    REFERENCES unidade (id_unidade),
     CONSTRAINT ck_reserva_periodo  CHECK (data_hora_fim > data_hora_inicio),
     CONSTRAINT ck_reserva_mesmodia CHECK (data_hora_fim::date = data_hora_inicio::date),
     CONSTRAINT ck_reserva_pessoas  CHECK (numero_pessoas > 0),
@@ -297,21 +343,28 @@ CREATE TABLE encomenda (
 );
 
 CREATE TABLE aviso (
-    id_aviso              SERIAL             PRIMARY KEY,
-    id_perfil_autor       INTEGER            NOT NULL,
-    escopo                escopo_aviso_enum  NOT NULL DEFAULT 'MURAL',
-    titulo                VARCHAR(120)       NOT NULL,
-    conteudo              VARCHAR(2000)      NOT NULL,
-    data_hora_publicacao  TIMESTAMP          NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    data_hora_expiracao   TIMESTAMP,
-    fixado                BOOLEAN            NOT NULL DEFAULT FALSE,
-    anexo_url             VARCHAR(255),
-    anexo_nome            VARCHAR(255),
-    anexo_tipo            VARCHAR(50),
-    CONSTRAINT fk_aviso_autor FOREIGN KEY (id_perfil_autor) REFERENCES perfil (id_perfil),
-    CONSTRAINT ck_aviso_exp   CHECK (data_hora_expiracao IS NULL
-                                     OR data_hora_expiracao > data_hora_publicacao)
+    id_aviso               SERIAL             PRIMARY KEY,
+    id_condominio          INTEGER            NOT NULL DEFAULT 1,
+    id_perfil_autor        INTEGER            NOT NULL,
+    escopo                 escopo_aviso_enum  NOT NULL DEFAULT 'MURAL',
+    titulo                 VARCHAR(120)       NOT NULL,
+    conteudo               VARCHAR(2000)      NOT NULL,
+    data_hora_publicacao   TIMESTAMP          NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    data_hora_expiracao    TIMESTAMP,
+    fixado                 BOOLEAN            NOT NULL DEFAULT FALSE,
+    arquivado              BOOLEAN            NOT NULL DEFAULT FALSE,
+    data_hora_arquivamento TIMESTAMP WITH TIME ZONE,
+    anexo_url              VARCHAR(255),
+    anexo_nome             VARCHAR(255),
+    anexo_tipo             VARCHAR(50),
+    CONSTRAINT fk_aviso_condominio FOREIGN KEY (id_condominio)   REFERENCES condominio (id_condominio),
+    CONSTRAINT fk_aviso_autor      FOREIGN KEY (id_perfil_autor) REFERENCES perfil (id_perfil),
+    CONSTRAINT ck_aviso_exp        CHECK (data_hora_expiracao IS NULL
+                                          OR data_hora_expiracao > data_hora_publicacao)
 );
+
+CREATE INDEX idx_aviso_condominio ON aviso (id_condominio);
+CREATE INDEX idx_aviso_arquivado ON aviso (id_condominio, arquivado);
 
 CREATE TABLE aviso_perfil (
     id_aviso_perfil    SERIAL     PRIMARY KEY,
@@ -329,6 +382,7 @@ CREATE TABLE aviso_perfil (
 
 CREATE TABLE codigo_primeiro_acesso (
     id_codigo            SERIAL              PRIMARY KEY,
+    id_condominio        INTEGER             NOT NULL DEFAULT 1,
     codigo               VARCHAR(30)         NOT NULL UNIQUE,
     id_pessoa            INTEGER             NOT NULL,
     id_perfil_gerador    INTEGER,
@@ -340,11 +394,84 @@ CREATE TABLE codigo_primeiro_acesso (
     usado_em             TIMESTAMP,
     data_utilizacao      TIMESTAMP,
     ip_origem            VARCHAR(45),
-    CONSTRAINT fk_cpa_pessoa  FOREIGN KEY (id_pessoa)         REFERENCES pessoa (id_pessoa) ON DELETE CASCADE,
-    CONSTRAINT fk_cpa_gerador FOREIGN KEY (id_perfil_gerador) REFERENCES perfil (id_perfil)
+    CONSTRAINT fk_cpa_condominio FOREIGN KEY (id_condominio)     REFERENCES condominio (id_condominio),
+    CONSTRAINT fk_cpa_pessoa     FOREIGN KEY (id_pessoa)         REFERENCES pessoa (id_pessoa) ON DELETE CASCADE,
+    CONSTRAINT fk_cpa_gerador    FOREIGN KEY (id_perfil_gerador) REFERENCES perfil (id_perfil)
 );
 
 CREATE INDEX idx_cpa_codigo ON codigo_primeiro_acesso (codigo) WHERE status = 'DISPONIVEL';
+CREATE INDEX idx_cpa_condominio ON codigo_primeiro_acesso (id_condominio);
+
+CREATE TABLE chamado (
+    id_chamado             SERIAL                   PRIMARY KEY,
+    id_condominio          INTEGER                  NOT NULL DEFAULT 1,
+    id_unidade             INTEGER                  NOT NULL,
+    id_pessoa_autor        INTEGER                  NOT NULL,
+    id_perfil_autor        INTEGER                  NOT NULL,
+    id_area_comum          INTEGER,
+    categoria              categoria_chamado_enum   NOT NULL,
+    titulo                 VARCHAR(120)             NOT NULL,
+    descricao              TEXT                     NOT NULL,
+    local_especifico       VARCHAR(150),
+    status                 status_chamado_enum      NOT NULL DEFAULT 'EM_ANALISE',
+    imagem_url             VARCHAR(255),
+    data_hora_abertura     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    data_hora_fechamento   TIMESTAMP WITH TIME ZONE,
+    data_hora_atualizacao  TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_chamado_condominio FOREIGN KEY (id_condominio)   REFERENCES condominio (id_condominio),
+    CONSTRAINT fk_chamado_unidade    FOREIGN KEY (id_unidade)      REFERENCES unidade (id_unidade) ON DELETE RESTRICT,
+    CONSTRAINT fk_chamado_pessoa     FOREIGN KEY (id_pessoa_autor) REFERENCES pessoa (id_pessoa) ON DELETE RESTRICT,
+    CONSTRAINT fk_chamado_perfil     FOREIGN KEY (id_perfil_autor) REFERENCES perfil (id_perfil) ON DELETE RESTRICT,
+    CONSTRAINT fk_chamado_area       FOREIGN KEY (id_area_comum)   REFERENCES area_comum (id_area_comum) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_chamado_unidade ON chamado (id_unidade);
+CREATE INDEX idx_chamado_status ON chamado (status);
+CREATE INDEX idx_chamado_categoria ON chamado (categoria);
+CREATE INDEX idx_chamado_abertura ON chamado (data_hora_abertura DESC);
+CREATE INDEX idx_chamado_condominio ON chamado (id_condominio);
+
+CREATE TABLE chamado_mensagem (
+    id_chamado_mensagem    SERIAL                   PRIMARY KEY,
+    id_chamado             INTEGER                  NOT NULL,
+    id_pessoa              INTEGER                  NOT NULL,
+    id_perfil              INTEGER                  NOT NULL,
+    origem                 VARCHAR(20)              NOT NULL CHECK (origem IN ('MORADOR', 'ADMINISTRACAO')),
+    mensagem               TEXT                     NOT NULL,
+    anexo_url              VARCHAR(255),
+    data_hora              TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_chamadomsg_chamado FOREIGN KEY (id_chamado) REFERENCES chamado (id_chamado) ON DELETE CASCADE,
+    CONSTRAINT fk_chamadomsg_pessoa  FOREIGN KEY (id_pessoa)  REFERENCES pessoa (id_pessoa) ON DELETE RESTRICT,
+    CONSTRAINT fk_chamadomsg_perfil  FOREIGN KEY (id_perfil)  REFERENCES perfil (id_perfil) ON DELETE RESTRICT
+);
+
+CREATE INDEX idx_chamado_msg_chamado ON chamado_mensagem (id_chamado, data_hora ASC);
+
+-- ----------------------------------------------------
+-- MODULOS DO SISTEMA E TENANCY MODULAR
+-- ----------------------------------------------------
+CREATE TABLE modulo_sistema (
+    codigo          VARCHAR(40)     PRIMARY KEY,
+    nome            VARCHAR(80)     NOT NULL,
+    descricao       VARCHAR(255)    NOT NULL,
+    categoria       VARCHAR(40)     NOT NULL DEFAULT 'OPERACIONAL',
+    icone           VARCHAR(30)     NOT NULL DEFAULT 'wrench',
+    ordem_exibicao  INTEGER         NOT NULL DEFAULT 0,
+    criado_em       TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE condominio_modulo (
+    id_condominio_modulo SERIAL PRIMARY KEY,
+    id_condominio        INTEGER NOT NULL REFERENCES condominio(id_condominio) ON DELETE CASCADE,
+    codigo_modulo        VARCHAR(40) NOT NULL REFERENCES modulo_sistema(codigo) ON DELETE RESTRICT,
+    ativo                BOOLEAN NOT NULL DEFAULT TRUE,
+    data_ativacao        TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    data_desativacao     TIMESTAMP WITH TIME ZONE,
+    CONSTRAINT uk_condominio_modulo UNIQUE (id_condominio, codigo_modulo)
+);
+
+CREATE INDEX idx_cm_condo ON condominio_modulo (id_condominio);
+CREATE INDEX idx_cm_ativo ON condominio_modulo (id_condominio, ativo);
 
 -- =====================================================================
 -- Parte 3 de 4: indices de apoio e carga inicial de dados
@@ -355,6 +482,7 @@ CREATE INDEX idx_cpa_codigo ON codigo_primeiro_acesso (codigo) WHERE status = 'D
 -- ---------------------------------------------------------------------
 CREATE INDEX idx_reserva_area_periodo ON reserva (id_area_comum, data_hora_inicio, status);
 CREATE INDEX idx_reserva_perfil       ON reserva (id_perfil, status);
+CREATE INDEX idx_reserva_unidade      ON reserva (id_unidade);
 CREATE INDEX idx_bloqueio_area_per    ON bloqueio_area
                                       (id_area_comum, data_hora_inicio, data_hora_fim);
 CREATE INDEX idx_bloqueio_perfil_per  ON bloqueio_perfil (id_perfil, data_hora_inicio);
@@ -364,6 +492,36 @@ CREATE INDEX idx_encomenda_status     ON encomenda (status, data_hora_recebiment
 CREATE INDEX idx_entrega_chave_aberta ON entrega_chave (id_chave, data_hora_devolucao);
 CREATE INDEX idx_entrega_chave_atraso ON entrega_chave (data_hora_retirada) WHERE data_hora_devolucao IS NULL;
 CREATE INDEX idx_aviso_perfil_lido    ON aviso_perfil (id_perfil, lido);
+
+-- ---------------------------------------------------------------------
+-- Carga inicial: condominio 1 (OASIS) e catalogo de modulos do sistema
+-- ---------------------------------------------------------------------
+INSERT INTO condominio (id_condominio, nome, slug, cidade, uf, ativo)
+VALUES (1, 'Condomínio Residencial OASIS', 'oasis-central', 'Ponta Grossa', 'PR', TRUE)
+ON CONFLICT (id_condominio) DO UPDATE
+SET nome = EXCLUDED.nome, slug = EXCLUDED.slug;
+
+SELECT setval('condominio_id_condominio_seq', (SELECT COALESCE(MAX(id_condominio), 1) FROM condominio));
+
+INSERT INTO modulo_sistema (codigo, nome, descricao, icone, ordem_exibicao) VALUES
+('RESERVAS_AREAS', 'Reservas de Áreas Comuns', 'Agendamento de salões, churrasqueiras e espaços reserváveis com regras de convivência.', 'calendar', 1),
+('AREAS_LIVRES', 'Áreas de Uso Livre', 'Monitoramento de ocupação e lotação em tempo real (Academia, Piscina, Sala de Jogos).', 'clock', 2),
+('ENCOMENDAS_PACOTES', 'Gestão de Encomendas', 'Registro de entrada, notificações de entrega e controle de retirada de pacotes na portaria.', 'package', 3),
+('CONTROLE_CHAVES', 'Controle de Chaves', 'Empréstimo, devolução e controle de posse de chaves de áreas comuns e técnicas.', 'key', 4),
+('MURAL_AVISOS', 'Mural de Avisos & Comunicados', 'Publicação oficial de comunicados gerais com anexos e confirmação de leitura.', 'megaphone', 5),
+('CHAMADOS_OCORRENCIAS', 'Gestão de Chamados & Avarias', 'Abertura particular de chamados de limpeza, avarias e manutenção para triagem do síndico.', 'wrench', 6),
+('DEPENDENTES_FAMILIA', 'Gestão Familiar & Dependentes', 'Cadastro e aprovação de dependentes, familiares e inquilinos vinculados à residência.', 'users', 7)
+ON CONFLICT (codigo) DO UPDATE
+SET nome = EXCLUDED.nome,
+    descricao = EXCLUDED.descricao,
+    icone = EXCLUDED.icone,
+    ordem_exibicao = EXCLUDED.ordem_exibicao;
+
+INSERT INTO condominio_modulo (id_condominio, codigo_modulo, ativo)
+SELECT c.id_condominio, m.codigo, TRUE
+  FROM condominio c
+ CROSS JOIN modulo_sistema m
+ON CONFLICT (id_condominio, codigo_modulo) DO NOTHING;
 
 -- ---------------------------------------------------------------------
 -- Carga inicial: estrutura do condominio
@@ -378,8 +536,8 @@ DECLARE
 BEGIN
     FOR f IN 5..23 LOOP
         FOR a IN 1..4 LOOP
-            INSERT INTO unidade (id_bloco, numero_apartamento, numero_vagas)
-            VALUES (1, (f * 10) + a, 1);
+            INSERT INTO unidade (id_bloco, numero_apartamento, andar, numero_vagas)
+            VALUES (1, (f * 10) + a, f, 1);
         END LOOP;
     END LOOP;
 END $$;
@@ -406,18 +564,18 @@ INSERT INTO pessoa (uid_firebase, nome, email, cpf, data_nascimento, celular) VA
      '55566677788', '1982-11-17', '42999110005'),
     ('fb_uid_0006', 'Helena Braga',    'helena.braga@teste.com',
      '66677788899', '1995-03-03', '42999110006'),
-    ('fb_uid_superadmin', 'Super Administrador OASIS', 'superadmin@oasis.com',
+    ('superadmin_oasis_master', 'Super Administrador OASIS', 'superadmin@oasis.com',
      '00000000000', '1990-01-01', '42999990000');
 
-INSERT INTO perfil (id_pessoa, tipo_perfil, data_inicio) VALUES
-    (1, 'MORADOR',  '2024-02-01'),
-    (2, 'MORADOR',  '2024-05-10'),
-    (3, 'MORADOR',  '2025-08-01'),
-    (4, 'SINDICO',  '2026-01-01'),
-    (4, 'MORADOR',  '2020-03-15'),
-    (5, 'PORTEIRO', '2023-07-01'),
-    (6, 'MORADOR',  '2025-01-20'),
-    (7, 'SUPERADMIN', '2024-01-01');
+INSERT INTO perfil (id_pessoa, tipo_perfil, data_inicio, id_condominio) VALUES
+    (1, 'MORADOR',    '2024-02-01', 1),
+    (2, 'MORADOR',    '2024-05-10', 1),
+    (3, 'MORADOR',    '2025-08-01', 1),
+    (4, 'SINDICO',    '2026-01-01', 1),
+    (4, 'MORADOR',    '2020-03-15', 1),
+    (5, 'PORTEIRO',   '2023-07-01', 1),
+    (6, 'MORADOR',    '2025-01-20', 1),
+    (7, 'SUPERADMIN', '2024-01-01', NULL);
 
 INSERT INTO pessoa_unidade
     (id_pessoa, id_unidade, tipo_vinculo, id_responsavel, grau_parentesco, status_aprovacao, reside, data_inicio_ocupacao) VALUES
@@ -987,155 +1145,6 @@ INSERT INTO aviso (id_perfil_autor, escopo, titulo, conteudo, fixado, data_hora_
     (4, 'MURAL', 'Manutencao Preventiva dos Elevadores', 'Informamos que na proxima terca-feira, entre 09:00 e 12:00, os elevadores do Bloco A passarao por manutencao preventiva de rotina. Contamos com a compreensao de todos.', FALSE, CURRENT_TIMESTAMP - INTERVAL '1 day'),
     (4, 'MURAL', 'Regras de Uso da Piscina e Academia', 'Lembramos a todos os moradores que a realizacao de reservas e obrigatoria para a Academia e que a Piscina opera conforme os horarios cadastrados no aplicativo.', FALSE, CURRENT_TIMESTAMP);
 
-
--- =====================================================================
--- TABELAS DE CHAMADOS E OCORRENCIAS
--- =====================================================================
-
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'categoria_chamado_enum') THEN
-    CREATE TYPE categoria_chamado_enum AS ENUM (
-      'LIMPEZA',
-      'AVARIA_QUEBRADO',
-      'MANUTENCAO',
-      'CONVIVENCIA_BARULHO',
-      'OUTROS'
-    );
-  END IF;
-
-  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'status_chamado_enum') THEN
-    CREATE TYPE status_chamado_enum AS ENUM (
-      'EM_ANALISE',
-      'EM_ANDAMENTO',
-      'REALIZADA',
-      'ARQUIVADA'
-    );
-  END IF;
-END $$;
-
-CREATE TABLE IF NOT EXISTS chamado (
-  id_chamado             SERIAL                   PRIMARY KEY,
-  id_unidade             INTEGER                  NOT NULL REFERENCES unidade(id_unidade) ON DELETE RESTRICT,
-  id_pessoa_autor        INTEGER                  NOT NULL REFERENCES pessoa(id_pessoa) ON DELETE RESTRICT,
-  id_perfil_autor        INTEGER                  NOT NULL REFERENCES perfil(id_perfil) ON DELETE RESTRICT,
-  id_area_comum          INTEGER                  REFERENCES area_comum(id_area_comum) ON DELETE SET NULL,
-  categoria              categoria_chamado_enum   NOT NULL,
-  titulo                 VARCHAR(120)             NOT NULL,
-  descricao              TEXT                     NOT NULL,
-  local_especifico       VARCHAR(150),
-  status                 status_chamado_enum      NOT NULL DEFAULT 'EM_ANALISE',
-  imagem_url             VARCHAR(255),
-  data_hora_abertura     TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  data_hora_fechamento   TIMESTAMP WITH TIME ZONE,
-  data_hora_atualizacao  TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX IF NOT EXISTS idx_chamado_unidade ON chamado(id_unidade);
-CREATE INDEX IF NOT EXISTS idx_chamado_status ON chamado(status);
-CREATE INDEX IF NOT EXISTS idx_chamado_categoria ON chamado(categoria);
-CREATE INDEX IF NOT EXISTS idx_chamado_abertura ON chamado(data_hora_abertura DESC);
-
-CREATE TABLE IF NOT EXISTS chamado_mensagem (
-  id_chamado_mensagem    SERIAL                   PRIMARY KEY,
-  id_chamado             INTEGER                  NOT NULL REFERENCES chamado(id_chamado) ON DELETE CASCADE,
-  id_pessoa              INTEGER                  NOT NULL REFERENCES pessoa(id_pessoa) ON DELETE RESTRICT,
-  id_perfil              INTEGER                  NOT NULL REFERENCES perfil(id_perfil) ON DELETE RESTRICT,
-  origem                 VARCHAR(20)              NOT NULL CHECK (origem IN ('MORADOR', 'ADMINISTRACAO')),
-  mensagem               TEXT                     NOT NULL,
-  anexo_url              VARCHAR(255),
-  data_hora              TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX IF NOT EXISTS idx_chamado_msg_chamado ON chamado_mensagem(id_chamado, data_hora ASC);
-
-
--- =====================================================================
--- MULTI-CONDOMINIO (MULTI-TENANCY)
--- =====================================================================
-
-CREATE TABLE IF NOT EXISTS condominio (
-    id_condominio       SERIAL          PRIMARY KEY,
-    nome                VARCHAR(120)    NOT NULL,
-    razao_social        VARCHAR(150),
-    cnpj                CHAR(14)        UNIQUE,
-    slug                VARCHAR(60)     NOT NULL UNIQUE,
-    endereco_completo   VARCHAR(255),
-    cidade              VARCHAR(80)     NOT NULL DEFAULT 'Ponta Grossa',
-    uf                  CHAR(2)         NOT NULL DEFAULT 'PR',
-    cep                 CHAR(8),
-    telefone_contato    VARCHAR(20),
-    email_contato       VARCHAR(150),
-    logo_url            VARCHAR(255),
-    ativo               BOOLEAN         NOT NULL DEFAULT TRUE,
-    criado_em           TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    atualizado_em       TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX IF NOT EXISTS idx_condominio_slug ON condominio(slug);
-CREATE INDEX IF NOT EXISTS idx_condominio_ativo ON condominio(ativo);
-
-INSERT INTO condominio (id_condominio, nome, slug, cidade, uf, ativo)
-VALUES (1, 'Condomínio Residencial OASIS', 'oasis-central', 'Ponta Grossa', 'PR', TRUE)
-ON CONFLICT (id_condominio) DO UPDATE
-SET nome = EXCLUDED.nome, slug = EXCLUDED.slug;
-
-SELECT setval('condominio_id_condominio_seq', (SELECT COALESCE(MAX(id_condominio), 1) FROM condominio));
-
-ALTER TABLE bloco ADD COLUMN IF NOT EXISTS id_condominio INTEGER NOT NULL DEFAULT 1 REFERENCES condominio(id_condominio);
-ALTER TABLE area_comum ADD COLUMN IF NOT EXISTS id_condominio INTEGER NOT NULL DEFAULT 1 REFERENCES condominio(id_condominio);
-ALTER TABLE aviso ADD COLUMN IF NOT EXISTS id_condominio INTEGER NOT NULL DEFAULT 1 REFERENCES condominio(id_condominio);
-ALTER TABLE chave ADD COLUMN IF NOT EXISTS id_condominio INTEGER NOT NULL DEFAULT 1 REFERENCES condominio(id_condominio);
-ALTER TABLE codigo_primeiro_acesso ADD COLUMN IF NOT EXISTS id_condominio INTEGER NOT NULL DEFAULT 1 REFERENCES condominio(id_condominio);
-ALTER TABLE chamado ADD COLUMN IF NOT EXISTS id_condominio INTEGER NOT NULL DEFAULT 1 REFERENCES condominio(id_condominio);
-ALTER TABLE perfil ADD COLUMN IF NOT EXISTS id_condominio INTEGER REFERENCES condominio(id_condominio);
-
--- ----------------------------------------------------
--- 19. MODULOS DO SISTEMA E TENANCY MODULAR
--- ----------------------------------------------------
-CREATE TABLE IF NOT EXISTS modulo_sistema (
-    codigo          VARCHAR(40)     PRIMARY KEY,
-    nome            VARCHAR(80)     NOT NULL,
-    descricao       VARCHAR(255)    NOT NULL,
-    categoria       VARCHAR(40)     NOT NULL DEFAULT 'OPERACIONAL',
-    icone           VARCHAR(30)     NOT NULL DEFAULT 'wrench',
-    ordem_exibicao  INTEGER         NOT NULL DEFAULT 0,
-    criado_em       TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS condominio_modulo (
-    id_condominio_modulo SERIAL PRIMARY KEY,
-    id_condominio        INTEGER NOT NULL REFERENCES condominio(id_condominio) ON DELETE CASCADE,
-    codigo_modulo        VARCHAR(40) NOT NULL REFERENCES modulo_sistema(codigo) ON DELETE RESTRICT,
-    ativo                BOOLEAN NOT NULL DEFAULT TRUE,
-    data_ativacao        TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    data_desativacao     TIMESTAMP WITH TIME ZONE,
-    CONSTRAINT uk_condominio_modulo UNIQUE (id_condominio, codigo_modulo)
-);
-
-CREATE INDEX IF NOT EXISTS idx_cm_condo ON condominio_modulo(id_condominio);
-CREATE INDEX IF NOT EXISTS idx_cm_ativo ON condominio_modulo(id_condominio, ativo);
-
-INSERT INTO modulo_sistema (codigo, nome, descricao, icone, ordem_exibicao) VALUES
-('RESERVAS_AREAS', 'Reservas de Áreas Comuns', 'Agendamento de salões, churrasqueiras e espaços reserváveis com regras de convivência.', 'calendar', 1),
-('AREAS_LIVRES', 'Áreas de Uso Livre', 'Monitoramento de ocupação e lotação em tempo real (Academia, Piscina, Sala de Jogos).', 'clock', 2),
-('ENCOMENDAS_PACOTES', 'Gestão de Encomendas', 'Registro de entrada, notificações de entrega e controle de retirada de pacotes na portaria.', 'package', 3),
-('CONTROLE_CHAVES', 'Controle de Chaves', 'Empréstimo, devolução e controle de posse de chaves de áreas comuns e técnicas.', 'key', 4),
-('MURAL_AVISOS', 'Mural de Avisos & Comunicados', 'Publicação oficial de comunicados gerais com anexos e confirmação de leitura.', 'megaphone', 5),
-('CHAMADOS_OCORRENCIAS', 'Gestão de Chamados & Avarias', 'Abertura particular de chamados de limpeza, avarias e manutenção para triagem do síndico.', 'wrench', 6),
-('DEPENDENTES_FAMILIA', 'Gestão Familiar & Dependentes', 'Cadastro e aprovação de dependentes, familiares e inquilinos vinculados à residência.', 'users', 7)
-ON CONFLICT (codigo) DO UPDATE
-SET nome = EXCLUDED.nome,
-    descricao = EXCLUDED.descricao,
-    icone = EXCLUDED.icone,
-    ordem_exibicao = EXCLUDED.ordem_exibicao;
-
-INSERT INTO condominio_modulo (id_condominio, codigo_modulo, ativo)
-SELECT c.id_condominio, m.codigo, TRUE
-  FROM condominio c
- CROSS JOIN modulo_sistema m
-ON CONFLICT (id_condominio, codigo_modulo) DO NOTHING;
-
-
 -- ============================================================================
 -- MIGRAÇÃO / CARGA DE DADOS DEMONSTRATIVOS: CONDOMÍNIO SOLAR DAS PALMEIRAS (ID 2)
 -- Garante segregação multi-tenancy e dados autônomos para alternância de condomínios
@@ -1166,9 +1175,14 @@ BEGIN
 
     IF v_id_condo_solar IS NULL THEN
         INSERT INTO condominio (nome, razao_social, cnpj, slug, endereco_completo, cidade, uf, cep, ativo)
-        VALUES ('Residencial Solar das Palmeiras', 'Condomínio Solar das Palmeiras Ltda', '98765432000188', 'solar-palmeiras', 'Av. das Palmeiras, 500', 'Curitiba', 'PR', '80000-000', TRUE)
+        VALUES ('Residencial Solar das Palmeiras', 'Condomínio Solar das Palmeiras Ltda', '98765432000188', 'solar-palmeiras', 'Av. das Palmeiras, 500', 'Curitiba', 'PR', '80000000', TRUE)
         RETURNING id_condominio INTO v_id_condo_solar;
     END IF;
+
+    INSERT INTO condominio_modulo (id_condominio, codigo_modulo, ativo)
+    SELECT v_id_condo_solar, m.codigo, TRUE
+      FROM modulo_sistema m
+    ON CONFLICT (id_condominio, codigo_modulo) DO NOTHING;
 
     -- 2. Bloco do Solar das Palmeiras
     SELECT id_bloco INTO v_id_bloco_solar FROM bloco WHERE id_condominio = v_id_condo_solar LIMIT 1;
@@ -1207,7 +1221,7 @@ BEGIN
     SELECT id_pessoa INTO v_id_pessoa_mariana FROM pessoa WHERE email = 'mariana.santos@solar.com';
     IF v_id_pessoa_mariana IS NULL THEN
         INSERT INTO pessoa (uid_firebase, nome, email, celular, cpf, senha_hash, ativo)
-        VALUES ('firebase-mariana-solar', 'Mariana Santos', 'mariana.santos@solar.com', '(41) 99888-1122', '77788899900', v_senha_hash, TRUE)
+        VALUES ('firebase-mariana-solar', 'Mariana Santos', 'mariana.santos@solar.com', '41998881122', '77788899900', v_senha_hash, TRUE)
         RETURNING id_pessoa INTO v_id_pessoa_mariana;
     END IF;
 
@@ -1275,8 +1289,8 @@ BEGIN
             (v_id_area_gourmet, 'SABADO', '10:00', '23:59:59'),
             (v_id_area_gourmet, 'DOMINGO', '10:00', '22:00');
 
-        INSERT INTO chave (id_area_comum, codigo, status, observacao)
-        VALUES (v_id_area_gourmet, 'CH-SOLAR-GOURMET', 'DISPONIVEL', 'Chave e controle do ar condicionado');
+        INSERT INTO chave (id_area_comum, codigo, status, observacao, id_condominio)
+        VALUES (v_id_area_gourmet, 'CH-SOLAR-GOURMET', 'DISPONIVEL', 'Chave e controle do ar condicionado', v_id_condo_solar);
     END IF;
 
     -- 5.3 Salão Nobre Solar (Reservável)
@@ -1298,8 +1312,8 @@ BEGIN
             (v_id_area_salao, 'SABADO', '10:00', '23:59:59'),
             (v_id_area_salao, 'DOMINGO', '10:00', '23:00');
 
-        INSERT INTO chave (id_area_comum, codigo, status, observacao)
-        VALUES (v_id_area_salao, 'CH-SOLAR-NOBRE', 'DISPONIVEL', 'Chave principal do Salão Nobre');
+        INSERT INTO chave (id_area_comum, codigo, status, observacao, id_condominio)
+        VALUES (v_id_area_salao, 'CH-SOLAR-NOBRE', 'DISPONIVEL', 'Chave principal do Salão Nobre', v_id_condo_solar);
     END IF;
 
     -- 5.4 Quadra de Areia (Livre)

@@ -28,9 +28,14 @@ BEGIN
 
     IF v_id_condo_solar IS NULL THEN
         INSERT INTO condominio (nome, razao_social, cnpj, slug, endereco_completo, cidade, uf, cep, ativo)
-        VALUES ('Residencial Solar das Palmeiras', 'Condomínio Solar das Palmeiras Ltda', '98765432000188', 'solar-palmeiras', 'Av. das Palmeiras, 500', 'Curitiba', 'PR', '80000-000', TRUE)
+        VALUES ('Residencial Solar das Palmeiras', 'Condomínio Solar das Palmeiras Ltda', '98765432000188', 'solar-palmeiras', 'Av. das Palmeiras, 500', 'Curitiba', 'PR', '80000000', TRUE)
         RETURNING id_condominio INTO v_id_condo_solar;
     END IF;
+
+    INSERT INTO condominio_modulo (id_condominio, codigo_modulo, ativo)
+    SELECT v_id_condo_solar, m.codigo, TRUE
+      FROM modulo_sistema m
+    ON CONFLICT (id_condominio, codigo_modulo) DO NOTHING;
 
     -- 2. Bloco do Solar das Palmeiras
     SELECT id_bloco INTO v_id_bloco_solar FROM bloco WHERE id_condominio = v_id_condo_solar LIMIT 1;
@@ -69,7 +74,7 @@ BEGIN
     SELECT id_pessoa INTO v_id_pessoa_mariana FROM pessoa WHERE email = 'mariana.santos@solar.com';
     IF v_id_pessoa_mariana IS NULL THEN
         INSERT INTO pessoa (uid_firebase, nome, email, celular, cpf, senha_hash, ativo)
-        VALUES ('firebase-mariana-solar', 'Mariana Santos', 'mariana.santos@solar.com', '(41) 99888-1122', '77788899900', v_senha_hash, TRUE)
+        VALUES ('firebase-mariana-solar', 'Mariana Santos', 'mariana.santos@solar.com', '41998881122', '77788899900', v_senha_hash, TRUE)
         RETURNING id_pessoa INTO v_id_pessoa_mariana;
     END IF;
 
