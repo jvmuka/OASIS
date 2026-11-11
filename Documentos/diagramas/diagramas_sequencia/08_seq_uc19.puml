@@ -1,0 +1,58 @@
+@startuml 08_seq_uc19
+!include cabecalho.iuml
+skinparam maxMessageSize 240
+actor "Morador" as M
+boundary "TelaChamadosMorador" as T
+control "ControleChamados" as C
+control "ControleSincronizacao" as S
+database "Banco de Dados" as BD
+actor "Administração" as A
+
+note over T, C
+  As rotas de chamados exigem o módulo Chamados
+  habilitado no condomínio (verificação de módulo).
+end note
+M -> T : abrirChamado(categoria, título, descrição, área, local)
+opt fotografia anexada
+  M -> T : anexarFoto(arquivo)
+  T -> C : enviarFoto(arquivo)
+  C -> C : aceitar JPG, PNG, WebP ou GIF\nde até 10 MB e gravar o arquivo
+  C --> T : endereço da imagem (ou recusa)
+end
+T -> C : abrirChamado(categoria, título, descrição, área, local, foto, unidade)
+C -> C : validar título, categoria e descrição
+C -> BD : vínculo ativo do morador com a unidade
+BD --> C : unidade do chamado
+alt dados inválidos ou sem unidade ativa
+  C --> T : chamado recusado
+  T --> M : exibe o motivo
+else dados válidos
+  C -> BD : INSERT INTO chamado (EM_ANALISE, condomínio ativo)
+  BD --> C : chamado registrado
+  C ->> S : emitirEvento(CHAMADOS, CRIADO)
+  S -->> A : atualização em tempo real da gestão de chamados (UC20)
+  C --> T : chamado aberto
+  T --> M : exibe o chamado na lista
+end
+== Acompanhamento ==
+M -> T : abre um chamado da lista
+T -> C : consultarChamado(chamado)
+C -> BD : chamado e histórico de mensagens
+BD --> C : dados, status e mensagens
+C --> T : detalhes do chamado
+T --> M : exibe status e conversa
+M -> T : enviarMensagem(texto)
+T -> C : enviarMensagem(chamado, texto)
+C -> BD : vínculo do morador com a unidade do chamado
+alt sem vínculo com a unidade
+  C --> T : acesso negado
+  T --> M : exibe a recusa
+else vínculo confirmado
+  C -> BD : INSERT INTO chamado_mensagem (origem MORADOR)
+  C -> BD : UPDATE chamado (data de atualização)
+  C ->> S : emitirEvento(CHAMADOS, mensagem)
+  S -->> A : nova mensagem na gestão de chamados
+  C --> T : mensagem registrada
+  T --> M : exibe a mensagem na conversa
+end
+@enduml

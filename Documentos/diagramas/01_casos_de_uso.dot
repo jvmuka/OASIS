@@ -1,0 +1,86 @@
+digraph G {
+graph [splines=line, outputorder=nodesfirst, pad=0.15, dpi=200, bgcolor=white];
+node [fontname=Arial, fontsize=10];
+edge [color="#2C3E50", penwidth=1.1, arrowhead=none];
+sistema [shape=box, style="rounded", color="#2C3E50", penwidth=1.3, label="Sistema OASIS", labelloc=t, fontsize=12, fontname="Arial Bold", width=4.174, height=8.663, fixedsize=true, pos="229.6,328.9!"];
+UC02 [shape=ellipse, style=filled, fillcolor="#FDF6E3", color="#7D6608", label="UC02\nConsultar Disponibilidade", width=1.929, height=0.453, fixedsize=true, pos="155.9,612.4!", fontsize=8.5];
+UC03 [shape=ellipse, style=filled, fillcolor="#FDF6E3", color="#7D6608", label="UC03\nRealizar Reserva", width=1.929, height=0.453, fixedsize=true, pos="155.9,564.2!", fontsize=8.5];
+UC04 [shape=ellipse, style=filled, fillcolor="#FDF6E3", color="#7D6608", label="UC04\nCancelar Reserva", width=1.929, height=0.453, fixedsize=true, pos="155.9,527.3!", fontsize=8.5];
+UC16 [shape=ellipse, style=filled, fillcolor="#FDF6E3", color="#7D6608", label="UC16\nGerenciar Dependentes", width=1.929, height=0.453, fixedsize=true, pos="155.9,490.5!", fontsize=8.5];
+UC19 [shape=ellipse, style=filled, fillcolor="#FDF6E3", color="#7D6608", label="UC19\nAbrir e Acompanhar
+Chamado", width=1.929, height=0.453, fixedsize=true, pos="155.9,453.6!", fontsize=8.5];
+UC07 [shape=ellipse, style=filled, fillcolor="#FDF6E3", color="#7D6608", label="UC07\nRegistrar Encomenda", width=1.929, height=0.453, fixedsize=true, pos="155.9,379.9!", fontsize=8.5];
+UC08 [shape=ellipse, style=filled, fillcolor="#FDF6E3", color="#7D6608", label="UC08\nConfirmar Retirada
+de Encomenda", width=1.929, height=0.453, fixedsize=true, pos="155.9,343.0!", fontsize=8.5];
+UC01 [shape=ellipse, style=filled, fillcolor="#FDF6E3", color="#7D6608", label="UC01\nAutenticar no Sistema", width=1.929, height=0.453, fixedsize=true, pos="155.9,198.5!", fontsize=8.5];
+UC15 [shape=ellipse, style=filled, fillcolor="#FDF6E3", color="#7D6608", label="UC15\nRecuperar Senha", width=1.929, height=0.453, fixedsize=true, pos="155.9,150.3!", fontsize=8.5];
+UC14 [shape=ellipse, style=filled, fillcolor="#FDF6E3", color="#7D6608", label="UC14\nRealizar Primeiro Acesso", width=1.929, height=0.453, fixedsize=true, pos="155.9,113.4!", fontsize=8.5];
+UC05 [shape=ellipse, style=filled, fillcolor="#FDF6E3", color="#7D6608", label="UC05\nVisualizar Avisos
+e Encomendas", width=1.929, height=0.453, fixedsize=true, pos="155.9,76.5!", fontsize=8.5];
+UC06 [shape=ellipse, style=filled, fillcolor="#FDF6E3", color="#7D6608", label="UC06\nSolicitar / Devolver Chave", width=1.929, height=0.453, fixedsize=true, pos="155.9,39.7!", fontsize=8.5];
+UC09 [shape=ellipse, style=filled, fillcolor="#FDF6E3", color="#7D6608", label="UC09\nGerenciar Áreas
+Comuns e Recursos", width=1.929, height=0.453, fixedsize=true, pos="303.3,612.4!", fontsize=8.5];
+UC10 [shape=ellipse, style=filled, fillcolor="#FDF6E3", color="#7D6608", label="UC10\nPublicar Aviso", width=1.929, height=0.453, fixedsize=true, pos="303.3,575.5!", fontsize=8.5];
+UC11 [shape=ellipse, style=filled, fillcolor="#FDF6E3", color="#7D6608", label="UC11\nGerenciar Pessoas
+e Unidades", width=1.929, height=0.453, fixedsize=true, pos="303.3,538.6!", fontsize=8.5];
+UC12 [shape=ellipse, style=filled, fillcolor="#FDF6E3", color="#7D6608", label="UC12\nBloquear /
+Desbloquear Acesso", width=1.929, height=0.453, fixedsize=true, pos="303.3,501.8!", fontsize=8.5];
+UC13 [shape=ellipse, style=filled, fillcolor="#FDF6E3", color="#7D6608", label="UC13\nEmitir Relatórios", width=1.929, height=0.453, fixedsize=true, pos="303.3,464.9!", fontsize=8.5];
+UC20 [shape=ellipse, style=filled, fillcolor="#FDF6E3", color="#7D6608", label="UC20\nGerenciar Chamados", width=1.929, height=0.453, fixedsize=true, pos="303.3,428.1!", fontsize=8.5];
+UC17 [shape=ellipse, style=filled, fillcolor="#FDF6E3", color="#7D6608", label="UC17\nConsultar Painel
+da Portaria", width=1.929, height=0.453, fixedsize=true, pos="303.3,311.9!", fontsize=8.5];
+UC18 [shape=ellipse, style=filled, fillcolor="#FDF6E3", color="#7D6608", label="UC18\nControlar Áreas
+de Uso Livre", width=1.929, height=0.453, fixedsize=true, pos="303.3,275.0!", fontsize=8.5];
+UC21 [shape=ellipse, style=filled, fillcolor="#FDF6E3", color="#7D6608", label="UC21\nGerenciar Condomínios
+e Módulos", width=1.929, height=0.453, fixedsize=true, pos="303.3,110.6!", fontsize=8.5];
+UC22 [shape=ellipse, style=filled, fillcolor="#FDF6E3", color="#7D6608", label="UC22\nGerenciar Estrutura
+Física", width=1.929, height=0.453, fixedsize=true, pos="303.3,73.7!", fontsize=8.5];
+Morador [shape=none, image="ator.png", imagescale=true, label="Morador\n(Residente)", labelloc=b, width=0.394, height=0.945, fixedsize=true, imagepos=tc, pos="17.0,521.6!", fontsize=10];
+Porteiro [shape=none, image="ator.png", imagescale=true, label="Porteiro", labelloc=b, width=0.394, height=0.945, fixedsize=true, imagepos=tc, pos="42.5,300.5!", fontsize=10];
+Usuario [shape=none, image="ator.png", imagescale=true, label=<<I>Usuário</I>>, labelloc=b, width=0.394, height=0.945, fixedsize=true, imagepos=tc, pos="17.0,113.4!", fontsize=10];
+Sindico [shape=none, image="ator.png", imagescale=true, label="", width=0.394, height=0.591, fixedsize=true, pos="422.4,413.9!"];
+Superadmin [shape=none, image="ator.png", imagescale=true, label="", width=0.394, height=0.591, fixedsize=true, pos="411.1,158.8!"];
+Morador -> UC02 [tailport=e, headport=w];
+Morador -> UC03 [tailport=e, headport=w];
+Morador -> UC04 [tailport=e, headport=w];
+Morador -> UC16 [tailport=e, headport=w];
+Morador -> UC19 [tailport=e, headport=w];
+Porteiro -> UC07 [tailport=e, headport=w];
+Porteiro -> UC08 [tailport=e, headport=w];
+Porteiro -> UC17 [tailport=e, headport=w];
+Porteiro -> UC18 [tailport=e, headport=w];
+Usuario -> UC01 [tailport=e, headport=w];
+Usuario -> UC15 [tailport=e, headport=w];
+Usuario -> UC14 [tailport=e, headport=w];
+Usuario -> UC05 [tailport=e, headport=w];
+Usuario -> UC06 [tailport=e, headport=w];
+Sindico -> UC09 [tailport=w, headport=e];
+Sindico -> UC10 [tailport=w, headport=e];
+Sindico -> UC11 [tailport=w, headport=e];
+Sindico -> UC12 [tailport=w, headport=e];
+Sindico -> UC13 [tailport=w, headport=e];
+Sindico -> UC20 [tailport=w, headport=e];
+Sindico -> UC17 [tailport=w, headport=e];
+Sindico -> UC18 [tailport=w, headport=e];
+Superadmin -> UC21 [tailport=w, headport=e];
+Superadmin -> UC22 [tailport=w, headport=e];
+Superadmin -> UC01 [tailport=w, headport=e];
+Superadmin -> UC15 [tailport=w, headport=e];
+UC03 -> UC02 [style=dashed, arrowhead=vee, arrowsize=0.7];
+UC15 -> UC01 [style=dashed, arrowhead=vee, arrowsize=0.7];
+Morador -> Usuario [arrowhead=empty, arrowsize=1.2];
+Porteiro -> Usuario [headport=ne, arrowhead=empty, arrowsize=1.2];
+p1 [shape=point, width=0.01, style=invis, pos="487.6,413.9!"];
+p2 [shape=point, width=0.01, style=invis, pos="487.6,5.7!"];
+p3 [shape=point, width=0.01, style=invis, pos="-28.4,5.7!"];
+p4 [shape=point, width=0.01, style=invis, pos="-28.4,107.7!"];
+Sindico -> p1 [tailport=e];
+p1 -> p2 [];
+p2 -> p3 [];
+p3 -> p4 [];
+p4 -> Usuario [headport=w, arrowhead=empty, arrowsize=1.2];
+li [shape=plaintext, label="«include»", fontsize=8, pos="191.4,588.3!"];
+le [shape=plaintext, label="«extend»", fontsize=8, pos="189.9,174.4!"];
+ls [shape=plaintext, label="Síndico/\nAdministração", fontsize=10, pos="430.9,374.2!"];
+lsa [shape=plaintext, label="Superadministrador", fontsize=10, pos="442.3,124.7!"];
+}

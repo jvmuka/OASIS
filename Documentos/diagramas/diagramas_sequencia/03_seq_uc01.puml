@@ -1,72 +1,55 @@
 @startuml 03_seq_uc01
-skinparam dpi 200
-skinparam backgroundColor #FFFFFF
-skinparam defaultFontName Arial
-skinparam defaultFontSize 14
-skinparam shadowing false
-skinparam sequenceMessageAlign center
-skinparam responseMessageBelowArrow true
-skinparam ArrowColor #2C3E50
-skinparam ArrowFontColor #1A1A1A
-skinparam sequence {
-  LifeLineBorderColor #2C3E50
-  ParticipantBorderColor #2C3E50
-  ParticipantBackgroundColor #FFFFFF
-  ActorBorderColor #2C3E50
-  ActorBackgroundColor #FFFFFF
-  BoxBorderColor #2C3E50
-  GroupBorderColor #2C3E50
-  GroupHeaderFontStyle bold
-  DividerBorderColor #2C3E50
-}
-skinparam boundary {
-  BackgroundColor #EAF2FB
-  BorderColor #2C3E50
-}
-skinparam control {
-  BackgroundColor #FDF6E3
-  BorderColor #2C3E50
-}
-skinparam database {
-  BackgroundColor #FFFFFF
-  BorderColor #2C3E50
-}
-skinparam note {
-  BackgroundColor #FFFFFF
-  BorderColor #2C3E50
-}
-hide footbox
-skinparam maxMessageSize 150
-skinparam ParticipantPadding 4
-skinparam BoxPadding 4
-
+!include cabecalho.iuml
+skinparam maxMessageSize 240
 actor "Usuário" as U
 boundary "TelaLogin" as T
+boundary "Menu lateral\n(seletor de condomínio)" as M
 participant "Guarda de limite\nde tentativas" as G
 control "ControleAutenticacao" as C
 database "Banco de Dados" as BD
 
-U -> T : entrar(e-mail, senha)
+U -> T : entrar(e-mail ou CPF, senha)
 T -> G : POST /auth/login
-alt limite de tentativas excedido (IP + e-mail)
-  G --> T : recusa temporária
+alt mais de 15 tentativas por minuto (IP + identificador)
+  G --> T : recusa temporária (HTTP 429)
   T --> U : exibe aviso de excesso de tentativas
 else dentro do limite
-  G -> C : login(email, senha)
-  C -> BD : buscar pessoa por e-mail
-  BD --> C : pessoa (senha_hash, status_conta)
-  alt pessoa inexistente ou senha incorreta
+  G -> C : login(identificador, senha)
+  C -> C : identificar se é e-mail ou CPF
+  C -> BD : buscar pessoa por e-mail ou CPF
+  BD --> C : pessoa (senha_hash, status_conta, ativo)
+  alt pessoa inexistente, inativa, sem senha definida ou senha incorreta
     C --> T : credenciais inválidas
     T --> U : exibe mensagem genérica
-  else status AGUARDANDO_PRIMEIRO_ACESSO
-    C --> T : conta não ativada
-    T --> U : orienta a ativar a conta (UC14)
-  else conta ATIVO e senha confere (PBKDF2)
-    C -> BD : buscar perfis vigentes e unidades
+  else conta BLOQUEADO
+    C --> T : conta bloqueada pela administração
+    T --> U : exibe o bloqueio
+  else senha confere (PBKDF2)
+    C -> BD : perfis vigentes e unidades ativas
     BD --> C : perfis e unidades
-    C -> C : emitir token JWT (validade de 8 horas)
-    C --> T : token e dados da sessão
-    T --> U : redireciona à tela de início
+    C -> C : definir o condomínio ativo\n(unidade principal ou perfil)
+    C -> BD : condomínio ativo e módulos habilitados
+    BD --> C : condomínio e módulos
+    opt superadministrador
+      C -> BD : todos os condomínios da plataforma
+      BD --> C : lista de condomínios
+    end
+    C -> C : emitir token JWT (8 horas)\ncom perfis e condomínio ativo
+    C --> T : token, condomínio, módulos, perfis e unidades
+    T --> U : abre o painel inicial do perfil
   end
+end
+== Troca de condomínio ativo ==
+U -> M : seleciona outro condomínio
+M -> C : alternarCondominio(condomínio)
+alt sem vínculo com o condomínio e não é superadministrador
+  C --> M : acesso negado
+  M --> U : exibe a recusa
+else vínculo confirmado
+  C -> BD : perfis, unidades e módulos do condomínio
+  BD --> C : dados do condomínio
+  C -> C : emitir novo token JWT
+  C --> M : nova sessão
+  M --> U : atualiza o menu conforme os módulos do condomínio
 end
 @enduml

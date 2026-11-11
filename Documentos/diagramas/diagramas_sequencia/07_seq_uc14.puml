@@ -1,68 +1,40 @@
 @startuml 07_seq_uc14
-skinparam dpi 200
-skinparam backgroundColor #FFFFFF
-skinparam defaultFontName Arial
-skinparam defaultFontSize 14
-skinparam shadowing false
-skinparam sequenceMessageAlign center
-skinparam responseMessageBelowArrow true
-skinparam ArrowColor #2C3E50
-skinparam ArrowFontColor #1A1A1A
-skinparam sequence {
-  LifeLineBorderColor #2C3E50
-  ParticipantBorderColor #2C3E50
-  ParticipantBackgroundColor #FFFFFF
-  ActorBorderColor #2C3E50
-  ActorBackgroundColor #FFFFFF
-  BoxBorderColor #2C3E50
-  GroupBorderColor #2C3E50
-  GroupHeaderFontStyle bold
-  DividerBorderColor #2C3E50
-}
-skinparam boundary {
-  BackgroundColor #EAF2FB
-  BorderColor #2C3E50
-}
-skinparam control {
-  BackgroundColor #FDF6E3
-  BorderColor #2C3E50
-}
-skinparam database {
-  BackgroundColor #FFFFFF
-  BorderColor #2C3E50
-}
-skinparam note {
-  BackgroundColor #FFFFFF
-  BorderColor #2C3E50
-}
-hide footbox
-skinparam maxMessageSize 150
-skinparam ParticipantPadding 4
-skinparam BoxPadding 4
-
+!include cabecalho.iuml
 actor "Usuário" as U
 boundary "TelaLogin\n(aba Primeiro Acesso)" as T
 control "ControleAutenticacao" as C
+participant "ServicoEmail" as E
 database "Banco de Dados" as BD
 
-U -> T : informa o código e o e-mail
-T -> C : validarCodigo(código, email)
-C -> BD : buscar código da pessoa
-BD --> C : código, status e validade
-alt código inexistente, expirado, já utilizado ou de outra pessoa
+note over U, BD
+  O código de primeiro acesso é gerado no cadastro da pessoa (UC11)
+  e enviado ao e-mail cadastrado pelo ServicoEmail.
+end note
+U -> T : informa o código e o e-mail ou CPF
+T -> C : validarCodigo(código, identificador)
+C -> BD : buscar código vinculado à pessoa
+BD --> C : código, status, validade e unidade
+alt código inexistente, de outra pessoa, expirado ou não DISPONIVEL
   C --> T : código inválido
   T --> U : exibe a recusa
-else código DISPONIVEL e válido
-  C --> T : nome e unidade da pessoa
-  T --> U : pede confirmação e nova senha
+else código DISPONIVEL e dentro da validade
+  C --> T : nome, unidade e e-mail parcialmente oculto
+  T --> U : pede a nova senha e a confirmação
   U -> T : realizarPrimeiroAcesso(senha, confirmação)
-  T -> C : realizarPrimeiroAcesso(código, email, senha)
-  C -> BD : BEGIN
-  C -> BD : UPDATE pessoa (senha_hash PBKDF2, status ATIVO)
-  C -> BD : UPDATE codigo_primeiro_acesso (UTILIZADO, data, IP)
-  C -> BD : COMMIT
-  C -> C : emitir token JWT
-  C --> T : sessão iniciada
-  T --> U : redireciona à tela de início
+  T -> C : realizarPrimeiroAcesso(código, identificador, senha)
+  C -> C : validar a força da senha
+  alt senha fora da política mínima
+    C --> T : senha recusada
+    T --> U : exibe o motivo
+  else senha aceita
+    C -> BD : BEGIN e bloquear o código (FOR UPDATE)
+    C -> BD : UPDATE pessoa (senha_hash PBKDF2, status ATIVO)
+    C -> BD : UPDATE codigo_primeiro_acesso (USADO, data de utilização)
+    C -> BD : COMMIT
+    C ->> E : enviarBoasVindasContaAtivada(e-mail, nome)
+    C -> C : gerar a sessão e o token JWT
+    C --> T : sessão iniciada (com aviso se a senha for fraca)
+    T --> U : abre o painel inicial do perfil
+  end
 end
 @enduml

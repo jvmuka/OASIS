@@ -29,16 +29,14 @@ Documentos/
 ├── referencias_do_Projeto/
 │   └── OASIS_Projeto.pdf                  <- Especificação completa original (Requisitos, Casos de Uso, DER e Testes)
 │
-├── diagramas/                             <- Modelagem visual do sistema (PlantUML e PNG)
-│   ├── 01_casos_de_uso.*                  <- Diagrama de Casos de Uso
-│   ├── 02a_classes_arquitetura.*          <- Diagrama de Classes da Arquitetura
-│   ├── 02b1_classes_entidades_cadastro.*  <- Classes de Entidades de Cadastros
-│   ├── 02b2_classes_entidades_areas.*     <- Classes de Entidades de Áreas Comuns
-│   ├── 08_der.*                           <- Diagrama Entidade-Relacionamento conceitual
-│   ├── 09a_logico_cadastro.*              <- Modelo Lógico de Cadastros
-│   ├── 09b_logico_areas.*                 <- Modelo Lógico de Áreas e Reservas
+├── diagramas/                             <- Modelagem visual do sistema (mesmas figuras do documento do projeto)
+│   ├── 01_casos_de_uso.*                  <- Diagrama de Casos de Uso (UC01 a UC22)
+│   ├── 02a1, 02a2, 02a3_classes_*         <- Diagrama de Classes: fronteiras e controles (arquitetura BCE)
+│   ├── 02b1, 02b2, 02b3_classes_*         <- Diagrama de Classes: entidades
+│   ├── 08a, 08b, 08c_der_*                <- Diagrama Entidade-Relacionamento conceitual (3 partes)
+│   ├── 09a, 09b, 09c_logico_*             <- Modelo Lógico relacional (3 partes)
 │   ├── 10_mapa_navegacao.*                <- Mapa de Navegação da Interface
-│   ├── diagramas_sequencia/               <- Diagramas de Sequência (UC01, UC03, UC06, UC07, UC14)
+│   ├── diagramas_sequencia/               <- Diagramas de Sequência (UC01, UC03, UC06, UC07, UC14 e UC19)
 │   └── sql_consolidado/                   <- Scripts SQL históricos de referência dos diagramas
 │
 ├── planos_executados/                     <- Funcionalidades já desenvolvidas, testadas e entregues
@@ -111,9 +109,9 @@ Instruções para deploy, gerenciamento e controle do ambiente Docker Compose e 
 
 ## 4. 📐 Requisitos, Especificação Acadêmica e Modelagem
 
-- **Documento do Projeto**: [`referencias_do_Projeto/OASIS_Projeto.pdf`](referencias_do_Projeto/OASIS_Projeto.pdf) — Contém a especificação original completa: levantamento de requisitos funcionais e não-funcionais, Quadro 42 com a descrição detalhada das regras de negócio (RN01 a RN17), casos de uso e plano de testes.
-- **Diagramas do Sistema**: [`diagramas/`](diagramas/) — Fontes PlantUML (`.puml`) e imagens de alta resolução (`.png`) contendo casos de uso, arquitetura, classes de domínio, DER e modelo lógico relacional.
-- **Diagramas de Sequência**: [`diagramas/diagramas_sequencia/`](diagramas/diagramas_sequencia/) — Fluxo temporal dos casos de uso UC01 (login), UC03 (reserva), UC06 (chaves), UC07 (encomendas) e UC14 (leitura de avisos).
+- **Documento do Projeto**: [`referencias_do_Projeto/OASIS_Projeto.pdf`](referencias_do_Projeto/OASIS_Projeto.pdf) — Especificação completa: diagnóstico, objetivos, escopo, custos e riscos, 22 casos de uso, diagramas, modelo de dados de 23 tabelas, Quadro 51 com as regras de negócio (RN01 a RN17), telas e plano de testes.
+- **Diagramas do Sistema**: [`diagramas/`](diagramas/) — Imagens (`.png`) e fontes Graphviz (`.dot`) dos casos de uso, das classes, do DER, do modelo lógico e do mapa de navegação.
+- **Diagramas de Sequência**: [`diagramas/diagramas_sequencia/`](diagramas/diagramas_sequencia/) — Fontes PlantUML (`.puml`) e imagens dos casos de uso UC01 (autenticar), UC03 (realizar reserva), UC06 (chaves), UC07 (registrar encomenda), UC14 (primeiro acesso) e UC19 (abrir chamado).
 
 ---
 
