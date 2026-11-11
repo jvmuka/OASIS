@@ -7,6 +7,7 @@
 -- ---------------------------------------------------------------------
 CREATE INDEX idx_reserva_area_periodo ON reserva (id_area_comum, data_hora_inicio, status);
 CREATE INDEX idx_reserva_perfil       ON reserva (id_perfil, status);
+CREATE INDEX idx_reserva_unidade      ON reserva (id_unidade);
 CREATE INDEX idx_bloqueio_area_per    ON bloqueio_area
                                       (id_area_comum, data_hora_inicio, data_hora_fim);
 CREATE INDEX idx_bloqueio_perfil_per  ON bloqueio_perfil (id_perfil, data_hora_inicio);
@@ -16,6 +17,36 @@ CREATE INDEX idx_encomenda_status     ON encomenda (status, data_hora_recebiment
 CREATE INDEX idx_entrega_chave_aberta ON entrega_chave (id_chave, data_hora_devolucao);
 CREATE INDEX idx_entrega_chave_atraso ON entrega_chave (data_hora_retirada) WHERE data_hora_devolucao IS NULL;
 CREATE INDEX idx_aviso_perfil_lido    ON aviso_perfil (id_perfil, lido);
+
+-- ---------------------------------------------------------------------
+-- Carga inicial: condominio 1 (OASIS) e catalogo de modulos do sistema
+-- ---------------------------------------------------------------------
+INSERT INTO condominio (id_condominio, nome, slug, cidade, uf, ativo)
+VALUES (1, 'Condomínio Residencial OASIS', 'oasis-central', 'Ponta Grossa', 'PR', TRUE)
+ON CONFLICT (id_condominio) DO UPDATE
+SET nome = EXCLUDED.nome, slug = EXCLUDED.slug;
+
+SELECT setval('condominio_id_condominio_seq', (SELECT COALESCE(MAX(id_condominio), 1) FROM condominio));
+
+INSERT INTO modulo_sistema (codigo, nome, descricao, icone, ordem_exibicao) VALUES
+('RESERVAS_AREAS', 'Reservas de Áreas Comuns', 'Agendamento de salões, churrasqueiras e espaços reserváveis com regras de convivência.', 'calendar', 1),
+('AREAS_LIVRES', 'Áreas de Uso Livre', 'Monitoramento de ocupação e lotação em tempo real (Academia, Piscina, Sala de Jogos).', 'clock', 2),
+('ENCOMENDAS_PACOTES', 'Gestão de Encomendas', 'Registro de entrada, notificações de entrega e controle de retirada de pacotes na portaria.', 'package', 3),
+('CONTROLE_CHAVES', 'Controle de Chaves', 'Empréstimo, devolução e controle de posse de chaves de áreas comuns e técnicas.', 'key', 4),
+('MURAL_AVISOS', 'Mural de Avisos & Comunicados', 'Publicação oficial de comunicados gerais com anexos e confirmação de leitura.', 'megaphone', 5),
+('CHAMADOS_OCORRENCIAS', 'Gestão de Chamados & Avarias', 'Abertura particular de chamados de limpeza, avarias e manutenção para triagem do síndico.', 'wrench', 6),
+('DEPENDENTES_FAMILIA', 'Gestão Familiar & Dependentes', 'Cadastro e aprovação de dependentes, familiares e inquilinos vinculados à residência.', 'users', 7)
+ON CONFLICT (codigo) DO UPDATE
+SET nome = EXCLUDED.nome,
+    descricao = EXCLUDED.descricao,
+    icone = EXCLUDED.icone,
+    ordem_exibicao = EXCLUDED.ordem_exibicao;
+
+INSERT INTO condominio_modulo (id_condominio, codigo_modulo, ativo)
+SELECT c.id_condominio, m.codigo, TRUE
+  FROM condominio c
+ CROSS JOIN modulo_sistema m
+ON CONFLICT (id_condominio, codigo_modulo) DO NOTHING;
 
 -- ---------------------------------------------------------------------
 -- Carga inicial: estrutura do condominio
@@ -30,8 +61,8 @@ DECLARE
 BEGIN
     FOR f IN 5..23 LOOP
         FOR a IN 1..4 LOOP
-            INSERT INTO unidade (id_bloco, numero_apartamento, numero_vagas)
-            VALUES (1, (f * 10) + a, 1);
+            INSERT INTO unidade (id_bloco, numero_apartamento, andar, numero_vagas)
+            VALUES (1, (f * 10) + a, f, 1);
         END LOOP;
     END LOOP;
 END $$;
@@ -57,16 +88,19 @@ INSERT INTO pessoa (uid_firebase, nome, email, cpf, data_nascimento, celular) VA
     ('fb_uid_0005', 'Roberto Lima',    'roberto.lima@teste.com',
      '55566677788', '1982-11-17', '42999110005'),
     ('fb_uid_0006', 'Helena Braga',    'helena.braga@teste.com',
-     '66677788899', '1995-03-03', '42999110006');
+     '66677788899', '1995-03-03', '42999110006'),
+    ('superadmin_oasis_master', 'Super Administrador OASIS', 'superadmin@oasis.com',
+     '00000000000', '1990-01-01', '42999990000');
 
-INSERT INTO perfil (id_pessoa, tipo_perfil, data_inicio) VALUES
-    (1, 'MORADOR',  '2024-02-01'),
-    (2, 'MORADOR',  '2024-05-10'),
-    (3, 'MORADOR',  '2025-08-01'),
-    (4, 'SINDICO',  '2026-01-01'),
-    (4, 'MORADOR',  '2020-03-15'),
-    (5, 'PORTEIRO', '2023-07-01'),
-    (6, 'MORADOR',  '2025-01-20');
+INSERT INTO perfil (id_pessoa, tipo_perfil, data_inicio, id_condominio) VALUES
+    (1, 'MORADOR',    '2024-02-01', 1),
+    (2, 'MORADOR',    '2024-05-10', 1),
+    (3, 'MORADOR',    '2025-08-01', 1),
+    (4, 'SINDICO',    '2026-01-01', 1),
+    (4, 'MORADOR',    '2020-03-15', 1),
+    (5, 'PORTEIRO',   '2023-07-01', 1),
+    (6, 'MORADOR',    '2025-01-20', 1),
+    (7, 'SUPERADMIN', '2024-01-01', NULL);
 
 INSERT INTO pessoa_unidade
     (id_pessoa, id_unidade, tipo_vinculo, id_responsavel, grau_parentesco, status_aprovacao, reside, data_inicio_ocupacao) VALUES
