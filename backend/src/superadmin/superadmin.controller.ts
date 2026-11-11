@@ -56,14 +56,20 @@ interface CriarVagaDto {
 
 
 function resolverIdCondominio(req: any, queryCondo?: string): number {
-  if (queryCondo && !isNaN(parseInt(queryCondo, 10))) {
-    return parseInt(queryCondo, 10);
+  const perfis = (req?.user?.perfis || []).map((p: any) => p.tipo);
+  const ehSuperadmin = perfis.includes('SUPERADMIN');
+
+  // Apenas Superadmin pode consultar outro condomínio via query ou header arbitrário
+  if (ehSuperadmin) {
+    if (queryCondo && !isNaN(parseInt(queryCondo, 10))) {
+      return parseInt(queryCondo, 10);
+    }
+    const headerCondo = req?.headers ? req.headers['x-condominio-id'] : undefined;
+    if (headerCondo && !isNaN(parseInt(headerCondo, 10))) {
+      return parseInt(headerCondo, 10);
+    }
   }
-  const headerCondo = req.headers ? req.headers['x-condominio-id'] : undefined;
-  if (headerCondo && !isNaN(parseInt(headerCondo, 10))) {
-    return parseInt(headerCondo, 10);
-  }
-  if (req.user && req.user.id_condominio) {
+  if (req?.user && req.user.id_condominio) {
     return Number(req.user.id_condominio);
   }
   return 1;
@@ -306,7 +312,7 @@ export class SuperadminController {
    * Blocos -> Andares -> Unidades -> Vagas com Metragem e Moradores.
    */
   @Get('estrutura')
-  @Perfis('SUPERADMIN', 'SINDICO')
+  @Perfis('SUPERADMIN', 'SINDICO', 'PORTEIRO')
   async obterEstruturaCompleta(@Query('condominio') queryCondo: string, @Req() req: any) {
     const idCondominio = resolverIdCondominio(req, queryCondo);
 
@@ -691,14 +697,15 @@ export class SuperadminController {
 
   /** Obter detalhes e moradores vinculados a uma unidade */
   @Get('unidades/:id/moradores')
-  @Perfis('SUPERADMIN', 'SINDICO')
-  async obterMoradoresUnidade(@Param('id', ParseIntPipe) id: number) {
+  @Perfis('SUPERADMIN', 'SINDICO', 'PORTEIRO')
+  async obterMoradoresUnidade(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    const idCondominio = resolverIdCondominio(req);
     const unidades = await this.db.query(
       `SELECT u.id_unidade, u.numero_apartamento, u.andar, u.numero_vagas, b.nome AS bloco, u.id_bloco
          FROM unidade u
          JOIN bloco b ON b.id_bloco = u.id_bloco
-        WHERE u.id_unidade = $1`,
-      [id],
+        WHERE u.id_unidade = $1 AND b.id_condominio = $2`,
+      [id, idCondominio],
     );
     if (!unidades.length) throw new NotFoundException('Unidade não encontrada.');
 
@@ -739,14 +746,15 @@ export class SuperadminController {
 
   /** Obter histórico e próximas atividades e reservas do apartamento inteiro */
   @Get('unidades/:id/atividades-reservas')
-  @Perfis('SUPERADMIN', 'SINDICO')
-  async obterAtividadesReservasUnidade(@Param('id', ParseIntPipe) id: number) {
+  @Perfis('SUPERADMIN', 'SINDICO', 'PORTEIRO')
+  async obterAtividadesReservasUnidade(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    const idCondominio = resolverIdCondominio(req);
     const unidades = await this.db.query(
       `SELECT u.id_unidade, u.numero_apartamento, u.andar, u.numero_vagas, b.nome AS bloco, u.id_bloco
          FROM unidade u
          JOIN bloco b ON b.id_bloco = u.id_bloco
-        WHERE u.id_unidade = $1`,
-      [id],
+        WHERE u.id_unidade = $1 AND b.id_condominio = $2`,
+      [id, idCondominio],
     );
     if (!unidades.length) throw new NotFoundException('Unidade não encontrada.');
 

@@ -2753,12 +2753,12 @@ export default function Pessoas({
       {abaAtiva === 'estrutura' && (
         <EstruturaFisica
           somenteLeitura={true}
-          aoEditarPessoa={(p) => abrirModalEdicao(p)}
-          aoAdicionarDependente={(titular, idUnidade) => iniciarCadastroDependente(titular, idUnidade)}
-          aoBloquear={(p) => abrirModalBloqueio(p)}
-          aoInativar={(p) => setInativando(p)}
-          aoReativar={(p) => setReativando(p)}
-          aoExcluir={(p) => setExcluindo(p)}
+          aoEditarPessoa={somenteLeitura ? undefined : (p) => abrirModalEdicao(p)}
+          aoAdicionarDependente={somenteLeitura ? undefined : (titular, idUnidade) => iniciarCadastroDependente(titular, idUnidade)}
+          aoBloquear={somenteLeitura ? undefined : (p) => abrirModalBloqueio(p)}
+          aoInativar={somenteLeitura ? undefined : (p) => setInativando(p)}
+          aoReativar={somenteLeitura ? undefined : (p) => setReativando(p)}
+          aoExcluir={somenteLeitura ? undefined : (p) => setExcluindo(p)}
         />
       )}
 
